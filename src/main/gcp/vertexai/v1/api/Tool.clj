@@ -5,18 +5,9 @@
             [gcp.vertexai.v1.api.Retrieval :as Retrieval])
   (:import (com.google.cloud.vertexai.api Tool)))
 
-(def ^{:class Tool} schema
-  [:or
-   [:map {:closed true}
-    [:functionDeclarations {:optional true} [:sequential FunctionDeclaration/schema]]
-    [:retrieval {:optional true} Retrieval/schema]]
-   [:map {:closed true}
-    [:functionDeclarations {:optional true} [:sequential FunctionDeclaration/schema]]
-    [:googleSearchRetrieval {:optional true} GoogleSearchRetrieval/schema]]])
-
 (defn ^Tool from-edn
   [{:keys [functionDeclarations retrieval googleSearchRetrieval] :as arg}]
-  (global/strict! schema arg)
+  (global/strict! :vertexai.api/Tool arg)
   (let [builder (Tool/newBuilder)]
     (some->> (not-empty functionDeclarations) (map FunctionDeclaration/from-edn) (.addAllFunctionDeclarations builder))
     (some->> googleSearchRetrieval GoogleSearchRetrieval/from-edn (.setGoogleSearchRetrieval builder))
@@ -24,7 +15,7 @@
     (.build builder)))
 
 (defn to-edn [^Tool tool]
-  {:post [(global/strict! schema %)]}
+  {:post [(global/strict! :vertexai.api/Tool %)]}
   (cond-> {}
           (.hasGoogleSearchRetrieval tool)
           (assoc :googleSearchRetrieval (GoogleSearchRetrieval/to-edn (.getGoogleSearchRetrieval tool)))

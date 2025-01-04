@@ -7,20 +7,10 @@
             [gcp.vertexai.v1.api.ToolConfig :as ToolConfig])
   (:import [com.google.cloud.vertexai.api GenerateContentRequest]))
 
-(def schema
-  [:map
-   [:model :string]
-   [:contents {:optional false} [:sequential Content/schema]]
-   [:tools {:optional true} [:sequential Tool/schema]]
-   [:generationConfig {:optional true} GenerationConfig/schema]
-   [:toolConfig {:optional true} ToolConfig/schema]
-   [:systemInstruction {:optional true} Content/schema]
-   [:safetySettings {:optional true} [:sequential SafetySetting/schema]]])
-
 (defn ^GenerateContentRequest from-edn
   [{:keys [model contents tools systemInstruction
            generationConfig toolConfig safetySettings] :as arg}]
-  (global/strict! schema arg)
+  (global/strict! :vertexai.api/GenerateContentRequest arg)
   (let [builder (GenerateContentRequest/newBuilder)]
     (.setModel builder model)
     (some->> (not-empty contents) (map Content/from-edn) (.addAllContents builder))
@@ -32,6 +22,7 @@
     (.build builder)))
 
 (defn to-edn [^GenerateContentRequest arg]
+  {:post [(global/strict! :vertexai.api/GenerateContentRequest %)]}
   (cond-> {:model (.getModel arg)}
           (.hasGenerationConfig arg)
           (assoc :generationConfig (GenerationConfig/to-edn (.getGenerationConfig arg)))

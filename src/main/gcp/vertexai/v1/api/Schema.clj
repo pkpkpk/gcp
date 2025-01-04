@@ -8,49 +8,8 @@
            (com.google.gson JsonObject)
            (com.google.protobuf Value)))
 
-(def _schema
-  [:map
-   [:type {:node true
-           :optional false} t/schema]
-   [:description
-    {:optional true
-     :doc "A brief description of the parameter. This could contain examples of use. Parameter description may be formatted as Markdown."}
-    :string]
-   [:example {:optional true
-              :doc "example of an object"}
-    protobuf/value-schema]
-   [:nullable {:optional true} :boolean]
-   [:title {:optional true} :string]
-   ;; STRING -----------------------
-   [:format
-    {:optional true
-     :doc "The format of the data. This is used only for primitive datatypes. Supported formats: for NUMBER type: float, double for INTEGER type: int32, int64 for STRING type: enum"}
-    :string]
-   [:pattern {:optional true} :string]
-   [:minLength {:optional true} :int]
-   [:maxLength {:optional true} :int]
-   ;; NUMBER -----------------------
-   [:minimum {:optional true} :double]
-   [:maximum {:optional true} :double]
-   ;; ARRAY -----------------------
-   [:items {:node true :optional true} [:ref ::schema]]
-   [:minItems {:optional true} :int]
-   [:maxItems {:optional true} :int]
-   ;; OBJECT -----------------------
-   [:properties
-    {:optional true
-     :node true
-     :doc "string->schema. An object containing a list of \"key\": value pairs. Example: { \"name\": \"wrench\", \"mass\": \"1.3kg\", \"count\": \"3\" }."}
-    [:map-of [:or :string simple-keyword?] [:ref ::schema]]]
-   [:minProperties {:optional true} :int]
-   [:maxProperties {:optional true} :int]
-   [:required {:optional true} [:sequential [:or :string simple-keyword?]]]])
-
-(def ^{:class Schema} schema
-  [:schema {:registry {::schema _schema}} ::schema])
-
 (defn ^Schema from-edn [arg]
-  (global/strict! schema arg)
+  (global/strict! :vertexai.api/Schema arg)
   (let [builder (Schema/newBuilder)]
     (.setType builder (t/from-edn (:type arg)))
     (some->> arg :nullable (.setNullable builder))
@@ -91,7 +50,7 @@
     (from-edn arg)))
 
 (defn to-edn [^Schema schema]
-  {:post [(global/strict! schema %)]}
+  {:post [(global/strict! :vertexai.api/Schema %)]}
   (let [T    (.name (.getType schema))
         base (cond-> {:nullable (.getNullable schema)}
                      ;;-----------------------------------------------

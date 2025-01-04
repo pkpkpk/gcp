@@ -1,5 +1,6 @@
 (ns gcp.vertexai.v1.generativeai.examples
   (:require [clojure.java.io :as io]
+            [gcp.global :as global]
             [gcp.vertexai.v1.VertexAI :as VertexAI]
             [gcp.vertexai.v1.generativeai :as genai]
             [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
@@ -71,7 +72,7 @@
 #!-----------------------------------------------------------------------------
 
 (def clean-spanish {:vertexai          client
-                    :modelName         "gemini-1.5-flash-001"
+                    :model         "gemini-1.5-flash-001"
                     :systemInstruction "Your mission is to translate text in English to es"
                     :safetySettings    [{:category  "HARM_CATEGORY_HATE_SPEECH"
                                          :threshold "BLOCK_MEDIUM_AND_ABOVE"}
@@ -82,7 +83,7 @@
                     :generationConfig  {:maxOutputTokens 2048
                                         :temperature     0.4
                                         :topK            32
-                                        :topP            2.0}})
+                                        :topP            1.0}}) ;TODO 0-1 inclusive
 
 (comment
   (genai/generate-content clean-spanish "what are some bad words in spanish")
@@ -115,7 +116,9 @@
 
 (def jsonMimeType (assoc flash :generationConfig {:responseMimeType "application/json"}))
 
-(genai/generate-content jsonMimeType "List a few popular cookie recipes using this JSON schema: Recipe = {\"recipe_name\": str} Return: list[Recipe]")
+(comment
+  (genai/generate-content jsonMimeType "List a few popular cookie recipes using this JSON schema: Recipe = {\"recipe_name\": str} Return: list[Recipe]")
+  )
 
 #!-----------------------------------------------------------------------------
 #! controlling response w/  mimeType & schema
@@ -164,23 +167,23 @@
                                                         "Wind speed" {:type "STRING"}}
                                            :required   ["Day" "Temperature" "Forecast"]}}}))
 
-(comment
-  (def prompt (str "The week ahead brings a mix of weather conditions.\n"
-                   "Sunday is expected to be sunny with a temperature of 77°F and a humidity level "
-                   "of 50%. Winds will be light at around 10 km/h.\n"
-                   "Monday will see partly cloudy skies with a slightly cooler temperature of 72°F "
-                   "and humidity increasing to 55%. Winds will pick up slightly to around 15 km/h.\n"
-                   "Tuesday brings rain showers, with temperatures dropping to 64°F and humidity"
-                   "rising to 70%. Expect stronger winds at 20 km/h.\n"
-                   "Wednesday may see thunderstorms, with a temperature of 68°F and high humidity "
-                   "of 75%. Winds will be gusty at 25 km/h.\n"
-                   "Thursday will be cloudy with a temperature of 66°F and moderate humidity at 60%. "
-                   "Winds will ease slightly to 18 km/h.\n"
-                   "Friday returns to partly cloudy conditions, with a temperature of 73°F and lower "
-                   "humidity at 45%. Winds will be light at 12 km/h.\n"
-                   "Finally, Saturday rounds off the week with sunny skies, a temperature of 80°F, "
-                   "and a humidity level of 40%. Winds will be gentle at 8 km/h."))
+(def prompt (str "The week ahead brings a mix of weather conditions.\n"
+                 "Sunday is expected to be sunny with a temperature of 77°F and a humidity level "
+                 "of 50%. Winds will be light at around 10 km/h.\n"
+                 "Monday will see partly cloudy skies with a slightly cooler temperature of 72°F "
+                 "and humidity increasing to 55%. Winds will pick up slightly to around 15 km/h.\n"
+                 "Tuesday brings rain showers, with temperatures dropping to 64°F and humidity"
+                 "rising to 70%. Expect stronger winds at 20 km/h.\n"
+                 "Wednesday may see thunderstorms, with a temperature of 68°F and high humidity "
+                 "of 75%. Winds will be gusty at 25 km/h.\n"
+                 "Thursday will be cloudy with a temperature of 66°F and moderate humidity at 60%. "
+                 "Winds will ease slightly to 18 km/h.\n"
+                 "Friday returns to partly cloudy conditions, with a temperature of 73°F and lower "
+                 "humidity at 45%. Winds will be light at 12 km/h.\n"
+                 "Finally, Saturday rounds off the week with sunny skies, a temperature of 80°F, "
+                 "and a humidity level of 40%. Winds will be gentle at 8 km/h."))
 
+(comment
   (genai/generate-content forecaster prompt)
   )
 
@@ -209,7 +212,8 @@
     (str "Item description:\n"
          "The item is a long winter coat that has many tears all around the seams "
          "and is falling apart.\n"
-         "It has large questionable stains on it.")))
+         "It has large questionable stains on it."))
+  )
 
 #!-----------------------------------------------------------------------------
 #! image input, json output
@@ -225,7 +229,8 @@
   (genai/generate-content image-object-classifier
                           ["generate a list of objects in the images"
                            {:parts [{:mimeType "image/jpeg"
-                                     :partData "gs://cloud-samples-data/generative-ai/image/gardening-tools.jpeg"}]}]))
+                                     :partData "gs://cloud-samples-data/generative-ai/image/gardening-tools.jpeg"}]}])
+  )
 
 #!-----------------------------------------------------------------------------
 #! count (multimodal) tokens

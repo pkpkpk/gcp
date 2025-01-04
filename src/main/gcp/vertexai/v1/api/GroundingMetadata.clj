@@ -6,34 +6,12 @@
             [gcp.vertexai.v1.api.SearchEntryPoint :as sep])
   (:import [com.google.cloud.vertexai.api GroundingMetadata]))
 
-(def ^{:class GroundingMetadata} schema
-  [:map
-   [:groundingChunks
-    {:optional true
-     :doc "List of supporting references retrieved from specified grounding source"}
-    [:sequential gc/schema]]
-   [:groundingSupports
-    {:optional true}
-    [:sequential gs/schema]]
-   [:webSearchQueries
-    {:optional true}
-    [:sequential :string]]
-   [:searchEntryPoint
-    {:optional true
-     :doc      "Optional. Google search entry for the following-up web searches."}
-    sep/schema]
-   #_[:retrievalMetadata
-    {:gemini-only? true
-     :optional true
-     :doc "Metadata related to retrieval in the grounding flow."}
-    :any]])
-
 (defn ^GroundingMetadata from-edn
   [{:keys [groundingChunks
            groundingSupports
            searchEntryPoint
            webSearchQueries] :as arg}]
-  (global/strict! schema arg)
+  (global/strict! :vertexai.api/GroundingMetaData arg)
   (let [builder (GroundingMetadata/newBuilder)]
     (some->> groundingChunks (map gc/from-edn) (.addAllGroundingChunks builder))
     (some->> groundingSupports (map gs/from-edn) (.addAllGroundingSupports builder))
@@ -42,9 +20,8 @@
     (.build builder)))
 
 (defn to-edn [^GroundingMetadata arg]
-  {:post [(global/strict! schema %)]}
+  {:post [(global/strict! :vertexai.api/GroundingMetaData %)]}
   (cond-> {}
-
           (.hasSearchEntryPoint arg)
           (assoc :searchEntryPoint (sep/to-edn (.getSearchEntryPoint arg)))
 

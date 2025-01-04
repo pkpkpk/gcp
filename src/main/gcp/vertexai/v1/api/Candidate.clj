@@ -32,47 +32,6 @@
 
 #!-----------------------------------------------------------------------------
 
-(def ^{:class Candidate} schema
-  [:map
-   [:content
-    {:doc "Output only. Generated content returned from the model."}
-    Content/schema]
-   [:finishReason
-    {:doc      "Optional. Output only. The reason why the model stopped generating tokens. If empty, the model has not stopped generating tokens."
-     :optional true}
-    (into [:enum] (keys finish-reasons))]
-   [:safetyRatings
-    {:doc "List of ratings for the safety of a response candidate. There is at most one rating per category."}
-    [:seqable SafetyRating/schema]]
-   [:citationMetadata
-    {:optional true
-     :doc      "Output only. Citation information for model-generated candidate. This field may be populated with recitation information for any text included in the content. These are passages that are \"recited\" from copyrighted material in the foundational LLM's training data."}
-    CitationMetadata/schema]
-   [:groundingMetadata
-    {:optional true
-     :doc      "Output only. Metadata specifies sources used to ground generated content."}
-    GroundingMetadata/schema]
-   [:avgLogprobs
-    {:doc "Output only."}
-    :double]
-   [:index :int]
-   [:score :double]
-   #_[:tokenCount
-      {:gemini-only? true
-       :optional     true
-       :doc          "Output only. Token count for this candidate."}
-      :int]
-   #_[:groundingAttributions
-      {:gemini-only? true
-       :optional     true
-       :doc          "Output only. Attribution information for sources that contributed to a grounded answer. This field is populated for GenerateAnswer calls."}
-      :any]
-   #_[:logprobsResult
-      {:optional     true
-       :gemini-only? true
-       :doc          "Output only. Log-likelihood scores for the response tokens and top tokens index integer JSON representation"}
-      :any]])
-
 (defn ^Candidate from-edn [arg]
   (let [builder (Candidate/newBuilder)
         {:keys [content safetyRatings
@@ -91,7 +50,7 @@
     (.build builder)))
 
 (defn to-edn [^Candidate arg]
-  {:post [(global/strict! schema %)]}
+  {:post [(global/strict! :vertexai.api/Candidate %)]}
   (cond-> {:avgLogprobs (.getAvgLogprobs arg)
            :index (.getIndex arg)
            :score (.getScore arg)

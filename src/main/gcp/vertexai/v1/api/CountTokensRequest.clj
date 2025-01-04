@@ -1,19 +1,8 @@
 (ns gcp.vertexai.v1.api.CountTokensRequest
   (:require [gcp.global :as global]
-            [gcp.protobuf :as protobuf]
             [gcp.vertexai.v1.api.Content :as Content]
             [gcp.vertexai.v1.api.Tool :as Tool])
-  (:import (com.google.cloud.vertexai.api CountTokensRequest)
-           (com.google.protobuf Value)))
-
-(def schema
-  [:map
-   [:endpoint :string]
-   [:model :string]
-   [:contents {:optional true} [:sequential Content/schema]]
-   [:systemInstruction {:optional true} Content/schema]
-   [:instances {:optional true} [:sequential (global/instance-schema Value)]]
-   [:tools {:optional true} [:sequential Tool/schema]]])
+  (:import (com.google.cloud.vertexai.api CountTokensRequest)))
 
 (defn ^CountTokensRequest from-edn
   [{:keys [model
@@ -23,7 +12,7 @@
            systemInstruction
            tools]
     :as arg}]
-  (global/strict! schema arg)
+  (global/strict! :vertexai.api/CountTokensRequest arg)
   (let [builder (CountTokensRequest/newBuilder)]
     (some->> contents (map Content/from-edn) (.addAllContents builder))
     (some->> systemInstruction Content/from-edn (.setSystemInstruction builder))
@@ -34,6 +23,7 @@
     (.build builder)))
 
 (defn to-edn [^CountTokensRequest arg]
+  {:post [(global/strict! :vertexai.api/CountTokensRequest %)]}
   (cond-> {:endpoint (.getEndpoint arg)
            :model (.getModel arg)}
           (.hasSystemInstruction arg)

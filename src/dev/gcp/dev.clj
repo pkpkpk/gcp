@@ -7,6 +7,8 @@
             [jsonista.core :as j]
             [malli.dev]))
 
+;; singlefile dst, prompts?
+
 ;https://developers.google.com/apis-explorer/
 ;https://github.com/googleapis/google-api-java-client-services/tree/main/clients/google-api-services-discovery/v1
 ; https://googleapis.dev/java/google-api-services-discovery/latest/index.html

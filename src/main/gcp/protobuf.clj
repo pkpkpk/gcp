@@ -8,25 +8,23 @@
            (java.nio ByteBuffer)))
 
 (def registry
-  {::value [:or
+  {::Value [:or
+            {:class Value}
             :boolean
             :nil
             :int
             :float
             :string
-            [:ref ::struct]
-            [:sequential [:ref ::value]]]
-   ::struct [:map-of [:or :string simple-keyword?] [:ref ::value]]})
+            [:ref ::Struct]
+            [:sequential [:ref ::Value]]]
+   ::Struct [:map-of {:class Struct} [:or :string simple-keyword?] [:ref ::Value]]
+   ::ByteString [:or {:class ByteString} :string bytes? (global/instance-schema ByteBuffer)]})
 
-(def ^{:class Value} value-schema
-  [:schema {:registry registry} ::value])
+(global/include! registry)
 
-(def struct-schema
-  [:schema {:registry registry} ::struct])
-
-(def ^{:class ByteString}
-  bytestring-schema
-  [:or :string bytes? (global/instance-schema ByteBuffer)])
+(def value-schema      [:schema {:registry registry} ::Value])
+(def struct-schema     [:schema {:registry registry} ::Struct])
+(def bytestring-schema [:schema {:registry registry} ::ByteString])
 
 (defn bytestring-from-edn [arg]
   (if (string? arg)

@@ -2,18 +2,14 @@
   (:require [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api FileData]))
 
-(def schema
-  [:map {:closed true}
-   [:fileUri :string]
-   [:mimeType :string]])
-
 (defn ^FileData from-edn [arg]
+  (global/strict! [:ref :vertexai.api/FileData] arg)
   (let [builder (FileData/newBuilder)]
     (.setFileUri builder (:fileUri arg))
     (.setMimeType builder (:mimeType arg))
     (.build builder)))
 
 (defn to-edn [^FileData arg]
-  {:post [(global/strict! schema %)]}
+  {:post [(global/strict! [:ref :vertexai.api/FileData] %)]}
   {:mimeType (.getMimeType arg)
    :fileUri (.getFileUri arg)})

@@ -3,37 +3,12 @@
             [gcp.vertexai.v1.api.FileData :as fd]
             [gcp.vertexai.v1.api.FunctionCall :as fnc]
             [gcp.vertexai.v1.api.FunctionResponse :as fnr]
-            [gcp.global :as global]
-            [gcp.protobuf :as protobuf])
+            [gcp.global :as global])
   (:import [com.google.cloud.vertexai.generativeai PartMaker]
-           [com.google.cloud.vertexai.api Part]
-           [java.net URI]))
-
-(def ^{:class Part} schema
-  [:or
-   :string
-   [:map {:closed true} ;; TODO this might not be JSON safe
-    [:mimeType {:optional false} :string]
-    [:partData
-     {:doc ":partData can be:
-             - a String representing the uri of the data. Resulting Part will have fileData field set.
-             - a GCS URI object. Resulting Part will have fileData field set.
-             - byte arrays that represents the actual data. Resulting Part will have inlineData field set.
-             - com.google.protobuf.ByteString that represents the actual data. Resulting Part will have inlineData field set."
-      :optional false}
-     [:or bytes? string? (global/instance-schema URI) protobuf/bytestring-schema]]]
-   [:map {:closed true} [:text {:optional false} :string]]
-   [:map {:closed true}
-    [:inlineData {:optional false} blob/schema]]
-   [:map {:closed true}
-    [:functionCall {:optional false} fnc/schema]]
-   [:map {:closed true}
-    [:functionResponse {:optional false} fnr/schema]]
-   [:map {:closed true}
-    [:fileData {:optional false :node true} fd/schema]]])
+           [com.google.cloud.vertexai.api Part]))
 
 (defn ^Part from-edn [arg]
-  (global/strict! schema arg)
+  (global/strict! :vertexai.api/Part arg)
   (if (string? arg)
     (from-edn {:text arg})
     (if (contains? arg :mimeType)
@@ -53,6 +28,7 @@
         (.build builder)))))
 
 (defn ->edn [^Part part]
+  {:post [(global/strict! :vertexai.api/Part %)]}
   (cond-> {}
           (.hasText part)
           (assoc :text (.getText part))

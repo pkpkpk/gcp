@@ -1,7 +1,7 @@
 (ns gcp.vertexai.v1.generativeai
   (:require [clojure.string :as string]
             [gcp.global :as global :refer [instance-schema satisfies-schema]]
-            gcp.vertexai.v1
+            [gcp.vertexai.v1 :as v1]
             [gcp.vertexai.v1.api.Candidate :as Candidate]
             [gcp.vertexai.v1.api.CitationMetadata :as CitationMetadata]
             [gcp.vertexai.v1.api.Content :as Content]
@@ -14,13 +14,14 @@
             [gcp.vertexai.v1.api.SafetySetting :as SafetySetting]
             [gcp.vertexai.v1.api.Tool :as Tool]
             [gcp.vertexai.v1.api.ToolConfig :as ToolConfig]
-            [gcp.vertexai.v1.VertexAI]
-            [malli.core :as m]
-            [malli.error :as me])
+            [gcp.vertexai.v1.generativeai.protocols :as impl]
+            [gcp.vertexai.v1.VertexAI])
   (:import (com.google.api.core ApiFutureCallback ApiFutures)
            [com.google.cloud.vertexai VertexAI]
            (com.google.cloud.vertexai.generativeai ResponseStream ResponseStreamIteratorWithHistory)
            (com.google.common.util.concurrent MoreExecutors)))
+
+(gcp.global/include! v1/registry)
 
 (defn client
   ([]
@@ -28,30 +29,14 @@
   ([arg]
    (gcp.vertexai.v1.VertexAI/from-edn arg)))
 
-(def ^{:private true
-       :doc "model config + :contents + client"}
-  requestable-schema
-  [:and GenerateContentRequest/schema
-   [:map
-    [:vertexai {:optional false} (global/instance-schema VertexAI)]]])
-
 (defn requestable? [o]
-  (m/validate requestable-schema o))
+  (global/valid? :vertexai.synth/Requestable o))
 
-; (defn model-config? [])
-
-(def ^:private contentable-schema
-  [:or :string Content/schema [:sequential Content/schema]])
+(defn model-config [m]
+  (global/valid? :vertexai.synth/ModelConfig m))
 
 (defn contentable? [o]
-  (m/validate contentable-schema o))
-
-(defn- reconcile-model-name [^String model-name]
-  (let [_model-name (atom model-name)]
-    (doseq [prefix #{"projects/" "publishers/" "models/"}]
-      (when (string/starts-with? @_model-name prefix)
-        (swap! _model-name subs (inc (.lastIndexOf ^String @_model-name \/)))))
-    @_model-name))
+  (global/valid? :vertexai.synth/Contentable o))
 
 (defn- resource-name [^String model-name ^VertexAI client]
   (if (string/starts-with? model-name "projects/")
@@ -64,7 +49,11 @@
       (format "projects/%s/locations/%s/publishers/google/models/%s"
               (.getProjectId client)
               (.getLocation client)
-              (reconcile-model-name model-name)))))
+              (let [*model-name (atom model-name)]
+                (doseq [prefix #{"projects/" "publishers/" "models/"}]
+                  (when (string/starts-with? @*model-name prefix)
+                    (swap! *model-name subs (inc (.lastIndexOf ^String @*model-name \/)))))
+                @*model-name)))))
 
 (defn- as-requestable
   ([requestable]
@@ -74,30 +63,30 @@
        (throw (Exception. ":vertexai must have VertexAI client instance"))
        (if (nil? (get requestable :contents))
          (throw (Exception. ":contents must be seq of Content maps"))
-         (if (not (m/validate [:sequential Content/schema] (:contents requestable)))
-           (let [explanation (m/explain [:sequential Content/schema] (:contents requestable))
-                 msg         (str ":contents schema failed : " (me/humanize explanation))]
+         (if (not (global/valid? [:sequential :vertexai.api/Content] (:contents requestable)))
+           (let [explanation (global/explain [:sequential :vertexai.api/Content] (:contents requestable))
+                 msg         (str ":contents schema failed : " (global/humanize explanation))]
              (throw (ex-info msg {:explanation explanation :requestable requestable})))
-           (let [explanation (m/explain requestable-schema requestable)
-                 msg         (str "cannot form request: " (me/humanize explanation))]
+           (let [explanation (global/explain :vertexai.synth/Requestable requestable)
+                 msg         (str "cannot form request: " (global/humanize explanation))]
              (throw (ex-info msg {:explanation explanation :requestable requestable}))))))))
   ([gm-like contentable]
    (if (contentable? contentable)
      (as-requestable (assoc gm-like :contents (cond-> contentable (not (sequential? contentable)) list)))
-     (let [explanation (m/explain contentable-schema contentable)
-           msg         (str "cannot form content seq from contentable: " (me/humanize explanation))]
+     (let [explanation (global/explain :vertexai.synth/Contentable contentable)
+           msg         (str "cannot form content seq from contentable: " (global/humanize explanation))]
        (throw (ex-info msg {:explanation explanation :contentable contentable})))))
   ([gm-like contentable & more]
    (if (contentable? contentable)
-     (if (m/validate [:sequential contentable-schema] more)
+     (if (global/valid? [:sequential :vertexai.synth/Contentable] more)
        (as-requestable gm-like (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
                                          (cond-> contentable (not (sequential? contentable)) vector)
                                          more))
-       (let [explanation (m/explain [:sequential contentable-schema] more)
-             msg         (str "cannot reduce overloaded contentable arguments: " (me/humanize explanation))]
+       (let [explanation (global/explain [:sequential :vertexai.synth/Contentable] more)
+             msg         (str "cannot reduce overloaded contentable arguments: " (global/humanize explanation))]
          (throw (ex-info msg {:explanation explanation :more more}))))
-     (let [explanation (m/explain contentable-schema contentable)
-           msg         (str "cannot form content seq from contentable: " (me/humanize explanation))]
+     (let [explanation (global/explain :vertexai.synth/Contentable contentable)
+           msg         (str "cannot form content seq from contentable: " (global/humanize explanation))]
        (throw (ex-info msg {:explanation explanation :contentable contentable}))))))
 
 (defn generate-content
@@ -209,7 +198,7 @@
 
 (defn count-tokens
   ([{:keys [vertexai model] :as gm} contentable]
-   (global/strict! contentable-schema contentable)
+   (global/strict! :vertexai.synth/Contentable contentable)
    (let [contents (cond-> contentable (not (sequential? contentable)) list)
          request (CountTokensRequest/from-edn (assoc gm :contents contents
                                                         :model (resource-name model vertexai)
@@ -225,26 +214,17 @@
 #! ChatSession
 #!
 
-(defprotocol IHistory
-  :extend-via-metadata true
-  (history-to-contentable [this])
-  (history-clone [this] "produce new state container w/ identical content")
-  (history-revert [this n] "drop last n contentables from conversation")
-  (history-add [this contentable] "add a contentable to conversation")
-  (history-count [this] "how many contentables are in context")
-  (history-token-count [this] "how many tokens are in context"))
-
 (defn- default-history []
-  (let [state* (atom [])]
-    (reify IHistory
-      (history-to-contentable [_] @state*)
-      (history-revert [_ drop-count] (swap! state* subvec 0 (max (- (count @state*) drop-count) 0)))
-      (history-add [_ contentable] (swap! state* conj contentable)))))
+  (let [*state (atom [])]
+    (reify impl/IHistory
+      (history-to-contentable [_] @*state)
+      (history-revert [_ drop-count] (swap! *state subvec 0 (max (- (count @*state) drop-count) 0)))
+      (history-add [_ contentable] (swap! *state conj contentable)))))
 
 (defn- check-finish-reason-and-edit-history [chat response]
   (let [finishReason (get-in response [:candidates 0 :finishReason])]
     (when (and (not= "STOP" finishReason) (not= "MAX_TOKEN" finishReason))
-      (history-revert (:history chat) (deref (:*previousHistorySize chat)))
+      (impl/history-revert (:history chat) (deref (:*previousHistorySize chat)))
       (throw (Exception. (format "The last round of conversation will not be added to history because response stream did not finish normally. Finish reason is %s." finishReason))))))
 
 (defn- merge-adjacent-strings [coll part]
@@ -255,15 +235,15 @@
       (conj coll part))))
 
 (defn- aggregate-response-stream [response-stream]
-  (let [res*                         (atom nil)
-        candidates*                  (atom {})
-        aggregated-content-parts*    (atom {})               ; candidate-index => seq<parts>
-        aggregated-citations*        (atom {})]
+  (let [*res                         (atom nil)
+        *candidates                  (atom {})
+        *aggregated-content-parts    (atom {})               ; candidate-index => seq<parts>
+        *aggregated-citations        (atom {})]
     (doseq [response (map GenerateContentResponse/from-edn (seq response-stream))]
-      (reset! res* response)
+      (reset! *res response)
       (doseq [{:keys [index content citationMetadata] :as candidate} (get response :candidates)]
         (assert (some? index))
-        (swap! candidates* assoc index candidate)
+        (swap! *candidates assoc index candidate)
         (when content
           (let [parts' (reduce merge-adjacent-strings [] (:parts content))]
             ;; TODO This is the logic in ResponseHandler.java... it seems to assume
@@ -273,24 +253,24 @@
             ;; either way, this feels brittle without knowing stream mechanics.
             ;; for example, multiple 'response_i_candidate_2' would be grouped in such a way that disguises
             ;; useful ordering
-            (swap! aggregated-content-parts* update-in [index] (fn [?ps] (if ?ps (into ?ps parts') parts')))))
+            (swap! *aggregated-content-parts update-in [index] (fn [?ps] (if ?ps (into ?ps parts') parts')))))
         (when-some [citations (some-> citationMetadata :citations seq)]
-          (swap! aggregated-citations* update-in [index] (fn [?cs] (if ?cs (into ?cs citations) citations))))))
+          (swap! *aggregated-citations update-in [index] (fn [?cs] (if ?cs (into ?cs citations) citations))))))
     (let [aggregated-candidates* (atom [])]
-      (doseq [[i candidate] (map-indexed vector @candidates*)]
+      (doseq [[i candidate] (map-indexed vector @*candidates)]
         (let [builder (.toBuilder (Candidate/from-edn candidate))]
-          (when-let [parts (get @aggregated-content-parts* i)]
+          (when-let [parts (get @*aggregated-content-parts i)]
             (.setContent builder (Content/from-edn {:role "model" :parts parts})))
-          (when-let [citations (get @aggregated-citations* i)]
+          (when-let [citations (get @*aggregated-citations i)]
             (.setCitationMetadata builder (CitationMetadata/from-edn {:citations citations})))
           (swap! aggregated-candidates* (Candidate/to-edn (.build builder)))))
-      (assoc @res* :candidates @aggregated-candidates*))))
+      (assoc @*res :candidates @aggregated-candidates*))))
 
 (defn- check-last-response-and-edit-history [chat]
   (when-let [current-response (deref (:*currentResponse chat))]
     (reset! (:*currentResponse chat) nil)
     (check-finish-reason-and-edit-history chat current-response)
-    (history-add (:history chat) (get-in current-response [:candidates 0 :content]))
+    (impl/history-add (:history chat) (get-in current-response [:candidates 0 :content]))
     ;; from comment in ChatSession.java:
     ;;  If `checkFinishReasonAndEditHistory` passes, we add 2 contents:
     ;;     (user's message) + (model's response)
@@ -304,11 +284,11 @@
       (let [response (aggregate-response-stream current-response-stream)]
         (reset! (:*currentResponseStream chat) nil)
         (check-finish-reason-and-edit-history chat response)
-        (history-add (:history chat) (get-in response [:candidates 0 :content]))
+        (impl/history-add (:history chat) (get-in response [:candidates 0 :content]))
         (swap! (:*previousHistorySize chat) + 2)))))
 
 (defn- call [{:keys [library *responderState]} fnc]
-  {:post [(gcp.global/strict! Part/schema %)]}
+  {:post [(gcp.global/strict! :vertexai.api/Part %)]}
   (if (neg? (get @*responderState :remainingCalls))
     (throw (Exception. "exceeded max calls"))
     (if-let [f (get library (:name fnc))]
@@ -348,41 +328,22 @@
             (swap! *responderState (fn [{:keys [maxCalls]}] {:remainingCalls maxCalls :maxCalls maxCalls}))))
         response))))
 
-(def ^:private chat-session-schema
-  [:map
-   [:model :string]
-   ;;; TODO library can be f(string) -> f(Struct) -> Struct
-   ;;; what is best way to schema this, can we sync w/ tools
-   [:library                {:optional true} [:map-of :string fn?]]
-   [:history                {:optional false} (satisfies-schema IHistory)]
-   [:rootChat               {:optional true} [:ref #'chat-session-schema]]
-   [:*previousHistorySize   {:optional true} (instance-schema clojure.lang.Atom)]
-   [:*responderState        {:optional false} [:and (instance-schema clojure.lang.Atom)
-                                                    [:fn #(number? (:maxCalls (deref %)))]]]
-   [:*currentResponseStream {:optional true} (instance-schema clojure.lang.Atom)]
-   [:*currentResponse       {:optional true} (instance-schema clojure.lang.Atom)]
-   [:generationConfig       {:optional true} GenerationConfig/schema]
-   [:safetySettings         {:optional true} [:sequential SafetySetting/schema]]
-   [:systemInstruction      {:optional true} Content/schema]
-   [:toolConfig             {:optional true} ToolConfig/schema]
-   [:tools                  {:optional true} [:sequential Tool/schema]]])
-
 ;; TODO 'model-cfg' as synthetic type?
 ;; TODO send-msg-async
 ;; TODO pass in history? :history == content, :chat/IHistory -> IHistory ??
 ;; readline-chat
 ;; IChat protocol... undo, redo, fork, map/reduce/walk
 
-(defn chat-session
+(defn chat-session ; :vertexai.synth/ModelConfig + :startingHistory ?
   [{:keys [startingHistory
            *currentResponse
            *currentResponseStream
            *previousHistorySize
            *responderState] :as arg}]
-  {:post [(gcp.global/strict! chat-session-schema %)]}
+  {:post [(gcp.global/strict! :vertexai.synth/ChatSession %)]}
   (cond-> (assoc arg :history (if (nil? startingHistory)
                                 (default-history)
-                                (if (satisfies? IHistory arg)
+                                (if (satisfies? impl/IHistory arg)
                                   (throw (Exception. "kaboom"))
                                   (throw (Exception. "kaboom")))))
           (nil? *responderState) (assoc :*responderState (atom {:maxCalls       10
@@ -404,16 +365,16 @@
 (defn send-msg
   "Sends a message to the model and returns a response."
   ([chat-session contentable]
-   (gcp.global/strict! chat-session-schema chat-session)
+   (gcp.global/strict! :vertexai.synth/ChatSession chat-session)
    (check-last-response-and-edit-history chat-session)
-   (history-add (:history chat-session) contentable)
+   (impl/history-add (:history chat-session) contentable)
    (try
-     (let [{:as response} (generate-content chat-session (history-to-contentable (:history chat-session)))]
+     (let [{:as response} (generate-content chat-session (impl/history-to-contentable (:history chat-session)))]
        (reset! (:*currentResponse chat-session) response)
        (auto-respond chat-session response))
      (catch Exception e
        (check-last-response-and-edit-history chat-session)
-       (history-revert (:history chat-session) (deref (:*previousHistorySize chat-session)))
+       (impl/history-revert (:history chat-session) (deref (:*previousHistorySize chat-session)))
        (throw e))))
   ([chat contentable & more]
    (send-msg chat (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
@@ -423,14 +384,14 @@
 (defn send-msg-stream
   "Sends a message to the model and returns a response."
   [chat contentable]
-  (gcp.global/strict! chat-session-schema chat)
+  (gcp.global/strict! :vertexai.synth/ChatSession chat)
   (check-last-response-and-edit-history chat)
-  (history-add (:history chat) contentable)
+  (impl/history-add (:history chat) contentable)
   (try
-    (let [stream (generate-content-seq (history-to-contentable (:history chat)))]
+    (let [stream (generate-content-seq (impl/history-to-contentable (:history chat)))]
       (reset! (:*currentResponseStream chat) stream)
       (auto-respond chat (aggregate-response-stream stream)))
     (catch Exception e
       (check-last-response-and-edit-history chat)
-      (history-revert (:history chat) (deref (:*previousHistorySize chat)))
+      (impl/history-revert (:history chat) (deref (:*previousHistorySize chat)))
       (throw e))))
