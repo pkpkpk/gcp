@@ -22,12 +22,6 @@
 (defn valid? [?schema value]
   (m/validate ?schema value {:registry *registry*}))
 
-(defn coerce
-  ([?schema value]
-   (m/coerce ?schema value nil {:registry *registry*}))
-  ([?schema value xf]
-   (m/coerce ?schema value xf {:registry *registry*})))
-
 (defn properties [schema]
   (m/properties schema {:registry *registry*}))
 
@@ -68,12 +62,13 @@
                    :props   props
                    :value   value})))
 
+(defn coerce
+  ([schema value]
+   (if-let [explanation (explain schema value)]
+     (throw (human-ex-info schema explanation value))
+     value))
+  ([?schema value xf]
+   (m/coerce ?schema value xf {:registry *registry*})))
+
 (defmacro strict! [schema-or-spec value]
-  (if-not *strict-mode*
-    value
-    (do
-      (when-let [schema-name (and (symbol? schema-or-spec) (name schema-or-spec))]
-        (println "PHASE OUT OLD SCHEMA: " schema-name))
-      `(if-let [explanation# (explain ~schema-or-spec ~value)]
-         (throw (human-ex-info ~schema-or-spec explanation# ~value))
-         ~value))))
+  `(if-not *strict-mode* ~value (coerce ~schema-or-spec ~value)))

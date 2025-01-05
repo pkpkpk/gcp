@@ -328,7 +328,7 @@
             (swap! *responderState (fn [{:keys [maxCalls]}] {:remainingCalls maxCalls :maxCalls maxCalls}))))
         response))))
 
-;; TODO 'model-cfg' as synthetic type?
+
 ;; TODO send-msg-async
 ;; TODO pass in history? :history == content, :chat/IHistory -> IHistory ??
 ;; readline-chat
