@@ -1,10 +1,7 @@
 (ns gcp.protobuf
   (:require [gcp.global :as global]
             [malli.core :as m])
-  (:import (com.google.protobuf ByteString
-                                ListValue NullValue ProtocolStringList
-                                Struct
-                                Value)
+  (:import (com.google.protobuf ByteString ListValue NullValue ProtocolStringList Struct Value)
            (java.nio ByteBuffer)))
 
 (def registry
@@ -21,10 +18,6 @@
    ::ByteString [:or {:class ByteString} :string bytes? (global/instance-schema ByteBuffer)]})
 
 (global/include! registry)
-
-(def value-schema      [:schema {:registry registry} ::Value])
-(def struct-schema     [:schema {:registry registry} ::Struct])
-(def bytestring-schema [:schema {:registry registry} ::ByteString])
 
 (defn bytestring-from-edn [arg]
   (if (string? arg)
@@ -57,7 +50,7 @@
     (.build builder)))
 
 (defn ^Value value-from-edn [arg]
-  (gcp.global/strict! value-schema arg)
+  (gcp.global/strict! ::Value arg)
   (let [builder (Value/newBuilder)]
     (cond
       (nil? arg)
@@ -69,10 +62,10 @@
       (string? arg)
       (.setStringValue builder arg)
 
-      (m/validate struct-schema arg)
+      (m/validate [:schema {:registry registry} ::Struct] arg)
       (.setStructValue builder (struct-from-edn arg))
 
-      (m/validate [:sequential value-schema] arg)
+      (m/validate [:sequential [:schema {:registry registry} ::Value]] arg)
       (.setListValue builder (list-value-from-edn arg))
 
       true

@@ -33,7 +33,7 @@
   (global/valid? :vertexai.synth/Requestable o))
 
 (defn model-config [m]
-  (global/valid? :vertexai.synth/ModelConfig m))
+  (global/coerce :vertexai.synth/ModelConfig m))
 
 (defn contentable? [o]
   (global/valid? :vertexai.synth/Contentable o))

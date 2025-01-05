@@ -21,26 +21,6 @@
   registry
   {:vertexai.synth/Valueable                     {}
    :vertexai.synth/DeclarableFunction            {}
-   :vertexai.synth/ChatSession                   [:map
-                                                  [:model :string]
-                                                  ;;; TODO library can be f(string) -> f(Struct) -> Struct
-                                                  ;;; what is best way to schema this, can we sync w/ tools
-                                                  [:library {:optional true} [:map-of :string fn?]]
-                                                  [:history {:optional false} (global/satisfies-schema IHistory)]
-                                                  [:rootChat {:optional true} [:ref :vertexai.synth/ChatSession]]
-                                                  [:*previousHistorySize {:optional true} (global/instance-schema clojure.lang.Atom)]
-                                                  [:*responderState {:optional false} [:and (global/instance-schema clojure.lang.Atom)
-                                                                                       [:fn #(number? (:maxCalls (deref %)))]]]
-                                                  [:*currentResponseStream {:optional true} (global/instance-schema clojure.lang.Atom)]
-                                                  [:*currentResponse {:optional true} (global/instance-schema clojure.lang.Atom)]
-                                                  [:generationConfig {:optional true} :vertexai.api/GenerationConfig]
-                                                  [:safetySettings {:optional true} [:sequential :vertexai.api/SafetySetting]]
-                                                  [:systemInstruction {:optional true} :vertexai.api/Content]
-                                                  [:toolConfig {:optional true} :vertexai.api/ToolConfig]
-                                                  [:tools {:optional true} [:sequential :vertexai.api/Tool]]]
-   :vertexai.synth/IHistory                      {:doc "satisfies vertexai.generativeai/IHistory"}
-   :vertexai.synth/ModelConfig                   {}
-   #!--------------
    :vertexai.generativeai/generate-content       {}
    :vertexai.generativeai/generate-content-async {}
    :vertexai.generativeai/generate-content-seq   {}
@@ -51,11 +31,34 @@
    :vertexai.generativeai/history-clone          {}
    #!--------------
    :vertexai.synth/Contentable                   [:or :string :vertexai.api/Content [:sequential :vertexai.api/Content]]
+   :vertexai.synth/ModelConfig                   [:map
+                                                  [:generationConfig {:optional true} :vertexai.api/GenerationConfig]
+                                                  [:model :string]
+                                                  [:safetySettings {:optional true} [:sequential :vertexai.api/SafetySetting]]
+                                                  [:systemInstruction {:optional true} :vertexai.api/Content]
+                                                  [:toolConfig {:optional true} :vertexai.api/ToolConfig]
+                                                  [:tools {:optional true} [:sequential :vertexai.api/Tool]]]
+
    :vertexai.synth/Requestable                   [:and
                                                   {:doc "model config + :contents + client"}
                                                   :vertexai.api/GenerateContentRequest
                                                   [:map
                                                    [:vertexai {:optional false} (global/instance-schema VertexAI)]]]
+
+   :vertexai.synth/ChatSession                   [:and
+                                                  :vertexai.synth/ModelConfig
+                                                  [:map
+                                                   ;;; TODO library can be f(string) -> f(Struct) -> Struct
+                                                   ;;; what is best way to schema this, can we sync w/ tools
+                                                   [:library {:optional true} [:map-of :string fn?]]
+                                                   [:history {:optional false} (global/satisfies-schema IHistory)]
+                                                   [:rootChat {:optional true} [:ref :vertexai.synth/ChatSession]]
+                                                   [:*previousHistorySize {:optional true} (global/instance-schema clojure.lang.Atom)]
+                                                   [:*responderState {:optional false} [:and (global/instance-schema clojure.lang.Atom)
+                                                                                        [:fn #(number? (:maxCalls (deref %)))]]]
+                                                   [:*currentResponseStream {:optional true} (global/instance-schema clojure.lang.Atom)]
+                                                   [:*currentResponse {:optional true} (global/instance-schema clojure.lang.Atom)]]]
+
    :vertexai/datastore-resource-id               [:and
                                                   :string
                                                   [:fn
@@ -192,7 +195,7 @@
                                                   [:name {:optional false} :string]
                                                   [:response {:optional false} :gcp.protobuf/Struct]]
 
-   :vertexai.api/GenerateContentRequest          [:map
+   :vertexai.api/GenerateContentRequest          [:and
                                                   {:ns               'gcp.vertexai.v1.api.GenerateContentRequest
                                                    :from-edn         'gcp.vertexai.v1.api.GenerateContentRequest/from-edn
                                                    :to-edn           'gcp.vertexai.v1.api.GenerateContentRequest/to-edn
@@ -201,13 +204,9 @@
                                                    :protobuf/type    "google.cloud.vertexai.v1.GenerateContentRequest"
                                                    :class            'com.google.cloud.vertexai.api.GenerateContentRequest
                                                    :class/url        "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.api.GenerateContentRequest"}
-                                                  [:model :string]
-                                                  [:contents {:optional false} [:sequential :vertexai.api/Content]]
-                                                  [:tools {:optional true} [:sequential :vertexai.api/Tool]]
-                                                  [:generationConfig {:optional true} :vertexai.api/GenerationConfig]
-                                                  [:toolConfig {:optional true} :vertexai.api/ToolConfig]
-                                                  [:systemInstruction {:optional true} :vertexai.api/Content]
-                                                  [:safetySettings {:optional true} [:sequential :vertexai.api/SafetySetting]]]
+                                                  :vertexai.synth/ModelConfig
+                                                  [:map
+                                                   [:contents {:optional false} [:sequential :vertexai.api/Content]]]]
 
    :vertexai.api/Tool                            [:or
                                                   {:class    'com.google.cloud.vertexai.api.Tool
@@ -306,19 +305,17 @@
                                                    :generativeai/url "https://ai.google.dev/api/generate-content#GroundingChunk"
                                                    :protobuf/type    "google.cloud.vertexai.v1.GroundingChunk"
                                                    :class            'com.google.cloud.vertexai.api.GroundingChunk
-                                                   :class/url        "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.api.GroundingChunk"
-                                                   :dependencies     [:gcp.protobuf/ByteString]
-                                                   :dependents       [:vertexai.api/GroundingMetaData]}
+                                                   :class/url        "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.api.GroundingChunk"}
                                                   [:map {:closed true}
                                                    [:web [:map
                                                           [:title :string]
-                                                          [:uri [:or :string :gcp.protobuf/ByteString]]]]]
-                                                  [:map
+                                                          [:uri :gcp.protobuf/ByteString]]]]
+                                                  [:map {:closed true}
                                                    [:retrievedContext [:map
                                                                        [:title :string]
-                                                                       [:uri [:or :string :gcp.protobuf/ByteString]]]]]]
+                                                                       [:uri :gcp.protobuf/ByteString]]]]]
 
-   :vertex.api/SearchEntryPoint                  [:map
+   :vertexai.api/SearchEntryPoint                [:map
                                                   {:class    'com.google.cloud.vertexai.api.SearchEntryPoint
                                                    :from-edn 'gcp.vertexai.v1.api.SearchEntryPoint/from-edn
                                                    :to-edn   'gcp.vertexai.v1.api.SearchEntryPoint/to-edn}
@@ -331,7 +328,7 @@
                                                     :optional true}
                                                    :gcp.protobuf/ByteString]]
 
-   :vertexai.api/GroundingMetaData               [:map
+   :vertexai.api/GroundingMetadata               [:map
                                                   {:ns               'gcp.vertexai.v1.api.GroundingMetadata
                                                    :from-edn         'gcp.vertexai.v1.api.GroundingMetadata/from-edn
                                                    :to-edn           'gcp.vertexai.v1.api.GroundingMetadata/to-edn
@@ -344,16 +341,12 @@
                                                    {:optional true
                                                     :doc      "List of supporting references retrieved from specified grounding source"}
                                                    [:sequential :vertexai.api/GroundingChunk]]
-                                                  [:groundingSupports
-                                                   {:optional true}
-                                                   [:sequential :vertexai.api/GroundingSupport]]
-                                                  [:webSearchQueries
-                                                   {:optional true}
-                                                   [:sequential :string]]
+                                                  [:groundingSupports {:optional true} [:sequential :vertexai.api/GroundingSupport]]
+                                                  [:webSearchQueries {:optional true} [:sequential :string]]
                                                   [:searchEntryPoint
                                                    {:optional true
                                                     :doc      "Optional. Google search entry for the following-up web searches."}
-                                                   :vertex.api/SearchEntryPoint]
+                                                   :vertexai.api/SearchEntryPoint]
                                                   #_[:retrievalMetadata
                                                      {:gemini-only? true
                                                       :optional     true
@@ -465,23 +458,23 @@
                                                    :class/url        "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.api.Candidate"}
                                                   [:content
                                                    {:doc "Output only. Generated content returned from the model."}
-                                                   [:ref :vertexai.api/Content]]
+                                                   :vertexai.api/Content]
                                                   [:finishReason
                                                    {:doc      "Optional. Output only. The reason why the model stopped generating tokens. If empty, the model has not stopped generating tokens."
                                                     :optional true}
-                                                   (into [:enum]
-                                                         ["BLOCKED_REASON_UNSPECIFIED"
-                                                          "UNRECOGNIZED"
-                                                          "FINISH_REASON_UNSPECIFIED"
-                                                          "MALFORMED_FUNCTION_CALL"
-                                                          "MAX_TOKENS"
-                                                          "BLOCKLIST"
-                                                          "PROHIBITED_CONTENT"
-                                                          "OTHER"
-                                                          "SPII"
-                                                          "SAFETY"
-                                                          "RECITATION"
-                                                          "STOP"])]
+                                                   [:enum
+                                                    "BLOCKED_REASON_UNSPECIFIED"
+                                                    "UNRECOGNIZED"
+                                                    "FINISH_REASON_UNSPECIFIED"
+                                                    "MALFORMED_FUNCTION_CALL"
+                                                    "MAX_TOKENS"
+                                                    "BLOCKLIST"
+                                                    "PROHIBITED_CONTENT"
+                                                    "OTHER"
+                                                    "SPII"
+                                                    "SAFETY"
+                                                    "RECITATION"
+                                                    "STOP"]]
                                                   [:safetyRatings
                                                    {:doc "List of ratings for the safety of a response candidate. There is at most one rating per category."}
                                                    [:seqable :vertexai.api/SafetyRating]]
@@ -519,7 +512,6 @@
                                                    :from-edn         'gcp.vertexai.v1.api.Citation/from-edn
                                                    :to-edn           'gcp.vertexai.v1.api.Citation/to-edn
                                                    :doc              "A citation to a source for a portion of a specific response."
-                                                   :dependencies     [:gcp.type/Date]
                                                    :generativeai/url "https://ai.google.dev/api/generate-content#CitationSource"
                                                    :protobuf/type    "google.cloud.vertexai.v1.Citation"
                                                    :class            'com.google.cloud.vertexai.api.Citation
@@ -551,8 +543,9 @@
                                                     :optional           true}
                                                    :gcp.type/Date]]
 
-   :vertexai.api/CitationMetadata                [:map {:closed true}
-                                                  {:ns               'gcp.vertexai.v1.api.CitationMetadata
+   :vertexai.api/CitationMetadata                [:map
+                                                  {:closed           true
+                                                   :ns               'gcp.vertexai.v1.api.CitationMetadata
                                                    :from-edn         'gcp.vertexai.v1.api.CitationMetadata/from-edn
                                                    :to-edn           'gcp.vertexai.v1.api.CitationMetadata/to-edn
                                                    :doc              "A collection of source attributions for a piece of content"
@@ -586,7 +579,7 @@
                                                    :to-edn   'gcp.vertexai.v1.api.Retrieval/to-edn}
                                                   [:vertexAiSearch {:optional? false} :vertexai.api/VertexAISearch]]
 
-   :vertexai.api.SafetyRating                    [:map
+   :vertexai.api/SafetyRating                    [:map
                                                   {:ns               'gcp.vertexai.v1.api.SafetyRating
                                                    :from-edn         'gcp.vertexai.v1.api.SafetyRating/from-edn
                                                    :to-edn           'gcp.vertexai.v1.api.SafetyRating/to-edn
@@ -751,10 +744,6 @@
                                                    [:map-of [:or :string simple-keyword?] [:ref :vertexai.api/Schema]]]
                                                   [:minProperties {:optional true} :int]
                                                   [:maxProperties {:optional true} :int]
-                                                  [:required {:optional true} [:sequential [:or :string simple-keyword?]]]]}
-
-  #!----------------------------------------------------------------------------------------------------------------------
-
-  )
+                                                  [:required {:optional true} [:sequential [:or :string simple-keyword?]]]]})
 
 (global/include! registry)
