@@ -234,7 +234,7 @@
       (conj (vec (butlast coll)) (str (peek coll) part))
       (conj coll part))))
 
-(defn- aggregate-response-stream [response-stream]
+(defn aggregate-response-stream [response-stream]
   (let [*res                         (atom nil)
         *candidates                  (atom {})
         *aggregated-content-parts    (atom {})               ; candidate-index => seq<parts>

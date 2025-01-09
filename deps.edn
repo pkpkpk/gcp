@@ -1,5 +1,6 @@
 {:paths   ["src/main"]
- :deps    {com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
+ :deps    {org.clojure/clojure {:mvn/version "1.12.0"}
+           com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
            com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
            com.google.cloud/google-cloud-bigquery        {:mvn/version "2.45.0"}
            com.google.cloud/google-cloud-discoveryengine {:mvn/version "0.51.0"}
