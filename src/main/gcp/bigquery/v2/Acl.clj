@@ -7,6 +7,6 @@
   [{:as arg}]
   (throw (Exception. "unimplemented")))
 
-(defn to-edn
-  [^Acl arg]
-  (throw (Exception. "unimplemented")))
+(defn to-edn [^Acl arg]
+  {:entity {:type (.name (.getType (.getEntity arg)))}
+   :role   (.name (.getRole arg))})

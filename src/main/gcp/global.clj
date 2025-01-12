@@ -1,7 +1,8 @@
 (ns gcp.global
   (:require [malli.core :as m]
+            [malli.error :as me]
             [malli.registry :as r]
-            [malli.error :as me])
+            [malli.util :as mu])
   (:import (clojure.lang ExceptionInfo)))
 
 (defonce ^:dynamic *strict-mode* true)
@@ -12,18 +13,16 @@
 (defn satisfies-schema [protocol]
   [:fn {:error/message (str "must satisfy " (str protocol))} (partial satisfies? protocol)])
 
-(defonce ^:dynamic *registry* (m/default-schemas))
+(defonce ^:dynamic *registry* (merge (m/default-schemas) (mu/schemas)))
 
 ;; TODO cache compiled schemas & explainers?
 
-(defn include! [r]
-  (alter-var-root #'*registry* (fn [m] (merge m r))))
+(defn include! [r] (alter-var-root #'*registry* (fn [m] (merge m r))))
 
-(defn valid? [?schema value]
-  (m/validate ?schema value {:registry *registry*}))
+(defn valid? [?schema value] (m/validate ?schema value {:registry *registry*}))
 
 (defn properties [schema]
-  (m/properties schema {:registry *registry*}))
+  (some-> (get *registry* schema) (m/properties {:registry *registry*})))
 
 (defn explain [?schema value]
   (try
@@ -72,3 +71,36 @@
 
 (defmacro strict! [schema-or-spec value]
   `(if-not *strict-mode* ~value (coerce ~schema-or-spec ~value)))
+
+(defn schema
+  ([?schema]
+   (schema ?schema nil))
+  ([?schema opts]
+   (if (keyword? ?schema)
+     (m/schema (get *registry* ?schema) {:registry *registry*})
+     (m/schema ?schema (merge {:registry *registry*} opts)))))
+
+#!-----------------------------------------------------------------------------
+
+;; TODO some clients are tied to projects, have stateful thread pools + connections
+;;  (ie pubsub admins etc) those clients will need .shutdown() .waitForShutdown() .shutdownNow()
+;;  etc as part of Lifecycle/GC/TTL systems
+
+;; schema-key -> args -> instance
+(defonce *client-cache (atom {}))
+
+(defn get-client [key opts] (get-in @*client-cache [key opts]))
+
+(defn put-client! [key opts client] (swap! *client-cache assoc-in [key opts] client))
+
+(defn client [key opts]
+  (or (get-client key opts)
+      (if-let [from-edn (:from-edn (properties key))]
+        (let [client (if (fn? from-edn)
+                       (from-edn opts)
+                       (if (qualified-symbol? from-edn)
+                         ((requiring-resolve from-edn) opts)
+                         (throw (ex-info ":from-edn must be function or qualified symbol" {:key key}))))]
+          (put-client! key opts client)
+          client)
+        (throw (Exception. (str "missing :from-edn in schema for key " key))))))

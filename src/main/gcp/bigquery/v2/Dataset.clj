@@ -63,7 +63,7 @@
           (assoc :generatedId (.getGeneratedId arg))
 
           (seq (.getLabels arg))
-          (assoc :labels (.getLabels arg))
+          (assoc :labels (into {} (.getLabels arg)))
 
           (some? (.getMaxTimeTravelHours arg))
           (assoc :maxTimeTravelHours (.getMaxTimeTravelHours arg))
