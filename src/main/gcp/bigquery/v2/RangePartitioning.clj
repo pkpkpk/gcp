@@ -14,3 +14,6 @@
         builder (RangePartitioning/newBuilder)]
     (.setField builder field)
     (.setRange builder r)))
+
+(defn to-edn [arg]
+  (throw (Exception. "unimplemented")))

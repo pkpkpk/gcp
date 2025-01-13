@@ -17,7 +17,7 @@
             [gcp.bigquery.v2.BigQuery.TableOption :as TO]
             [gcp.bigquery.v2.BigQueryOptions :as BQO]
             [gcp.bigquery.v2.Dataset :as Dataset]
-            [gcp.bigquery.v2.DatasetId :as DatasetId]
+            [gcp.bigquery.v2.DatasetId]
             [gcp.bigquery.v2.DatasetInfo :as DatasetInfo]
             [gcp.bigquery.v2.Job :as Job]
             [gcp.bigquery.v2.JobId :as JobId]
@@ -27,7 +27,7 @@
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableInfo :as TableInfo]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobOption BigQuery$TableListOption BigQuery$TableOption)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobOption BigQuery$TableListOption BigQuery$TableOption DatasetId)))
 
 (defn ^BigQuery client
   ([] (client nil))
@@ -44,11 +44,10 @@
   ([] (list-datasets nil))
   ([{:keys [bigquery projectId options] :as arg}]
    (g/coerce :bigquery.synth/DatasetList arg)
-   (let [bigquery (client bigquery)
-         opts     (into-array BigQuery$DatasetListOption (map DLO/from-edn options))
+   (let [opts     (into-array BigQuery$DatasetListOption (map DLO/from-edn options))
          datasets (if projectId
-                    (.listDatasets bigquery projectId opts)
-                    (.listDatasets bigquery opts))]
+                    (.listDatasets (client bigquery) projectId opts)
+                    (.listDatasets (client bigquery) opts))]
      (map Dataset/to-edn (seq (.iterateAll datasets))))))
 
 (defn create-dataset [arg]
@@ -56,24 +55,30 @@
     (create-dataset {:datasetInfo {:datasetId {:dataset arg}}})
     (if (g/valid? :bigquery/DatasetInfo arg)
       (create-dataset {:datasetInfo arg})
-      (let [{:keys [bigquery datasetInfo options]} (g/coerce :bigquery.synth/DatasetCreate arg)]
-        (let [info (DatasetInfo/from-edn datasetInfo)
-              opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
-          (Dataset/to-edn (.create (client bigquery) info opts)))))))
+      (let [{:keys [bigquery datasetInfo options]} (g/coerce :bigquery.synth/DatasetCreate arg)
+            info (DatasetInfo/from-edn datasetInfo)
+            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
+        (Dataset/to-edn (.create (client bigquery) info opts))))))
 
-(defn get-dataset
-  [{:keys [bigquery datasetId options] :as arg}]
-  (g/strict! :bigquery.synth/DatasetGet arg)
-  (let [id (DatasetId/from-edn datasetId)
-        opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
-    (Dataset/to-edn (.getDataset ^BigQuery bigquery id opts))))
+(defn get-dataset [arg]
+  (if (string? arg)
+    (get-dataset {:datasetId {:dataset arg}})
+    (if (g/valid? :bigquery/DatasetId arg)
+      (get-dataset {:datasetId arg})
+      (let [{:keys [bigquery datasetId options]} (g/coerce :bigquery.synth/DatasetGet arg)
+            dataset-id (gcp.bigquery.v2.DatasetId/from-edn datasetId)
+            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
+        (Dataset/to-edn (.getDataset (client bigquery) dataset-id opts))))))
 
-(defn update-dataset
-  [{:keys [bigquery datasetInfo options] :as arg}]
-  (g/strict! :bigquery.synth/DatasetUpdate arg)
-  (let [info (DatasetInfo/from-edn datasetInfo)
-        opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
-    (Dataset/to-edn (.update bigquery info opts))))
+(defn update-dataset [arg]
+  (if (string? arg)
+    (update-dataset {:datasetInfo {:datasetId {:dataset arg}}})
+    (if (g/valid? :bigquery/DatasetInfo arg)
+      (update-dataset {:datasetInfo arg})
+      (let [{:keys [bigquery datasetInfo options]} (g/coerce :bigquery.synth/DatasetUpdate arg)
+            info (DatasetInfo/from-edn datasetInfo)
+            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
+        (Dataset/to-edn (.update (client bigquery) info opts))))))
 
 (defn ^boolean delete-dataset
   "true if dataset was deleted, false if it was not found"
@@ -83,19 +88,23 @@
     (if (g/valid? :bigquery/DatasetId arg)
       (delete-dataset {:datasetId arg})
       (let [{:keys [bigquery datasetId options]} (g/coerce :bigquery.synth/DatasetDelete arg)
+            dataset-id (gcp.bigquery.v2.DatasetId/from-edn datasetId)
             opts ^BigQuery$DatasetDeleteOption/1 (into-array BigQuery$DatasetDeleteOption (map DDO/from-edn options))]
-        (.delete (client bigquery) (DatasetId/from-edn datasetId) opts)))))
-
+        (.delete (client bigquery) dataset-id opts)))))
 
 #!-----------------------------------------------------------------------------
 #! TABLES https://cloud.google.com/bigquery/docs/tables
 
-(defn list-tables
-  [{:keys [bigquery datasetId options] :as arg}]
-  (g/strict! :bigquery.synth/TableList arg)
-  (let [opts ^BigQuery$TableListOption/1 (into-array BigQuery$TableListOption (map TLO/from-edn options))
-        tables (.listTables ^BigQuery bigquery (DatasetId/from-edn datasetId) opts)]
-    (map Table/to-edn (seq (.iterateAll tables)))))
+(defn list-tables [arg]
+  (if (string? arg)
+    (list-tables {:datasetId {:dataset arg}})
+    (if (g/valid? :bigquery/DatasetId arg)
+      (list-tables {:datasetId arg})
+      (let [{:keys [bigquery datasetId options]} (g/coerce :bigquery.synth/TableList arg)
+            opts       ^BigQuery$TableListOption/1 (into-array BigQuery$TableListOption (map TLO/from-edn options))
+            dataset-id (gcp.bigquery.v2.DatasetId/from-edn datasetId)
+            tables     (.listTables (client bigquery) dataset-id opts)]
+        (map Table/to-edn (seq (.iterateAll tables)))))))
 
 (defn create-table
   [{:keys [bigquery tableInfo options] :as arg}]

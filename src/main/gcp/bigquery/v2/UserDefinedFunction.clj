@@ -7,3 +7,5 @@
   (if (= "FROM_URI" (:type arg))
     (UserDefinedFunction/fromUri (:functionDefinition arg))
     (UserDefinedFunction/inline (:functionDefinition arg))))
+
+(defn to-edn [arg] (throw (Exception. "unimplemented")))

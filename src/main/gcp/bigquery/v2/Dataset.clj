@@ -20,53 +20,8 @@
 ; Dataset.reload()              ->   sugared bigquery.get(datasetId)
 ; Dataset.update()              ->   sugared bigquery
 
+(defn ^Dataset from-edn [arg] (throw (Exception. "unimplemented")))
+
 (defn to-edn [^Dataset arg]
   {:post [(global/strict! :bigquery/Dataset %)]}
-  (cond-> {:bigquery (.getBigQuery arg)
-           :datasetId (DatasetId/to-edn (.getDatasetId arg))
-           :location (.getLocation arg)}
-
-          (.getCreationTime arg)
-          (assoc :creationTime (.getCreationTime arg))
-
-          (.getLastModified arg)
-          (assoc :lastModified (.getLastModified arg))
-
-          (pos? (count (.getAcl arg)))
-          (assoc :acl (map Acl/to-edn (.getAcl arg)))
-
-          (some? (.getDefaultCollation arg))
-          (assoc :defaultCollation (.getDefaultCollation arg))
-
-          (some? (.getDefaultEncryptionConfiguration arg))
-          (assoc :defaultEncryptionConfiguration (EncryptionConfiguration/to-edn (.getDefaultEncryptionConfiguration arg)))
-
-          (some? (.getDefaultPartitionExpirationMs arg))
-          (assoc :defaultPartitionExpirationMs (.getDefaultPartitionExpirationMs arg))
-
-          (some? (.getDefaultTableLifetime arg))
-          (assoc :defaultTableLifetime (.getDefaultTableLifetime arg))
-
-          (some? (.getDescription arg))
-          (assoc :description (.getDescription arg))
-
-          (some? (.getEtag arg))
-          (assoc :etag (.getEtag arg))
-
-          (some? (.getExternalDatasetReference arg))
-          (assoc :externalDatasetReference (ExternalDatasetReference/to-edn (.getExternalDatasetReference arg)))
-
-          (some? (.getFriendlyName arg))
-          (assoc :friendlyName (.getFriendlyName arg))
-
-          (some? (.getGeneratedId arg))
-          (assoc :generatedId (.getGeneratedId arg))
-
-          (seq (.getLabels arg))
-          (assoc :labels (into {} (.getLabels arg)))
-
-          (some? (.getMaxTimeTravelHours arg))
-          (assoc :maxTimeTravelHours (.getMaxTimeTravelHours arg))
-
-          (some? (.getStorageBillingModel arg))
-          (assoc :storageBillingModel (.getStorageBillingModel arg))))
+  (assoc (DatasetInfo/to-edn arg) :bigquery (.getBigQuery arg)))

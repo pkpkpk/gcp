@@ -80,6 +80,8 @@
      (m/schema (get *registry* ?schema) {:registry *registry*})
      (m/schema ?schema (merge {:registry *registry*} opts)))))
 
+;(defn match [value]) ;=> schema
+
 #!-----------------------------------------------------------------------------
 
 ;; TODO some clients are tied to projects, have stateful thread pools + connections

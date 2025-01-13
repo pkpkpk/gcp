@@ -13,3 +13,8 @@
   (if (instance? TableId arg)
     (.getIAMResourceName arg)
     (.getIAMResourceName (from-edn arg))))
+
+(defn to-edn [^TableId arg]
+  {:project (.getProject arg)
+   :dataset (.getDataset arg)
+   :table (.getTable arg)})

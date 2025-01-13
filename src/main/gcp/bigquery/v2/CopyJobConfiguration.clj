@@ -35,3 +35,5 @@
     (when writeDisposition
       (throw (Exception. "unimplemented")))
     (.build builder)))
+
+(defn to-edn [^CopyJobConfiguration arg] (throw (Exception. "unimplemented")))

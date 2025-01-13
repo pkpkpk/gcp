@@ -7,3 +7,6 @@
   (let [builder (Clustering/newBuilder)]
     (.setFields builder (:fields arg))
     (.build builder)))
+
+(defn to-edn [arg]
+  (throw (Exception. "unimplemented")))

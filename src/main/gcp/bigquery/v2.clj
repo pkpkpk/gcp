@@ -8,6 +8,7 @@
 (def registry
   {:gcp.core/RetryOption                  :any
    :gcp.synth/labels                      [:map-of :string :string] ;TODO ..lowercase, char range etc
+   :gcp.synth/resourceTags                [:map-of :string :string]
 
    :bigquery.synth/location               :string
    :bigquery.synth/project                :string
@@ -90,15 +91,17 @@
                                            [:project {:optional true} :bigquery.synth/project]]
 
    :bigquery/DatasetInfo                  [:map
-                                           [:acl {:optional true} [:sequential :bigquery/Acl]]
+                                           [:acl {:optional true} [:seqable :bigquery/Acl]]
                                            [:datasetId :bigquery/DatasetId]
                                            [:defaultCollation {:optional true} :string]
                                            [:defaultEncryptionConfiguration {:optional true} :bigquery/EncryptionConfiguration]
                                            [:defaultPartitionExpirationMs {:optional true} :int]
                                            [:defaultTableLifetime {:optional true} :int]
                                            [:description {:optional true} :string]
+                                           [:etag {:optional true} :string]
                                            [:externalDatasetReference {:optional true} :bigquery/ExternalDatasetReference]
                                            [:friendlyName {:optional true} :string]
+                                           [:generatedId {:optional true} :string]
                                            [:labels {:optional true} :gcp.synth/labels]
                                            [:location {:optional true} :bigquery.synth/location]
                                            [:maxTimeTravelHours {:optional true} :int]
@@ -106,10 +109,7 @@
 
    :bigquery/Dataset                      [:and
                                            :bigquery/DatasetInfo
-                                           [:map
-                                            [:bigquery :bigquery.synth/clientable]
-                                            [:generatedId {:optional true} :string]
-                                            [:etag {:optional true} :string]]]
+                                           [:map [:bigquery :bigquery.synth/clientable]]]
 
    ;;--------------------------------------------------------------------------
    ;; Tables
@@ -124,9 +124,124 @@
                                            [:map {:closed true} [:tableMetadataView :bigquery.BigQuery/TableMetadataView]]]
 
    :bigquery/TableId                      [:map
-                                           [:dataset :bigquery.synth/dataset]
                                            [:project {:optional true} :bigquery.synth/project]
+                                           [:dataset :bigquery.synth/dataset]
                                            [:table :bigquery.synth/table]]
+
+   :bigquery.synth/TableList              [:map
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
+                                           [:datasetId {:optional true} :bigquery/DatasetId]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/TableListOption]]]
+
+   :bigquery/PolicyTags [:map {:closed true} [:names [:sequential :string]]]
+
+   :bigquery/FieldElementType [:map {:closed true} [:type :string]]
+
+   :bigquery/Field                        [:map {:closed true}
+                                           [:name :string]
+                                           [:type :bigquery/StandardSQLTypeName]
+                                           [:collation              {:optional true} :string]
+                                           [:defaultValueExpression {:optional true} :string]
+                                           [:description            {:optional true} :string]
+                                           [:maxLength              {:optional true} :int]
+                                           [:mode                   {:optional true} [:enum "NULLABLE" "REQUIRED" "REPEATED"]]
+                                           [:policyTags             {:optional true} :bigquery/PolicyTags]
+                                           [:precision              {:optional true} :int]
+                                           [:rangeElementType       {:optional true} :bigquery/FieldElementType]
+                                           [:scale                  {:optional true} :int]]
+
+   :bigquery/Schema                       [:map {:closed true}
+                                           [:fields [:sequential :bigquery/Field]]]
+
+   :bigquery/ExternalTableDefinition      [:map
+                                           [:type [:= "EXTERNAL"]]]
+
+   :bigquery/MaterializedViewDefinition   [:map
+                                           [:type [:= "MATERIALIZED_VIEW"]]
+                                           [:clustering {:optional true} :bigquery/Clustering]
+                                           [:enableRefresh {:optional true} :boolean]
+                                           [:query :string]
+                                           [:rangePartitioning {:optional true} :bigquery/RangePartitioning]
+                                           [:refreshInterval {:optional true} :int]
+                                           [:schema {:optional true} :bigquery/Schema]
+                                           [:timePartitioning {:optional true} :bigquery/TimePartitioning]]
+
+   :bigquery/ViewDefinition               [:map
+                                           [:type [:= "VIEW"]]
+                                           [:query :string]
+                                           [:userDefinedFunctions [:seqable :bigquery/UserDefinedFunction]]]
+
+   :bigquery/StandardTableDefinition      [:map
+                                           [:type [:= "TABLE"]]
+                                           [:bigLakeConfiguration {:optional true} :bigquery/BigLakeConfiguration]
+                                           [:clustering {:optional true} :bigquery/Clustering]
+                                           [:location :bigquery.synth/location]
+                                           [:numActiveLogicalBytes {:optional true} :int]
+                                           [:numActivePhysicalBytes {:optional true} :int]
+                                           [:numBytes {:optional true} :int]
+                                           [:numLongTermBytes {:optional true} :int]
+                                           [:numLongTermLogicalBytes {:optional true} :int]
+                                           [:numLongTermPhysicalBytes {:optional true} :int]
+                                           [:numRows {:optional true} :int]
+                                           [:numTimeTravelPhysicalBytes {:optional true} :int]
+                                           [:numTotalPhysicalBytes {:optional true} :int]
+                                           [:rangePartitioning {:optional true} :bigquery/RangePartitioning]
+                                           [:schema {:optional true} :bigquery/Schema]
+                                           [:streamingBuffer {:optional true} :any]
+                                           [:tableConstraints {:optional true} :bigquery/TableConstraints]
+                                           [:timePartitioning {:optional true} :bigquery/TimePartitioning]]
+
+   :bigquery/TableDefinition              [:and
+                                           [:map
+                                            [:type [:enum "EXTERNAL" "MATERIALIZED_VIEW" "MODEL" "SNAPSHOT" "TABLE" "VIEW"]]
+                                            [:schema {:optional true} :bigquery/Schema]]
+                                           [:or
+                                            :bigquery/ExternalTableDefinition
+                                            :bigquery/MaterializedViewDefinition
+                                            :bigquery/StandardTableDefinition
+                                            :bigquery/ViewDefinition]]
+
+   :bigquery/PrimaryKey                   [:map {:closed true}
+                                           [:columns [:sequential {:min 1} :string]]]
+
+   :bigquery/ColumnReference              [:map {:closed true}
+                                           [:referencingColumn {:doc "The source column of this reference"} :string]
+                                           [:referencedColumn {:doc "The target column of this reference"} :string]]
+
+   :bigquery/ForeignKey                   [:map {:closed true}
+                                           [:name {:doc "The name of the foreign key"} :string]
+                                           [:referencedTable {:doc "The table referenced by this foreign key"} :bigquery/TableId]
+                                           [:referencedColumns {:doc "The set of column references for this foreign key"} [:sequential :bigquery/ColumnReference]]]
+
+   :bigquery/TableConstraints             [:map {:closed true}
+                                           [:primaryKey {:optional true} :bigquery/PrimaryKey]
+                                           [:foreignKeys {:optional true} [:sequential {:min 1} :bigquery/ForeignKey]]]
+
+   :bigquery/TableInfo                    [:map
+                                           [:tableId :bigquery/TableId]
+                                           ;; Optional fields:
+                                           [:defaultCollation {:optional true} :string]
+                                           [:description {:optional true} :string]
+                                           [:encryptionConfiguration {:optional true} :bigquery/EncryptionConfiguration]
+                                           [:expirationTime {:optional true} :int]
+                                           [:friendlyName {:optional true} :string]
+                                           [:labels {:optional true} :gcp.synth/labels]
+                                           [:requirePartitionFilter {:optional true} :boolean]
+                                           [:resourceTags {:optional true} :gcp.synth/resourceTags]
+                                           [:tableConstraints {:optional true} :bigquery/TableConstraints]
+                                           ;; Because `definition` and `cloneDefinition` are mutually exclusive
+                                           ;; in your `from-edn`, you can mark them both optional:
+                                           [:definition {:optional true} :bigquery/TableDefinition]
+                                           [:cloneDefinition {:optional true} :bigquery/TableDefinition]]
+
+
+
+   :bigquery/Table                        [:and
+                                           :bigquery/TableInfo
+                                           [:map
+                                            [:bigquery :bigquery.synth/clientable]
+                                            [:generatedId {:optional true} :string]
+                                            [:etag {:optional true} :string]]]
 
    ;;--------------------------------------------------------------------------
    ;; Jobs
@@ -161,13 +276,17 @@
 
    :bigquery/JobField                     [:enum "CONFIGURATION" "ETAG" "ID" "JOB_REFERENCE" "SELF_LINK" "STATISTICS" "STATUS" "USER_EMAIL"]
 
-   :bigquery/JobConfiguration             [:or
-                                           {:doc   "abstract class for Copy/Extract/Load/Query configs"
-                                            :class 'com.google.cloud.bigquery.JobConfiguration}
-                                           :bigquery/CopyJobConfiguration
-                                           :bigquery/ExtractJobConfiguration
-                                           :bigquery/LoadJobConfiguration
-                                           :bigquery/QueryJobConfiguration]
+   :bigquery/JobConfiguration             [:and
+                                           {:doc      "abstract class for Copy/Extract/Load/Query configs"
+                                            :class    'com.google.cloud.bigquery.JobConfiguration
+                                            :from-edn 'gcp.bigquery.v2.JobConfiguration/from-edn
+                                            :to-edn   'gcp.bigquery.v2.JobConfiguration/to-edn}
+                                           [:map [:type [:enum "COPY" "EXTRACT" "LOAD" "QUERY"]]]
+                                           [:or
+                                            :bigquery/CopyJobConfiguration
+                                            :bigquery/ExtractJobConfiguration
+                                            :bigquery/LoadJobConfiguration
+                                            :bigquery/QueryJobConfiguration]]
 
    :bigquery/CopyJobConfiguration         [:map
                                            [:destinationTable :bigquery/TableId]
@@ -235,7 +354,9 @@
 
    #!--------------------------------------------------------------------------
 
-   :bigquery/Acl                          [:map]
+   :bigquery/Acl                          [:map
+                                           [:role [:enum "OWNER" "READER" "WRITER"]]
+                                           [:entity [:map [:type [:enum "DATASET" "DOMAIN" "GROUP" "IAM_MEMBER" "ROUTINE" "USER" "VIEW"]]]]]
 
    :bigquery/BigQueryRetryConfig          [:and
                                            {:doc "part of JobOption"}
@@ -256,7 +377,6 @@
                                            [:tuple :string :string]]
    :bigquery/EncryptionConfiguration      [:map {:closed true} [:kmsKeyName :string]]
    :bigquery/ExternalDatasetReference     :any
-   :bigquery/ExternalTableDefinition      :any
    :bigquery/RangePartitioning            [:map {:closed true}
                                            [:field :string]
                                            [:range [:map {:closed true}
@@ -325,7 +445,7 @@
 
    :bigquery.JobStatus/State              [:enum "DONE" "PENDING" "RUNNING"]
 
-   :bigquery.StandardSQLTypeName          [:or
+   :bigquery/StandardSQLTypeName          [:or
                                            {:url "https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"}
                                            [:= {:doc "Ordered list of zero or more elements of any non-array type."} "ARRAY"]
                                            [:= {:doc "A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale."} "BIGNUMERIC"]

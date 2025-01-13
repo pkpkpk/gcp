@@ -63,3 +63,5 @@
     (some->> schemaUpdateOptions (map #(JobInfo$SchemaUpdateOption/valueOf %)) (.setSchemaUpdateOptions builder))
     (some->> userDefinedFunctions (map UserDefinedFunction/from-edn) (.setUserDefinedFunctions builder))
     (.build builder)))
+
+(defn to-edn [^QueryJobConfiguration arg] (throw (Exception. "unimplemented")))
