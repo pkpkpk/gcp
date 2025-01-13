@@ -79,11 +79,7 @@
   {:estimatedBytes (.getEstimatedBytes arg)
    :estimatedRows (.getEstimatedRows arg)})
 
-(defn to-edn
-  "Converts a StandardTableDefinition instance to EDN.
-   For read-only fields or fields needing specialized logic (clustering, schema, etc.),
-   we throw exceptions until implemented."
-  [^StandardTableDefinition arg]
+(defn to-edn [^StandardTableDefinition arg]
   {:post [(global/strict! :bigquery/StandardTableDefinition %)]}
   (cond-> {}
           (some? (.getBigLakeConfiguration arg))
@@ -135,7 +131,7 @@
           (assoc :streamingBuffer (StreamingBuffer-to-edn (.getStreamingBuffer arg)))
 
           (some? (.getTableConstraints arg))
-          (assoc :tableConstraints (TableConstraints/to-edn (.getTableConstraints)))
+          (assoc :tableConstraints (TableConstraints/to-edn (.getTableConstraints arg)))
 
           (some? (.getTimePartitioning arg))
           (assoc :timePartitioning (TimePartitioning/to-edn arg))

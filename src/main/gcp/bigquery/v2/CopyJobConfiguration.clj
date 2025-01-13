@@ -1,11 +1,11 @@
 (ns gcp.bigquery.v2.CopyJobConfiguration
   (:require [gcp.global :as global]
             [gcp.bigquery.v2.TableId :as TableId])
-  (:import [com.google.cloud.bigquery CopyJobConfiguration]))
+  (:import [com.google.cloud.bigquery CopyJobConfiguration JobInfo$CreateDisposition JobInfo$WriteDisposition]
+           (java.util List)))
 
 (defn from-edn
   [{:keys [destinationTable
-           sourceTable
            sourceTables
            createDisposition
            encryptionConfiguration
@@ -16,24 +16,22 @@
            writeDisposition] :as arg}]
   (global/strict! :bigquery/CopyJobConfiguration arg)
   (let [dst (TableId/from-edn destinationTable)
-        src (if (seq sourceTables)
-              (map TableId/from-edn sourceTables)
-              (TableId/from-edn sourceTable))
-        builder (CopyJobConfiguration/newBuilder dst src)]
+        src (map TableId/from-edn sourceTables)
+        builder (CopyJobConfiguration/newBuilder dst ^List src)]
     (when createDisposition
-      (throw (Exception. "unimplemented")))
-    (when encryptionConfiguration
-      (throw (Exception. "unimplemented")))
-    (when destinationExpiration
-      (throw (Exception. "unimplemented")))
-    (when jobTimeoutMs
-      (throw (Exception. "unimplemented")))
-    (when labels
-      (throw (Exception. "unimplemented")))
-    (when operationType
-      (throw (Exception. "unimplemented")))
+      (.setCreateDisposition builder (JobInfo$CreateDisposition/valueOf createDisposition)))
     (when writeDisposition
-      (throw (Exception. "unimplemented")))
+      (.setWriteDisposition builder (JobInfo$WriteDisposition/valueOf writeDisposition)))
+    (when encryptionConfiguration
+      (.setDestinationEncryptionConfiguration builder encryptionConfiguration))
+    (when destinationExpiration
+      (.setDestinationExpirationTime builder destinationExpiration))
+    (when jobTimeoutMs
+      (.setJobTimeoutMs builder jobTimeoutMs))
+    (when labels
+      (.setLabels builder labels))
+    (when operationType
+      (.setOperationType builder operationType))
     (.build builder)))
 
 (defn to-edn [^CopyJobConfiguration arg] (throw (Exception. "unimplemented")))

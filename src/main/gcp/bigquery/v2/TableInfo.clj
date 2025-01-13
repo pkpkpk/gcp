@@ -1,6 +1,7 @@
 (ns gcp.bigquery.v2.TableInfo
   (:require [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableConstraints :as TableConstraints]
+            [gcp.bigquery.v2.TableDefinition :as TableDefinition]
             [gcp.bigquery.v2.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.global :as global])
   (:import (com.google.cloud.bigquery TableInfo)))
@@ -79,34 +80,34 @@
 
           ;; For numeric fields that default to 0, you may choose (pos?) or just (some?).
           ;; The snippet below only includes them if they are > 0.
-          (pos? (.getNumActiveLogicalBytes arg))
+          (some? (.getNumActiveLogicalBytes arg))
           (assoc :numActiveLogicalBytes (.getNumActiveLogicalBytes arg))
 
-          (pos? (.getNumActivePhysicalBytes arg))
+          (some? (.getNumActivePhysicalBytes arg))
           (assoc :numActivePhysicalBytes (.getNumActivePhysicalBytes arg))
 
-          (pos? (.getNumBytes arg))
+          (some? (.getNumBytes arg))
           (assoc :numBytes (.getNumBytes arg))
 
-          (pos? (.getNumLongTermBytes arg))
+          (some? (.getNumLongTermBytes arg))
           (assoc :numLongTermBytes (.getNumLongTermBytes arg))
 
-          (pos? (.getNumLongTermLogicalBytes arg))
+          (some? (.getNumLongTermLogicalBytes arg))
           (assoc :numLongTermLogicalBytes (.getNumLongTermLogicalBytes arg))
 
-          (pos? (.getNumLongTermPhysicalBytes arg))
+          (some? (.getNumLongTermPhysicalBytes arg))
           (assoc :numLongTermPhysicalBytes (.getNumLongTermPhysicalBytes arg))
 
-          (pos? (.getNumRows arg))
+          (some? (.getNumRows arg))
           (assoc :numRows (.getNumRows arg))
 
-          (pos? (.getNumTimeTravelPhysicalBytes arg))
+          (some? (.getNumTimeTravelPhysicalBytes arg))
           (assoc :numTimeTravelPhysicalBytes (.getNumTimeTravelPhysicalBytes arg))
 
-          (pos? (.getNumTotalLogicalBytes arg))
+          (some? (.getNumTotalLogicalBytes arg))
           (assoc :numTotalLogicalBytes (.getNumTotalLogicalBytes arg))
 
-          (pos? (.getNumTotalPhysicalBytes arg))
+          (some? (.getNumTotalPhysicalBytes arg))
           (assoc :numTotalPhysicalBytes (.getNumTotalPhysicalBytes arg))
 
           (some? (.getRequirePartitionFilter arg))
@@ -124,7 +125,9 @@
           ;; If you have specific "to-edn" logic for definitions or clone definitions,
           ;; you can call them here, or raise an exception until implemented:
           (some? (.getDefinition arg))
-          (assoc :definition (throw (Exception. "unimplemented: convert definition to edn")))
+          (assoc :definition (TableDefinition/to-edn (.getDefinition arg)))
 
           (some? (.getCloneDefinition arg))
-          (assoc :cloneDefinition (throw (Exception. "unimplemented: convert clone definition to edn")))))
+          (assoc :cloneDefinition
+                 {:baseTableId (TableId/to-edn (.getBaseTableId (.getCloneDefinition arg)))
+                  :dateTime   (.getCloneTime (.getCloneDefinition arg))})))

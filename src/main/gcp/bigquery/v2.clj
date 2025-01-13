@@ -133,22 +133,22 @@
                                            [:datasetId {:optional true} :bigquery/DatasetId]
                                            [:options {:optional true} [:sequential :bigquery.BigQuery/TableListOption]]]
 
-   :bigquery/PolicyTags [:map {:closed true} [:names [:sequential :string]]]
+   :bigquery/PolicyTags                   [:map {:closed true} [:names [:sequential :string]]]
 
-   :bigquery/FieldElementType [:map {:closed true} [:type :string]]
+   :bigquery/FieldElementType             [:map {:closed true} [:type :string]]
 
    :bigquery/Field                        [:map {:closed true}
                                            [:name :string]
                                            [:type :bigquery/StandardSQLTypeName]
-                                           [:collation              {:optional true} :string]
+                                           [:collation {:optional true} :string]
                                            [:defaultValueExpression {:optional true} :string]
-                                           [:description            {:optional true} :string]
-                                           [:maxLength              {:optional true} :int]
-                                           [:mode                   {:optional true} [:enum "NULLABLE" "REQUIRED" "REPEATED"]]
-                                           [:policyTags             {:optional true} :bigquery/PolicyTags]
-                                           [:precision              {:optional true} :int]
-                                           [:rangeElementType       {:optional true} :bigquery/FieldElementType]
-                                           [:scale                  {:optional true} :int]]
+                                           [:description {:optional true} :string]
+                                           [:maxLength {:optional true} :int]
+                                           [:mode {:optional true} [:enum "NULLABLE" "REQUIRED" "REPEATED"]]
+                                           [:policyTags {:optional true} :bigquery/PolicyTags]
+                                           [:precision {:optional true} :int]
+                                           [:rangeElementType {:optional true} :bigquery/FieldElementType]
+                                           [:scale {:optional true} :int]]
 
    :bigquery/Schema                       [:map {:closed true}
                                            [:fields [:sequential :bigquery/Field]]]
@@ -175,7 +175,7 @@
                                            [:type [:= "TABLE"]]
                                            [:bigLakeConfiguration {:optional true} :bigquery/BigLakeConfiguration]
                                            [:clustering {:optional true} :bigquery/Clustering]
-                                           [:location :bigquery.synth/location]
+                                           [:location {:optional true} :bigquery.synth/location]
                                            [:numActiveLogicalBytes {:optional true} :int]
                                            [:numActivePhysicalBytes {:optional true} :int]
                                            [:numBytes {:optional true} :int]
@@ -217,8 +217,16 @@
                                            [:primaryKey {:optional true} :bigquery/PrimaryKey]
                                            [:foreignKeys {:optional true} [:sequential {:min 1} :bigquery/ForeignKey]]]
 
+   :bigquery/CloneDefinition [:map {:doc "read only"}
+                              [:baseTableId :bigquery/TableId]
+                              [:dateTime :string]]
+
    :bigquery/TableInfo                    [:map
                                            [:tableId :bigquery/TableId]
+                                           ;; Because `definition` and `cloneDefinition` are mutually exclusive
+                                           ;; in your `from-edn`, you can mark them both optional:
+                                           [:definition {:optional true} :bigquery/TableDefinition]
+                                           [:cloneDefinition {:optional true} :bigquery/CloneDefinition]
                                            ;; Optional fields:
                                            [:defaultCollation {:optional true} :string]
                                            [:description {:optional true} :string]
@@ -228,13 +236,7 @@
                                            [:labels {:optional true} :gcp.synth/labels]
                                            [:requirePartitionFilter {:optional true} :boolean]
                                            [:resourceTags {:optional true} :gcp.synth/resourceTags]
-                                           [:tableConstraints {:optional true} :bigquery/TableConstraints]
-                                           ;; Because `definition` and `cloneDefinition` are mutually exclusive
-                                           ;; in your `from-edn`, you can mark them both optional:
-                                           [:definition {:optional true} :bigquery/TableDefinition]
-                                           [:cloneDefinition {:optional true} :bigquery/TableDefinition]]
-
-
+                                           [:tableConstraints {:optional true} :bigquery/TableConstraints]]
 
    :bigquery/Table                        [:and
                                            :bigquery/TableInfo
@@ -242,6 +244,16 @@
                                             [:bigquery :bigquery.synth/clientable]
                                             [:generatedId {:optional true} :string]
                                             [:etag {:optional true} :string]]]
+
+   :bigquery.synth/TableGet               [:map
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
+                                           [:tableId :bigquery/TableId]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/DatasetOption]]]
+
+   :bigquery.synth/TableCreate            [:map
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
+                                           [:tableInfo :bigquery/TableInfo]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/DatasetOption]]]
 
    ;;--------------------------------------------------------------------------
    ;; Jobs
@@ -336,20 +348,20 @@
                                            [:timePartitioning {:optional true} :bigquery/TimePartitioning]
                                            [:useLegacySql {:optional true} boolean?]
                                            [:useQueryCache {:optional true} boolean?]
-                                           [:userDefinedFunctions {:optional true} [:sequential :bigquery/UserDefinedFunctions]]
+                                           [:userDefinedFunctions {:optional true} [:sequential :bigquery/UserDefinedFunction]]
                                            [:writeDisposition {:optional true} :bigquery.JobInfo/WriteDisposition]]
 
    :bigquery.synth/JobCreate              [:map
                                            {:doc "create a job described in :jobInfo"}
-                                           [:bigquery :bigquery.synth/clientable]
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
                                            [:jobInfo :bigquery/JobInfo]
-                                           [:options {:optional true} [:sequential :bigquery/JobOption]]]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]]
 
    :bigquery.synth/Query                  [:map
                                            {:doc "execute a QueryJobConfiguration"}
                                            [:bigquery :bigquery.synth/clientable]
                                            [:configuration :bigquery/QueryJobConfiguration]
-                                           [:options {:optional true} [:sequential :bigquery/JobOption]]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]
                                            [:jobId {:optional true} :bigquery/JobId]]
 
    #!--------------------------------------------------------------------------
@@ -357,6 +369,8 @@
    :bigquery/Acl                          [:map
                                            [:role [:enum "OWNER" "READER" "WRITER"]]
                                            [:entity [:map [:type [:enum "DATASET" "DOMAIN" "GROUP" "IAM_MEMBER" "ROUTINE" "USER" "VIEW"]]]]]
+
+   :bigquery/BigLakeConfiguration         :any
 
    :bigquery/BigQueryRetryConfig          [:and
                                            {:doc "part of JobOption"}
@@ -387,7 +401,7 @@
                                            [:expirationMs :int]
                                            [:field :string]
                                            [:requiredPartitionFilter :boolean]]
-   :bigquery.UserDefinedFunction          [:map
+   :bigquery/UserDefinedFunction          [:map
                                            {:doc "https://cloud.google.com/bigquery/docs/user-defined-functions"}
                                            [:type [:enum "INLINE" "FROM_URI"]]
                                            [:functionDefinition :string]]
@@ -449,11 +463,11 @@
                                            {:url "https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"}
                                            [:= {:doc "Ordered list of zero or more elements of any non-array type."} "ARRAY"]
                                            [:= {:doc "A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale."} "BIGNUMERIC"]
-                                           [:= {:doc "A Boolean value (true or false)."} "BOOL"]
+                                           [:= {:doc "A Boolean value (true or false)."} "BOOLEAN"]
                                            [:= {:doc "Variable-length binary data."} "BYTES"]
                                            [:= {:doc "Represents a logical calendar date. Values range between the years 1 and 9999, inclusive."} "DATE"]
                                            [:= {:doc "Represents a year, month, day, hour, minute, second, and subsecond (microsecond precision)."} "DATETIME"]
-                                           [:= {:doc "A 64-bit IEEE binary floating-point value."} "FLOAT64"]
+                                           [:= {:doc "A 64-bit IEEE binary floating-point value."} "FLOAT"]
                                            [:= {:doc "Represents a set of geographic points, represented as a Well Known Text (WKT) string."} "GEOGRAPHY"]
                                            [:= {:doc "A 64-bit signed integer value."} "INT64"]
                                            [:= {:doc "Represents duration or amount of time."} "INTERVAL"]

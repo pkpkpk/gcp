@@ -106,24 +106,30 @@
             tables     (.listTables (client bigquery) dataset-id opts)]
         (map Table/to-edn (seq (.iterateAll tables)))))))
 
-(defn create-table
-  [{:keys [bigquery tableInfo options] :as arg}]
-  (g/strict! :bigquery.synth/TableCreate arg)
-  (let [info (TableInfo/from-edn tableInfo)
-        opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
-    (Table/to-edn (.create (client bigquery) info opts))))
+(defn create-table [arg]
+  (if (g/valid? :bigquery/TableInfo arg)
+    (create-table {:tableInfo arg})
+    (let [{:keys [bigquery tableInfo options]} (g/coerce :bigquery.synth/TableCreate arg)
+          info (TableInfo/from-edn tableInfo)
+          opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
+      (Table/to-edn (.create (client bigquery) info opts)))))
 
 (defn get-table
-  [{:keys [bigquery tableId options] :as arg}]
-  (g/strict! :bigquery.synth/TableGet arg)
-  (let [opts (into-array BigQuery$TableOption (map TO/from-edn options))]
-    (Table/to-edn (.getTable (client bigquery) (TableId/from-edn tableId) opts))))
+  ([dataset table]
+   (get-table {:tableId {:dataset dataset :table table}}))
+  ([arg]
+   (if (g/valid? :bigquery/TableId arg)
+     (get-table {:tableId arg})
+     (let [{:keys [bigquery tableId options]} (g/coerce :bigquery.synth/TableGet arg)
+           opts (into-array BigQuery$TableOption (map TO/from-edn options))]
+       (Table/to-edn (.getTable (client bigquery) (TableId/from-edn tableId) opts))))))
 
-(defn update-table
-  [{:keys [bigquery tableInfo options] :as arg}]
-  (g/strict! :bigquery.synth/TableUpdate arg)
-  (let [opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
-    (Table/to-edn (.update (client bigquery) (TableInfo/from-edn tableInfo) opts))))
+(defn update-table [arg]
+  (if (g/valid? :bigquery/TableInfo arg)
+    (update-table {:tableInfo arg})
+    (let [{:keys [bigquery tableInfo options]} (g/coerce :bigquery.synth/TableUpdate arg)
+          opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
+      (Table/to-edn (.update (client bigquery) (TableInfo/from-edn tableInfo) opts)))))
 
 (defn delete-table [arg]
   (if (string? arg)
@@ -148,27 +154,27 @@
   [{:keys [bigquery options] :as arg}]
   (g/strict! :bigquery.synth/JobList arg)
   (let [opts (into-array BigQuery$JobOption (map JO/from-edn options))]
-    (.listJobs ^BigQuery bigquery opts)))
+    (.listJobs (client bigquery) opts)))
 
 (defn create-job
   [{:keys [bigquery jobInfo options] :as arg}]
   (g/strict! :bigquery.synth/JobCreate arg)
   (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
-    (Job/to-edn (.create ^BigQuery bigquery (JobInfo/from-edn jobInfo) opts))))
+    (Job/to-edn (.create (client bigquery) (JobInfo/from-edn jobInfo) opts))))
 
 (defn get-job
   [{:keys [bigquery jobId options] :as arg}]
   (g/strict! :bigquery.synth/JobGet arg)
   (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
     (if (string? jobId)
-      (.getJob ^BigQuery bigquery ^String jobId opts)
-      (.getJob ^BigQuery bigquery (JobId/from-edn jobId) opts))))
+      (.getJob (client bigquery) ^String jobId opts)
+      (.getJob (client bigquery) (JobId/from-edn jobId) opts))))
 
 (defn ^boolean cancel-job
   [{:keys [bigquery jobId]}]
   (if (string? jobId)
-    (.cancel ^BigQuery bigquery ^String jobId)
-    (.cancel ^BigQuery bigquery (JobId/from-edn jobId))))
+    (.cancel (client bigquery) ^String jobId)
+    (.cancel (client bigquery) (JobId/from-edn jobId))))
 
 
 ; (defonce ^:dynamic *session-id* nil)
@@ -188,15 +194,41 @@
 ;(defn dry-run [])
 ;(defn copy-table [])
 
+;; TODO offer resource string arg ie /$project/$dataset/$table?
+;; TODO what is behavior when table is unspecified?
+
 (defn clone-table
-  ([{:keys [bigquery configuration options] :as arg}]
-   (let [cfg (merge configuration {:operationType    "CLONE",
-                                   :writeDisposition "WRITE_EMPTY"
-                                   :sourceTables     [],
-                                   :destinationTable {:project "", :dataset "", :table ""}})]
-     (create-job (assoc-in arg [:jobInfo :configuration] cfg))))
-  ([arg src dst]
-   ()))
+  ([source destination]
+   (let [source-tables (if (g/valid? [:sequential :bigquery/TableId] source)
+                         source
+                         (if (g/valid? :bigquery/TableId source)
+                           [source]
+                           (if (g/valid? :bigquery/TableInfo source)
+                             [(:tableId source)]
+                             (if (g/valid? [:sequential :bigquery/TableInfo] source)
+                               (mapv :tableId source)
+                               (throw (ex-info "cannot create clone source"
+                                               {:source      source
+                                                :destination destination}))))))
+         destination-table (if (g/valid? :bigquery/TableId destination)
+                             destination
+                             (if (string? destination)
+                               (if (= 1 (count source-tables))
+                                 {:dataset destination
+                                  :table   (get (first source-tables) :table)}
+                                 (throw (ex-info "must provide name for composite destination table"
+                                                 {:source source
+                                                  :destination destination})))
+                               (throw (ex-info "cannot create clone destination"
+                                               {:source source
+                                                :destination destination}))))
+         configuration {:type "COPY"
+                        :sourceTables     (g/coerce [:sequential :bigquery/TableId] source-tables)
+                        :destinationTable (g/coerce :bigquery/TableId destination-table)
+                        :operationType    "CLONE",
+                        :writeDisposition "WRITE_EMPTY"}]
+     (create-job {:jobInfo {:configuration (g/coerce :bigquery/CopyJobConfiguration configuration)}})))
+  ([sourceDataset sourceTable destinationDataset destinationTable]))
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines
