@@ -327,9 +327,9 @@
                                             [:map {:closed true} [:transactionId :string]]]]
 
    :bigquery/BigQueryError                [:map
-                                           [:debugInfo :string]
-                                           [:location :bigquery.synth/location]
-                                           [:message :string]
+                                           [:debugInfo {:optional true}  :string]
+                                           [:location {:optional true}  :bigquery.synth/location]
+                                           [:message {:optional true}  :string]
                                            [:reason {:doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
 
    :bigquery/JobStatus                    [:map {:closed true}
@@ -371,6 +371,7 @@
                                             :bigquery/QueryJobConfiguration]]
 
    :bigquery/CopyJobConfiguration         [:map
+                                           [:type [:= "COPY"]]
                                            [:destinationTable :bigquery/TableId]
                                            [:sourceTables {:min 1} [:sequential :bigquery/TableId]]
                                            [:createDisposition {:optional true} :bigquery.JobInfo/CreateDisposition]
@@ -381,19 +382,36 @@
                                            [:operationType {:optional true} [:enum "COPY" "CLONE" "SNAPSHOT" "RESTORE"]]
                                            [:writeDisposition {:optional true} :bigquery.JobInfo/WriteDisposition]]
 
-   :bigquery/ExtractJobConfiguration      :any
+   :bigquery/ModelId                      :any
 
-   :bigquery/LoadJobConfiguration         :any
+   :bigquery/ExtractJobConfiguration      [:map
+                                           {:closed true
+                                            :class  'com.google.cloud.bigquery.ExtractJobConfiguration}
+                                           [:type [:= "EXTRACT"]]
+                                           [:sourceTable {:optional true} :bigquery/TableId]
+                                           [:sourceModel {:optional true} :bigquery/ModelId]
+                                           [:destinationUris
+                                            {:doc "Sets the list of fully-qualified Google Cloud Storage URIs (e.g. gs://bucket/path) where the extracted table should be written."
+                                             :min 1}
+                                            [:sequential string?]]
+                                           [:compression {:optional true} string?]
+                                           [:fieldDelimiter {:optional true} string?]
+                                           [:format {:optional true} string?]
+                                           [:jobTimeoutMs {:optional true} :int]
+                                           [:labels {:optional true} :gcp.synth/labels]
+                                           [:printHeader {:optional true} boolean?]
+                                           [:useAvroLogicalTypes {:optional true} boolean?]]
+
+   :bigquery/LoadJobConfiguration         [:map {:closed true}
+                                           [:type [:= "LOAD"]]]
 
    :bigquery/QueryJobConfiguration        [:map
                                            {:closed true
                                             :class  'com.google.cloud.bigquery.QueryJobConfiguration}
+                                           [:type [:= "QUERY"]]
                                            [:allowLargeResults {:optional true} boolean?]
                                            [:clustering {:optional true} :bigquery/Clustering]
-                                           [:connectionProperties
-                                            {:optional true}
-                                            [:or [:map-of :string :string]
-                                             [:sequential :bigquery/ConnectionProperty]]] ;; Sequential of connection properties
+                                           [:connectionProperties {:optional true} [:or [:map-of :string :string] [:sequential :bigquery/ConnectionProperty]]] ;; Sequential of connection properties
                                            [:createDisposition {:optional true} :bigquery.JobInfo/CreateDisposition]
                                            [:createSession {:optional true} boolean?]
                                            [:defaultDataset {:optional true} :bigquery/DatasetId]
@@ -412,7 +430,7 @@
                                            [:rangePartitioning {:optional true} :bigquery/RangePartitioning]
                                            [:schemaUpdateOptions
                                             {:optional true
-                                             :doc      "Specifies options relating to allowing the schema of the destination table to be updated as a side effect of the load or query job."}
+                                             :doc      "Specifies options relating to allowing the schema of the destination table to be updated as a side effect of the load or query job. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema."}
                                             [:sequential :bigquery.JobInfo/SchemaUpdateOption]]
                                            [:tableDefinitions {:optional true} [:map-of string? :bigquery/ExternalTableDefinition]]
                                            [:timePartitioning {:optional true} :bigquery/TimePartitioning]
@@ -426,6 +444,11 @@
                                            [:bigquery {:optional true} :bigquery.synth/clientable]
                                            [:jobInfo :bigquery/JobInfo]
                                            [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]]
+
+   :bigquery.synth/JobList                [:maybe
+                                           [:map
+                                            [:bigquery {:optional true} :bigquery.synth/clientable]
+                                            [:options {:optional true} [:sequential :bigquery.BigQuery/JobListOption]]]]
 
    :bigquery.synth/Query                  [:map
                                            {:doc "execute a QueryJobConfiguration"}

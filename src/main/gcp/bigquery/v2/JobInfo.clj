@@ -16,10 +16,12 @@
 
 (defn to-edn [^JobInfo arg]
   {:post [(global/strict! :bigquery/JobInfo %)]}
-  {:configuration (JobConfiguration/to-edn (.getConfiguration arg))
-   :statistics    (JobStatistics/to-edn (.getStatistics arg))
-   :etag          (.getEtag arg)
-   :generatedId   (.getGeneratedId arg)
-   :jobId         (JobId/to-edn (.getJobId arg))
-   :status        (JobStatus/to-edn (.getStatus arg))
-   :userEmail     (.getUserEmail arg)})
+  (cond->
+    {:configuration (JobConfiguration/to-edn (.getConfiguration arg))
+     :statistics    (JobStatistics/to-edn (.getStatistics arg))
+     :generatedId   (.getGeneratedId arg)
+     :jobId         (JobId/to-edn (.getJobId arg))
+     :status        (JobStatus/to-edn (.getStatus arg))
+     :userEmail     (.getUserEmail arg)}
+    (some? (.getEtag arg))
+    (assoc :etag (.getEtag arg))))

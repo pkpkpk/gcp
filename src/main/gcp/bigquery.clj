@@ -15,6 +15,7 @@
             [gcp.bigquery.v2.BigQuery.TableDataListOption :as TDLO]
             [gcp.bigquery.v2.BigQuery.TableListOption :as TLO]
             [gcp.bigquery.v2.BigQuery.TableOption :as TO]
+            [gcp.bigquery.v2.TableResult :as TableResult]
             [gcp.bigquery.v2.BigQueryOptions :as BQO]
             [gcp.bigquery.v2.Dataset :as Dataset]
             [gcp.bigquery.v2.DatasetId]
@@ -27,15 +28,19 @@
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableInfo :as TableInfo]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobOption BigQuery$TableListOption BigQuery$TableOption DatasetId)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$TableListOption BigQuery$TableOption DatasetId)))
+
+(defonce ^:dynamic *client* nil)
 
 (defn ^BigQuery client
   ([] (client nil))
   ([arg]
-   (g/coerce :bigquery.synth/clientable arg)
-   (if (instance? BigQuery arg)
-     arg
-     (g/client :bigquery.synth/client arg))))
+   (or *client*
+       (do
+         (g/strict! :bigquery.synth/clientable arg)
+         (if (instance? BigQuery arg)
+           arg
+           (g/client :bigquery.synth/client arg))))))
 
 #!-----------------------------------------------------------------------------
 #! DATASETS https://cloud.google.com/bigquery/docs/datasets
@@ -140,22 +145,15 @@
   ([dataset table]
    (delete-table (g/coerce :bigquery/TableId {:dataset dataset :table table}))))
 
-;listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
-;listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
-;listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
-;listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
-
-;setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
-;testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
-
 #!-----------------------------------------------------------------------------
 #! JOBS https://cloud.google.com/bigquery/docs/jobs-overview
 
 (defn list-jobs
-  [{:keys [bigquery options] :as arg}]
-  (g/strict! :bigquery.synth/JobList arg)
-  (let [opts (into-array BigQuery$JobOption (map JO/from-edn options))]
-    (.listJobs (client bigquery) opts)))
+  ([] (list-jobs nil))
+  ([{:keys [bigquery options] :as arg}]
+   (g/strict! :bigquery.synth/JobList arg)
+   (let [opts (into-array BigQuery$JobListOption (map JLO/from-edn options))]
+     (map Job/to-edn (seq (.iterateAll (.listJobs (client bigquery) opts)))))))
 
 (defn create-job
   [{:keys [bigquery jobInfo options] :as arg}]
@@ -168,8 +166,8 @@
   (g/strict! :bigquery.synth/JobGet arg)
   (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
     (if (string? jobId)
-      (.getJob (client bigquery) ^String jobId opts)
-      (.getJob (client bigquery) (JobId/from-edn jobId) opts))))
+      (Job/to-edn (.getJob (client bigquery) ^String jobId opts))
+      (Job/to-edn (.getJob (client bigquery) (JobId/from-edn jobId) opts)))))
 
 (defn ^boolean cancel-job
   [{:keys [bigquery jobId]}]
@@ -177,27 +175,41 @@
     (.cancel (client bigquery) ^String jobId)
     (.cancel (client bigquery) (JobId/from-edn jobId))))
 
-
-; (defonce ^:dynamic *session-id* nil)
-; (ConnectionProperty/of "session_id" *session-id*)
-
 (defn query
   [{:keys [bigquery configuration options jobId] :as arg}]
   (g/strict! :bigquery.synth/Query arg)
   (let [opts (into-array BigQuery$JobOption (map JO/from-edn options))
         qjc (QJC/from-edn configuration)]
     (if jobId
-      (.query bigquery qjc (JobId/from-edn jobId) opts)
-      (.query bigquery qjc opts))))
+      (TableResult/to-edn (.query bigquery qjc (JobId/from-edn jobId) opts))
+      (TableResult/to-edn (.query bigquery qjc opts)))))
 
-;;TODO
-;getQueryResults(JobId jobId, BigQuery.QueryResultsOption[] options)
-;(defn dry-run [])
-;(defn copy-table [])
-
+#! TODO
+;; (defn insert-rows [])
+;; (defn list-rows [])
+;; (defn load-table [])
+;listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
+;listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
+;listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
+;listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
+;setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
+;testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
+; (defonce ^:dynamic *session-id* nil)
+; (ConnectionProperty/of "session_id" *session-id*)
+;; (defn dry-run [])
 ;; TODO offer resource string arg ie /$project/$dataset/$table?
-;; TODO what is behavior when table is unspecified?
 
+
+;; (Table, format, destUrl & JobOptions...) -> Job
+;; (Table, format, (destUrl ..) & JobOptions...) -> Job
+(defn extract-table
+  ([table format dst & opts]
+   (let [configuration {:destination []}]
+     (create-job {:jobInfo {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
+                  :options opts}))))
+
+
+;;TODO split to clone-table-configuration so can allow opts?
 (defn clone-table
   ([source destination]
    (let [source-tables (if (g/valid? [:sequential :bigquery/TableId] source)

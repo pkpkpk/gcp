@@ -17,8 +17,7 @@
            defaultDataset destinationTable dryRun encryptionConfiguration flattenResults jobTimeoutMs
            labels maxResults maximumBillingTier maximumBytesBilled priority query queryParameters
            rangePartitioning schemaUpdateOptions tableDefinitions timePartitioning useLegacySql useQueryCache
-           userDefinedFunctions writeDisposition]
-    :as arg}]
+           userDefinedFunctions writeDisposition] :as arg}]
   (global/strict! :bigquery/QueryJobConfiguration arg)
   (let [builder (QueryJobConfiguration/newBuilder query)]
     (when defaultDataset
@@ -64,4 +63,94 @@
     (some->> userDefinedFunctions (map UserDefinedFunction/from-edn) (.setUserDefinedFunctions builder))
     (.build builder)))
 
-(defn to-edn [^QueryJobConfiguration arg] (throw (Exception. "unimplemented")))
+(defn to-edn [^QueryJobConfiguration arg]
+  {:post [(global/strict! :bigquery/QueryJobConfiguration %)]}
+  (cond-> {:type  (.name (.getType arg))
+           :query (.getQuery arg)}
+
+          (some? (.getDefaultDataset arg))
+          (assoc :defaultDataset (DatasetId/to-edn (.getDefaultDataset arg)))
+
+          (some? (.allowLargeResults arg))
+          (assoc :allowLargeResults (.allowLargeResults arg))
+
+          (some? (.getClustering arg))
+          (assoc :clustering (Clustering/to-edn (.getClustering arg)))
+
+          (seq (.getConnectionProperties arg))
+          (assoc :connectionProperties (mapv ConnectionProperty/to-edn (.getConnectionProperties arg)))
+
+          (some? (.getCreateDisposition arg))
+          (assoc :createDisposition (str (.getCreateDisposition arg)))
+
+          (some? (.createSession arg))
+          (assoc :createSession (.createSession arg))
+
+          (some? (.dryRun arg))
+          (assoc :dryRun (.dryRun arg))
+
+          (some? (.flattenResults arg))
+          (assoc :flattenResults (.flattenResults arg))
+
+          (some? (.getDestinationTable arg))
+          (assoc :destinationTable (TableId/to-edn (.getDestinationTable arg)))
+
+          (some? (.getDestinationEncryptionConfiguration arg))
+          (assoc :encryptionConfiguration (EncryptionConfiguration/to-edn (.getDestinationEncryptionConfiguration arg)))
+
+          (some? (.getJobTimeoutMs arg))
+          (assoc :jobTimeoutMs (.getJobTimeoutMs arg))
+
+          (seq (.getLabels arg))
+          (assoc :labels (into {} (.getLabels arg)))
+
+          (some? (.getMaxResults arg))
+          (assoc :maxResults (.getMaxResults arg))
+
+          (some? (.getMaximumBillingTier arg))
+          (assoc :maximumBillingTier (.getMaximumBillingTier arg))
+
+          (some? (.getMaximumBytesBilled arg))
+          (assoc :maximumBytesBilled (.getMaximumBytesBilled arg))
+
+          (some? (.getPriority arg))
+          (assoc :priority (str (.getPriority arg)))
+
+          (some? (.getNamedParameters arg))
+          (assoc :queryParameters
+                 (into {}
+                       (map (fn [[k v]]
+                              [(keyword k) (QueryParameterValue/to-edn v)]))
+                       (.getNamedParameters arg)))
+
+          (some? (.getPositionalParameters arg))
+          (assoc :queryParameters (mapv QueryParameterValue/to-edn (.getPositionalParameters arg)))
+
+          (some? (.getRangePartitioning arg))
+          (assoc :rangePartitioning (RangePartitioning/to-edn (.getRangePartitioning arg)))
+
+          (seq (.getSchemaUpdateOptions arg))
+          (assoc :schemaUpdateOptions (mapv #(str %) (.getSchemaUpdateOptions arg)))
+
+          (seq (.getTableDefinitions arg))
+          (assoc :tableDefinitions
+                 (into {}
+                       (map (fn [[k v]]
+                              [k (ExternalTableDefinition/to-edn v)]))
+                       (.getTableDefinitions arg)))
+
+          (some? (.getTimePartitioning arg))
+          (assoc :timePartitioning (TimePartitioning/to-edn (.getTimePartitioning arg)))
+
+          (some? (.useLegacySql arg))
+          (assoc :useLegacySql (.useLegacySql arg))
+
+          (some? (.useQueryCache arg))
+          (assoc :useQueryCache (.useQueryCache arg))
+
+          (seq (.getUserDefinedFunctions arg))
+          (assoc :userDefinedFunctions (mapv UserDefinedFunction/to-edn (.getUserDefinedFunctions arg)))
+
+          (some? (.getWriteDisposition arg))
+          (assoc :writeDisposition (str (.getWriteDisposition arg)))))
+

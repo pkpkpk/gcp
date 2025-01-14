@@ -10,3 +10,6 @@
       (if (not= 1 (count arg))
         (throw (Exception. "expected singleton map kv entry"))
         (recur (first arg))))))
+
+(defn to-edn [^ConnectionProperty arg]
+  {(.getKey arg) (.getValue arg)})

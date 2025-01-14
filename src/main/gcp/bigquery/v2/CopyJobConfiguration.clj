@@ -38,7 +38,8 @@
 
 (defn to-edn [^CopyJobConfiguration arg]
   {:post [(global/strict! :bigquery/CopyJobConfiguration %)]}
-  (cond-> {:destinationTable (TableId/to-edn (.getDestinationTable arg))
+  (cond-> {:type "COPY"
+           :destinationTable (TableId/to-edn (.getDestinationTable arg))
            :sourceTables    (mapv TableId/to-edn (.getSourceTables arg))}
           (some? (.getCreateDisposition arg))
           (assoc :createDisposition (.name (.getCreateDisposition arg)))
