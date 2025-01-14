@@ -217,17 +217,16 @@
                                            [:primaryKey {:optional true} :bigquery/PrimaryKey]
                                            [:foreignKeys {:optional true} [:sequential {:min 1} :bigquery/ForeignKey]]]
 
-   :bigquery/CloneDefinition [:map {:doc "read only"}
-                              [:baseTableId :bigquery/TableId]
-                              [:dateTime :string]]
+   :bigquery/CloneDefinition              [:map {:doc "read only"}
+                                           [:baseTableId :bigquery/TableId]
+                                           [:dateTime :string]]
 
-   :bigquery/TableInfo                    [:map
+   :bigquery/TableInfo                    [:map {:url "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.TableInfo"}
                                            [:tableId :bigquery/TableId]
-                                           ;; Because `definition` and `cloneDefinition` are mutually exclusive
-                                           ;; in your `from-edn`, you can mark them both optional:
+                                           [:etag {:optional true} :string]
+                                           [:generatedId {:optional true} :string]
                                            [:definition {:optional true} :bigquery/TableDefinition]
                                            [:cloneDefinition {:optional true} :bigquery/CloneDefinition]
-                                           ;; Optional fields:
                                            [:defaultCollation {:optional true} :string]
                                            [:description {:optional true} :string]
                                            [:encryptionConfiguration {:optional true} :bigquery/EncryptionConfiguration]
@@ -236,24 +235,40 @@
                                            [:labels {:optional true} :gcp.synth/labels]
                                            [:requirePartitionFilter {:optional true} :boolean]
                                            [:resourceTags {:optional true} :gcp.synth/resourceTags]
-                                           [:tableConstraints {:optional true} :bigquery/TableConstraints]]
+                                           [:tableConstraints {:optional true} :bigquery/TableConstraints]
+                                           [:creationTime {:optional true} :int]
+                                           [:lastModifiedTime {:optional true} :int]
+                                           [:numActiveLogicalBytes {:optional true} :int]
+                                           [:numActivePhysicalBytes {:optional true} :int]
+                                           [:numBytes {:optional true} :int]
+                                           [:numLongTermBytes {:optional true} :int]
+                                           [:numLongTermLogicalBytes {:optional true} :int]
+                                           [:numLongTermPhysicalBytes {:optional true} :int]
+                                           [:numRows {:optional true} :int]
+                                           [:numTimeTravelPhysicalBytes {:optional true} :int]
+                                           [:numTotalLogicalBytes {:optional true} :int]
+                                           [:numTotalPhysicalBytes {:optional true} :int]]
 
-   :bigquery/Table                        [:and
-                                           :bigquery/TableInfo
-                                           [:map
-                                            [:bigquery :bigquery.synth/clientable]
-                                            [:generatedId {:optional true} :string]
-                                            [:etag {:optional true} :string]]]
+   :bigquery/Table                        [:and :bigquery/TableInfo [:map [:bigquery :bigquery.synth/clientable]]]
 
    :bigquery.synth/TableGet               [:map
                                            [:bigquery {:optional true} :bigquery.synth/clientable]
                                            [:tableId :bigquery/TableId]
-                                           [:options {:optional true} [:sequential :bigquery.BigQuery/DatasetOption]]]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/TableOption]]]
 
    :bigquery.synth/TableCreate            [:map
                                            [:bigquery {:optional true} :bigquery.synth/clientable]
                                            [:tableInfo :bigquery/TableInfo]
-                                           [:options {:optional true} [:sequential :bigquery.BigQuery/DatasetOption]]]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/TableOption]]]
+
+   :bigquery.synth/TableDelete            [:map {:closed true}
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
+                                           [:tableId :bigquery/TableId]]
+
+   :bigquery.synth/TableUpdate            [:map
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
+                                           [:tableInfo :bigquery/TableInfo]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/TableOption]]]
 
    ;;--------------------------------------------------------------------------
    ;; Jobs
@@ -275,10 +290,65 @@
 
    :bigquery/JobId                        [:map
                                            [:job {:optional true} :string]
+                                           [:location {:optional true} :bigquery.synth/location]
                                            [:project {:optional true} :bigquery.synth/project]]
+
+   :bigquery/JobStatistics                [:map
+                                           [:creationTime {:optional true} :int] ; Typically a timestamp in ms
+                                           [:endTime {:optional true} :int] ; Also a timestamp in ms
+                                           [:numChildJobs {:optional true} :int]
+                                           [:parentJobId {:optional true} :string]
+                                           [:reservationUsage
+                                            {:optional true
+                                             :doc      "ReservationUsage contains information about a job's usage of a single reservation."}
+                                            [:map
+                                             [:name :string]
+                                             [:slotMs :int]]]
+                                           [:scriptStatistics {:optional true}
+                                            [:map {:closed true}
+                                             [:evaluationKind {:doc "child job was statement or expression"} :string]
+                                             [:stackFrames {:doc "Stack trace showing the line/column/procedure name of each frame on the stack at the point where the current evaluation happened. The leaf frame is first, the primary script is last. Never empty."}
+                                              [:sequential
+                                               [:map {:closed true}
+                                                [:endColumn :int]
+                                                [:endLine :int]
+                                                [:procedureId :string]
+                                                [:startColumn :int]
+                                                [:startLine :int]
+                                                [:text :string]]]]]]
+                                           [:sessionInfo {:optional true
+                                                          :doc      "SessionInfo contains information about the session if this job is part of one."}
+                                            [:map {:closed true} [:sessionId :string]]]
+                                           [:startTime {:optional true} :int] ; Timestamp in ms
+                                           [:totalSlotMs {:optional true} :int]
+                                           [:transactionInfo
+                                            {:optional true
+                                             :doc      "TransactionInfo contains information about a multi-statement transaction that may have associated with a job."}
+                                            [:map {:closed true} [:transactionId :string]]]]
+
+   :bigquery/BigQueryError                [:map
+                                           [:debugInfo :string]
+                                           [:location :bigquery.synth/location]
+                                           [:message :string]
+                                           [:reason {:doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
+
+   :bigquery/JobStatus                    [:map {:closed true}
+                                           [:error {:optional true} :bigquery/BigQueryError]
+                                           [:executionErrors {:optional true} [:sequential :bigquery/BigQueryError]]
+                                           [:state [:enum "DONE" "PENDING" "RUNNING"]]]
+
    :bigquery/JobInfo                      [:map
                                            [:jobId {:optional true} :bigquery/JobId]
-                                           [:configuration :bigquery/JobConfiguration]]
+                                           [:configuration :bigquery/JobConfiguration]
+                                           [:statistics {:optional true} :bigquery/JobStatistics]
+                                           [:etag {:optional true} :string]
+                                           [:generatedId {:optional true} :string]
+                                           [:status {:optional true} :bigquery/JobStatus]
+                                           [:userEmail {:optional true} :string]]
+
+   :bigquery/Job                          [:and
+                                           :bigquery/JobInfo
+                                           [:map [:bigquery :bigquery.synth/clientable]]]
 
    :bigquery.JobInfo/CreateDisposition    [:enum "CREATE_IF_NEEDED" "CREATE_NEVER"]
 
@@ -363,6 +433,7 @@
                                            [:configuration :bigquery/QueryJobConfiguration]
                                            [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]
                                            [:jobId {:optional true} :bigquery/JobId]]
+
 
    #!--------------------------------------------------------------------------
 

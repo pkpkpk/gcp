@@ -131,13 +131,14 @@
           opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
       (Table/to-edn (.update (client bigquery) (TableInfo/from-edn tableInfo) opts)))))
 
-(defn delete-table [arg]
-  (if (string? arg)
-    (delete-table {:tableId {:table arg}})
-    (if (g/valid? :bigquery/TableId arg)
-      (delete-table {:tableId arg})
-      (let [{:keys [bigquery tableId]} (g/coerce :bigquery.synth/TableDelete arg)]
-        (.delete (client bigquery) (TableId/from-edn tableId))))))
+(defn delete-table
+  ([arg]
+   (if (g/valid? :bigquery/TableId arg)
+     (delete-table {:tableId arg})
+     (let [{:keys [bigquery tableId]} (g/coerce :bigquery.synth/TableDelete arg)]
+       (.delete (client bigquery) (TableId/from-edn tableId)))))
+  ([dataset table]
+   (delete-table (g/coerce :bigquery/TableId {:dataset dataset :table table}))))
 
 ;listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
 ;listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
@@ -228,7 +229,13 @@
                         :operationType    "CLONE",
                         :writeDisposition "WRITE_EMPTY"}]
      (create-job {:jobInfo {:configuration (g/coerce :bigquery/CopyJobConfiguration configuration)}})))
-  ([sourceDataset sourceTable destinationDataset destinationTable]))
+  ([sourceDataset sourceTable destinationDataset]
+   (let [source (g/coerce :bigquery/TableId {:dataset sourceDataset :table sourceTable})]
+     (clone-table source destinationDataset)))
+  ([sourceDataset sourceTable destinationDataset destinationTable]
+   (let [source (g/coerce :bigquery/TableId {:dataset sourceDataset :table sourceTable})
+         destination (g/coerce :bigquery/TableId {:dataset destinationDataset :table destinationTable})]
+     (clone-table source destination))))
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines

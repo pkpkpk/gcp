@@ -10,3 +10,11 @@
       (JobId/of project jobId)
       (JobId/of jobId))
     (JobId/of)))
+
+(defn to-edn [^JobId arg]
+  {:post [(global/strict! :bigquery/JobId %)]}
+  (cond->
+    {:job     (.getJob arg)
+     :project (.getProject arg)}
+    (some? (.getLocation arg))
+    (assoc :location (.getLocation arg))))

@@ -1,8 +1,10 @@
 (ns gcp.bigquery.v2.JobInfo
-  (:require [gcp.global :as global]
-            [gcp.bigquery.v2.JobConfiguration :as JobConfiguration]
-            [gcp.bigquery.v2.JobId :as JobId])
-  (:import [com.google.cloud.bigquery JobInfo JobInfo$Builder]))
+  (:require [gcp.bigquery.v2.JobConfiguration :as JobConfiguration]
+            [gcp.bigquery.v2.JobId :as JobId]
+            [gcp.bigquery.v2.JobStatistics :as JobStatistics]
+            [gcp.bigquery.v2.JobStatus :as JobStatus]
+            [gcp.global :as global])
+  (:import [com.google.cloud.bigquery JobInfo]))
 
 (defn ^JobInfo from-edn
   [{:keys [configuration jobId] :as arg}]
@@ -14,5 +16,10 @@
 
 (defn to-edn [^JobInfo arg]
   {:post [(global/strict! :bigquery/JobInfo %)]}
-  {:jobId (.getJobId arg)
-   :configuration (JobConfiguration/to-edn (.getConfiguration arg))})
+  {:configuration (JobConfiguration/to-edn (.getConfiguration arg))
+   :statistics    (JobStatistics/to-edn (.getStatistics arg))
+   :etag          (.getEtag arg)
+   :generatedId   (.getGeneratedId arg)
+   :jobId         (JobId/to-edn (.getJobId arg))
+   :status        (JobStatus/to-edn (.getStatus arg))
+   :userEmail     (.getUserEmail arg)})

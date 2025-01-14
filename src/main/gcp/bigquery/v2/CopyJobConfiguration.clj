@@ -1,6 +1,8 @@
 (ns gcp.bigquery.v2.CopyJobConfiguration
-  (:require [gcp.global :as global]
-            [gcp.bigquery.v2.TableId :as TableId])
+  (:require
+            [gcp.bigquery.v2.EncryptionConfiguration :as EncryptionConfiguration]
+            [gcp.bigquery.v2.TableId :as TableId]
+            [gcp.global :as global])
   (:import [com.google.cloud.bigquery CopyJobConfiguration JobInfo$CreateDisposition JobInfo$WriteDisposition]
            (java.util List)))
 
@@ -34,4 +36,28 @@
       (.setOperationType builder operationType))
     (.build builder)))
 
-(defn to-edn [^CopyJobConfiguration arg] (throw (Exception. "unimplemented")))
+(defn to-edn [^CopyJobConfiguration arg]
+  {:post [(global/strict! :bigquery/CopyJobConfiguration %)]}
+  (cond-> {:destinationTable (TableId/to-edn (.getDestinationTable arg))
+           :sourceTables    (mapv TableId/to-edn (.getSourceTables arg))}
+          (some? (.getCreateDisposition arg))
+          (assoc :createDisposition (.name (.getCreateDisposition arg)))
+
+          (some? (.getWriteDisposition arg))
+          (assoc :writeDisposition (.name (.getWriteDisposition arg)))
+
+          (some? (.getDestinationEncryptionConfiguration arg))
+          (assoc :encryptionConfiguration (EncryptionConfiguration/to-edn (.getDestinationEncryptionConfiguration arg)))
+
+          (some? (.getDestinationExpirationTime arg))
+          (assoc :destinationExpiration (.getDestinationExpirationTime arg))
+
+          (some? (.getJobTimeoutMs arg))
+          (assoc :jobTimeoutMs (.getJobTimeoutMs arg))
+
+          (seq (.getLabels arg))
+          (assoc :labels (into {} (.getLabels arg)))
+
+          (some? (.getOperationType arg))
+          (assoc :operationType (.getOperationType arg))))
+
