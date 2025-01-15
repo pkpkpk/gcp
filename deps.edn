@@ -1,12 +1,13 @@
 {:paths   ["src/main"]
  :deps    {org.clojure/clojure {:mvn/version "1.12.0"}
-           com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
-           com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
            com.google.cloud/google-cloud-bigquery        {:mvn/version "2.45.0"}
            com.google.cloud/google-cloud-discoveryengine {:mvn/version "0.51.0"}
+           com.google.cloud/google-cloud-storage         {:mvn/version "2.46.0"}
            com.google.cloud/google-cloud-vertexai        {:mvn/version "1.15.0"}
            io.github.frenchy64/fully-satisfies           {:mvn/version "1.12.0"}
            metosin/jsonista                              {:mvn/version "0.3.13"}
            metosin/malli                                 {:mvn/version "0.17.0"}}
  :aliases {:dev {:extra-paths ["src/dev" "src/examples"]
-                 :extra-deps  {integrant/integrant {:mvn/version "0.13.1"}}}}}
+                 :extra-deps  {integrant/integrant {:mvn/version "0.13.1"}
+                               com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
+                               com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}}}}}

@@ -185,29 +185,51 @@
       (TableResult/to-edn (.query bigquery qjc opts)))))
 
 #! TODO
-;; (defn insert-rows [])
-;; (defn list-rows [])
-;; (defn load-table [])
-;listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
-;listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
-;listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
-;listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
-;setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
-;testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
+; (defn insert-rows [])
+; (defn list-rows [])
+; (defn load-table [])
+; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
+; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
+; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
+; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
+; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
+; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
 ; (defonce ^:dynamic *session-id* nil)
 ; (ConnectionProperty/of "session_id" *session-id*)
-;; (defn dry-run [])
-;; TODO offer resource string arg ie /$project/$dataset/$table?
+; (defn dry-run [])
+; TODO offer resource string arg ie /$project/$dataset/$table?
 
 
-;; (Table, format, destUrl & JobOptions...) -> Job
-;; (Table, format, (destUrl ..) & JobOptions...) -> Job
-(defn extract-table
-  ([table format dst & opts]
-   (let [configuration {:destination []}]
-     (create-job {:jobInfo {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
+(defn
+  ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
+           "https://cloud.google.com/bigquery/docs/reference/standard-sql/export-statements"
+           "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExtractJobConfiguration"]}
+  extract-table
+  ([table format compression dst & opts]
+   (let [table (if (g/valid? :bigquery/TableId table)
+                 table
+                 (if (g/valid? :bigquery/TableInfo table)
+                   (get table :tableId)
+                   (throw (ex-info "must provide valid tableId" {:table table
+                                                                 :format format
+                                                                 :dst dst
+                                                                 :opts opts}))))
+         dst (if (string? dst)
+               [dst]
+               (if (g/valid? [:sequential :string] dst)
+                 dst
+                 (throw (ex-info "destination should be string uris" {:table table
+                                                                      :format format
+                                                                      :dst dst
+                                                                      :opts opts}))))
+         configuration {:type "EXTRACT"
+                        :tableId (g/coerce :bigquery/TableId table)
+                        :format format
+                        :compression compression
+                        :destination dst}]
+     (create-job {:bigquery (:bigquery table) ;; if Table, use same client
+                  :jobInfo {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
                   :options opts}))))
-
 
 ;;TODO split to clone-table-configuration so can allow opts?
 (defn clone-table

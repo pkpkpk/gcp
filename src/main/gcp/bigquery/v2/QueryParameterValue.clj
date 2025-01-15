@@ -1,5 +1,6 @@
 (ns gcp.bigquery.v2.QueryParameterValue
-  (:require [gcp.global :as global])
+  (:require [gcp.global :as global]
+            [jsonista.core :as j])
   (:import (com.google.cloud.bigquery QueryParameterValue StandardSQLTypeName)
            (com.google.gson JsonObject)
            (java.time LocalDate LocalDateTime)))
@@ -27,65 +28,32 @@
                         StandardSQLTypeName/ARRAY)
     :else (throw (IllegalArgumentException. (str "Unknown type for value: " arg)))))
 
-(defn to-edn
-  "Converts a QueryParameterValue instance back into a Clojure data structure.
-   It attempts to parse arrays, structs, and common scalar types (e.g. BOOL, INT64, FLOAT64, etc.).
-   For less common types (like INTERVAL, JSON, GEOGRAPHY), it returns a raw string or uses a placeholder."
-  [^QueryParameterValue arg]
-  (global/strict! :bigquery/QueryParameterValue arg)
-  (let [sql-type   (.getType arg)       ;; StandardSQLTypeName
-        raw-value  (.getValue arg)      ;; String representation
-        arr-values (.getArrayValues arg) ;; List<QueryParameterValue> if it's an array
-        st-types   (.getStructTypes arg) ;; List<Field> if it's a struct
-        st-values  (.getStructValues arg)] ;; Map<String, QueryParameterValue> if it's a struct
-    (cond
-      ;; ARRAY
-      (some? arr-values)
-      (mapv to-edn arr-values)
+(defn to-edn [^QueryParameterValue arg]
+  {:post [(global/strict! :bigquery/QueryParameterValue %)]}
+  (cond
+    (some? (.getArrayValues arg)) ;; List<QueryParameterValue>
+    (mapv to-edn (.getArrayValues arg))
 
-      ;; STRUCT
-      (and (some? st-types) (some? st-values))
-      (into {}
-            (map (fn [field]
-                   (let [field-name (.getName field)
-                         field-val  (.get st-values field-name)]
-                     [(keyword field-name) (to-edn field-val)]))
-                 st-types))
-
-      ;; Otherwise, parse or return the raw string depending on the SQL type
-      :else
-      (case sql-type
-        ;; Booleans ("TRUE"/"FALSE")
-        com.google.cloud.bigquery.StandardSQLTypeName/BOOL
-        (Boolean/valueOf raw-value)
-
-        ;; 64-bit integers
-        com.google.cloud.bigquery.StandardSQLTypeName/INT64
-        (Long/valueOf raw-value)
-
-        ;; 64-bit float/double
-        com.google.cloud.bigquery.StandardSQLTypeName/FLOAT64
-        (Double/valueOf raw-value)
-
-        ;; DECIMAL/NUMERIC/BIGNUMERIC → BigDecimal
-        com.google.cloud.bigquery.StandardSQLTypeName/NUMERIC
-        (bigdec raw-value)
-
-        com.google.cloud.bigquery.StandardSQLTypeName/BIGNUMERIC
-        (bigdec raw-value)
-
-        ;; DATE, DATETIME, TIME, TIMESTAMP, etc.
-        ;; You could parse them into java.time.* if you like.
-        ;; Here we just return the raw string.
-        com.google.cloud.bigquery.StandardSQLTypeName/DATE raw-value
-        com.google.cloud.bigquery.StandardSQLTypeName/DATETIME raw-value
-        com.google.cloud.bigquery.StandardSQLTypeName/TIME raw-value
-        com.google.cloud.bigquery.StandardSQLTypeName/TIMESTAMP raw-value
-
-        ;; GEOGRAPHY, INTERVAL, JSON => we just return the raw string
-        com.google.cloud.bigquery.StandardSQLTypeName/GEOGRAPHY raw-value
-        com.google.cloud.bigquery.StandardSQLTypeName/INTERVAL raw-value
-        com.google.cloud.bigquery.StandardSQLTypeName/JSON raw-value
-
-        ;; Default case: return the raw string if we don't have a more specific parse
+    (some? (.getStructTypes arg))
+    (into {}                                                ; Map<String, QueryParameterValue>
+          (map (fn [field]
+                 (let [field-name (.getName field)
+                       field-val  (.get (.getStructValues arg) field-name)]
+                   [(keyword field-name) (to-edn field-val)]))
+               (.getStructTypes arg)))
+    :else
+    (let [raw-value (.getValue arg)]
+      (case (.getType arg)
+        StandardSQLTypeName/BOOL (Boolean/valueOf raw-value)
+        StandardSQLTypeName/INT64 (Long/valueOf raw-value)
+        StandardSQLTypeName/FLOAT64 (Double/valueOf raw-value)
+        StandardSQLTypeName/NUMERIC (bigdec raw-value)
+        StandardSQLTypeName/BIGNUMERIC (bigdec raw-value)
+        StandardSQLTypeName/DATE (java.time.LocalDate/parse raw-value)
+        StandardSQLTypeName/DATETIME (java.time.LocalDateTime/parse raw-value)
+        StandardSQLTypeName/TIME (java.time.LocalTime/parse raw-value)
+        StandardSQLTypeName/TIMESTAMP (java.time.Instant/parse raw-value)
+        StandardSQLTypeName/GEOGRAPHY {:geography raw-value} ;; these two serialize like this (see from-edn above)
+        StandardSQLTypeName/INTERVAL {:interval raw-value}   ;; otherwise is just string
+        StandardSQLTypeName/JSON (j/read-value raw-value j/keyword-keys-object-mapper)
         raw-value))))

@@ -14,6 +14,9 @@
    :bigquery.synth/project                :string
    :bigquery.synth/dataset                :string
    :bigquery.synth/table                  :string
+   :bigquery.synth/uri                    :string ;; export supports single wildcard
+   :bigquery.synth/compression            [:enum "GZIP" "DEFLATE" "SNAPPY"]
+   :bigquery.synth/format                 [:enum "AVRO" "CSV" "JSON" "PARQUET"]
 
    ;;-------------------------------
    ;; Client
@@ -394,9 +397,9 @@
                                             {:doc "Sets the list of fully-qualified Google Cloud Storage URIs (e.g. gs://bucket/path) where the extracted table should be written."
                                              :min 1}
                                             [:sequential string?]]
-                                           [:compression {:optional true} string?]
+                                           [:compression {:optional true} :bigquery.synth/compression]
                                            [:fieldDelimiter {:optional true} string?]
-                                           [:format {:optional true} string?]
+                                           [:format {:optional true} :bigquery.synth/format]
                                            [:jobTimeoutMs {:optional true} :int]
                                            [:labels {:optional true} :gcp.synth/labels]
                                            [:printHeader {:optional true} boolean?]
