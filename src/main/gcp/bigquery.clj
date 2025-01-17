@@ -175,14 +175,18 @@
     (.cancel (client bigquery) ^String jobId)
     (.cancel (client bigquery) (JobId/from-edn jobId))))
 
-(defn query
-  [{:keys [bigquery configuration options jobId] :as arg}]
-  (g/strict! :bigquery.synth/Query arg)
-  (let [opts (into-array BigQuery$JobOption (map JO/from-edn options))
-        qjc (QJC/from-edn configuration)]
-    (if jobId
-      (TableResult/to-edn (.query bigquery qjc (JobId/from-edn jobId) opts))
-      (TableResult/to-edn (.query bigquery qjc opts)))))
+(defn query [arg]
+  (if (string? arg)
+    (query {:configuration {:type "QUERY" :query arg}})
+    (if (contains? arg :query)
+      (query {:configuration (assoc arg :type "QUERY")})
+      (let [{:keys [bigquery configuration options jobId]} (g/coerce :bigquery.synth/Query arg)
+            opts (into-array BigQuery$JobOption (map JO/from-edn options))
+            qjc  (QJC/from-edn configuration)
+            res  (if jobId
+                   (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
+                   (.query (client bigquery) qjc opts))]
+        (TableResult/to-edn res)))))
 
 #! TODO
 ; (defn insert-rows [])
@@ -198,7 +202,6 @@
 ; (ConnectionProperty/of "session_id" *session-id*)
 ; (defn dry-run [])
 ; TODO offer resource string arg ie /$project/$dataset/$table?
-
 
 (defn
   ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
@@ -223,13 +226,13 @@
                                                                       :dst dst
                                                                       :opts opts}))))
          configuration {:type "EXTRACT"
-                        :tableId (g/coerce :bigquery/TableId table)
+                        :sourceTable (g/coerce :bigquery/TableId table)
                         :format format
                         :compression compression
-                        :destination dst}]
+                        :destinationUris dst}]
      (create-job {:bigquery (:bigquery table) ;; if Table, use same client
-                  :jobInfo {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
-                  :options opts}))))
+                  :jobInfo  {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
+                  :options  (not-empty opts)}))))
 
 ;;TODO split to clone-table-configuration so can allow opts?
 (defn clone-table

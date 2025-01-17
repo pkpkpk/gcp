@@ -330,9 +330,9 @@
                                             [:map {:closed true} [:transactionId :string]]]]
 
    :bigquery/BigQueryError                [:map
-                                           [:debugInfo {:optional true}  :string]
-                                           [:location {:optional true}  :bigquery.synth/location]
-                                           [:message {:optional true}  :string]
+                                           [:debugInfo {:optional true} :string]
+                                           [:location {:optional true} :bigquery.synth/location]
+                                           [:message {:optional true} :string]
                                            [:reason {:doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
 
    :bigquery/JobStatus                    [:map {:closed true}
@@ -405,8 +405,10 @@
                                            [:printHeader {:optional true} boolean?]
                                            [:useAvroLogicalTypes {:optional true} boolean?]]
 
-   :bigquery/LoadJobConfiguration         [:map {:closed true}
-                                           [:type [:= "LOAD"]]]
+   :bigquery/LoadJobConfiguration         [:map {:closed true
+                                                 :class  'com.google.cloud.bigquery.LoadJobConfiguration}
+                                           [:type [:= "LOAD"]]
+                                           ]
 
    :bigquery/QueryJobConfiguration        [:map
                                            {:closed true
@@ -446,16 +448,15 @@
                                            {:doc "create a job described in :jobInfo"}
                                            [:bigquery {:optional true} :bigquery.synth/clientable]
                                            [:jobInfo :bigquery/JobInfo]
-                                           [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]]
+                                           [:options {:optional true} [:maybe [:sequential :bigquery.BigQuery/JobOption]]]]
 
    :bigquery.synth/JobList                [:maybe
                                            [:map
                                             [:bigquery {:optional true} :bigquery.synth/clientable]
                                             [:options {:optional true} [:sequential :bigquery.BigQuery/JobListOption]]]]
 
-   :bigquery.synth/Query                  [:map
-                                           {:doc "execute a QueryJobConfiguration"}
-                                           [:bigquery :bigquery.synth/clientable]
+   :bigquery.synth/Query                  [:map {:doc "execute a QueryJobConfiguration"}
+                                           [:bigquery  {:optional true} :bigquery.synth/clientable]
                                            [:configuration :bigquery/QueryJobConfiguration]
                                            [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]
                                            [:jobId {:optional true} :bigquery/JobId]]
