@@ -59,6 +59,11 @@
                                                                                       [:bucket :string]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BlobListOption]]]
 
+   :storage.synth/BlobDelete                                                         [:map
+                                                                                      [:storage {:optional true} :storage.synth/clientable]
+                                                                                      [:blobs [:sequential :storage/BlobId]]
+                                                                                      [:options {:optional true} [:sequential :storage/Storage.BlobSourceOption]]]
+
    #!--------------------------------------------------------------------------
    #! Storage Option classes given to IO ops
 

@@ -16,5 +16,5 @@
 (defn ^Table from-edn [arg] (throw (Exception. "unimplemented")))
 
 (defn to-edn [^Table arg]
-  {:post [(global/strict! :bigquery/Table %)]}
-  (assoc (TableInfo/to-edn arg) :bigquery (.getBigQuery arg)))
+  (when arg
+    (assoc (TableInfo/to-edn arg) :bigquery (.getBigQuery arg))))

@@ -247,7 +247,7 @@
                                            [:numLongTermBytes {:optional true} :int]
                                            [:numLongTermLogicalBytes {:optional true} :int]
                                            [:numLongTermPhysicalBytes {:optional true} :int]
-                                           [:numRows {:optional true} :int]
+                                           [:numRows {:optional true} [:fn #(instance? BigInteger %)]]
                                            [:numTimeTravelPhysicalBytes {:optional true} :int]
                                            [:numTotalLogicalBytes {:optional true} :int]
                                            [:numTotalPhysicalBytes {:optional true} :int]]

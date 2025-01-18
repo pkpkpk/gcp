@@ -35,7 +35,6 @@
            type] :as arg}]
   (global/strict! :bigquery/StandardTableDefinition arg)
   (let [builder (StandardTableDefinition/newBuilder)]
-    (some->> type (.setType builder))
     (when bigLakeConfiguration
       (.setBigLakeConfiguration builder (BigLakeConfiguration/from-edn bigLakeConfiguration)))
     (when clustering

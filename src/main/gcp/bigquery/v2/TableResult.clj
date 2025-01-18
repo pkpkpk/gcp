@@ -46,4 +46,6 @@
           row-parser (fn [row]
                        (into {} (map parse-row columns row)))]
       (mapv row-parser (.iterateAll res)))
-    res))
+    (if (zero? (.getTotalRows res))
+      []
+      res)))

@@ -21,7 +21,7 @@
            cloneDefinition] :as arg}]
   (global/strict! :bigquery/TableInfo arg)
   (let [table-def (cond
-                    definition      (throw (Exception. "unimplemented: build table definition from EDN"))
+                    definition      (TableDefinition/from-edn definition)
                     cloneDefinition (throw (Exception. "unimplemented: build clone definition from EDN"))
                     :else           nil)
         builder   (TableInfo/newBuilder (TableId/from-edn tableId) table-def)]
@@ -45,7 +45,8 @@
     (.build builder)))
 
 (defn to-edn [^TableInfo arg]
-  {:post [(global/strict! :bigquery/TableInfo %)]}
+  {:pre [(some? arg)]
+   :post [(global/strict! :bigquery/TableInfo %)]}
   (cond-> {:tableId (TableId/to-edn (.getTableId arg))}
 
           (some? (.getCreationTime arg))

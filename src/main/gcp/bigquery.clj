@@ -189,21 +189,6 @@
                    (.query (client bigquery) qjc opts))]
         (TableResult/to-edn res)))))
 
-#! TODO
-; (defn insert-rows [])
-; (defn list-rows [])
-; (defn load-table [])
-; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
-; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
-; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
-; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
-; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
-; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
-; (defonce ^:dynamic *session-id* nil)
-; (ConnectionProperty/of "session_id" *session-id*)
-; (defn dry-run [])
-; TODO offer resource string arg ie /$project/$dataset/$table?
-
 (defn
   ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
            "https://cloud.google.com/bigquery/docs/reference/standard-sql/export-statements"
@@ -274,6 +259,22 @@
    (let [source (g/coerce :bigquery/TableId {:dataset sourceDataset :table sourceTable})
          destination (g/coerce :bigquery/TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
+
+
+#! TODO
+; (defn insert-rows [])
+; (defn list-rows [])
+; (defn load-table [])
+; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
+; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
+; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
+; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
+; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
+; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
+; (defonce ^:dynamic *session-id* nil)
+; (ConnectionProperty/of "session_id" *session-id*)
+; (defn dry-run [])
+; TODO offer resource string arg ie /$project/$dataset/$table?
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines

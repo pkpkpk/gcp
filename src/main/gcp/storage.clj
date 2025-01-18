@@ -2,6 +2,7 @@
   (:require [gcp.global :as g]
             gcp.storage.v2
             [gcp.storage.v2.Blob :as Blob]
+            [gcp.storage.v2.BlobId :as BlobId]
             [gcp.storage.v2.Bucket :as Bucket]
             [gcp.storage.v2.Storage.BlobListOption  :as BlobLO]
             [gcp.storage.v2.Storage.BucketGetOption :as BucketGetOption]
@@ -58,6 +59,18 @@
             opts (into-array Storage$BlobListOption (map BlobLO/from-edn options))]
         (map Blob/to-edn (seq (.iterateAll (.list (client storage) bucket ^Storage$BlobListOption/1 opts))))))))
 
+(defn delete-blob
+  "blobId|seq<BlobId>|storage.synth.BlobDelete -> seq<bool>"
+  ([arg]
+   (if (g/valid? :storage/BlobId arg)
+     (delete-blob {:blobs [arg]})
+     (if (g/valid? [:sequential :storage/BlobId] arg)
+       (delete-blob {:blobs arg})
+       (let [{:keys [storage blobs]} (g/coerce :storage.synth/BlobDelete arg)]
+         (.delete (client storage) ^Iterable (map BlobId/from-edn blobs))))))
+  ([blobId & options]
+   (throw (Exception. "unimplemented"))))
+
 ;batch()
 ;blobWriteSession(BlobInfo blobInfo, Storage.BlobWriteOption[] options)
 ;close()
@@ -67,10 +80,7 @@
 ;create(BlobInfo blobInfo, byte[] content, int offset, int length, Storage.BlobTargetOption[] options)
 ;create(BlobInfo blobInfo, Storage.BlobTargetOption[] options)
 ;create(BlobInfo blobInfo, InputStream content, Storage.BlobWriteOption[] options) (deprecated)
-;delete(BlobId blob)
-;delete(BlobId blob, Storage.BlobSourceOption[] options)
-;delete(BlobId[] blobIds)
-;delete(Iterable<BlobId> blobIds)
+
 ;downloadTo(BlobId blob, OutputStream outputStream, Storage.BlobSourceOption[] options)
 ;downloadTo(BlobId blob, Path path, Storage.BlobSourceOption[] options)
 ;get(BlobId blob)
