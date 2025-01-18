@@ -161,13 +161,14 @@
   (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
     (Job/to-edn (.create (client bigquery) (JobInfo/from-edn jobInfo) opts))))
 
-(defn get-job
-  [{:keys [bigquery jobId options] :as arg}]
-  (g/strict! :bigquery.synth/JobGet arg)
-  (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
-    (if (string? jobId)
-      (Job/to-edn (.getJob (client bigquery) ^String jobId opts))
-      (Job/to-edn (.getJob (client bigquery) (JobId/from-edn jobId) opts)))))
+(defn get-job [arg]
+  (if (string? arg)
+    (get-job {:jobId {:job arg}})
+    (if (g/valid? :bigquery/JobId arg)
+      (get-job {:jobId arg})
+      (let [{:keys [bigquery jobId options]} (g/coerce :bigquery.synth/JobGet arg)
+            opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
+        (Job/to-edn (.getJob (client bigquery) (JobId/from-edn jobId) opts))))))
 
 (defn ^boolean cancel-job
   [{:keys [bigquery jobId]}]

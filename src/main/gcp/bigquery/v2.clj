@@ -14,7 +14,7 @@
    :bigquery.synth/project                :string
    :bigquery.synth/dataset                :string
    :bigquery.synth/table                  :string
-   :bigquery.synth/uri                    :string ;; export supports single wildcard
+   :bigquery.synth/uri                    :string           ;; export supports single wildcard
    :bigquery.synth/compression            [:enum "GZIP" "DEFLATE" "SNAPPY"]
    :bigquery.synth/format                 [:enum "AVRO" "CSV" "JSON" "PARQUET"]
 
@@ -291,7 +291,7 @@
                                            [:map [:fields [:sequential :bigquery/JobField]]]
                                            [:map [:options [:sequential :gcp.core/RetryOption]]]]
 
-   :bigquery/JobId                        [:map
+   :bigquery/JobId                        [:map {:closed true}
                                            [:job {:optional true} :string]
                                            [:location {:optional true} :bigquery.synth/location]
                                            [:project {:optional true} :bigquery.synth/project]]
@@ -456,11 +456,15 @@
                                             [:options {:optional true} [:sequential :bigquery.BigQuery/JobListOption]]]]
 
    :bigquery.synth/Query                  [:map {:doc "execute a QueryJobConfiguration"}
-                                           [:bigquery  {:optional true} :bigquery.synth/clientable]
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
                                            [:configuration :bigquery/QueryJobConfiguration]
                                            [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]
                                            [:jobId {:optional true} :bigquery/JobId]]
 
+   :bigquery.synth/JobGet                 [:map
+                                           [:bigquery {:optional true} :bigquery.synth/clientable]
+                                           [:jobId :bigquery/JobId]
+                                           [:options {:optional true} [:sequential :bigquery.BigQuery/JobOption]]]
 
    #!--------------------------------------------------------------------------
 

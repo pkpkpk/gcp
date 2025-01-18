@@ -3,12 +3,12 @@
   (:import (com.google.cloud.bigquery JobId)))
 
 (defn ^JobId from-edn
-  [{:keys [jobId project] :as arg}]
+  [{:keys [job project] :as arg}]
   (global/strict! :bigquery/JobId arg)
-  (if jobId
+  (if job
     (if project
-      (JobId/of project jobId)
-      (JobId/of jobId))
+      (JobId/of project job)
+      (JobId/of job))
     (JobId/of)))
 
 (defn to-edn [^JobId arg]

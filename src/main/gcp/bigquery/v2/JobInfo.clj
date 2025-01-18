@@ -15,13 +15,18 @@
     (.build builder)))
 
 (defn to-edn [^JobInfo arg]
-  {:post [(global/strict! :bigquery/JobInfo %)]}
-  (cond->
-    {:configuration (JobConfiguration/to-edn (.getConfiguration arg))
-     :statistics    (JobStatistics/to-edn (.getStatistics arg))
-     :generatedId   (.getGeneratedId arg)
-     :jobId         (JobId/to-edn (.getJobId arg))
-     :status        (JobStatus/to-edn (.getStatus arg))
-     :userEmail     (.getUserEmail arg)}
-    (some? (.getEtag arg))
-    (assoc :etag (.getEtag arg))))
+  {:pre [(some? arg)]
+   :post [(global/strict! :bigquery/JobInfo %)]}
+  (cond-> {:generatedId (.getGeneratedId arg)
+           :jobId       (JobId/to-edn (.getJobId arg))
+           :status      (JobStatus/to-edn (.getStatus arg))
+           :userEmail   (.getUserEmail arg)}
+
+          (some? (.getStatistics arg))
+          (assoc :statistics  (JobStatistics/to-edn (.getStatistics arg)))
+
+          (some? (.getConfiguration arg))
+          (assoc :configuration (JobConfiguration/to-edn (.getConfiguration arg)))
+
+          (some? (.getEtag arg))
+          (assoc :etag (.getEtag arg))))

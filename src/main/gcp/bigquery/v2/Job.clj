@@ -7,5 +7,5 @@
 (defn ^Job from-edn [arg] (throw (Exception. "unimplemented")))
 
 (defn to-edn [^Job arg]
-  {:post [(global/strict! :bigquery/Job %)]}
-  (assoc (JobInfo/to-edn arg) :bigquery (.getBigQuery arg)))
+  (when arg
+    (assoc (JobInfo/to-edn arg) :bigquery (.getBigQuery arg))))
