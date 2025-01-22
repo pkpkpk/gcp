@@ -41,8 +41,10 @@
 
 (defn to-edn [^Field arg]
   (cond-> {:name (.getName arg)
-           :type (.name (.getType arg))
-           :mode (.name (.getMode arg))}
+           :type (.name (.getType arg))}
+
+          (some? (.getMode arg))
+          (assoc :mode (.name (.getMode arg)))
 
           (.getCollation arg)
           (assoc :collation (.getCollation arg))

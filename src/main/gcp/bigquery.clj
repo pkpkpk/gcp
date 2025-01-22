@@ -211,11 +211,11 @@
                                                                       :format format
                                                                       :dst dst
                                                                       :opts opts}))))
-         configuration {:type "EXTRACT"
-                        :sourceTable (g/coerce :bigquery/TableId table)
-                        :format format
-                        :compression compression
-                        :destinationUris dst}]
+         configuration (cond-> {:type            "EXTRACT"
+                                :sourceTable     (g/coerce :bigquery/TableId table)
+                                :format          format
+                                :destinationUris dst}
+                               compression (assoc :compression compression))]
      (create-job {:bigquery (:bigquery table) ;; if Table, use same client
                   :jobInfo  {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
                   :options  (not-empty opts)}))))
@@ -259,7 +259,6 @@
    (let [source (g/coerce :bigquery/TableId {:dataset sourceDataset :table sourceTable})
          destination (g/coerce :bigquery/TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
-
 
 #! TODO
 ; (defn insert-rows [])

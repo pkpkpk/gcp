@@ -16,7 +16,10 @@
    :bigquery.synth/table                  :string
    :bigquery.synth/uri                    :string           ;; export supports single wildcard
    :bigquery.synth/compression            [:enum "GZIP" "DEFLATE" "SNAPPY"]
-   :bigquery.synth/format                 [:enum "AVRO" "CSV" "JSON" "PARQUET"]
+   :bigquery.synth/format                 [:enum
+                                           {:doc "The default value for tables is CSV. Tables with nested or repeated fields cannot be exported as CSV. The default value for models is ML_TF_SAVED_MODEL."}
+                                           "AVRO" "CSV" "PARQUET" "NEWLINE_DELIMITED_JSON"
+                                           "ML_TF_SAVED_MODEL" "ML_XGBOOST_BOOSTER"]
 
    ;;-------------------------------
    ;; Client
@@ -159,7 +162,7 @@
    :bigquery/ExternalTableDefinition      [:map
                                            [:type [:= "EXTERNAL"]]]
 
-   :bigquery/MaterializedViewDefinition   [:map
+   :bigquery/MaterializedViewDefinition   [:map {:closed true}
                                            [:type [:= "MATERIALIZED_VIEW"]]
                                            [:clustering {:optional true} :bigquery/Clustering]
                                            [:enableRefresh {:optional true} :boolean]
@@ -169,12 +172,12 @@
                                            [:schema {:optional true} :bigquery/Schema]
                                            [:timePartitioning {:optional true} :bigquery/TimePartitioning]]
 
-   :bigquery/ViewDefinition               [:map
+   :bigquery/ViewDefinition               [:map {:closed true}
                                            [:type [:= "VIEW"]]
                                            [:query :string]
                                            [:userDefinedFunctions [:seqable :bigquery/UserDefinedFunction]]]
 
-   :bigquery/StandardTableDefinition      [:map
+   :bigquery/StandardTableDefinition      [:map {:closed true}
                                            [:type [:= "TABLE"]]
                                            [:bigLakeConfiguration {:optional true} :bigquery/BigLakeConfiguration]
                                            [:clustering {:optional true} :bigquery/Clustering]
@@ -187,6 +190,7 @@
                                            [:numLongTermPhysicalBytes {:optional true} :int]
                                            [:numRows {:optional true} :int]
                                            [:numTimeTravelPhysicalBytes {:optional true} :int]
+                                           [:numTotalLogicalBytes {:optional true} :int]
                                            [:numTotalPhysicalBytes {:optional true} :int]
                                            [:rangePartitioning {:optional true} :bigquery/RangePartitioning]
                                            [:schema {:optional true} :bigquery/Schema]
