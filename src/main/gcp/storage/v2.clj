@@ -54,6 +54,11 @@
                                                                                       [:bucket :string]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BucketGetOption]]]
 
+   :storage.synth/BucketCreate                                                       [:map
+                                                                                      [:storage {:optional true} :storage.synth/clientable]
+                                                                                      [:bucketInfo :storage/BucketInfo]
+                                                                                      [:options {:optional true} [:sequential :storage/Storage.BucketTargetOption]]]
+
    :storage.synth/BlobList                                                           [:map
                                                                                       [:storage {:optional true} :storage.synth/clientable]
                                                                                       [:bucket :string]

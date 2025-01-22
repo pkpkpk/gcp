@@ -4,10 +4,12 @@
             [gcp.storage.v2.Blob :as Blob]
             [gcp.storage.v2.BlobId :as BlobId]
             [gcp.storage.v2.Bucket :as Bucket]
+            [gcp.storage.v2.BucketInfo :as BucketInfo]
             [gcp.storage.v2.Storage.BlobListOption  :as BlobLO]
             [gcp.storage.v2.Storage.BucketGetOption :as BucketGetOption]
-            [gcp.storage.v2.Storage.BucketListOption :as BucketListOption])
-  (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BucketGetOption Storage$BucketListOption]))
+            [gcp.storage.v2.Storage.BucketListOption :as BucketListOption]
+            [gcp.storage.v2.Storage.BucketTargetOption :as BucketTargetOption])
+  (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
 
 (defonce ^:dynamic *client* nil)
 
@@ -40,7 +42,16 @@
             opts (into-array Storage$BucketGetOption (map BucketGetOption/from-edn options))]
         (Bucket/to-edn (.get (client storage) ^String bucket ^Storage$BucketGetOption/1 opts))))))
 
-;create(BucketInfo bucketInfo, Storage.BucketTargetOption[] options)
+(defn create-bucket
+  ([arg]
+   (if (string? arg)
+     (create-bucket {:bucketInfo {:name arg}})
+     (if (g/valid? :storage/BucketInfo arg)
+       (create-bucket {:bucketInfo arg})
+       (let [{:keys [storage bucketInfo options]} (g/coerce :storage.synth/BucketCreate arg)
+             opts ^Storage$BucketTargetOption/1 (into-array Storage$BucketTargetOption (map BucketTargetOption/from-edn options))]
+         (.create (client storage) (BucketInfo/from-edn bucketInfo) opts))))))
+
 ;delete(String bucket, Storage.BucketSourceOption[] options)
 ;listNotifications(String bucket)
 ;lockRetentionPolicy(BucketInfo bucket, Storage.BucketTargetOption[] options)
@@ -80,7 +91,6 @@
 ;create(BlobInfo blobInfo, byte[] content, int offset, int length, Storage.BlobTargetOption[] options)
 ;create(BlobInfo blobInfo, Storage.BlobTargetOption[] options)
 ;create(BlobInfo blobInfo, InputStream content, Storage.BlobWriteOption[] options) (deprecated)
-
 ;downloadTo(BlobId blob, OutputStream outputStream, Storage.BlobSourceOption[] options)
 ;downloadTo(BlobId blob, Path path, Storage.BlobSourceOption[] options)
 ;get(BlobId blob)
