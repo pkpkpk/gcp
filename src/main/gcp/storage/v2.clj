@@ -69,6 +69,11 @@
                                                                                       [:blobs [:sequential :storage/BlobId]]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BlobSourceOption]]]
 
+   :storage.synth/ReadAllBytes                                                       [:map
+                                                                                      [:storage {:optional true} :storage.synth/clientable]
+                                                                                      [:blobId :storage/BlobId]
+                                                                                      [:options {:optional true} [:sequential :storage/Storage.BlobSourceOption]]]
+
    #!--------------------------------------------------------------------------
    #! Storage Option classes given to IO ops
 

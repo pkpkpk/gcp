@@ -6,10 +6,11 @@
             [gcp.storage.v2.Bucket :as Bucket]
             [gcp.storage.v2.BucketInfo :as BucketInfo]
             [gcp.storage.v2.Storage.BlobListOption  :as BlobLO]
+            [gcp.storage.v2.Storage.BlobSourceOption :as BlobSourceOption]
             [gcp.storage.v2.Storage.BucketGetOption :as BucketGetOption]
             [gcp.storage.v2.Storage.BucketListOption :as BucketListOption]
             [gcp.storage.v2.Storage.BucketTargetOption :as BucketTargetOption])
-  (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
+  (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BlobSourceOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
 
 (defonce ^:dynamic *client* nil)
 
@@ -97,10 +98,29 @@
 ;get(BlobId blob, Storage.BlobGetOption[] options)
 ;get(BlobId[] blobIds)
 ;get(Iterable<BlobId> blobIds)
+
 ;readAllBytes(BlobId blob, Storage.BlobSourceOption[] options)
 ;readAllBytes(String bucket, String blob, Storage.BlobSourceOption[] options)
+(defn read-all-bytes
+  ([arg]
+   (if (g/valid? :storage/BlobId arg)
+     (read-all-bytes {:blobId arg})
+     (let [{:keys [storage blobId options]} (g/coerce :storage.synth/ReadAllBytes arg)
+           opts ^Storage$BlobSourceOption/1 (into-array Storage$BlobSourceOption (map BlobSourceOption/from-edn options))]
+       (.readAllBytes (client storage) (BlobId/from-edn blobId) opts))))
+  ([arg & more]
+   (if (string? arg)
+     (if (string? (first more))
+       (read-all-bytes {:blobId {:name (first more)
+                                 :bucket arg}
+                        :options (rest more)})
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented")))))
+
 ;reader(BlobId blob, Storage.BlobSourceOption[] options)
 ;reader(String bucket, String blob, Storage.BlobSourceOption[] options)
+
+
 ;restore(BlobId blob, Storage.BlobRestoreOption[] options)
 ;update(BlobInfo blobInfo)
 ;update(BlobInfo blobInfo, Storage.BlobTargetOption[] options)
