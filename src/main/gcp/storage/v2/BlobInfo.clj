@@ -94,7 +94,7 @@
           (assoc :metageneration (.getMetageneration arg))
 
           (some? (.getOwner arg))
-          (assoc :owner (.getOwner arg))
+          (assoc :owner (Acl/Entity-to-edn (.getOwner arg)))
 
           (some? (.getRetention arg))
           (assoc :retention (Retention-to-edn (.getRetention arg)))

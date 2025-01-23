@@ -10,7 +10,6 @@
 ;StorageRetryStrategy
 
 ;; enums
-;Acl.Entity.Type
 ;BucketInfo.DeleteRule.Type
 ;BucketInfo.PublicAccessPrevention
 ;HmacKey.HmacKeyState
@@ -22,7 +21,11 @@
 ;Storage.UriScheme
 
 (def registry
-  {:storage/StorageOptions                                                           [:maybe
+  {
+   :storage.synth/project :string
+   #!------------------------------------
+
+   :storage/StorageOptions                                                           [:maybe
                                                                                       [:map
                                                                                        [:blobWriteSessionConfig {:optional true} :storage/BlobWriteSessionConfig]
                                                                                        [:storageRetryStrategy {:optional true} :storage.synth/StorageRetryStrategy]]]
@@ -45,31 +48,31 @@
    #! Top Level ops
 
    :storage.synth/BucketList                                                         [:maybe
-                                                                                      [:map
+                                                                                      [:map {:closed true}
                                                                                        [:storage {:optional true} :storage.synth/clientable]
                                                                                        [:options {:optional true} [:sequential :storage/Storage.BucketListOption]]]]
 
-   :storage.synth/BucketGet                                                          [:map
+   :storage.synth/BucketGet                                                          [:map {:closed true}
                                                                                       [:storage {:optional true} :storage.synth/clientable]
                                                                                       [:bucket :string]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BucketGetOption]]]
 
-   :storage.synth/BucketCreate                                                       [:map
+   :storage.synth/BucketCreate                                                       [:map {:closed true}
                                                                                       [:storage {:optional true} :storage.synth/clientable]
                                                                                       [:bucketInfo :storage/BucketInfo]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BucketTargetOption]]]
 
-   :storage.synth/BlobList                                                           [:map
+   :storage.synth/BlobList                                                           [:map {:closed true}
                                                                                       [:storage {:optional true} :storage.synth/clientable]
                                                                                       [:bucket :string]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BlobListOption]]]
 
-   :storage.synth/BlobDelete                                                         [:map
+   :storage.synth/BlobDelete                                                         [:map {:closed true}
                                                                                       [:storage {:optional true} :storage.synth/clientable]
                                                                                       [:blobs [:sequential :storage/BlobId]]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BlobSourceOption]]]
 
-   :storage.synth/ReadAllBytes                                                       [:map
+   :storage.synth/ReadAllBytes                                                       [:map {:closed true}
                                                                                       [:storage {:optional true} :storage.synth/clientable]
                                                                                       [:blobId :storage/BlobId]
                                                                                       [:options {:optional true} [:sequential :storage/Storage.BlobSourceOption]]]
@@ -532,7 +535,7 @@
                                                                                       [:owner
                                                                                        {:doc      "Returns the bucket's owner entity."
                                                                                         :optional true}
-                                                                                       :any]
+                                                                                       :storage/Acl.Entity]
 
                                                                                       ;; retention effective time in millis (deprecated)
                                                                                       [:retentionEffectiveTime
@@ -663,15 +666,34 @@
 
    #!--------------------------------------------------------------------------
 
-   :storage/Acl                                                                      :any
-   :storage/Acl.Domain                                                               :any
-   :storage/Acl.Entity                                                               :any
-   :storage/Acl.Group                                                                :any
-   :storage/Acl.Project                                                              :any
-   :storage/Acl.Project.ProjectRole                                                  :any
-   :storage/Acl.RawEntity                                                            :any
-   :storage/Acl.Role                                                                 :any
-   :storage/Acl.User                                                                 :any
+   :storage/Acl
+   [:map {:closed true
+          :urls   ["https://cloud.google.com/storage/docs/access-control#About-Access-Control-Lists"
+                   "https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/com.google.cloud.storage.Acl"]}
+    [:role [:enum "OWNER" "READER" "WRITER"]]
+    [:entity :storage/Acl.Entity]
+    [:id {:optional true :read-only true} :string]
+    [:etag {:optional true :read-only true} :string]]
+
+   :storage/Acl.Entity                                                               [:and
+                                                                                      [:map [:type [:enum "DOMAIN" "GROUP" "PROJECT" "UNKNOWN" "USER"]]]
+                                                                                      [:or
+                                                                                       :storage/Acl.Group
+                                                                                       :storage/Acl.Domain
+                                                                                       :storage/Acl.Project
+                                                                                       :storage/Acl.User]]
+   :storage/Acl.Domain
+   [:map {:closed true} [:type [:= "DOMAIN"]] [:domain :string]]
+
+   :storage/Acl.Project
+   [:map [:projectRole [:enum "EDITORS" "OWNERS" "VIEWERS"]] [:projectId :storage.synth/project]]
+
+   :storage/Acl.Group
+   [:map {:closed true} [:type [:= "GROUP"]] [:email :string]]
+
+   :storage/Acl.User
+   [:map {:closed true} [:type [:= "USER"]] [:email :string]]
+
 
    :storage/BidiBlobWriteSessionConfig                                               :any
 
