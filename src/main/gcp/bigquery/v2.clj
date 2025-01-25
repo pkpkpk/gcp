@@ -47,9 +47,79 @@
    :bigquery.BigQuery/ModelOption         {}
    :bigquery.BigQuery/QueryOption         {}
    :bigquery.BigQuery/QueryResultsOption  {}
-   :bigquery.BigQuery/RoutineListOption   {}
-   :bigquery.BigQuery/RoutineOption       {}
+   :bigquery.BigQuery/RoutineListOption   :any
+   :bigquery.BigQuery/RoutineOption       :any
    :bigquery.BigQuery/TableDataListOption {}
+
+   ;;--------------------------------------------------------------------------
+   ;; Routines
+
+   :bigquery.synth/RoutineList
+   [:map
+    [:bigquery {:optional true} :bigquery.synth/clientable]
+    [:datasetId :bigquery/DatasetId]
+    [:options {:optional true} [:sequential :bigquery.BigQuery/RoutineListOption]]]
+
+   :bigquery/RoutineCreate
+   [:map
+    [:bigquery {:optional true} :bigquery.synth/clientable]
+    [:routineInfo :bigquery/RoutineInfo]
+    [:options {:optional true} [:sequential :bigquery.BigQuery/RoutineListOption]]]
+
+   :bigquery/RoutineGet                   :any
+   :bigquery/RoutineDelete                :any
+   :bigquery/RoutineUpdate                :any
+
+   :bigquery/RoutineId
+   [:map
+    [:project {:optional true} :string]
+    [:dataset :string]
+    [:routine :string]]
+
+   :bigquery/RoutineArgument
+   [:map
+    [:kind
+     {:doc "A FIXED_TYPE argument is a fully specified type. It can be a struct or an array, but not a table. An ANY_TYPE argument is any type. It can be a struct or an array, but not a table."
+      :optional true}
+     [:enum "FIXED_TYPE" "ANY_TYPE"]]
+    [:mode
+     {:doc "An IN mode argument is input-only. An OUT mode argument is output-only. An INOUT mode argument is both an input and output."
+      :optional true}
+     [:enum "IN" "OUT" "INOUT"]]
+    [:name :string]
+    [:dataType :bigquery/StandardSQLDataType]]
+
+   :bigquery/RemoteFunctionOptions
+   [:map]
+
+   :bigquery/RoutineInfo
+   [:map {:closed true
+          :urls   ["https://cloud.google.com/bigquery/docs/reference/rest/v2/routines"]
+          :class  'com.google.cloud.bigquery.RoutineInfo}
+    [:routineId :bigquery/RoutineId]
+    [:arguments {:doc "Specifies the list of input/output arguments for the routine." :optional true} [:sequential :bigquery/RoutineArgument]]
+    [:body {:doc "The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. For example, for the function created with the following statement: CREATE FUNCTION JoinLines(x string, y string) as (concat(x, \" \", y))\n\nThe definitionBody is concat(x, \" \", y) ( is not replaced with linebreak).\n\nIf language=JAVASCRIPT, it is the evaluated string in the AS clause. For example, for the function created with the following statement:\n\nCREATE FUNCTION f() RETURNS STRING LANGUAGE js AS 'return \" \"; ' The definitionBody is return \" \"; Note that both are replaced with linebreaks"
+            ;;TODO is required on write, not on reads?
+            :optional true} :string]
+    [:dataGovernanceType {:doc "Data governance type of the routine (e.g. DATA_MASKING)" :optional true} [:enum "DATA_GOVERNANCE_TYPE_UNSPECIFIED" "DATA_MASKING"]]
+    [:determinismLevel {:doc "Determinism level for JavaScript UDFs" :optional true} [:enum "DETERMINISM_LEVEL_UNSPECIFIED" "DETERMINISTIC" "NOT_DETERMINISTIC"]]
+    [:importedLibrariesList {:doc "language = \"JAVASCRIPT\", list of gs:// URLs for JavaScript libraries" :optional true} [:sequential :string]]
+    [:language {:optional true} [:enum "JAVASCRIPT" "SQL"]]
+    [:remoteFunctionOptions {:doc "Options for a remote function" :optional true} :bigquery/RemoteFunctionOptions]
+    [:returnTableType {:doc "Table type returned by the routine (StandardSQLTableType)"
+                       :optional true}
+     :bigquery/StandardSQLTableType]
+    [:routineType {:doc "Type of the routine (e.g. SCALAR_FUNCTION)"
+                   :optional true}
+     [:enum "ROUTINE_TYPE_UNSPECIFIED" "SCALAR_FUNCTION" "PROCEDURE" "TABLE_VALUED_FUNCTION"]]
+    [:returnType {:doc "Data type returned by the routine (StandardSQLDataType)"
+                  :optional true}
+     :bigquery/StandardSQLDataType]
+    #!--read-only---
+    [:description {:optional true :read-only? true} :string]
+    [:etag {:doc "Hash of the routine resource" :optional true :read-only? true} :string]
+    [:creationTime {:doc "Time (ms since epoch) the routine was created" :optional true :read-only? true} :int]
+    [:lastModifiedTime {:doc "Time (ms since epoch) the routine was last modified" :optional true :read-only? true} :int]]
 
    ;;--------------------------------------------------------------------------
    ;; Datasets
@@ -159,7 +229,7 @@
    :bigquery/Schema                       [:map {:closed true}
                                            [:fields [:sequential :bigquery/Field]]]
 
-   :bigquery/ExternalTableDefinition      [:map
+   :bigquery/ExternalTableDefinition      [:map {:closed true}
                                            [:type [:= "EXTERNAL"]]]
 
    :bigquery/MaterializedViewDefinition   [:map {:closed true}
@@ -564,6 +634,32 @@
    :bigquery.BigQuery/TableMetadataView   [:enum "BASIC" "FULL" "STORAGE_STATS" "TABLE_METADATA_VIEW_UNSPECIFIED"]
 
    :bigquery.JobStatus/State              [:enum "DONE" "PENDING" "RUNNING"]
+
+   #!--------------------------------------------------------------------------
+   #! :bigquery/StandardSQL
+
+   :bigquery/StandardSQLDataType
+   [:map {:closed true}
+    ;; TODO just strings for primitives would be nice to accept here ie just "INT64" -> {:typeName "INT64"}
+    [:typeKind {:urls     ["https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"
+                           "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.StandardSQLDataType#com_google_cloud_bigquery_StandardSQLDataType_getTypeKind__"]
+                :optional true} :bigquery/StandardSQLTypeName]
+    [:typeName {:optional true} :bigquery/StandardSQLTypeName]
+    [:arrayElementType {:optional true} [:ref :bigquery/StandardSQLDataType]]
+    [:structType {:optional true} :bigquery/StandardSQLStructType]]
+
+   :bigquery/StandardSQLField
+   [:map {:closed true}
+    [:name {:optional true} :string]
+    [:dataType [:ref :bigquery/StandardSQLDataType]]]
+
+   :bigquery/StandardSQLStructType
+   [:map {:closed true}
+    [:fieldList [:sequential :bigquery/StandardSQLField]]]
+
+   :bigquery/StandardSQLTableType
+   [:map {:closed true}
+    [:columns [:sequential :bigquery/StandardSQLField]]]
 
    :bigquery/StandardSQLTypeName          [:or
                                            {:url "https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"}

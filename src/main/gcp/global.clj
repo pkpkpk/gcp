@@ -45,10 +45,11 @@
           (throw ei))))))
 
 (defn humanize [explanation]
-  (let [human (me/humanize explanation)]
+  #_(let [human (me/humanize explanation)]
     (if (not= (count human) (count (:errors explanation)))
       (mapv me/error-message (:errors explanation))
-      human)))
+      human))
+  (me/humanize explanation))
 
 (defn human-ex-info [schema explanation value]
   (let [human (humanize explanation)

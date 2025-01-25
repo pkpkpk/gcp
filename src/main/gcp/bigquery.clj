@@ -15,6 +15,8 @@
             [gcp.bigquery.v2.BigQuery.TableDataListOption :as TDLO]
             [gcp.bigquery.v2.BigQuery.TableListOption :as TLO]
             [gcp.bigquery.v2.BigQuery.TableOption :as TO]
+            [gcp.bigquery.v2.RoutineId :as RoutineId]
+            [gcp.bigquery.v2.RoutineInfo :as RoutineInfo]
             [gcp.bigquery.v2.TableResult :as TableResult]
             [gcp.bigquery.v2.BigQueryOptions :as BQO]
             [gcp.bigquery.v2.Dataset :as Dataset]
@@ -24,11 +26,22 @@
             [gcp.bigquery.v2.JobId :as JobId]
             [gcp.bigquery.v2.JobInfo :as JobInfo]
             [gcp.bigquery.v2.QueryJobConfiguration :as QJC]
+            [gcp.bigquery.v2.Routine :as Routine]
             [gcp.bigquery.v2.Table :as Table]
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableInfo :as TableInfo]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$TableListOption BigQuery$TableOption DatasetId)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId)))
+
+;; TODO 'dataset-able' 'table-able' etc w/ transforms
+;; TODO arg specs, switch to ::bq/op keys
+;; TODO offer resource string arg ie /$project/$dataset/$table?
+;; TODO schema fn args, ergo error reporting
+;; TODO dry-run query sugar
+
+;; TODO sessions, session permissions & roles
+; (ConnectionProperty/of "session_id" *session-id*)
+#_(defonce ^:dynamic *session-id* nil)
 
 (defonce ^:dynamic *client* nil)
 
@@ -136,7 +149,7 @@
           opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
       (Table/to-edn (.update (client bigquery) (TableInfo/from-edn tableInfo) opts)))))
 
-(defn delete-table
+(defn ^boolean delete-table
   ([arg]
    (if (g/valid? :bigquery/TableId arg)
      (delete-table {:tableId arg})
@@ -260,7 +273,7 @@
          destination (g/coerce :bigquery/TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
 
-#! TODO
+#! TODO TABLE API
 ; (defn insert-rows [])
 ; (defn list-rows [])
 ; (defn load-table [])
@@ -270,20 +283,48 @@
 ; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
 ; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
 ; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
-; (defonce ^:dynamic *session-id* nil)
-; (ConnectionProperty/of "session_id" *session-id*)
-; (defn dry-run [])
-; TODO offer resource string arg ie /$project/$dataset/$table?
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines
 
-;create(RoutineInfo routineInfo, BigQuery.RoutineOption[] options)
-;delete(RoutineId routineId)
+(defn list-routines
+  ([arg]
+   (if (string? arg)
+     (list-routines {:datasetId {:dataset arg}})
+     (if (g/valid? :bigquery/DatasetId arg)
+       (list-routines {:datasetId arg})
+       (let [{:keys [bigquery datasetId options]} (g/coerce :bigquery.synth/RoutineList arg)
+             datasetId (gcp.bigquery.v2.DatasetId/from-edn datasetId)
+             opts ^BigQuery$RoutineListOption/1 (into-array BigQuery$RoutineListOption (map RLO/from-edn options))]
+         (map Routine/to-edn (.iterateAll (.listRoutines (client bigquery) datasetId opts))))))))
+
+(defn create-routine
+  ([arg]
+   (if (contains? arg :routineInfo)
+     (let [{:keys [bigquery routineInfo options]} (g/coerce :bigquery/RoutineCreate arg)
+           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
+       (Routine/to-edn (.create (client bigquery) (RoutineInfo/from-edn routineInfo) opts)))
+     (if-let [explanation (g/explain :bigquery/RoutineInfo arg)]
+       (throw (g/human-ex-info :bigquery/RoutineInfo explanation arg))
+       (create-routine {:routineInfo arg})))))
+
+(defn delete-routine
+  ([arg]
+   (if (g/valid? :bigquery/RoutineId arg)
+     (delete-routine {:routineId arg})
+     (let [{:keys [bigquery routineId]} (g/coerce :bigquery/RoutineDelete arg)]
+       (.delete (client bigquery) (RoutineId/from-edn routineId)))))
+  ([arg & more]))
+
 ;getRoutine(RoutineId routineId, BigQuery.RoutineOption[] options)
 ;getRoutine(String datasetId, String routineId, BigQuery.RoutineOption[] options)
-;listRoutines(DatasetId datasetId, BigQuery.RoutineListOption[] options)
-;listRoutines(String datasetId, BigQuery.RoutineListOption[] options)
+(defn get-routine
+  ([arg]
+   (if (g/valid? :bigquery.synth/RoutineGet arg)
+     (let [{:keys [bigquery routineId options]} arg])
+     ))
+  ([arg & more]))
+
 ;update(RoutineInfo routineInfo, BigQuery.RoutineOption[] options)
 
 #!-----------------------------------------------------------------------------
