@@ -1,8 +1,8 @@
-(ns gcp.vertexai.v1.generativeai.examples
+(ns gcp.vertexai.generativeai-examples
   (:require [clojure.java.io :as io]
-            [gcp.global :as global]
+            [gcp.global :as g]
             [gcp.vertexai.v1.VertexAI :as VertexAI]
-            [gcp.vertexai.v1.generativeai :as genai]
+            [gcp.vertexai.generativeai :as genai]
             [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
             [clojure.repl :refer :all]
             [malli.core :as m]

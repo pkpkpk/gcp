@@ -1,6 +1,6 @@
-(ns gcp.vertexai.v1.generativeai
+(ns gcp.vertexai.generativeai
   (:require [clojure.string :as string]
-            [gcp.global :as global :refer [instance-schema satisfies-schema]]
+            [gcp.global :as g]
             [gcp.vertexai.v1 :as v1]
             [gcp.vertexai.v1.api.Candidate :as Candidate]
             [gcp.vertexai.v1.api.CitationMetadata :as CitationMetadata]
@@ -9,11 +9,6 @@
             [gcp.vertexai.v1.api.CountTokensResponse :as CountTokensResponse]
             [gcp.vertexai.v1.api.GenerateContentRequest :as GenerateContentRequest]
             [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
-            [gcp.vertexai.v1.api.GenerationConfig :as GenerationConfig]
-            [gcp.vertexai.v1.api.Part :as Part]
-            [gcp.vertexai.v1.api.SafetySetting :as SafetySetting]
-            [gcp.vertexai.v1.api.Tool :as Tool]
-            [gcp.vertexai.v1.api.ToolConfig :as ToolConfig]
             [gcp.vertexai.v1.generativeai.protocols :as impl]
             [gcp.vertexai.v1.VertexAI])
   (:import (com.google.api.core ApiFutureCallback ApiFutures)
@@ -30,13 +25,13 @@
    (gcp.vertexai.v1.VertexAI/from-edn arg)))
 
 (defn requestable? [o]
-  (global/valid? :vertexai.synth/Requestable o))
+  (g/valid? :vertexai.synth/Requestable o))
 
 (defn model-config [m]
-  (global/coerce :vertexai.synth/ModelConfig m))
+  (g/coerce :vertexai.synth/ModelConfig m))
 
 (defn contentable? [o]
-  (global/valid? :vertexai.synth/Contentable o))
+  (g/valid? :vertexai.synth/Contentable o))
 
 (defn- resource-name [^String model-name ^VertexAI client]
   (if (string/starts-with? model-name "projects/")
@@ -63,30 +58,30 @@
        (throw (Exception. ":vertexai must have VertexAI client instance"))
        (if (nil? (get requestable :contents))
          (throw (Exception. ":contents must be seq of Content maps"))
-         (if (not (global/valid? [:sequential :vertexai.api/Content] (:contents requestable)))
-           (let [explanation (global/explain [:sequential :vertexai.api/Content] (:contents requestable))
-                 msg         (str ":contents schema failed : " (global/humanize explanation))]
+         (if (not (g/valid? [:sequential :vertexai.api/Content] (:contents requestable)))
+           (let [explanation (g/explain [:sequential :vertexai.api/Content] (:contents requestable))
+                 msg         (str ":contents schema failed : " (g/humanize explanation))]
              (throw (ex-info msg {:explanation explanation :requestable requestable})))
-           (let [explanation (global/explain :vertexai.synth/Requestable requestable)
-                 msg         (str "cannot form request: " (global/humanize explanation))]
+           (let [explanation (g/explain :vertexai.synth/Requestable requestable)
+                 msg         (str "cannot form request: " (g/humanize explanation))]
              (throw (ex-info msg {:explanation explanation :requestable requestable}))))))))
   ([gm-like contentable]
    (if (contentable? contentable)
      (as-requestable (assoc gm-like :contents (cond-> contentable (not (sequential? contentable)) list)))
-     (let [explanation (global/explain :vertexai.synth/Contentable contentable)
-           msg         (str "cannot form content seq from contentable: " (global/humanize explanation))]
+     (let [explanation (g/explain :vertexai.synth/Contentable contentable)
+           msg         (str "cannot form content seq from contentable: " (g/humanize explanation))]
        (throw (ex-info msg {:explanation explanation :contentable contentable})))))
   ([gm-like contentable & more]
    (if (contentable? contentable)
-     (if (global/valid? [:sequential :vertexai.synth/Contentable] more)
+     (if (g/valid? [:sequential :vertexai.synth/Contentable] more)
        (as-requestable gm-like (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
                                          (cond-> contentable (not (sequential? contentable)) vector)
                                          more))
-       (let [explanation (global/explain [:sequential :vertexai.synth/Contentable] more)
-             msg         (str "cannot reduce overloaded contentable arguments: " (global/humanize explanation))]
+       (let [explanation (g/explain [:sequential :vertexai.synth/Contentable] more)
+             msg         (str "cannot reduce overloaded contentable arguments: " (g/humanize explanation))]
          (throw (ex-info msg {:explanation explanation :more more}))))
-     (let [explanation (global/explain :vertexai.synth/Contentable contentable)
-           msg         (str "cannot form content seq from contentable: " (global/humanize explanation))]
+     (let [explanation (g/explain :vertexai.synth/Contentable contentable)
+           msg         (str "cannot form content seq from contentable: " (g/humanize explanation))]
        (throw (ex-info msg {:explanation explanation :contentable contentable}))))))
 
 (defn generate-content
@@ -198,7 +193,7 @@
 
 (defn count-tokens
   ([{:keys [vertexai model] :as gm} contentable]
-   (global/strict! :vertexai.synth/Contentable contentable)
+   (g/strict! :vertexai.synth/Contentable contentable)
    (let [contents (cond-> contentable (not (sequential? contentable)) list)
          request (CountTokensRequest/from-edn (assoc gm :contents contents
                                                         :model (resource-name model vertexai)
