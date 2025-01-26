@@ -1,7 +1,7 @@
 (ns gcp.vertexai.generativeai
   (:require [clojure.string :as string]
             [gcp.global :as g]
-            [gcp.vertexai.v1 :as v1]
+            gcp.vertexai.v1
             [gcp.vertexai.v1.api.Candidate :as Candidate]
             [gcp.vertexai.v1.api.CitationMetadata :as CitationMetadata]
             [gcp.vertexai.v1.api.Content :as Content]
@@ -16,13 +16,17 @@
            (com.google.cloud.vertexai.generativeai ResponseStream ResponseStreamIteratorWithHistory)
            (com.google.common.util.concurrent MoreExecutors)))
 
-(gcp.global/include! v1/registry)
+(defonce ^:dynamic *client* nil)
 
-(defn client
-  ([]
-   (client {}))
+(defn ^VertexAI client
+  ([] (client nil))
   ([arg]
-   (gcp.vertexai.v1.VertexAI/from-edn arg)))
+   (or *client*
+       (do
+         ;TODO (g/strict! :vertexai.synth/clientable arg)
+         (if (instance? VertexAI arg)
+           arg
+           (g/client :vertexai/VertexAI arg))))))
 
 (defn requestable? [o]
   (g/valid? :vertexai.synth/Requestable o))

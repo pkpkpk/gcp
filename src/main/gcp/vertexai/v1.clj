@@ -80,6 +80,7 @@
                                                         :class     'com.google.cloud.vertexai.VertexAI
                                                         :class/url "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.VertexAI"
                                                         :ns        'gcp.vertexai.v1.VertexAI
+                                                        :from-edn  'gcp.vertexai.v1.VertexAI/from-edn
                                                         :ig/halt!  'gcp.vertexai.v1.VertexAI/halt!}
                                                   [:apiEndpoint {:optional true} :string]
                                                   [:credentials {:optional true} :gcp.auth/Credentials]
