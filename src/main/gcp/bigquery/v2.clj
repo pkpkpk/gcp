@@ -55,20 +55,35 @@
    ;; Routines
 
    :bigquery.synth/RoutineList
-   [:map
+   [:map {:closed false}
     [:bigquery {:optional true} :bigquery.synth/clientable]
     [:datasetId :bigquery/DatasetId]
-    [:options {:optional true} [:sequential :bigquery.BigQuery/RoutineListOption]]]
+    [:options {:optional true} [:maybe [:sequential :bigquery.BigQuery/RoutineListOption]]]]
 
-   :bigquery/RoutineCreate
-   [:map
+   :bigquery.synth/RoutineCreate
+   [:map {:closed false}
     [:bigquery {:optional true} :bigquery.synth/clientable]
     [:routineInfo :bigquery/RoutineInfo]
-    [:options {:optional true} [:sequential :bigquery.BigQuery/RoutineListOption]]]
+    [:options {:optional true} [:maybe [:sequential :bigquery.BigQuery/RoutineOption]]]]
 
-   :bigquery/RoutineGet                   :any
-   :bigquery/RoutineDelete                :any
-   :bigquery/RoutineUpdate                :any
+   :bigquery.synth/RoutineGet
+   [:map {:closed false}
+    [:bigquery {:optional true} :bigquery.synth/clientable]
+    [:routineId :bigquery/RoutineId]
+    [:options {:optional true} [:maybe [:sequential :bigquery.BigQuery/RoutineOption]]]]
+
+   :bigquery.synth/RoutineDelete
+   [:map {:closed false}
+    [:bigquery {:optional true} :bigquery.synth/clientable]
+    [:routineId :bigquery/RoutineId]]
+
+   :bigquery.synth/RoutineUpdate
+   [:map {:closed false}
+    [:bigquery {:optional true} :bigquery.synth/clientable]
+    [:routineInfo :bigquery/RoutineInfo]
+    [:options {:optional true} [:maybe [:sequential :bigquery.BigQuery/RoutineOption]]]]
+
+   ;;--------------------------------------------------------------------------
 
    :bigquery/RoutineId
    [:map
@@ -79,11 +94,11 @@
    :bigquery/RoutineArgument
    [:map
     [:kind
-     {:doc "A FIXED_TYPE argument is a fully specified type. It can be a struct or an array, but not a table. An ANY_TYPE argument is any type. It can be a struct or an array, but not a table."
+     {:doc      "A FIXED_TYPE argument is a fully specified type. It can be a struct or an array, but not a table. An ANY_TYPE argument is any type. It can be a struct or an array, but not a table."
       :optional true}
      [:enum "FIXED_TYPE" "ANY_TYPE"]]
     [:mode
-     {:doc "An IN mode argument is input-only. An OUT mode argument is output-only. An INOUT mode argument is both an input and output."
+     {:doc      "An IN mode argument is input-only. An OUT mode argument is output-only. An INOUT mode argument is both an input and output."
       :optional true}
      [:enum "IN" "OUT" "INOUT"]]
     [:name :string]
@@ -98,7 +113,7 @@
           :class  'com.google.cloud.bigquery.RoutineInfo}
     [:routineId :bigquery/RoutineId]
     [:arguments {:doc "Specifies the list of input/output arguments for the routine." :optional true} [:sequential :bigquery/RoutineArgument]]
-    [:body {:doc "The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. For example, for the function created with the following statement: CREATE FUNCTION JoinLines(x string, y string) as (concat(x, \" \", y))\n\nThe definitionBody is concat(x, \" \", y) ( is not replaced with linebreak).\n\nIf language=JAVASCRIPT, it is the evaluated string in the AS clause. For example, for the function created with the following statement:\n\nCREATE FUNCTION f() RETURNS STRING LANGUAGE js AS 'return \" \"; ' The definitionBody is return \" \"; Note that both are replaced with linebreaks"
+    [:body {:doc      "The body of the routine. For functions, this is the expression in the AS clause. If language=SQL, it is the substring inside (but excluding) the parentheses. For example, for the function created with the following statement: CREATE FUNCTION JoinLines(x string, y string) as (concat(x, \" \", y))\n\nThe definitionBody is concat(x, \" \", y) ( is not replaced with linebreak).\n\nIf language=JAVASCRIPT, it is the evaluated string in the AS clause. For example, for the function created with the following statement:\n\nCREATE FUNCTION f() RETURNS STRING LANGUAGE js AS 'return \" \"; ' The definitionBody is return \" \"; Note that both are replaced with linebreaks"
             ;;TODO is required on write, not on reads?
             :optional true} :string]
     [:dataGovernanceType {:doc "Data governance type of the routine (e.g. DATA_MASKING)" :optional true} [:enum "DATA_GOVERNANCE_TYPE_UNSPECIFIED" "DATA_MASKING"]]
@@ -106,13 +121,13 @@
     [:importedLibrariesList {:doc "language = \"JAVASCRIPT\", list of gs:// URLs for JavaScript libraries" :optional true} [:sequential :string]]
     [:language {:optional true} [:enum "JAVASCRIPT" "SQL"]]
     [:remoteFunctionOptions {:doc "Options for a remote function" :optional true} :bigquery/RemoteFunctionOptions]
-    [:returnTableType {:doc "Table type returned by the routine (StandardSQLTableType)"
+    [:returnTableType {:doc      "Table type returned by the routine (StandardSQLTableType)"
                        :optional true}
      :bigquery/StandardSQLTableType]
-    [:routineType {:doc "Type of the routine (e.g. SCALAR_FUNCTION)"
+    [:routineType {:doc      "Type of the routine (e.g. SCALAR_FUNCTION)"
                    :optional true}
      [:enum "ROUTINE_TYPE_UNSPECIFIED" "SCALAR_FUNCTION" "PROCEDURE" "TABLE_VALUED_FUNCTION"]]
-    [:returnType {:doc "Data type returned by the routine (StandardSQLDataType)"
+    [:returnType {:doc      "Data type returned by the routine (StandardSQLDataType)"
                   :optional true}
      :bigquery/StandardSQLDataType]
     #!--read-only---

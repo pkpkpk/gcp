@@ -289,43 +289,65 @@
 
 (defn list-routines
   ([arg]
-   (if (string? arg)
-     (list-routines {:datasetId {:dataset arg}})
-     (if (g/valid? :bigquery/DatasetId arg)
-       (list-routines {:datasetId arg})
-       (let [{:keys [bigquery datasetId options]} (g/coerce :bigquery.synth/RoutineList arg)
-             datasetId (gcp.bigquery.v2.DatasetId/from-edn datasetId)
-             opts ^BigQuery$RoutineListOption/1 (into-array BigQuery$RoutineListOption (map RLO/from-edn options))]
-         (map Routine/to-edn (.iterateAll (.listRoutines (client bigquery) datasetId opts))))))))
+   (if (g/valid? :bigquery.synth/RoutineList arg)
+     (let [{:keys [bigquery datasetId options]} arg
+           datasetId (gcp.bigquery.v2.DatasetId/from-edn datasetId)
+           opts      ^BigQuery$RoutineListOption/1 (into-array BigQuery$RoutineListOption (map RLO/from-edn options))]
+       (map Routine/to-edn (.iterateAll (.listRoutines (client bigquery) datasetId opts))))
+     (if (string? arg)
+       (list-routines {:datasetId {:dataset arg}})
+       (if (g/valid? :bigquery/DatasetId arg)
+         (list-routines {:datasetId arg})
+         (throw (ex-info "cannot create a :dataset from arg" {:arg arg})))))))
 
 (defn create-routine
   ([arg]
-   (if (contains? arg :routineInfo)
-     (let [{:keys [bigquery routineInfo options]} (g/coerce :bigquery/RoutineCreate arg)
+   (if (g/valid? :bigquery.synth/RoutineCreate arg)
+     (let [{:keys [bigquery routineInfo options]} arg
            opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
        (Routine/to-edn (.create (client bigquery) (RoutineInfo/from-edn routineInfo) opts)))
-     (if-let [explanation (g/explain :bigquery/RoutineInfo arg)]
-       (throw (g/human-ex-info :bigquery/RoutineInfo explanation arg))
-       (create-routine {:routineInfo arg})))))
+     (if (g/valid? :bigquery/RoutineInfo arg)
+       (create-routine {:routineInfo arg})
+       (throw (g/human-ex-info [:or :bigquery/RoutineInfo :bigquery.synth/RoutineCreate] arg))))))
 
 (defn delete-routine
   ([arg]
-   (if (g/valid? :bigquery/RoutineId arg)
-     (delete-routine {:routineId arg})
-     (let [{:keys [bigquery routineId]} (g/coerce :bigquery/RoutineDelete arg)]
-       (.delete (client bigquery) (RoutineId/from-edn routineId)))))
-  ([arg & more]))
+   (if (g/valid? :bigquery.synth/RoutineDelete arg)
+     (let [{:keys [bigquery routineId]} arg]
+       (.delete (client bigquery) (RoutineId/from-edn routineId)))
+     (if (g/valid? :bigquery/RoutineId arg)
+       (delete-routine {:routineId arg})
+       (throw (g/human-ex-info [:or :bigquery/RoutineId :bigquery.synth/RoutineDelete] arg)))))
+  ([dataset routine]
+   (if-not (and (string? dataset) (string? routine))
+     (throw (ex-info "(delete-routine dataset routine) requires string arguments" {:dataset dataset :routine routine}))
+     (delete-routine {:routineId {:dataset dataset :routine routine}}))))
 
-;getRoutine(RoutineId routineId, BigQuery.RoutineOption[] options)
-;getRoutine(String datasetId, String routineId, BigQuery.RoutineOption[] options)
 (defn get-routine
   ([arg]
    (if (g/valid? :bigquery.synth/RoutineGet arg)
-     (let [{:keys [bigquery routineId options]} arg])
-     ))
-  ([arg & more]))
+     (let [{:keys [bigquery routineId options]} arg
+           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
+       (Routine/to-edn (.getRoutine (client bigquery) (RoutineId/from-edn routineId) opts)))
+     (if (g/valid? :bigquery/RoutineId arg)
+       (get-routine {:routineId arg})
+       (throw (g/human-ex-info [:or :bigquery/RoutineId :bigquery.synth/RoutineGet] arg)))))
+  ([dataset routine & opts]
+   (if-not (and (string? dataset) (string? routine))
+     (throw (ex-info "(get-routine dataset routine) requires string arguments"
+                     {:dataset dataset :routine routine :options opts}))
+     (get-routine {:routineId {:dataset dataset :routine routine}
+                   :options opts}))))
 
-;update(RoutineInfo routineInfo, BigQuery.RoutineOption[] options)
+(defn update-routine
+  ([arg]
+   (if (g/valid? :bigquery.synth/RoutineUpdate arg)
+     (let [{:keys [bigquery routineInfo options]} arg
+           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
+       (Routine/to-edn (.update (client bigquery) (RoutineInfo/from-edn routineInfo) opts)))
+     (if (g/valid? :bigquery/RoutineInfo arg)
+       (update-routine {:routineInfo arg})
+       (throw (g/human-ex-info [:or :bigquery/RoutineInfo :bigquery.synth/RoutineUpdate] arg))))))
 
 #!-----------------------------------------------------------------------------
 #! MODELS https://cloud.google.com/bigquery/docs/bqml-introduction

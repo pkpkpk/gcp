@@ -51,16 +51,19 @@
       human))
   (me/humanize explanation))
 
-(defn human-ex-info [schema explanation value]
-  (let [human (humanize explanation)
-        props (properties schema)
-        msg   (if-let [clazz (:class props)]
-                (str "schema for class " clazz " failed.")
-                (str "schema failed."))]
+(defn human-ex-info
+  ([schema value]
+   (human-ex-info schema (explain schema value) value))
+  ([schema explanation value]
+   (let [human (humanize explanation)
+         props (properties schema)
+         msg   (if-let [clazz (:class props)]
+                 (str "schema for class " clazz " failed.")
+                 (str "schema failed."))]
      (ex-info msg {:explain explanation
                    :human   human
                    :props   props
-                   :value   value})))
+                   :value   value}))))
 
 (defn coerce
   ([schema value]
