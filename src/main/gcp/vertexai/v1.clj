@@ -10,7 +10,6 @@
            (java.lang.reflect Modifier)))
 
 ;; TODO
-;; emit integrant init,halt,doc
 ;; emit function schemas
 ;; switch to versioned ie :vertexai.v1.generativeai/foo
 ;; malli schema registry
@@ -30,7 +29,9 @@
    :vertexai.generativeai/clone-chat             {}
    :vertexai.generativeai/history-clone          {}
    #!--------------
-   :vertexai.synth/Contentable                   [:or :string :vertexai.api/Content [:sequential :vertexai.api/Content]]
+   :vertexai.synth/Contentable                   [:or
+                                                  {:error/message "Contentable should be singular or many Contents like (string|vector<Part>|{:user 'model' :parts [Part...]})"}
+                                                  :vertexai.api/Content [:sequential :vertexai.api/Content]]
    :vertexai.synth/ModelConfig                   [:map
                                                   [:generationConfig {:optional true} :vertexai.api/GenerationConfig]
                                                   [:model :string]
@@ -39,11 +40,13 @@
                                                   [:toolConfig {:optional true} :vertexai.api/ToolConfig]
                                                   [:tools {:optional true} [:sequential :vertexai.api/Tool]]]
 
+   :vertexai.synth/Clientable                    [:or (global/instance-schema VertexAI) :vertexai/VertexAI]
+
    :vertexai.synth/Requestable                   [:and
                                                   {:doc "model config + :contents + client"}
                                                   :vertexai.api/GenerateContentRequest
                                                   [:map
-                                                   [:vertexai {:optional false} (global/instance-schema VertexAI)]]]
+                                                   [:vertexai {:optional false} :vertexai.synth/Clientable]]]
 
    :vertexai.synth/ChatSession                   [:and
                                                   :vertexai.synth/ModelConfig
@@ -101,7 +104,7 @@
 
    :vertexai.api/Content                         [:or
                                                   {:doc              "The base structured datatype containing multi-part content of a message. A Content includes a role field designating the producer of the Content and a parts field containing multi-part data that contains the content of the message turn"
-                                                   :error/message    "Content must be (string|partlike|vector<partlike>|contentable-maps) if you want to specify user, must provide expanded content map form: ie {:user 'model' :parts [partlike ...]}"
+                                                   :error/message    "Content must be (string|vector<Part>|{:user 'model' :parts [Part...]})"
                                                    :class            'com.google.cloud.vertexai.api.Content
                                                    :ns               'gcp.vertexai.v1.api.Content
                                                    :from-edn         'gcp.vertexai.v1.api.Content/from-edn

@@ -10,7 +10,8 @@
             [gcp.vertexai.v1.api.GenerateContentRequest :as GenerateContentRequest]
             [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
             [gcp.vertexai.v1.generativeai.protocols :as impl]
-            [gcp.vertexai.v1.VertexAI])
+            [gcp.vertexai.v1.VertexAI]
+            [jsonista.core :as j])
   (:import (com.google.api.core ApiFutureCallback ApiFutures)
            [com.google.cloud.vertexai VertexAI]
            (com.google.cloud.vertexai.generativeai ResponseStream ResponseStreamIteratorWithHistory)
@@ -23,7 +24,7 @@
   ([arg]
    (or *client*
        (do
-         ;TODO (g/strict! :vertexai.synth/clientable arg)
+         (g/strict! :vertexai.synth/clientable arg)
          (if (instance? VertexAI arg)
            arg
            (g/client :vertexai/VertexAI arg))))))
@@ -56,25 +57,28 @@
 
 (defn- as-requestable
   ([requestable]
-   (if (requestable? requestable)
-     (assoc requestable :model (resource-name (:model requestable) (:vertexai requestable)))
-     (if (nil? (:vertexai requestable))
-       (throw (Exception. ":vertexai must have VertexAI client instance"))
-       (if (nil? (get requestable :contents))
-         (throw (Exception. ":contents must be seq of Content maps"))
-         (if (not (g/valid? [:sequential :vertexai.api/Content] (:contents requestable)))
-           (let [explanation (g/explain [:sequential :vertexai.api/Content] (:contents requestable))
-                 msg         (str ":contents schema failed : " (g/humanize explanation))]
-             (throw (ex-info msg {:explanation explanation :requestable requestable})))
-           (let [explanation (g/explain :vertexai.synth/Requestable requestable)
-                 msg         (str "cannot form request: " (g/humanize explanation))]
-             (throw (ex-info msg {:explanation explanation :requestable requestable}))))))))
+   (let [requestable (update requestable :vertexai client)]
+     (if (requestable? requestable)
+       (assoc requestable :model (resource-name (:model requestable) (:vertexai requestable)))
+       (if (nil? (:vertexai requestable))
+         (throw (Exception. ":vertexai must have VertexAI client instance"))
+         (if (nil? (get requestable :contents))
+           (throw (Exception. ":contents must be seq of Content maps"))
+           (if (not (g/valid? [:sequential :vertexai.api/Content] (:contents requestable)))
+             (let [explanation (g/explain [:sequential :vertexai.api/Content] (:contents requestable))
+                   msg         (str ":contents schema failed : " (g/humanize explanation))]
+               (throw (ex-info msg {:explanation explanation :requestable requestable})))
+             (let [explanation (g/explain :vertexai.synth/Requestable requestable)
+                   msg         (str "cannot form request: " (g/humanize explanation))]
+               (throw (ex-info msg {:explanation explanation :requestable requestable})))))))))
   ([gm-like contentable]
-   (if (contentable? contentable)
-     (as-requestable (assoc gm-like :contents (cond-> contentable (not (sequential? contentable)) list)))
-     (let [explanation (g/explain :vertexai.synth/Contentable contentable)
-           msg         (str "cannot form content seq from contentable: " (g/humanize explanation))]
-       (throw (ex-info msg {:explanation explanation :contentable contentable})))))
+   (if (g/valid? :vertexai.api/Content contentable)
+     (as-requestable (assoc gm-like :contents [contentable]))
+     (if (g/valid? [:sequential :vertexai.api/Content] contentable)
+       (as-requestable (assoc gm-like :contents contentable))
+       (let [explanation (g/explain :vertexai.synth/Contentable contentable)
+             msg         (str "cannot form content seq from contentable: " (g/humanize explanation))]
+         (throw (ex-info msg {:explanation explanation :contentable contentable}))))))
   ([gm-like contentable & more]
    (if (contentable? contentable)
      (if (g/valid? [:sequential :vertexai.synth/Contentable] more)
@@ -101,8 +105,12 @@
    added in the :vertexai key. It contains all information necessary to make
    a request (assoc gm-like :contents content-seq).
 
+   You can omit the :vertexai client and it will you the default from your DAC,
+   but for vertexai in particular some services and models are only available
+   in limited locations
+
    ```clojure
-     (generate-content {:vertexai client
+     (generate-content {:vertexai {:location \"us-central1\"}
                         :model \"gemini-1.5-flash-001\"
                         :systemInstruction \"You are a math tutor...\"
                         :contents [\"quiz me on trigonometry\"]})
@@ -207,6 +215,12 @@
    (count-tokens gm (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
                             (cond-> contentable (not (sequential? contentable)) vector)
                             more))))
+
+(defn response-text [response]
+  (get-in response [:candidates 0 :content :parts 0 :text]))
+
+(defn response-json [response]
+  (some-> response response-text (j/read-value j/keyword-keys-object-mapper)))
 
 #!-----------------------------------------------------------------------------
 #!
