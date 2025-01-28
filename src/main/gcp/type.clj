@@ -5,7 +5,9 @@
 (def registry
   {::Date [:map {:closed true}
            [:year [:and :int]]
-           [:month [:and :int [:enum 1 2 3 4 5 6 7 8 9 10 11 12]]]
+           [:month [:and :int (-> [:enum]
+                                  (into (range 1 13))
+                                  (into (map double (range 1 13))))]]
            [:day [:and :int (into [:enum] (range 0 32))]]]})
 
 (global/include! registry)

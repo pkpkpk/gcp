@@ -40,13 +40,13 @@
                                                   [:toolConfig {:optional true} :vertexai.api/ToolConfig]
                                                   [:tools {:optional true} [:sequential :vertexai.api/Tool]]]
 
-   :vertexai.synth/Clientable                    [:or (global/instance-schema VertexAI) :vertexai/VertexAI]
+   :vertexai.synth/clientable                    [:maybe [:or (global/instance-schema VertexAI) :vertexai/VertexAI]]
 
    :vertexai.synth/Requestable                   [:and
                                                   {:doc "model config + :contents + client"}
                                                   :vertexai.api/GenerateContentRequest
                                                   [:map
-                                                   [:vertexai {:optional false} :vertexai.synth/Clientable]]]
+                                                   [:vertexai {:optional false} :vertexai.synth/clientable]]]
 
    :vertexai.synth/ChatSession                   [:and
                                                   :vertexai.synth/ModelConfig
@@ -139,7 +139,7 @@
                                                    [:partData
                                                     {:doc      "(string|URI<gcs>|bytes|ByteString"
                                                      :optional false}
-                                                    [:or bytes? string? uri? :gcp.protobuf/ByteString]]]
+                                                    [:or 'bytes? :string 'uri? :gcp.protobuf/ByteString]]]
                                                   [:map {:closed true}
                                                    [:text {:optional false} :string]]
                                                   [:map {:closed true}

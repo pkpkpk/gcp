@@ -220,7 +220,12 @@
   (get-in response [:candidates 0 :content :parts 0 :text]))
 
 (defn response-json [response]
-  (some-> response response-text (j/read-value j/keyword-keys-object-mapper)))
+  (try
+    (some-> response response-text (j/read-value j/keyword-keys-object-mapper))
+    (catch Exception e
+      (throw (ex-info (str "error parsing json from response: " (ex-message e))
+                      {:response response
+                       :cause e})))))
 
 #!-----------------------------------------------------------------------------
 #!

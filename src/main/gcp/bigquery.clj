@@ -9,7 +9,6 @@
             [gcp.bigquery.v2.BigQuery.ModelListOption :as MLO]
             [gcp.bigquery.v2.BigQuery.ModelOption :as MO]
             [gcp.bigquery.v2.BigQuery.QueryOption :as QO]
-            [gcp.bigquery.v2.BigQuery.QueryResultOption :as QRO]
             [gcp.bigquery.v2.BigQuery.RoutineListOption :as RLO]
             [gcp.bigquery.v2.BigQuery.RoutineOption :as RO]
             [gcp.bigquery.v2.BigQuery.TableDataListOption :as TDLO]
@@ -233,7 +232,6 @@
                   :jobInfo  {:configuration (g/coerce :bigquery/ExtractJobConfiguration configuration)}
                   :options  (not-empty opts)}))))
 
-;;TODO split to clone-table-configuration so can allow opts?
 (defn clone-table
   ([source destination]
    (let [source-tables (if (g/valid? [:sequential :bigquery/TableId] source)
@@ -273,10 +271,11 @@
          destination (g/coerce :bigquery/TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
 
+; (defn load-table [])
+
 #! TODO TABLE API
 ; (defn insert-rows [])
 ; (defn list-rows [])
-; (defn load-table [])
 ; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
 ; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
 ; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)

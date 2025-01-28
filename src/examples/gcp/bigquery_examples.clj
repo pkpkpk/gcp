@@ -25,4 +25,13 @@
   (bq/update-routine (assoc routine :body "x * 42"))
   (bq/get-routine "gcp_samples" "sample0")
   (bq/delete-routine "gcp_samples" "sample0")
+  ;;-- Load Data ---------------------------------------------------------
+
+  (def csv-autodetect-job {:configuration {
+                                           :type "LOAD"
+                                           :tableId {:dataset "gcp_samples" :table "csv_table"}
+                                           :formatOptions {}
+
+                                           }})
+
   )

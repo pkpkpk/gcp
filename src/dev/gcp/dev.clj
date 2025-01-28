@@ -2,18 +2,16 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
             [gcp.vertexai.v1]
-            [gcp.vertexai.v1.generativeai :as genai]
+            [gcp.vertexai.generativeai :as genai]
             [integrant.core :as ig]
             [jsonista.core :as j]
             [malli.dev]))
 
 ;; singlefile dst, prompts?
 
-;https://developers.google.com/apis-explorer/
-;https://github.com/googleapis/google-api-java-client-services/tree/main/clients/google-api-services-discovery/v1
+; https://developers.google.com/apis-explorer/
+; https://github.com/googleapis/google-api-java-client-services/tree/main/clients/google-api-services-discovery/v1
 ; https://googleapis.dev/java/google-api-services-discovery/latest/index.html
-;
-; https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest
 
 ;#_(io/resource "gcp/vertexai/v1/generativeai/examples.clj")
 
