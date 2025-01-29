@@ -1,23 +1,62 @@
 (ns gcp.global
   (:require [malli.core :as m]
+            [malli.edn :as edn]
             [malli.error :as me]
-            [malli.registry :as r]
+            [malli.registry :as mr]
             [malli.util :as mu])
   (:import (clojure.lang ExceptionInfo)))
 
 (defonce ^:dynamic *strict-mode* true)
 
-(defn instance-schema [class]
-  [:fn {:error/message (str "not an instance of " (str class))} (partial instance? class)])
+(defmacro instance-schema [class-symbol]
+  (assert (symbol? class-symbol))
+  `[:fn {:error/message (str "not an instance of " (str ~class-symbol))}
+    '(fn [v#] (instance? (import ~class-symbol) v#))])
 
-(defn satisfies-schema [protocol]
-  [:fn {:error/message (str "must satisfy " (str protocol))} (partial satisfies? protocol)])
+(defmacro satisfies-schema [protocol]
+  (assert (qualified-symbol? protocol))
+  (let [ns (symbol (namespace protocol))
+        sym (symbol (name protocol))]
+    (println " ns " ns " sym" sym)
+    ()
+    `[:fn
+      #_{:error/message (str "must satisfy " (str protocol))}
+      '(fn [v#]
+         (satisfies? (requiring-resolve ~protocol) v#))]))
 
-(defonce ^:dynamic *registry* (merge (m/default-schemas) (mu/schemas)))
+(defonce ^:dynamic *registry* (mr/composite-registry (m/default-schemas) (mu/schemas)))
 
-;; TODO cache compiled schemas & explainers?
+(defn edn-safe-schema?
+  ([schema registry]
+   (= schema (m/form (edn/read-string (edn/write-string schema {:registry registry}) {:registry registry})
+                     {:registry registry}))))
 
-(defn include! [r] (alter-var-root #'*registry* (fn [m] (merge m r))))
+(defn include-schema-registry! [registry]
+  (if-let [{registry-name ::name} (meta registry)]
+    (let [candidate (mr/composite-registry *registry* registry)]
+      (when-let [bad-pairs (not-empty
+                             (reduce (fn [acc [k schema]]
+                                       (let [written   (try
+                                                         (malli.edn/write-string schema {:registry candidate})
+                                                         (catch Exception e
+                                                           (throw (ex-info (str "error serializing schema for " k ": " (ex-message e))
+                                                                           {:schema schema
+                                                                            :cause e}))))
+                                             recovered (try
+                                                         (malli.edn/read-string written {:registry candidate})
+                                                         (catch Exception e
+                                                           (throw (ex-info (str "error recovering serialized schema for " k)
+                                                                           {:schema schema
+                                                                            :cause  e}))))]
+                                         (when-not (= schema (m/form recovered))
+                                           (assoc acc k schema)))) {} registry))]
+        (throw (ex-info (str "edn-unsafe schema entries in " registry-name) {:unsafe bad-pairs})))
+      (alter-var-root #'*registry* (fn [_extant]
+                                     (println "successfully merged registry " registry-name)
+                                     ;; TODO should we be cached compiled schemas instead?
+                                     ;; everything built in 'recovered' above can be reused
+                                     candidate)))
+    (throw (Exception. "registries must have metadata"))))
 
 (defn valid? [?schema value] (m/validate ?schema value {:registry *registry*}))
 

@@ -1,8 +1,9 @@
 (ns gcp.auth
-  (:require [gcp.global :as global])
+  (:require [gcp.global :as g])
   (:import (com.google.auth Credentials)))
 
 (def registry
-  {::Credentials [:fn #(instance? Credentials %)]})
+  ^{::g/name ::registry}
+  {::Credentials (g/instance-schema com.google.auth.Credentials)})
 
-(global/include! registry)
+(g/include-schema-registry! registry)

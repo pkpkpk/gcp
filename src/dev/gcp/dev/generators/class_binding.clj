@@ -1,6 +1,8 @@
 (ns gcp.dev.generators.class-binding
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             gcp.bigquery.v2
+            gcp.vertexai.v1
             [gcp.global :as g]
             [gcp.vertexai.generativeai :as genai]
             [jsonista.core :as j]

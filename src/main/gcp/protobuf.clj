@@ -1,23 +1,33 @@
 (ns gcp.protobuf
-  (:require [gcp.global :as global]
+  (:require [gcp.global :as g]
             [malli.core :as m])
   (:import (com.google.protobuf ByteString ListValue NullValue ProtocolStringList Struct Value)
            (java.nio ByteBuffer)))
 
-(def registry
-  {::Value [:or
-            {:class Value}
-            :boolean
-            :nil
-            :int
-            :float
-            :string
-            [:ref ::Struct]
-            [:sequential [:ref ::Value]]]
-   ::Struct [:map-of {:class Struct} [:or :string simple-keyword?] [:ref ::Value]]
-   ::ByteString [:or {:class ByteString} :string bytes? (global/instance-schema ByteBuffer)]})
+(def
+  registry
+  ^{::g/name ::registry}
+  {
+   ::Value      [:or
+                 {:class 'com.google.protobuf.Value}
+                 :boolean
+                 :nil
+                 :int
+                 :float
+                 :string
+                 [:ref ::Struct]
+                 [:sequential [:ref ::Value]]]
 
-(global/include! registry)
+   ::Struct     [:map-of {:class 'com.google.protobuf.Struct}
+                 [:or :string 'simple-keyword?]
+                 [:ref ::Value]]
+
+   ::ByteString [:or {:class 'com.google.protobuf.ByteString}
+                 :string
+                 'bytes?
+                 (g/instance-schema java.nio.ByteBuffer)]})
+
+(g/include-schema-registry! registry)
 
 (defn bytestring-from-edn [arg]
   (if (string? arg)

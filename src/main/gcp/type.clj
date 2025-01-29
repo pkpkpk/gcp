@@ -1,8 +1,9 @@
 (ns gcp.type
-  (:require [gcp.global :as global])
+  (:require [gcp.global :as g])
   (:import (com.google.type Date)))
 
 (def registry
+  ^{::g/name ::registry}
   {::Date [:map {:closed true}
            [:year [:and :int]]
            [:month [:and :int (-> [:enum]
@@ -10,7 +11,7 @@
                                   (into (map double (range 1 13))))]]
            [:day [:and :int (into [:enum] (range 0 32))]]]})
 
-(global/include! registry)
+(g/include-schema-registry! registry)
 
 (defn Date-from-edn
   [{:keys [year month day]}]

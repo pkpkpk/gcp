@@ -1,5 +1,6 @@
 (ns gcp.bigquery.v2
-  (:require [gcp.bigquery.v2.BigQueryOptions :as bqo]
+  (:require [clojure.edn :as edn]
+            [gcp.bigquery.v2.BigQueryOptions :as bqo]
             [gcp.global :as global])
   (:import (com.google.cloud TransportOptions)
            (com.google.gson JsonObject)
@@ -696,4 +697,4 @@
                                            [:= {:doc "Represents a time, independent of a specific date, to microsecond precision."} "TIME"]
                                            [:= {:doc "Represents an absolute point in time, with microsecond precision. Values range between the years 1 and 9999, inclusive."} "TIMESTAMP"]]})
 
-(global/include! registry)
+(global/include-schema-registry! registry)
