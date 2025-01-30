@@ -5,10 +5,7 @@
             [gcp.vertexai.v1.generativeai.protocols :refer [IHistory]]
             gcp.protobuf
             gcp.type)
-  (:import (com.google.cloud.vertexai VertexAI)
-           (com.google.gson JsonObject)
-           (com.google.protobuf Value)
-           (java.lang.reflect Modifier)))
+  (:import (com.google.cloud.vertexai VertexAI)))
 
 ;; TODO
 ;; emit function schemas
@@ -627,7 +624,7 @@
                                            :class            'com.google.cloud.vertexai.api.FunctionDeclaration
                                            :class/url        "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.api.FunctionDeclaration"}
                                           :string
-                                          (g/instance-schema JsonObject)
+                                          (g/instance-schema com.google.gson.JsonObject)
                                           [:map {:doc           "provided schema"
                                                  :error/message "provided parameters bad"}
                                            [:description :string]
@@ -704,7 +701,7 @@
                                           [:model :string]
                                           [:contents {:optional true} [:sequential [:ref :vertexai.api/Content]]]
                                           [:systemInstruction {:optional true} [:ref :vertexai.api/Content]]
-                                          [:instances {:optional true} [:sequential (g/instance-schema Value)]]
+                                          [:instances {:optional true} [:sequential (g/instance-schema com.google.protobuf.Value)]]
                                           [:tools {:optional true} [:sequential :vertexai.api/Tool]]]
 
    :vertexai.api/CountTokensResponse     [:map

@@ -1,12 +1,8 @@
 (ns gcp.bigquery.v2
-  (:require [clojure.edn :as edn]
-            [gcp.bigquery.v2.BigQueryOptions :as bqo]
-            [gcp.global :as global])
-  (:import (com.google.cloud TransportOptions)
-           (com.google.gson JsonObject)
-           (java.time LocalDate LocalDateTime)))
+  (:require [gcp.global :as g]))
 
 (def registry
+  ^{::g/name ::registry}
   {:gcp.core/RetryOption                  :any
    :gcp.synth/labels                      [:map-of :string :string] ;TODO ..lowercase, char range etc
    :gcp.synth/resourceTags                [:map-of :string :string]
@@ -22,35 +18,37 @@
                                            "AVRO" "CSV" "PARQUET" "NEWLINE_DELIMITED_JSON"
                                            "ML_TF_SAVED_MODEL" "ML_XGBOOST_BOOSTER"]
 
+   ;; TODO this should be in cloud core?
+   :gcp/TransportOptions (g/instance-schema com.google.cloud.TransportOptions)
+
    ;;-------------------------------
    ;; Client
 
    :bigquery/BigQueryOptions              [:maybe
                                            [:map
                                             [:location {:optional true} :string]
-                                            [:transportOptions {:optional true} (global/instance-schema TransportOptions)]
+                                            [:transportOptions {:optional true} :gcp/TransportOptions]
                                             [:useInt64Timestamps {:optional true} :boolean]]]
 
-   :bigquery.synth/client                 [:fn
-                                           {:error/message "expected bigquery client instance"
-                                            :from-edn      bqo/get-service}
-                                           #(instance? com.google.cloud.bigquery.BigQuery %)]
+   :bigquery.synth/client                 (assoc-in (g/instance-schema com.google.cloud.bigquery.BigQuery)
+                                                    [1 :from-edn] 'gcp.bigquery.v2.BigQueryOptions/get-service)
 
-   :bigquery.synth/clientable             [:or
-                                           :bigquery/BigQueryOptions
-                                           :bigquery.synth/client
-                                           [:map [:bigquery [:or :bigquery/BigQueryOptions :bigquery.synth/client]]]]
+   :bigquery.synth/clientable             [:maybe
+                                           [:or
+                                            :bigquery/BigQueryOptions
+                                            :bigquery.synth/client
+                                            [:map [:bigquery [:or :bigquery/BigQueryOptions :bigquery.synth/client]]]]]
 
    ;;-------------------------------
 
    :bigquery.BigQuery/IAMOption           [:map {:closed true} [:version :string]]
-   :bigquery.BigQuery/ModelListOption     {}
-   :bigquery.BigQuery/ModelOption         {}
-   :bigquery.BigQuery/QueryOption         {}
-   :bigquery.BigQuery/QueryResultsOption  {}
+   :bigquery.BigQuery/ModelListOption     :any
+   :bigquery.BigQuery/ModelOption         :any
+   :bigquery.BigQuery/QueryOption         :any
+   :bigquery.BigQuery/QueryResultsOption  :any
    :bigquery.BigQuery/RoutineListOption   :any
    :bigquery.BigQuery/RoutineOption       :any
-   :bigquery.BigQuery/TableDataListOption {}
+   :bigquery.BigQuery/TableDataListOption :any
 
    ;;--------------------------------------------------------------------------
    ;; Routines
@@ -201,7 +199,8 @@
 
    :bigquery/Dataset                      [:and
                                            :bigquery/DatasetInfo
-                                           [:map [:bigquery :bigquery.synth/clientable]]]
+                                           [:map
+                                            [:bigquery :bigquery.synth/client]]]
 
    ;;--------------------------------------------------------------------------
    ;; Tables
@@ -337,7 +336,7 @@
                                            [:numLongTermBytes {:optional true} :int]
                                            [:numLongTermLogicalBytes {:optional true} :int]
                                            [:numLongTermPhysicalBytes {:optional true} :int]
-                                           [:numRows {:optional true} [:fn #(instance? BigInteger %)]]
+                                           [:numRows {:optional true} #_(g/instance-schema java.math.BigInteger) :any]
                                            [:numTimeTravelPhysicalBytes {:optional true} :int]
                                            [:numTotalLogicalBytes {:optional true} :int]
                                            [:numTotalPhysicalBytes {:optional true} :int]]
@@ -504,33 +503,33 @@
                                            {:closed true
                                             :class  'com.google.cloud.bigquery.QueryJobConfiguration}
                                            [:type [:= "QUERY"]]
-                                           [:allowLargeResults {:optional true} boolean?]
+                                           [:allowLargeResults {:optional true} :boolean]
                                            [:clustering {:optional true} :bigquery/Clustering]
                                            [:connectionProperties {:optional true} [:or [:map-of :string :string] [:sequential :bigquery/ConnectionProperty]]] ;; Sequential of connection properties
                                            [:createDisposition {:optional true} :bigquery.JobInfo/CreateDisposition]
-                                           [:createSession {:optional true} boolean?]
+                                           [:createSession {:optional true} :boolean]
                                            [:defaultDataset {:optional true} :bigquery/DatasetId]
                                            [:destinationTable {:optional true} :bigquery/TableId]
-                                           [:dryRun {:optional true} boolean?]
+                                           [:dryRun {:optional true} :boolean]
                                            [:encryptionConfiguration {:optional true} :bigquery/EncryptionConfiguration]
-                                           [:flattenResults {:optional true} boolean?]
-                                           [:jobTimeoutMs {:optional true} number?]
+                                           [:flattenResults {:optional true} :boolean]
+                                           [:jobTimeoutMs {:optional true} 'number?]
                                            [:labels {:optional true} :gcp.synth/labels]
-                                           [:maxResults {:optional true} number?]
-                                           [:maximumBillingTier {:optional true} number?]
-                                           [:maximumBytesBilled {:optional true} number?]
+                                           [:maxResults {:optional true} 'number?]
+                                           [:maximumBillingTier {:optional true} 'number?]
+                                           [:maximumBytesBilled {:optional true} 'number?]
                                            [:priority {:optional true} [:enum "BATCH" "INTERACTIVE"]]
-                                           [:query string?]
+                                           [:query :string]
                                            [:queryParameters {:optional true} [:seqable :bigquery/QueryParameterValue]]
                                            [:rangePartitioning {:optional true} :bigquery/RangePartitioning]
                                            [:schemaUpdateOptions
                                             {:optional true
                                              :doc      "Specifies options relating to allowing the schema of the destination table to be updated as a side effect of the load or query job. Schema update options are supported in two cases: when writeDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always overwrite the schema."}
                                             [:sequential :bigquery.JobInfo/SchemaUpdateOption]]
-                                           [:tableDefinitions {:optional true} [:map-of string? :bigquery/ExternalTableDefinition]]
+                                           [:tableDefinitions {:optional true} [:map-of :string :bigquery/ExternalTableDefinition]]
                                            [:timePartitioning {:optional true} :bigquery/TimePartitioning]
-                                           [:useLegacySql {:optional true} boolean?]
-                                           [:useQueryCache {:optional true} boolean?]
+                                           [:useLegacySql {:optional true} :boolean]
+                                           [:useQueryCache {:optional true} :boolean]
                                            [:userDefinedFunctions {:optional true} [:sequential :bigquery/UserDefinedFunction]]
                                            [:writeDisposition {:optional true} :bigquery.JobInfo/WriteDisposition]]
 
@@ -571,7 +570,7 @@
                                             [:regExPatterns {:optional true} [:sequential :string]]]
                                            [:fn
                                             {:error/message "must be one of :errorMessages or :regExPatterns"}
-                                            (fn [m] (or (contains? m :errorMessages) (contains? m :regExPatterns)))]]
+                                            '(fn [m] (or (contains? m :errorMessages) (contains? m :regExPatterns)))]]
 
 
    :bigquery/Clustering                   [:map {:closed true} [:fields [:sequential :string]]]
@@ -579,7 +578,7 @@
                                            {:error/message "must be single-entry map or [string string] tuple"}
                                            [:and
                                             [:map-of :string :string]
-                                            [:fn #(= 1 (count %))]]
+                                            [:fn '(fn [v] (= 1 (count v)))]]
                                            [:tuple :string :string]]
    :bigquery/EncryptionConfiguration      [:map {:closed true} [:kmsKeyName :string]]
    :bigquery/ExternalDatasetReference     :any
@@ -604,12 +603,12 @@
                                            :boolean
                                            :int
                                            :float
-                                           decimal?
-                                           bytes?
-                                           inst?
-                                           (global/instance-schema JsonObject)
-                                           (global/instance-schema LocalDate)
-                                           (global/instance-schema LocalDateTime)
+                                           'decimal?
+                                           'bytes?
+                                           'inst?
+                                           (g/instance-schema com.google.gson.JsonObject)
+                                           (g/instance-schema java.time.LocalDate)
+                                           (g/instance-schema java.time.LocalDateTime)
                                            [:map {:closed true}
                                             [:interval :string]]
                                            [:map {:closed true}
@@ -697,4 +696,4 @@
                                            [:= {:doc "Represents a time, independent of a specific date, to microsecond precision."} "TIME"]
                                            [:= {:doc "Represents an absolute point in time, with microsecond precision. Values range between the years 1 and 9999, inclusive."} "TIMESTAMP"]]})
 
-(global/include-schema-registry! registry)
+(g/include-schema-registry! registry)

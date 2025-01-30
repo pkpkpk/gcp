@@ -1,6 +1,7 @@
 (ns gcp.global
-  (:require [malli.core :as m]
-            [malli.edn :as edn]
+  (:require [sci.core]
+            [malli.core :as m]
+            malli.edn
             [malli.error :as me]
             [malli.registry :as mr]
             [malli.util :as mu])
@@ -8,42 +9,37 @@
 
 (defonce ^:dynamic *strict-mode* true)
 
-(defmacro instance-schema [class-symbol]
-  (assert (symbol? class-symbol))
-  `[:fn {:error/message (str "not an instance of " (str ~class-symbol))}
-    '(fn [v#] (instance? (import ~class-symbol) v#))])
+(defonce *classes (atom {}))
 
-(defmacro satisfies-schema [protocol]
-  (assert (qualified-symbol? protocol))
-  (let [ns (symbol (namespace protocol))
-        sym (symbol (name protocol))]
-    (println " ns " ns " sym" sym)
-    ()
-    `[:fn
-      #_{:error/message (str "must satisfy " (str protocol))}
-      '(fn [v#]
-         (satisfies? (requiring-resolve ~protocol) v#))]))
+(defmacro instance-schema
+  [class-symbol]
+  (assert (symbol? class-symbol))
+  `(do
+    (let [sym# (quote ~class-symbol)]
+      (swap! gcp.global/*classes assoc sym# (import ~class-symbol)))
+    [:fn
+      {:error/message (str "not an instance of " (quote ~class-symbol))}
+      '(fn [v#] (instance? ~class-symbol v#))]))
 
 (defonce ^:dynamic *registry* (mr/composite-registry (m/default-schemas) (mu/schemas)))
 
-(defn edn-safe-schema?
-  ([schema registry]
-   (= schema (m/form (edn/read-string (edn/write-string schema {:registry registry}) {:registry registry})
-                     {:registry registry}))))
+(defn mopts [] {:registry *registry* ::m/sci-options {:classes @*classes}})
 
 (defn include-schema-registry! [registry]
   (if-let [{registry-name ::name} (meta registry)]
-    (let [candidate (mr/composite-registry *registry* registry)]
+    (let [candidate (merge (mr/schemas *registry*) registry)]
       (when-let [bad-pairs (not-empty
                              (reduce (fn [acc [k schema]]
                                        (let [written   (try
-                                                         (malli.edn/write-string schema {:registry candidate})
+                                                         (malli.edn/write-string schema {:registry candidate
+                                                                                         ::m/sci-options {:classes @*classes}})
                                                          (catch Exception e
                                                            (throw (ex-info (str "error serializing schema for " k ": " (ex-message e))
                                                                            {:schema schema
                                                                             :cause e}))))
                                              recovered (try
-                                                         (malli.edn/read-string written {:registry candidate})
+                                                         (malli.edn/read-string written {:registry candidate
+                                                                                         ::m/sci-options {:classes @*classes}})
                                                          (catch Exception e
                                                            (throw (ex-info (str "error recovering serialized schema for " k)
                                                                            {:schema schema
@@ -54,18 +50,18 @@
       (alter-var-root #'*registry* (fn [_extant]
                                      (println "successfully merged registry " registry-name)
                                      ;; TODO should we be cached compiled schemas instead?
-                                     ;; everything built in 'recovered' above can be reused
-                                     candidate)))
+                                     ;; TODO check if schema is already present and unchanged before re-compiling
+                                     (mr/simple-registry candidate))))
     (throw (Exception. "registries must have metadata"))))
 
-(defn valid? [?schema value] (m/validate ?schema value {:registry *registry*}))
+(defn valid? [?schema value] (m/validate ?schema value (mopts)))
 
 (defn properties [schema]
-  (some-> (get *registry* schema) (m/properties {:registry *registry*})))
+  (some-> (get (mr/schemas *registry*) schema) (m/properties (mopts))))
 
 (defn explain [?schema value]
   (try
-    (m/explain ?schema value {:registry *registry*})
+    (m/explain ?schema value (mopts))
     (catch ExceptionInfo ei
       (if (and (keyword? ?schema)
                (= ":malli.core/invalid-schema" (ex-message ei))
@@ -110,7 +106,7 @@
      (throw (human-ex-info schema explanation value))
      value))
   ([?schema value xf]
-   (m/coerce ?schema value xf {:registry *registry*})))
+   (m/coerce ?schema value xf (mopts))))
 
 (defmacro strict! [schema-or-spec value]
   `(if-not *strict-mode* ~value (coerce ~schema-or-spec ~value)))
@@ -120,8 +116,8 @@
    (schema ?schema nil))
   ([?schema opts]
    (if (keyword? ?schema)
-     (m/schema (get *registry* ?schema) {:registry *registry*})
-     (m/schema ?schema (merge {:registry *registry*} opts)))))
+     (m/schema (get *registry* ?schema) (mopts))
+     (m/schema ?schema (merge (mopts) opts)))))
 
 ;(defn match [value]) ;=> schema
 
