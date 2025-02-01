@@ -4,7 +4,7 @@
 
 (defn ^JobId from-edn
   [{:keys [job project] :as arg}]
-  (global/strict! :bigquery/JobId arg)
+  (global/strict! :gcp/bigquery.JobId arg)
   (if job
     (if project
       (JobId/of project job)
@@ -12,7 +12,7 @@
     (JobId/of)))
 
 (defn to-edn [^JobId arg]
-  {:post [(global/strict! :bigquery/JobId %)]}
+  {:post [(global/strict! :gcp/bigquery.JobId %)]}
   (cond->
     {:job     (.getJob arg)
      :project (.getProject arg)}

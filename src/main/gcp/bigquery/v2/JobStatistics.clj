@@ -25,7 +25,7 @@
    :stackFrames    (mapv ScriptStackFrame-to-edn (.getStackFrames arg))})
 
 (defn to-edn [^JobStatistics arg]
-  {:post [(global/strict! :bigquery/JobStatistics %)]}
+  {:post [(global/strict! :gcp/bigquery.JobStatistics %)]}
   (cond-> {}
           (some? (.getCreationTime arg))
           (assoc :creationTime (.getCreationTime arg))

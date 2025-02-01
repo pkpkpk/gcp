@@ -4,7 +4,7 @@
 
 (defn ^TableId from-edn
   [{:keys [dataset table project] :as arg}]
-  (global/strict! :bigquery/TableId arg)
+  (global/strict! :gcp/bigquery.TableId arg)
   (if project
     (TableId/of project dataset table)
     (TableId/of dataset table)))

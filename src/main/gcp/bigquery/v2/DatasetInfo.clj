@@ -20,7 +20,7 @@
            location
            maxTimeTravelHours
            storageBillingModel] :as arg}]
-  (global/strict! :bigquery/DatasetInfo arg)
+  (global/strict! :gcp/bigquery.DatasetInfo arg)
   (let [builder (DatasetInfo/newBuilder (DatasetId/from-edn datasetId))]
     (when acl
       (.setAcl builder (map Acl/from-edn acl)))
@@ -49,7 +49,7 @@
     (.build builder)))
 
 (defn to-edn [^DatasetInfo arg]
-  {:post [(global/strict! :bigquery/DatasetInfo %)]}
+  {:post [(global/strict! :gcp/bigquery.DatasetInfo %)]}
   (cond-> {:datasetId (DatasetId/to-edn (.getDatasetId arg))
            :location (.getLocation arg)}
 

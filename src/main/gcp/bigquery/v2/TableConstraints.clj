@@ -6,7 +6,7 @@
 
 (defn ^TableConstraints from-edn
   [{:keys [primaryKey foreignKeys] :as arg}]
-  (global/strict! :bigquery/TableConstraints arg)
+  (global/strict! :gcp/bigquery.TableConstraints arg)
   (let [builder (TableConstraints/newBuilder)]
     (when primaryKey
       (.setPrimaryKey builder (PrimaryKey/from-edn primaryKey)))
@@ -15,7 +15,7 @@
     (.build builder)))
 
 (defn to-edn [^TableConstraints arg]
-  {:post [(global/strict! :bigquery/TableConstraints %)]}
+  {:post [(global/strict! :gcp/bigquery.TableConstraints %)]}
   (cond-> {}
           (pos? (count (.getForeignKeys arg)))
           (assoc :foreignKeys (mapv ForeignKey/to-edn (.getForeignKeys arg)))

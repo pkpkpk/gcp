@@ -4,6 +4,6 @@
 
 (defn ^BigQuery$DatasetOption from-edn
   [{:keys [fields] :as arg}]
-  (global/strict! [:sequential :bigquery.BigQuery/DatasetField] arg)
+  (global/strict! [:sequential :gcp/bigquery.BigQuery.DatasetField] arg)
   (let [fields (map #(BigQuery$DatasetField/valueOf %) fields)]
     (BigQuery$DatasetOption/fields (into-array BigQuery$DatasetField fields))))

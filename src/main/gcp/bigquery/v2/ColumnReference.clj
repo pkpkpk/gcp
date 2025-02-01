@@ -4,13 +4,13 @@
 
 (defn ^ColumnReference from-edn
   [{:keys [referencedColumn referencingColumn] :as arg}]
-  (global/strict! :bigquery/ColumnReference arg)
+  (global/strict! :gcp/bigquery.ColumnReference arg)
   (let [builder (ColumnReference/newBuilder)]
     (.setReferencedColumn builder referencedColumn)
     (.setReferencingColumn builder referencingColumn)
     (.build builder)))
 
 (defn to-edn [^ColumnReference arg]
-  {:post [(global/strict! :bigquery/ColumnReference %)]}
+  {:post [(global/strict! :gcp/bigquery.ColumnReference %)]}
   {:referencedColumn (.getReferencedColumn arg)
    :referencingColumn (.getReferencingColumn arg)})

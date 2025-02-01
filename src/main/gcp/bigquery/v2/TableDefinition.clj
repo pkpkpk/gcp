@@ -8,7 +8,7 @@
   (:import (com.google.cloud.bigquery TableDefinition)))
 
 (defn ^TableDefinition from-edn [{t :type :as arg}]
-  (global/strict! :bigquery/TableDefinition arg)
+  (global/strict! :gcp/bigquery.TableDefinition arg)
   (case t
     "EXTERNAL" (ExternalTableDefinition/from-edn arg)
     "MATERIALIZED_VIEW" (MaterializedViewDefinition/from-edn arg)
@@ -19,7 +19,7 @@
     (throw (ex-info (str "unimplemented from-edn for TableDefinition type '" t "'") {:arg arg}))))
 
 (defn to-edn [^TableDefinition arg]
-  {:post [(global/strict! :bigquery/TableDefinition %)]}
+  {:post [(global/strict! :gcp/bigquery.TableDefinition %)]}
   (let [t (.name (.getType arg))
         base (cond-> {:type t}
                      (some? (.getSchema arg))

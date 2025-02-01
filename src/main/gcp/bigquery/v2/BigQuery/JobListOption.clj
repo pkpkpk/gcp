@@ -10,7 +10,7 @@
            pageToken
            parentJobId
            stateFilters] :as arg}]
-  (global/strict! :bigquery.BigQuery/JobListOption arg)
+  (global/strict! :gcp/bigquery.BigQuery.JobListOption arg)
   (cond
     fields
     (BigQuery$JobListOption/fields (into-array BigQuery$JobField (map #(BigQuery$JobField/valueOf %) fields)))

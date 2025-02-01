@@ -5,7 +5,7 @@
 
 (defn ^RoutineArgument from-edn
   [{:keys [dataType kind mode name] :as arg}]
-  (g/strict! :bigquery/RoutineArgument arg)
+  (g/strict! :gcp/bigquery.RoutineArgument arg)
   (let [builder (RoutineArgument/newBuilder)]
     (.setDataType builder (StandardSQL/DataType-from-edn dataType))
     (when kind (.setKind builder kind))
@@ -14,7 +14,7 @@
     (.build builder)))
 
 (defn to-edn [^RoutineArgument arg]
-  {:post [(g/strict! :bigquery/RoutineArgument %)]}
+  {:post [(g/strict! :gcp/bigquery.RoutineArgument %)]}
   (cond-> {:dataType (StandardSQL/DataType-to-edn (.getDataType arg))}
           (some? (.getName arg))
           (assoc :name (.getName arg))

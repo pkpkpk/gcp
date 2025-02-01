@@ -6,9 +6,9 @@
            [com.google.cloud.bigquery BigQuery$JobField BigQuery$JobOption]))
 
 (defn ^BigQuery$JobOption from-edn [arg]
-  (global/strict! :bigquery.BigQuery/JobOption arg)
+  (global/strict! :gcp/bigquery.BigQuery.JobOption arg)
   (if (contains? arg :fields)
     (BigQuery$JobOption/fields (into-array BigQuery$JobField (map #(BigQuery$JobField/valueOf %) (:fields arg))))
-    (if (contains? arg :bigQueryRetryConfig)
-      (BigQuery$JobOption/bigQueryRetryConfig (BigQueryRetryConfig/from-edn (:bigQueryRetryConfig arg)))
+    (if (contains? arg :gcp/bigquery.etryConfig)
+      (BigQuery$JobOption/bigQueryRetryConfig (BigQueryRetryConfig/from-edn (:gcp/bigquery.etryConfig arg)))
       (BigQuery$JobOption/retryOptions (into-array RetryOption (map gcp.core.RetryOption/from-edn (:options arg)))))))

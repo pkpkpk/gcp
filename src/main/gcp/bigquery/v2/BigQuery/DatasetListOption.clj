@@ -4,7 +4,7 @@
 
 (defn ^BigQuery$DatasetListOption from-edn
   [{:keys [labelFilter pageSize pageToken] :as arg}]
-  (global/strict! :bigquery.BigQuery/DatasetListOption arg)
+  (global/strict! :gcp/bigquery.BigQuery.DatasetListOption arg)
   (if (contains? arg :all)
     (BigQuery$DatasetListOption/all)
     (if labelFilter

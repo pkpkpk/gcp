@@ -19,7 +19,7 @@
            tableConstraints
            definition
            cloneDefinition] :as arg}]
-  (global/strict! :bigquery/TableInfo arg)
+  (global/strict! :gcp/bigquery.TableInfo arg)
   (let [table-def (cond
                     definition      (TableDefinition/from-edn definition)
                     cloneDefinition (throw (Exception. "unimplemented: build clone definition from EDN"))
@@ -46,7 +46,7 @@
 
 (defn to-edn [^TableInfo arg]
   {:pre [(some? arg)]
-   :post [(global/strict! :bigquery/TableInfo %)]}
+   :post [(global/strict! :gcp/bigquery.TableInfo %)]}
   (cond-> {:tableId (TableId/to-edn (.getTableId arg))}
 
           (some? (.getCreationTime arg))

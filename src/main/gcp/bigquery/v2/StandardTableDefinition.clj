@@ -33,7 +33,7 @@
            tableConstraints
            timePartitioning
            type] :as arg}]
-  (global/strict! :bigquery/StandardTableDefinition arg)
+  (global/strict! :gcp/bigquery.StandardTableDefinition arg)
   (let [builder (StandardTableDefinition/newBuilder)]
     (when bigLakeConfiguration
       (.setBigLakeConfiguration builder (BigLakeConfiguration/from-edn bigLakeConfiguration)))
@@ -79,7 +79,7 @@
    :estimatedRows (.getEstimatedRows arg)})
 
 (defn to-edn [^StandardTableDefinition arg]
-  {:post [(global/strict! :bigquery/StandardTableDefinition %)]}
+  {:post [(global/strict! :gcp/bigquery.StandardTableDefinition %)]}
   (cond-> {}
           (some? (.getBigLakeConfiguration arg))
           (assoc :bigLakeConfiguration (BigLakeConfiguration/to-edn (.getBigLakeConfiguration arg)))

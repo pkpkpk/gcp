@@ -7,7 +7,7 @@
   (:import (com.google.cloud.bigquery JobConfiguration)))
 
 (defn from-edn [{t :type :as arg}]
-  (global/strict! :bigquery/JobConfiguration arg)
+  (global/strict! :gcp/bigquery.JobConfiguration arg)
   (case t
     "COPY"    (CopyJobConfiguration/from-edn arg)
     "EXTRACT" (ExtractJobConfiguration/from-edn arg)
@@ -16,7 +16,7 @@
     (throw (ex-info "unimplemented JobConfiguration/from-edn type" {:type t :arg arg}))))
 
 (defn to-edn [^JobConfiguration arg]
-  {:post [(global/strict! :bigquery/JobConfiguration %)]}
+  {:post [(global/strict! :gcp/bigquery.JobConfiguration %)]}
   (case (.name (.getType arg))
     "COPY"    (assoc (CopyJobConfiguration/to-edn arg)    :type "COPY")
     "EXTRACT" (assoc (ExtractJobConfiguration/to-edn arg) :type "EXTRACT")

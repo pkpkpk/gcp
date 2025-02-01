@@ -6,7 +6,7 @@
            (java.time LocalDate LocalDateTime)))
 
 (defn ^QueryParameterValue from-edn [arg]
-  (global/strict! :bigquery/QueryParameterValue arg)
+  (global/strict! :gcp/bigquery.QueryParameterValue arg)
   (cond
     (string? arg) (QueryParameterValue/string arg)
     (boolean? arg) (QueryParameterValue/bool arg)
@@ -29,7 +29,7 @@
     :else (throw (IllegalArgumentException. (str "Unknown type for value: " arg)))))
 
 (defn to-edn [^QueryParameterValue arg]
-  {:post [(global/strict! :bigquery/QueryParameterValue %)]}
+  {:post [(global/strict! :gcp/bigquery.QueryParameterValue %)]}
   (cond
     (some? (.getArrayValues arg)) ;; List<QueryParameterValue>
     (mapv to-edn (.getArrayValues arg))

@@ -5,9 +5,9 @@
 
 (defn ^Schema from-edn
   [{fields :fields :as arg}]
-  (global/strict! :bigquery/Schema arg)
+  (global/strict! :gcp/bigquery.Schema arg)
   (Schema/of (map Field/from-edn fields)))
 
 (defn to-edn [^Schema arg]
-  {:post [(global/strict! :bigquery/Schema %)]}
+  {:post [(global/strict! :gcp/bigquery.Schema %)]}
   {:fields (mapv Field/to-edn (.getFields arg))})

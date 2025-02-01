@@ -16,7 +16,7 @@
            labels
            operationType
            writeDisposition] :as arg}]
-  (global/strict! :bigquery/CopyJobConfiguration arg)
+  (global/strict! :gcp/bigquery.CopyJobConfiguration arg)
   (let [dst (TableId/from-edn destinationTable)
         src (map TableId/from-edn sourceTables)
         builder (CopyJobConfiguration/newBuilder dst ^List src)]
@@ -37,7 +37,7 @@
     (.build builder)))
 
 (defn to-edn [^CopyJobConfiguration arg]
-  {:post [(global/strict! :bigquery/CopyJobConfiguration %)]}
+  {:post [(global/strict! :gcp/bigquery.CopyJobConfiguration %)]}
   (cond-> {:type "COPY"
            :destinationTable (TableId/to-edn (.getDestinationTable arg))
            :sourceTables    (mapv TableId/to-edn (.getSourceTables arg))}

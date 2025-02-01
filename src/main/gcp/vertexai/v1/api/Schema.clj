@@ -18,6 +18,7 @@
     (some->> arg :example ^Value protobuf/value-from-edn (.setExample builder))
     (some->> arg :default ^Value protobuf/value-from-edn (.setDefault builder))
     (case (:type arg)
+      "BOOLEAN" nil
       "STRING" (do
                  (some->> arg :format (.setFormat builder))
                  (some->> arg :pattern (.setPattern builder))

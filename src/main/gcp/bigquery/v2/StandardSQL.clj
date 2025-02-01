@@ -9,7 +9,7 @@
 
 (defn ^StandardSQLField Field-from-edn
   [{:keys [name dataType] :as arg}]
-  (g/strict! :bigquery/StandardSQLField arg)
+  (g/strict! :gcp/bigquery.StandardSQLField arg)
   (let [builder (StandardSQLField/newBuilder)]
     (when name
       (.setName builder name))
@@ -17,25 +17,25 @@
     (.build builder)))
 
 (defn Field-to-edn [^StandardSQLField arg]
-  {:post [(g/strict! :bigquery/StandardSQLField %)]}
+  {:post [(g/strict! :gcp/bigquery.StandardSQLField %)]}
   (cond-> {:dataType (DataType-to-edn (.getDataType arg))}
           (some? (.getName arg))
           (assoc :name (.getName arg))))
 
 (defn ^StandardSQLStructType StructType-from-edn
   [{:keys [fieldList] :as arg}]
-  (g/strict! :bigquery/StandardSQLStructType arg)
+  (g/strict! :gcp/bigquery.StandardSQLStructType arg)
   (let [builder (StandardSQLStructType/newBuilder)]
     (.setFields builder (map Field-from-edn fieldList))
     (.build builder)))
 
 (defn StructType-to-edn [^StandardSQLStructType arg]
-  {:post [(g/strict! :bigquery/StandardSQLStructType %)]}
+  {:post [(g/strict! :gcp/bigquery.StandardSQLStructType %)]}
   {:fieldList (map Field-to-edn (.getFields arg))})
 
 (defn ^StandardSQLDataType DataType-from-edn
   [{:keys [typeName typeKind structType arrayElementType] :as arg}]
-  (g/strict! :bigquery/StandardSQLDataType arg)
+  (g/strict! :gcp/bigquery.StandardSQLDataType arg)
   (let [builder           (if typeKind
                             (StandardSQLDataType/newBuilder ^String typeKind)
                             (StandardSQLDataType/newBuilder ^StandardSQLTypeName (StandardSQLTypeName/valueOf typeName)))]
@@ -45,7 +45,7 @@
     (.build builder)))
 
 (defn DataType-to-edn [^StandardSQLDataType arg]
-  {:post [(g/strict! :bigquery/StandardSQLDataType %)]}
+  {:post [(g/strict! :gcp/bigquery.StandardSQLDataType %)]}
   (cond-> {:typeKind (.getTypeKind arg)}
           (.getArrayElementType arg)
           (assoc :arrayElementType (DataType-to-edn (.getArrayElementType arg)))
@@ -54,11 +54,11 @@
 
 (defn ^StandardSQLTableType TableType-from-edn
   [{:keys [columns] :as arg}]
-  (g/strict! :bigquery/StandardSQLTableType arg)
+  (g/strict! :gcp/bigquery.StandardSQLTableType arg)
   (let [builder (StandardSQLTableType/newBuilder)]
     (.setColumns builder (map Field-from-edn columns))
     (.build builder)))
 
 (defn TableType-to-edn [^StandardSQLTableType arg]
-  {:post [(g/strict! :bigquery/StandardSQLTableType %)]}
+  {:post [(g/strict! :gcp/bigquery.StandardSQLTableType %)]}
   {:columns (map Field-to-edn (.getColumns arg))})

@@ -5,7 +5,7 @@
 (defn ^BigQueryOptions from-edn
   [{:keys [location transportOptions useInt64Timestamps
            projectId] :as arg}]
-  (global/strict! :bigquery/BigQueryOptions arg)
+  (global/strict! :gcp/bigquery.BigQueryOptions arg)
   (let [builder (BigQueryOptions/newBuilder)]
     (when location
       (.setLocation builder location))

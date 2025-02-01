@@ -6,7 +6,8 @@
             [gcp.global :as g]
             [gcp.vertexai.generativeai :as genai]
             [jsonista.core :as j]
-            [taoensso.telemere :as tt])
+            [taoensso.telemere :as tt]
+            [clojure.string :as string])
   (:import (java.io ByteArrayOutputStream)))
 
 #_ (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
@@ -38,34 +39,11 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
-(defn extract-class-details
-  ([java-doc-url] (extract-class-details flash java-doc-url))
-  ([model java-doc-url]
-   (genai/generate-content
-     (assoc model :systemInstruction "identity the class & extract its constructors and methods. omit method entries for .hashCode and .equals()"
-                  :generationConfig {:responseMimeType "application/json"
-                                     :responseSchema   {:type       "OBJECT"
-                                                        :properties {"className" {:type "STRING"}
-                                                                     "methods"   {:type  "ARRAY"
-                                                                                  :items {:type       "OBJECT"
-                                                                                          :properties {"doc"       {:type "STRING"}
-                                                                                                       "type"      {:type        "STRING"
-                                                                                                                    :description "method type, STATIC or INSTANCE"}
-                                                                                                       "signature" {:type        "STRING"
-                                                                                                                    :description "the method signature"}}}}}}})
-     {:parts [{:mimeType "text/html"
-               :partData (get-url-bytes java-doc-url)}]})))
-
 
 (def java-doc-root "https://cloud.google.com/java/docs/reference/")
 
-(defn class-url [sdk class-name]
-  (str java-doc-root))
-
-
-#!----------------------------------------------------------------------------------------------------------------------
-
 (def bigquery-root (io/file src "main" "gcp" "bigquery"))
+(def bigquery-package-url  "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")
 (def bigquery-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/")
 (def bigquery-discovery-url "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest")
 (defonce bigquery-discovery (j/read-value (get-url-bytes bigquery-discovery-url) j/keyword-keys-object-mapper))
@@ -78,19 +56,142 @@
 (def pubsub-root (io/file src "main" "gcp" "pubsub"))
 (def pubsub-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/")
 
+
 #!----------------------------------------------------------------------------------------------------------------------
+
+(def package-schema
+  {:type "OBJECT"
+   :properties {"classes"
+                {:type "ARRAY"
+                 :items {:type "STRING"
+                         :description "package qualified class name"}}
+                "enums"
+                {:type "ARRAY"
+                 :items {:type "STRING"
+                         :description "package qualified enum name"}}
+                "exceptions"
+                {:type "ARRAY"
+                 :items {:type "STRING"
+                         :description "package qualified exception name"}}
+                "interfaces"
+                {:type "ARRAY"
+                 :items {:type "STRING"
+                         :description "package qualified interface name"}}}})
+
+(defn $extract-package-summary
+  ([package-url]
+   ($extract-package-summary flash package-url))
+  ([model package-url]
+   (-> model
+       (assoc :systemInstruction (str "You are given google cloud java package summary page"
+                                      "Extract its parts into arrays.")
+              :generationConfig {:responseMimeType "application/json"
+                                 :responseSchema package-schema})
+       (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes package-url)}]})
+       genai/response-json)))
+
+(def methods-schema
+  {:type        "ARRAY"
+   :description "method descriptors"
+   :items       {:type        "OBJECT"
+                 :required    ["returnType" "methodName"]
+                 :description "a description of the method. if the method has 0 parameters, omit it"
+                 :properties  {"returnType" {:type        "STRING"
+                                             :description "the type returned on method invocation"}
+                               "methodName" {:type        "STRING"
+                                             :description "the method name"}
+                               "parameters" {:type        "ARRAY"
+                                             :description "the name and type of method parameters in order"
+                                             :items       {:type       "OBJECT"
+                                                           :properties {"type" {:type        "STRING"
+                                                                                :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}
+                                                                        "name" {:type        "STRING"
+                                                                                :description "this name of the parameter"}}}}}}})
+
+(def class-description-schema
+  {:type       "OBJECT"
+   :required   ["className" "isBuilder" "staticMethods" "instanceMethods"]
+   :properties {"className"       {:type "STRING"}
+                "isBuilder"       {:type "BOOLEAN" :description "is the class a builder class"}
+                "staticMethods"   (assoc methods-schema :description "descriptions of static methods if any")
+                "instanceMethods" (assoc methods-schema :description "descriptions of instance methods if any")}})
+
+(defn $extract-class-details
+  ([java-doc-url]
+   ($extract-class-details flash java-doc-url))
+  ([model java-doc-url]
+   (-> model
+       (assoc :systemInstruction (str "identity the class & extract its constructors and methods. omit method entries for .hashCode, and .equals()."
+                                      "please use fully qualified package names for all types that reference gcp sdks")
+              :generationConfig {:responseMimeType "application/json"
+                                 :responseSchema class-description-schema})
+       (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes java-doc-url)}]})
+       genai/response-json)))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defonce $extract-package-summary-memo (memoize $extract-package-summary))
+(defonce $extract-class-details-memo (memoize $extract-class-details))
+
+(defn instance-methods [cdesc]
+  (into [] (comp
+             (filter #(#{"INSTANCE"} (:methodType %)))
+             (remove #(re-find #"uilder" (:methodName %)))
+             (map #(dissoc % :doc :methodType)))
+        (:methods cdesc)))
+
+(def native-type #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"})
+
+(defn parse-type [t]
+  (if (string/starts-with? t "java.util.List<")
+    (let [start (subs t 15)]
+      (subs start 0 (.indexOf start ">")))
+    (if (string/starts-with? t "java.util.Map<")
+      (if (string/starts-with? t "java.util.Map<java.lang.String, ")
+        (subs t 32 (.indexOf t ">"))
+        (throw (Exception. "unimplemented non-string key")))
+      t)))
+
+(defn type-dependencies
+  ([cdesc]
+   (type-dependencies #{} cdesc))
+  ([init {:keys [staticMethods instanceMethods isBuilder]}]
+   (reduce
+     (fn [acc {:keys [parameters returnType]}]
+       (let [acc (into acc (comp (map :type) (map parse-type) (remove native-type)) parameters)]
+         (if (not isBuilder)
+           (let [ret (parse-type returnType)]
+             (if (native-type ret)
+               acc
+               (conj acc ret)))
+           acc)))
+     init
+     (into staticMethods instanceMethods))))
+
+(defn missing-bindings [package])
+
+(defn missing-schemas [])
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(comment
+  (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
+  ($extract-package-summary-memo bigquery-package-url)
+  )
+
+
+#!----------------------------------------------------------------------------------------------------------------------
+
 
 (defn class-doc-content [base-url class-name]
   (let [class-url (str base-url class-name)
         builder-url (str class-url ".Builder")]
     {:parts ["this is a json description of the read-only class"
-             (genai/response-text (extract-class-details class-url))
+             (genai/response-text ($extract-class-details class-url))
              "this is  json description of it's builder class"
-             (genai/response-text (extract-class-details builder-url))]}))
+             (genai/response-text ($extract-class-details builder-url))]}))
 
 (defonce class-doc-content-memo (memoize class-doc-content))
-
-#!----------------------------------------------------------------------------------------------------------------------
 
 (defn $class-schema
   "generate a malli schema for a java sdk class.
@@ -107,7 +208,7 @@
                                 :generationConfig {:responseMimeType "application/json"
                                                    :responseSchema   {:type       "OBJECT"
                                                                       :properties {"key" {:type        "STRING"
-                                                                                          :description "the edn :bigquery qualified keyword for the schema in the registry"}
+                                                                                          :description "the edn :gcp/bigquery.qualified keyword for the schema in the registry"}
                                                                                    "schema" {:type        "STRING"
                                                                                              :description "edn containing the malli schema"}}}})
          context   [{:parts ["(pr-str gcp.bigquery.v2/registry) ;=> " (pr-str gcp.bigquery.v2/registry)]}
@@ -122,10 +223,13 @@
              (throw (ex-info (str "error extracting edn from response: " (ex-message e))
                              {:response response
                               :cause e}))))]
-     {key schema})))
+     [key schema])))
 
 (comment
   (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
+
+  (extract-class-details (str bigquery-api-doc-base "com.google.cloud.bigquery.LoadJobConfiguration"))
+  ;(extract-class-details "com.google.cloud.bigquery.LoadJobConfiguration.Builder")
 
   (class-doc-content-memo bigquery-api-doc-base "com.google.cloud.bigquery.LoadJobConfiguration")
 

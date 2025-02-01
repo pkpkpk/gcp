@@ -3,7 +3,7 @@
   (:import (com.google.cloud.bigquery ConnectionProperty)))
 
 (defn ^ConnectionProperty from-edn [arg]
-  (global/strict! :bigquery/ConnectionProperty arg)
+  (global/strict! :gcp/bigquery.ConnectionProperty arg)
   (if (sequential? arg)
     (ConnectionProperty/of (first arg) (second arg))
     (if (map? arg)

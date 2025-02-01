@@ -17,7 +17,7 @@
            precision
            rangeElementType
            scale] :as arg}]
-  (global/strict! :bigquery/Field arg)
+  (global/strict! :gcp/bigquery.Field arg)
   (let [builder (Field/newBuilder ^String name (StandardSQLTypeName/valueOf type) ^Field/1 (into-array Field (map from-edn subFields)))]
     (when collation
       (.setCollation builder collation))

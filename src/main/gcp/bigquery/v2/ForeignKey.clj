@@ -6,7 +6,7 @@
 
 (defn ^ForeignKey from-edn
   [{:keys [referencedTable columnReferences] :as arg}]
-  (global/strict! :bigquery/ForeignKey arg)
+  (global/strict! :gcp/bigquery.ForeignKey arg)
   (let [builder (ForeignKey/newBuilder)]
     (some->> (:name arg) (.setName builder))
     (.setReferencedTable builder (TableId/from-edn referencedTable))
@@ -14,7 +14,7 @@
     (.build builder)))
 
 (defn to-edn [^ForeignKey arg]
-  {:post [(global/strict! :bigquery/ForeignKey %)]}
+  {:post [(global/strict! :gcp/bigquery.ForeignKey %)]}
   (cond-> {:referencedTable (TableId/to-edn (.getReferencedTable arg))}
           (some? (.getName arg))
           (assoc :name (.getName arg))

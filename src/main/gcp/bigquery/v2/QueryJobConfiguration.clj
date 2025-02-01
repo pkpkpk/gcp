@@ -18,7 +18,7 @@
            labels maxResults maximumBillingTier maximumBytesBilled priority query queryParameters
            rangePartitioning schemaUpdateOptions tableDefinitions timePartitioning useLegacySql useQueryCache
            userDefinedFunctions writeDisposition] :as arg}]
-  (global/strict! :bigquery/QueryJobConfiguration arg)
+  (global/strict! :gcp/bigquery.QueryJobConfiguration arg)
   (let [builder (QueryJobConfiguration/newBuilder query)]
     (when defaultDataset
       (if (string? defaultDataset)
@@ -64,7 +64,7 @@
     (.build builder)))
 
 (defn to-edn [^QueryJobConfiguration arg]
-  {:post [(global/strict! :bigquery/QueryJobConfiguration %)]}
+  {:post [(global/strict! :gcp/bigquery.QueryJobConfiguration %)]}
   (cond-> {:type  (.name (.getType arg))
            :query (.getQuery arg)}
 

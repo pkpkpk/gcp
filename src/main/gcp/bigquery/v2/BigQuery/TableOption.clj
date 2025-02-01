@@ -4,7 +4,7 @@
 
 (defn ^BigQuery$TableOption from-edn
   [{:keys [autoDetect fields tableMetadataView] :as arg}]
-  (global/strict! :bigquery.BigQuery/TableOption arg)
+  (global/strict! :gcp/bigquery.BigQuery.TableOption arg)
   (if autoDetect
     (BigQuery$TableOption/autodetectSchema autoDetect)
     (if tableMetadataView

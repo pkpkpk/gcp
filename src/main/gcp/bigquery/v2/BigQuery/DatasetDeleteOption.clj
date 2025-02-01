@@ -3,7 +3,7 @@
   (:import (com.google.cloud.bigquery BigQuery$DatasetDeleteOption)))
 
 (defn from-edn [arg]
-  (global/strict! :bigquery.BigQuery/DatasetDeleteOption arg)
+  (global/strict! :gcp/bigquery.BigQuery.DatasetDeleteOption arg)
   (if (contains? arg :deleteContents)
     (BigQuery$DatasetDeleteOption/deleteContents)
     (throw (ex-info "bad arg to DatasetDeleteOption" {:arg arg}))))

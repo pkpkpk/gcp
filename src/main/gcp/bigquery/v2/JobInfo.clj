@@ -8,7 +8,7 @@
 
 (defn ^JobInfo from-edn
   [{:keys [configuration jobId] :as arg}]
-  (global/strict! :bigquery/JobInfo arg)
+  (global/strict! :gcp/bigquery.JobInfo arg)
   (let [builder (JobInfo/newBuilder (JobConfiguration/from-edn configuration))]
     (when jobId
       (.setJobId builder (JobId/from-edn jobId)))
@@ -16,7 +16,7 @@
 
 (defn to-edn [^JobInfo arg]
   {:pre [(some? arg)]
-   :post [(global/strict! :bigquery/JobInfo %)]}
+   :post [(global/strict! :gcp/bigquery.JobInfo %)]}
   (cond-> {:generatedId (.getGeneratedId arg)
            :jobId       (JobId/to-edn (.getJobId arg))
            :status      (JobStatus/to-edn (.getStatus arg))

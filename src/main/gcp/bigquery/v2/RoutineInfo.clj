@@ -18,7 +18,7 @@
            routineType
            remoteFunctionOptions
            dataGovernanceType] :as routine-map}]
-  (g/strict! :bigquery/RoutineInfo routine-map)
+  (g/strict! :gcp/bigquery.RoutineInfo routine-map)
   (let [builder (RoutineInfo/newBuilder (RoutineId/from-edn routineId))]
     (when arguments (.setArguments builder (map RoutineArgument/from-edn arguments)))
     (.setBody builder body)
@@ -33,7 +33,7 @@
     (.build builder)))
 
 (defn to-edn [^RoutineInfo routine]
-  {:post [(g/strict! :bigquery/RoutineInfo %)]}
+  {:post [(g/strict! :gcp/bigquery.RoutineInfo %)]}
   (cond-> {:routineId (RoutineId/to-edn (.getRoutineId routine))}
           (seq (.getArguments routine))
           (assoc :arguments (mapv RoutineArgument/to-edn (.getArguments routine)))

@@ -16,7 +16,7 @@
            labels
            printHeader
            useAvroLogicalTypes] :as arg}]
-  (global/strict! :bigquery/ExtractJobConfiguration arg)
+  (global/strict! :gcp/bigquery.ExtractJobConfiguration arg)
   (let [dst     ^List (seq destinationUris)
         builder (if sourceTable
                   (ExtractJobConfiguration/newBuilder (TableId/from-edn sourceTable) dst)
@@ -38,7 +38,7 @@
     (.build builder)))
 
 (defn to-edn [^ExtractJobConfiguration arg]
-  {:post [(global/strict! :bigquery/ExtractJobConfiguration %)]}
+  {:post [(global/strict! :gcp/bigquery.ExtractJobConfiguration %)]}
   (cond-> {:type "EXTRACT"}
           (some? (.getSourceTable arg))
           (assoc :sourceTable (TableId/to-edn (.getSourceTable arg)))

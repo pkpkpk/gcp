@@ -5,7 +5,7 @@
 (defn ^RangePartitioning from-edn
   [{field :field
     {:keys [start end interval]} :range :as arg}]
-  (global/strict! :bigquery/RangePartitioning arg)
+  (global/strict! :gcp/bigquery.RangePartitioning arg)
   (let [r (let [builder (RangePartitioning$Range/newBuilder)]
             (.setInterval builder (long interval))
             (.setStart builder (long start))
