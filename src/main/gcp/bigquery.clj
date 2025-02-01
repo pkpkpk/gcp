@@ -1,19 +1,6 @@
 (ns gcp.bigquery
   (:require [gcp.bigquery.v2]
-            [gcp.bigquery.v2.BigQuery.DatasetDeleteOption :as DDO]
-            [gcp.bigquery.v2.BigQuery.DatasetListOption :as DLO]
-            [gcp.bigquery.v2.BigQuery.DatasetOption :as DO]
-            [gcp.bigquery.v2.BigQuery.IAMOption :as IAMOption]
-            [gcp.bigquery.v2.BigQuery.JobListOption :as JLO]
-            [gcp.bigquery.v2.BigQuery.JobOption :as JO]
-            [gcp.bigquery.v2.BigQuery.ModelListOption :as MLO]
-            [gcp.bigquery.v2.BigQuery.ModelOption :as MO]
-            [gcp.bigquery.v2.BigQuery.QueryOption :as QO]
-            [gcp.bigquery.v2.BigQuery.RoutineListOption :as RLO]
-            [gcp.bigquery.v2.BigQuery.RoutineOption :as RO]
-            [gcp.bigquery.v2.BigQuery.TableDataListOption :as TDLO]
-            [gcp.bigquery.v2.BigQuery.TableListOption :as TLO]
-            [gcp.bigquery.v2.BigQuery.TableOption :as TO]
+            [gcp.bigquery.v2.BigQuery :as BQ]
             [gcp.bigquery.v2.RoutineId :as RoutineId]
             [gcp.bigquery.v2.RoutineInfo :as RoutineInfo]
             [gcp.bigquery.v2.TableResult :as TableResult]
@@ -61,7 +48,7 @@
   ([] (list-datasets nil))
   ([{:keys [bigquery projectId options] :as arg}]
    (g/coerce :gcp/bigquery.synth.DatasetList arg)
-   (let [opts     (into-array BigQuery$DatasetListOption (map DLO/from-edn options))
+   (let [opts     (into-array BigQuery$DatasetListOption (map BQ/DatasetListOption-from-edn options))
          datasets (if projectId
                     (.listDatasets (client bigquery) projectId opts)
                     (.listDatasets (client bigquery) opts))]
@@ -74,7 +61,7 @@
       (create-dataset {:datasetInfo arg})
       (let [{:keys [bigquery datasetInfo options]} (g/coerce :gcp/bigquery.synth.DatasetCreate arg)
             info (DatasetInfo/from-edn datasetInfo)
-            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
+            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map BQ/DatasetOption-from-edn options))]
         (Dataset/to-edn (.create (client bigquery) info opts))))))
 
 (defn get-dataset [arg]
@@ -84,7 +71,7 @@
       (get-dataset {:datasetId arg})
       (let [{:keys [bigquery datasetId options]} (g/coerce :gcp/bigquery.synth.DatasetGet arg)
             dataset-id (gcp.bigquery.v2.DatasetId/from-edn datasetId)
-            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
+            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map BQ/DatasetOption-from-edn options))]
         (Dataset/to-edn (.getDataset (client bigquery) dataset-id opts))))))
 
 (defn update-dataset [arg]
@@ -94,7 +81,7 @@
       (update-dataset {:datasetInfo arg})
       (let [{:keys [bigquery datasetInfo options]} (g/coerce :gcp/bigquery.synth.DatasetUpdate arg)
             info (DatasetInfo/from-edn datasetInfo)
-            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map DO/from-edn options))]
+            opts ^BigQuery$DatasetOption/1 (into-array BigQuery$DatasetOption (map BQ/DatasetOption-from-edn options))]
         (Dataset/to-edn (.update (client bigquery) info opts))))))
 
 (defn ^boolean delete-dataset
@@ -106,7 +93,7 @@
       (delete-dataset {:datasetId arg})
       (let [{:keys [bigquery datasetId options]} (g/coerce :gcp/bigquery.synth.DatasetDelete arg)
             dataset-id (gcp.bigquery.v2.DatasetId/from-edn datasetId)
-            opts ^BigQuery$DatasetDeleteOption/1 (into-array BigQuery$DatasetDeleteOption (map DDO/from-edn options))]
+            opts ^BigQuery$DatasetDeleteOption/1 (into-array BigQuery$DatasetDeleteOption (map BQ/DatasetDeleteOption-from-edn options))]
         (.delete (client bigquery) dataset-id opts)))))
 
 #!-----------------------------------------------------------------------------
@@ -118,7 +105,7 @@
     (if (g/valid? :gcp/bigquery.DatasetId arg)
       (list-tables {:datasetId arg})
       (let [{:keys [bigquery datasetId options]} (g/coerce :gcp/bigquery.synth.TableList arg)
-            opts       ^BigQuery$TableListOption/1 (into-array BigQuery$TableListOption (map TLO/from-edn options))
+            opts       ^BigQuery$TableListOption/1 (into-array BigQuery$TableListOption (map BQ/TableListOption-from-edn options))
             dataset-id (gcp.bigquery.v2.DatasetId/from-edn datasetId)
             tables     (.listTables (client bigquery) dataset-id opts)]
         (map Table/to-edn (seq (.iterateAll tables)))))))
@@ -128,7 +115,7 @@
     (create-table {:tableInfo arg})
     (let [{:keys [bigquery tableInfo options]} (g/coerce :gcp/bigquery.synth.TableCreate arg)
           info (TableInfo/from-edn tableInfo)
-          opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
+          opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map BQ/TableOption-from-edn options))]
       (Table/to-edn (.create (client bigquery) info opts)))))
 
 (defn get-table
@@ -138,14 +125,14 @@
    (if (g/valid? :gcp/bigquery.TableId arg)
      (get-table {:tableId arg})
      (let [{:keys [bigquery tableId options]} (g/coerce :gcp/bigquery.synth.TableGet arg)
-           opts (into-array BigQuery$TableOption (map TO/from-edn options))]
+           opts (into-array BigQuery$TableOption (map BQ/TableOption-from-edn options))]
        (Table/to-edn (.getTable (client bigquery) (TableId/from-edn tableId) opts))))))
 
 (defn update-table [arg]
   (if (g/valid? :gcp/bigquery.TableInfo arg)
     (update-table {:tableInfo arg})
     (let [{:keys [bigquery tableInfo options]} (g/coerce :gcp/bigquery.synth.TableUpdate arg)
-          opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map TO/from-edn options))]
+          opts ^BigQuery$TableOption/1 (into-array BigQuery$TableOption (map BQ/TableOption-from-edn options))]
       (Table/to-edn (.update (client bigquery) (TableInfo/from-edn tableInfo) opts)))))
 
 (defn ^boolean delete-table
@@ -164,13 +151,13 @@
   ([] (list-jobs nil))
   ([{:keys [bigquery options] :as arg}]
    (g/strict! :gcp/bigquery.synth.JobList arg)
-   (let [opts (into-array BigQuery$JobListOption (map JLO/from-edn options))]
+   (let [opts (into-array BigQuery$JobListOption (map BQ/JobListOption-from-edn options))]
      (map Job/to-edn (seq (.iterateAll (.listJobs (client bigquery) opts)))))))
 
 (defn create-job
   [{:keys [bigquery jobInfo options] :as arg}]
   (g/strict! :gcp/bigquery.synth.JobCreate arg)
-  (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
+  (let [opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))]
     (Job/to-edn (.create (client bigquery) (JobInfo/from-edn jobInfo) opts))))
 
 (defn get-job [arg]
@@ -179,7 +166,7 @@
     (if (g/valid? :gcp/bigquery.JobId arg)
       (get-job {:jobId arg})
       (let [{:keys [bigquery jobId options]} (g/coerce :gcp/bigquery.synth.JobGet arg)
-            opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map JO/from-edn options))]
+            opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))]
         (Job/to-edn (.getJob (client bigquery) (JobId/from-edn jobId) opts))))))
 
 (defn ^boolean cancel-job
@@ -194,7 +181,7 @@
     (if (contains? arg :query)
       (query {:configuration (assoc arg :type "QUERY")})
       (let [{:keys [bigquery configuration options jobId]} (g/coerce :gcp/bigquery.synth.Query arg)
-            opts (into-array BigQuery$JobOption (map JO/from-edn options))
+            opts (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))
             qjc  (QJC/from-edn configuration)
             res  (if jobId
                    (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
@@ -291,7 +278,7 @@
    (if (g/valid? :gcp/bigquery.synth.RoutineList arg)
      (let [{:keys [bigquery datasetId options]} arg
            datasetId (gcp.bigquery.v2.DatasetId/from-edn datasetId)
-           opts      ^BigQuery$RoutineListOption/1 (into-array BigQuery$RoutineListOption (map RLO/from-edn options))]
+           opts      ^BigQuery$RoutineListOption/1 (into-array BigQuery$RoutineListOption (map BQ/RoutineListOption-from-edn options))]
        (map Routine/to-edn (.iterateAll (.listRoutines (client bigquery) datasetId opts))))
      (if (string? arg)
        (list-routines {:datasetId {:dataset arg}})
@@ -303,7 +290,7 @@
   ([arg]
    (if (g/valid? :gcp/bigquery.synth.RoutineCreate arg)
      (let [{:keys [bigquery routineInfo options]} arg
-           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
+           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map BQ/RoutineOption-from-edn options))]
        (Routine/to-edn (.create (client bigquery) (RoutineInfo/from-edn routineInfo) opts)))
      (if (g/valid? :gcp/bigquery.RoutineInfo arg)
        (create-routine {:routineInfo arg})
@@ -326,7 +313,7 @@
   ([arg]
    (if (g/valid? :gcp/bigquery.synth.RoutineGet arg)
      (let [{:keys [bigquery routineId options]} arg
-           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
+           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map BQ/RoutineOption-from-edn options))]
        (Routine/to-edn (.getRoutine (client bigquery) (RoutineId/from-edn routineId) opts)))
      (if (g/valid? :gcp/bigquery.RoutineId arg)
        (get-routine {:routineId arg})
@@ -342,7 +329,7 @@
   ([arg]
    (if (g/valid? :gcp/bigquery.synth.RoutineUpdate arg)
      (let [{:keys [bigquery routineInfo options]} arg
-           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map RO/from-edn options))]
+           opts ^BigQuery$RoutineOption/1 (into-array BigQuery$RoutineOption (map BQ/RoutineOption-from-edn options))]
        (Routine/to-edn (.update (client bigquery) (RoutineInfo/from-edn routineInfo) opts)))
      (if (g/valid? :gcp/bigquery.RoutineInfo arg)
        (update-routine {:routineInfo arg})

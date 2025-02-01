@@ -48,18 +48,17 @@
 (def bigquery-discovery-url "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest")
 (defonce bigquery-discovery (j/read-value (get-url-bytes bigquery-discovery-url) j/keyword-keys-object-mapper))
 
-(def bigquery
-  {:src-root bigquery-root
-   :sdk-name "google-cloud-bigquery"
-   })
+;(def bigquery
+;  {:src-root bigquery-root
+;   :sdk-name "google-cloud-bigquery"
+;   })
 
 (def pubsub-root (io/file src "main" "gcp" "pubsub"))
 (def pubsub-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/")
 
-
 #!----------------------------------------------------------------------------------------------------------------------
 
-(def package-schema
+(def package-response-schema
   {:type "OBJECT"
    :properties {"classes"
                 {:type "ARRAY"
@@ -86,7 +85,7 @@
        (assoc :systemInstruction (str "You are given google cloud java package summary page"
                                       "Extract its parts into arrays.")
               :generationConfig {:responseMimeType "application/json"
-                                 :responseSchema package-schema})
+                                 :responseSchema   package-response-schema})
        (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes package-url)}]})
        genai/response-json)))
 
@@ -168,7 +167,18 @@
      init
      (into staticMethods instanceMethods))))
 
-(defn missing-bindings [package])
+(def package-schema [:map [:classes [:seqable :string]]])
+
+(defn class-parts
+  "count=2 w/Builder gets .clj, count=3 put on count=2 .clj"
+  [package]
+  (g/coerce package-schema package)
+  (map #(vec (nthrest (string/split % #"\.") 3)) (:classes package)))
+
+(defn missing-class-bindings [package]
+  (let [expected-files (class-parts package)]))
+
+;; TODO there are enum bindings in vertexai at least that can probably be killed
 
 (defn missing-schemas [])
 
