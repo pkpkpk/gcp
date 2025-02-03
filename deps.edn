@@ -13,4 +13,6 @@
            org.babashka/sci                                   {:mvn/version "0.9.44"}}
  :aliases {:dev {:extra-paths ["src/dev" "src/examples"]
                  :extra-deps  {com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
-                               com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}}}}}
+                               com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
+                               zprint/zprint {:mvn/version "1.2.9"}
+                               clj-http/clj-http {:mvn/version "3.13.0"}}}}}

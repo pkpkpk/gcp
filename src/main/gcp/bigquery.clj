@@ -4,7 +4,6 @@
             [gcp.bigquery.v2.RoutineId :as RoutineId]
             [gcp.bigquery.v2.RoutineInfo :as RoutineInfo]
             [gcp.bigquery.v2.TableResult :as TableResult]
-            [gcp.bigquery.v2.BigQueryOptions :as BQO]
             [gcp.bigquery.v2.Dataset :as Dataset]
             [gcp.bigquery.v2.DatasetId]
             [gcp.bigquery.v2.DatasetInfo :as DatasetInfo]
