@@ -1,6 +1,5 @@
 (ns gcp.bigquery.v2.CopyJobConfiguration
-  (:require
-            [gcp.bigquery.v2.EncryptionConfiguration :as EncryptionConfiguration]
+  (:require [gcp.bigquery.v2.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery CopyJobConfiguration JobInfo$CreateDisposition JobInfo$WriteDisposition]

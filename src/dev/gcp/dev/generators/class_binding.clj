@@ -1,34 +1,61 @@
 (ns gcp.dev.generators.class-binding
-  (:require #_[clj.http :as http]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.set :as s]
-            gcp.bigquery.v2
-            gcp.vertexai.v1
-            [gcp.global :as g]
-            [gcp.vertexai.generativeai :as genai]
-            [jsonista.core :as j]
-            [taoensso.telemere :as tt]
-            [clojure.string :as string]
-            [zprint.core :as zp])
+  (:refer-clojure :exclude [memoize])
+  (:require
+    [clj-http.client :as http]
+    [clojure.edn :as edn]
+    [clojure.java.io :as io]
+    [clojure.repl :refer :all]
+    [clojure.set :as s]
+    [clojure.string :as string]
+    gcp.bigquery.v2
+    gcp.vertexai.v1
+    [gcp.global :as g]
+    [gcp.vertexai.generativeai :as genai]
+    [jsonista.core :as j]
+    [taoensso.telemere :as tt]
+    [zprint.core :as zp]
+    [rewrite-clj.zip :as z])
   (:import (java.io ByteArrayOutputStream)))
 
 #_ (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
-
 (def home (io/file (System/getProperty "user.home")))
 (def src (io/file home "pkpkpk/gcp/src"))
 
-;; TODO google docs will redirect on missing doc, catch that as error here
-#_ (http/get url {:redirect-strategy :none :as :stream})
+(defn var-editor [v]
+  ;; TODO validate, reload, test etc
+  ;; TODO getText, setText, undo/redo/tx/history
+  (if-not (var? v)
+    (throw (ex-info "must pass var" {:v v}))
+    (let [{:keys [file line column name]} (meta v)
+          state (atom {:file file
+                       :var  name
+                       :zloc (z/of-file file {:track-position? true})})]
+      (fn [new-src]
+        (let [zloc (:zloc @state)
+              found-zloc (z/find zloc z/next
+                                 #(when-let [pos (z/position %)]
+                                    (= [line column] pos)))
+              new-node (z/node (z/of-string new-src))
+              updated-zloc (some-> found-zloc
+                                   (z/replace new-node)
+                                   z/up)]
+          (when updated-zloc
+            (spit file (z/root-string updated-zloc))
+            (swap! state assoc :zloc updated-zloc)))))))
 
-(defonce get-url-bytes
-  (let [f (fn [^String url]
-            (tt/log! (str "fetching url ->" url))
-            (with-open [in  (io/input-stream url)
-                        out (ByteArrayOutputStream.)]
-              (io/copy in out)
-              (.toByteArray out)))]
-    (memoize f)))
+(defn memoize [f] (clojure.core/memoize f)) ;; TODO introduce konserve here
+
+(defn get-url-bytes [^String url]
+  (tt/log! (str "fetching url ->" url))
+  (let [{:keys [status body] :as response} (http/get url {:redirect-strategy :none :as :byte-array})]
+    (if (= 200 status) ;google docs will 301 on missing doc
+      body
+      (throw (ex-info "expected 200 response" {:url url
+                                               :response response})))))
+
+(def get-url-bytes-memo (memoize get-url-bytes))
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 ;https://cloud.google.com/vertex-ai/generative-ai/docs/thinking-mode
 ;Gemini 2.0 Flash Thinking Mode
@@ -75,8 +102,10 @@
                                       "Extract its parts into arrays.")
               :generationConfig {:responseMimeType "application/json"
                                  :responseSchema   package-response-schema})
-       (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes package-url)}]})
+       (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes-memo package-url)}]})
        genai/response-json)))
+
+(defonce $extract-package-summary-memo (memoize $extract-package-summary))
 
 (def methods-schema
   {:type        "ARRAY"
@@ -88,6 +117,8 @@
                                              :description "the type returned on method invocation"}
                                "methodName" {:type        "STRING"
                                              :description "the method name"}
+                               "required" {:type "BOOLEAN"
+                                           :description "if the class is a builder, is this field required to be set?"}
                                "parameters" {:type        "ARRAY"
                                              :description "the name and type of method parameters in order"
                                              :items       {:type       "OBJECT"
@@ -101,33 +132,27 @@
    :required   ["className" "isBuilder" "staticMethods" "instanceMethods"]
    :properties {"className"       {:type "STRING"}
                 "isBuilder"       {:type "BOOLEAN" :description "is the class a builder class"}
-                "staticMethods"   (assoc methods-schema :description "descriptions of static methods if any")
-                "instanceMethods" (assoc methods-schema :description "descriptions of instance methods if any")}})
+                "inheritedMethods" (assoc methods-schema :description "descriptions of inherited methods if any")
+                "staticMethods"    (assoc methods-schema :description "descriptions of static methods if any")
+                "instanceMethods"  (assoc methods-schema :description "descriptions of instance methods if any")}})
 
 (defn $extract-class-details
-  ([java-doc-url]
-   ($extract-class-details flash java-doc-url))
-  ([model java-doc-url]
-   (tt/log! (str "$extract-class-details -> " java-doc-url))
-   (-> model
-       (assoc :systemInstruction (str "identity the class & extract its constructors and methods. omit method entries for .hashCode, and .equals()."
-                                      "please use fully qualified package names for all types that reference gcp sdks")
-              :generationConfig {:responseMimeType "application/json"
-                                 :responseSchema class-description-schema})
-       (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes java-doc-url)}]})
-       genai/response-json)))
+  ([package className]
+   ($extract-class-details flash package className))
+  ([model package className]
+   (let [java-doc-url (str (g/coerce some? (:packageRootUrl package)) className)]
+     (tt/log! (str "$extract-class-details -> " java-doc-url))
+     (-> model
+         (assoc :systemInstruction (str "identity the class & extract its constructors and methods. omit method entries for .hashCode, and .equals()."
+                                        "please use fully qualified package names for all types that reference gcp sdks")
+                :generationConfig {:responseMimeType "application/json"
+                                   :responseSchema   class-description-schema})
+         (genai/generate-content {:parts [{:mimeType "text/html" :partData (get-url-bytes-memo java-doc-url)}]})
+         genai/response-json))))
 
-#!----------------------------------------------------------------------------------------------------------------------
-
-(defonce $extract-package-summary-memo (memoize $extract-package-summary))
 (defonce $extract-class-details-memo (memoize $extract-class-details))
 
-(defn instance-methods [cdesc]
-  (into [] (comp
-             (filter #(#{"INSTANCE"} (:methodType %)))
-             (remove #(re-find #"uilder" (:methodName %)))
-             (map #(dissoc % :doc :methodType)))
-        (:methods cdesc)))
+#!----------------------------------------------------------------------------------------------------------------------
 
 (def native-type #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
                    "boolean" "int" "java.lang.Object"})
@@ -211,7 +236,7 @@
 (defn class-binding-skeleton [{:keys [rootNs packageRootUrl packageName] :as package} target-class]
   (assert (string/starts-with? target-class "com.google.cloud"))
   (let [{:keys [className]
-         :as cdec} ($extract-class-details-memo (str packageRootUrl target-class))
+         :as cdec} ($extract-class-details-memo package target-class)
         dependencies (into #{} (remove #(or (string/includes? % target-class)
                                             (string/ends-with? % "Builder")))
                            (type-dependencies cdec))
@@ -243,6 +268,82 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
+(defn ->malli-type [package t]
+  (case t
+    ;"java.lang.Object"
+    "java.lang.String" :string
+    ("boolean" "java.lang.Boolean") :boolean
+    ("int" "java.lang.Integer" "long" "java.lang.Long") :int
+    "java.util.Map<java.lang.String, java.lang.String>" [:map-of :string :string]
+    (cond
+
+      (string/starts-with? t "java.util.List<")
+      [:sequential (->malli-type package (string/trim (subs t 15 (dec (count t)))))]
+
+      (or (contains? (set (:classes package)) t)
+          (contains? (set (:enums package)) t))
+      (keyword "gcp" (string/join "." (into [(:packageName package)] (package-parts t))))
+
+      :else t)))
+
+(defn merge-getters-and-setters
+  ([package class]
+   (let [readonly  ($extract-class-details-memo package class)
+         getters   (into (vec (remove #(= "toString" (:methodName %)) (:inheritedMethods readonly)))
+                         (remove #(= "toBuilder" (:methodName %)))
+                         (:instanceMethods readonly))
+         builder   ($extract-class-details-memo package (str class ".Builder"))
+         setters   (into []
+                         (comp
+                           (remove #(= "build" (:methodName %)))
+                           (map #(dissoc % :returnType)))
+                         (:instanceMethods builder))
+         *setters (atom (into {} (map (fn [{:keys [methodName] :as m}] [(string/lower-case (subs methodName 3)) m])) setters))
+         ; for every setter there is a getter, but not every getter has a setter
+         fields (reduce (fn [acc {getterMethod :methodName :keys [returnType] :as getter}]
+                         (let [key (string/lower-case (cond-> getterMethod
+                                                              (string/starts-with? getterMethod "get") (subs 3)))]
+                           (if-let [{setterMethod :methodName :keys [parameters required]}
+                                    (or (get @*setters key)
+                                        (reduce (fn [_ [k m]]
+                                                  (when (string/starts-with? k key)
+                                                    (reduced m))) nil @*setters))]
+                             (do
+                               (assert (= 1 (count parameters)))
+                               (swap! *setters dissoc (string/lower-case (subs setterMethod 3)))
+                               (conj acc {:getter    getterMethod
+                                          :type      returnType
+                                          :setter    setterMethod
+                                          :required  required
+                                          :parameter (:name (first parameters))}))
+                             (conj acc {:getter getterMethod :type returnType}))))
+                       [] getters)]
+     (assert (empty? @*setters) (str "expected setters to be exhausted: " @*setters))
+     (into [:map {:class (symbol (:className readonly))}]
+           (map
+             (fn [{:keys [getter setter type parameter required]}]
+               (let [t (->malli-type package type)
+                     opts (cond-> nil
+                                  (nil? setter) (assoc :readOnly true)
+                                  (nil? getter) (assoc :writeOnly true)
+                                  (true? required) (assoc :optional false))
+                     key (if (some? parameter)
+                           (keyword parameter)
+                           (let [_            (assert (some? getter))
+                                 param-capped (subs getter 3)
+                                 param        (str (string/lower-case (subs param-capped 0 1)) (subs param-capped 1))]
+                             (keyword param)))]
+                 (if opts [key opts t] [key t]))))
+           fields))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn $generate-instance-from-edn [])
+
+(defn $generate-to-edn [])
+
+#!----------------------------------------------------------------------------------------------------------------------
+
 (comment
   (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
 
@@ -255,17 +356,22 @@
                 :packageName    "bigquery"}]
       (merge base ($extract-package-summary-memo (:overviewUrl base)))))
 
-  (class-binding-skeleton bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
+  (def ljc ($extract-class-details-memo bigquery "com.google.cloud.bigquery.LoadJobConfiguration"))
+  (class-binding-skeleton bigquery  "com.google.cloud.bigquery.LoadJobConfiguration")
+  (merge-getters-and-setters bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
+  ;($generate-class-schema bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
 
-  (defonce bigquery-discovery (j/read-value (get-url-bytes (:discovery-url bigquery)) j/keyword-keys-object-mapper))
-  (class-doc-content-memo bigquery-api-doc-base "com.google.cloud.bigquery.LoadJobConfiguration")
-  (get-in bigquery-discovery [:schemas :JobConfigurationLoad])
+  ;(defonce bigquery-discovery (j/read-value (get-url-bytes-memo (:discovery-url bigquery)) j/keyword-keys-object-mapper))
+  ;(get-in bigquery-discovery [:schemas :JobConfigurationLoad])
 
-  ;;; TODO produces circular dep w/ JobInfo
+  ;;; TODO possible circular deps
+  ;;; LoadJobConfiguration produced require for JobInfo because of JobInfo$WriteDisposition
+  ;;; --> in QueryJob & CopyJob bindings import JobInfo$WriteDisposition (its just an enum)
+  ;;; fix == check if enums and manually import that class$enum?
+  ;;; this probably means crawling dependency tree
+  ;;;
   ;;; TODO behavior on DNE
   #_(spit-skeleton bigquery "com.google.cloud.bigquery.HivePartitioningOptions")
-
-  (def ljc ($extract-class-details-memo (str (:packageRootUrl bigquery) "com.google.cloud.bigquery.LoadJobConfiguration")))
 
 
   (def pubsub-root (io/file src "main" "gcp" "pubsub"))
@@ -292,44 +398,3 @@
 #! Malli Schema Generation
 #!
 
-;(defn class-doc-content [base-url class-name]
-;  (let [class-url (str base-url class-name)
-;        builder-url (str class-url ".Builder")]
-;    {:parts ["this is a json description of the read-only class"
-;             (genai/response-text ($extract-class-details-memo class-url))
-;             "this is  json description of it's builder class"
-;             (genai/response-text ($extract-class-details-memo builder-url))]}))
-;
-;(defonce class-doc-content-memo (memoize class-doc-content))
-;
-;(defn $class-schema
-;  "generate a malli schema for a java sdk class.
-;   (sdk, class-name) -> {key schema}"
-;  ([api-base class-name]
-;   ($class-schema pro api-base class-name))
-;  ([model api-base class-name]
-;   (let [sys       (str "you are a clojure code authoring tool."
-;                        "we are converting external documentation for google cloud sdk java classes into malli schemas."
-;                        "omit docstrings & instead focus on correctness."
-;                        "if a field is read-only, add :optional true :read-only true to entry's option map.")
-;         prompt    (str "finish this schema [:map {:class '" class-name)
-;         model-cfg (assoc model :systemInstruction sys
-;                                :generationConfig {:responseMimeType "application/json"
-;                                                   :responseSchema   {:type       "OBJECT"
-;                                                                      :properties {"key" {:type        "STRING"
-;                                                                                          :description "the edn :gcp/bigquery.qualified keyword for the schema in the registry"}
-;                                                                                   "schema" {:type        "STRING"
-;                                                                                             :description "edn containing the malli schema"}}}})
-;         context   [{:parts ["(pr-str gcp.bigquery.v2/registry) ;=> " (pr-str gcp.bigquery.v2/registry)]}
-;                    (class-doc-content-memo api-base class-name)]
-;         response  (genai/generate-content model-cfg (conj context prompt))
-;         {:keys [key schema]}
-;         (try
-;           (-> (genai/response-json response)
-;               (update-in [:key] clojure.edn/read-string)
-;               (update-in [:schema] clojure.edn/read-string))
-;           (catch Exception e
-;             (throw (ex-info (str "error extracting edn from response: " (ex-message e))
-;                             {:response response
-;                              :cause e}))))]
-;     [key schema])))

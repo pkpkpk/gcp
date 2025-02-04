@@ -655,9 +655,9 @@
 
    :gcp/bigquery.StandardSQLDataType
    [:map {:closed true}
-    ;; TODO just strings for primitives would be nice to accept here ie just "INT64" -> {:typeName "INT64"}
     [:typeKind {:urls     ["https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"
                            "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.StandardSQLDataType#com_google_cloud_bigquery_StandardSQLDataType_getTypeKind__"]
+                :TODO "TODO just strings for primitives would be nice to accept here ie just \"INT64\" -> {:typeName \"INT64\"}"
                 :optional true} :gcp/bigquery.StandardSQLTypeName]
     [:typeName {:optional true} :gcp/bigquery.StandardSQLTypeName]
     [:arrayElementType {:optional true} [:ref :gcp/bigquery.StandardSQLDataType]]
