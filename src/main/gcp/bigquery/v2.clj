@@ -494,10 +494,125 @@
                                                [:printHeader {:optional true} :boolean]
                                                [:useAvroLogicalTypes {:optional true} :boolean]]
 
+   :gcp/bigquery.FormatOptions.Type [:enum "AVRO", "CSV", "DATASTORE_BACKUP", "GOOGLE_SHEETS", "JSON", "ORC", "PARQUET"]
+
+   :gcp/bigquery.CsvOptions
+   [:map {:closed true,
+          :class 'com.google.cloud.bigquery.CsvOptions}
+    [:type {:readOnly true} [:= "CSV"]]
+    [:allowJaggedRows
+     {:readDoc "Returns whether BigQuery should accept rows that are missing trailing optional columns. If
+             <code translate=\"no\" dir=\"ltr\">true</code>, BigQuery treats missing trailing columns as null values. If <code translate=\"no\" dir=\"ltr\">false</code>,
+             records with missing trailing columns are treated as bad records, and if the number of bad
+             records exceeds <a class=\"xref\" href=\"/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExternalTableDefinition#com_google_cloud_bigquery_ExternalTableDefinition_getMaxBadRecords__\">ExternalTableDefinition#getMaxBadRecords()</a>, an invalid error is
+             returned in the job result.",
+      :writeDoc "Set whether BigQuery should accept rows that are missing trailing optional columns. If `
+              true`, BigQuery treats missing trailing columns as null values. If `false`, records
+              with missing trailing columns are treated as bad records, and if there are too many bad
+              records, an invalid error is returned in the job result. By default, rows with missing
+              trailing columns are considered bad records.",
+      :optional true}
+     :boolean]
+    [:allowQuotedNewLines
+     {:readDoc "Returns whether BigQuery should allow quoted data sections that contain newline characters in a\nCSV file.",
+      :writeDoc "Sets whether BigQuery should allow quoted data sections that contain newline characters in a
+              CSV file. By default quoted newline are not allowed."}
+     :boolean]
+    [:encoding
+     {:readDoc "Returns the character encoding of the data. The supported values are UTF-8 or ISO-8859-1. If
+             not set, UTF-8 is used. BigQuery decodes the data after the raw, binary data has been split
+             using the values set in <a class=\"xref\" href=\"/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.CsvOptions#com_google_cloud_bigquery_CsvOptions_getQuote__\">#getQuote()</a> and <a class=\"xref\" href=\"/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.CsvOptions#com_google_cloud_bigquery_CsvOptions_getFieldDelimiter__\">#getFieldDelimiter()</a>.",
+      :writeDoc "Sets the character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The
+              default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split
+              using the values set in #setQuote(String) and #setFieldDelimiter(String)."}
+     :string]
+    [:fieldDelimiter
+     {:readDoc "Returns the separator for fields in a CSV file.",
+      :writeDoc "Sets the separator for fields in a CSV file. BigQuery converts the string to ISO-8859-1
+              encoding, and then uses the first byte of the encoded string to split the data in its raw,
+              binary state. BigQuery also supports the escape sequence \"\\t\" to specify a tab separator. The
+              default value is a comma (',')."}
+     :string]
+    [:nullMarker
+     {:readDoc "Returns the string that represents a null value in a CSV file.",
+      :writeDoc "\\[Optional] Specifies a string that represents a null value in a CSV file. For example, if you
+              specify \"\\N\", BigQuery interprets \"\\N\" as a null value when querying a CSV file. The
+              default value is the empty string. If you set this property to a custom value, BigQuery
+              throws an error if an empty string is present for all data types except for STRING and BYTE.
+              For STRING and BYTE columns, BigQuery interprets the empty string as an empty value.",
+      :optional true}
+     :string]
+    [:preserveAsciiControlCharacters
+     {:readDoc "Returns whether BigQuery should allow ascii control characters in a CSV file. By default ascii
+             control characters are not allowed.",
+      :writeDoc "Sets whether BigQuery should allow ASCII control characters in a CSV file. By default ASCII
+              control characters are not allowed."}
+     :boolean]
+    [:quote
+     {:readDoc "Returns the value that is used to quote data sections in a CSV file.",
+      :writeDoc "Sets the value that is used to quote data sections in a CSV file. BigQuery converts the
+              string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split
+              the data in its raw, binary state. The default value is a double-quote ('\"'). If your data
+              does not contain quoted sections, set the property value to an empty string. If your data
+              contains quoted newline characters, you must also set #setAllowQuotedNewLines(boolean) property to `true`."}
+     :string]
+    [:skipLeadingRows
+     {:readDoc "Returns the number of rows at the top of a CSV file that BigQuery will skip when reading the\ndata.",
+      :writeDoc "Sets the number of rows at the top of a CSV file that BigQuery will skip when reading the
+              data. The default value is 0. This property is useful if you have header rows in the file
+              that should be skipped."}
+     :int]]
+
+   :gcp/bigquery.DatastoreBackupOptions       [:map {:closed true
+                                                     :class 'com.google.cloud.bigquery.DatastoreBackupOptions}
+                                               [:projectionFields {:optional false} [:sequential :string]]]
+
+   :gcp/bigquery.HivePartitioningOptions      [:map {:closed true
+                                                     :class 'com.google.cloud.bigquery.HivePartitioningOptions}
+                                               [:fields {:optional false} [:sequential :string]]
+                                               [:mode {:optional false} :string]
+                                               [:requirePartitionFilter {:optional false} :boolean]
+                                               [:sourceUriPrefix {:optional false} :string]]
+
+   :gcp/bigquery.ParquetOptions               [:map {:closed true
+                                                     :class 'com.google.cloud.bigquery.ParquetOptions}
+                                               [:enableListInference {:optional false} :boolean]
+                                               [:enumAsString {:optional false} :boolean]
+                                               [:mapTargetType {:optional false} :string]]
+
    :gcp/bigquery.LoadJobConfiguration         [:map {:closed true
                                                      :class  'com.google.cloud.bigquery.LoadJobConfiguration}
                                                [:type [:= "LOAD"]]
+                                               [:autodetect :boolean]
+                                               [:clustering :gcp/bigquery.Clustering]
+                                               [:columnNameCharacterMap :string]
+                                               [:connectionProperties [:sequential :gcp/bigquery.ConnectionProperty]]
+                                               [:createDisposition :gcp/bigquery.JobInfo.CreateDisposition]
+                                               [:createSession :boolean]
+                                               [:csvOptions {:readOnly true} :gcp/bigquery.CsvOptions]
+                                               [:datastoreBackupOptions {:readOnly true} :gcp/bigquery.DatastoreBackupOptions]
+                                               [:decimalTargetTypes [:sequential :string]]
+                                               [:encryptionConfiguration :gcp/bigquery.EncryptionConfiguration]
+                                               [:destinationTable {:optional false} :gcp/bigquery.TableId]
+                                               [:fileSetSpecType :string]
+                                               [:formatOptions :string]
+                                               [:hivePartitioningOptions :gcp/bigquery.HivePartitioningOptions]
+                                               [:jobTimeoutMs :int]
+                                               [:labels [:map-of :string :string]]
+                                               [:maxBadRecords :int]
+                                               [:nullMarker :string]
+                                               [:parquetOptions {:readOnly true} :gcp/bigquery.ParquetOptions]
+                                               [:rangePartitioning :gcp/bigquery.RangePartitioning]
+                                               [:referenceFileSchemaUri :string]
+                                               [:schema :gcp/bigquery.Schema]
+                                               [:schemaUpdateOptions [:sequential :gcp/bigquery.JobInfo.SchemaUpdateOption]]
+                                               [:sourceUris {:optional false} [:sequential :string]]
+                                               [:timePartitioning :gcp/bigquery.TimePartitioning]
+                                               [:useAvroLogicalTypes :boolean]
+                                               [:writeDisposition :gcp/bigquery.JobInfo.WriteDisposition]
+                                               [:ignoreUnknownValues :boolean]
                                                ]
+
 
    :gcp/bigquery.QueryJobConfiguration        [:map
                                                {:closed true

@@ -34,9 +34,18 @@
                                                          (malli.edn/write-string schema {:registry candidate
                                                                                          ::m/sci-options {:classes @*classes}})
                                                          (catch Exception e
-                                                           (throw (ex-info (str "error serializing schema for " k ": " (ex-message e))
-                                                                           {:schema schema
-                                                                            :cause e}))))
+                                                           (let [error-type (:type (ex-data e))]
+                                                             (if-let [bad-schema (and (= ::m/invalid-schema error-type)
+                                                                                      (keyword? (get-in (ex-data e) [:data :schema]))
+                                                                                      (= "gcp" (namespace (get-in (ex-data e) [:data :schema])))
+                                                                                      (get-in (ex-data e) [:data :schema]))]
+                                                               (if-let [body (get candidate bad-schema)]
+                                                                 (throw (ex-info (str "invalid schema for key "  bad-schema) {:key bad-schema
+                                                                                                                              :body body}))
+                                                                 (throw (Exception. (str "missing schema for key " bad-schema))))
+                                                               (throw (ex-info (str "error serializing schema for " k ": " (ex-message e))
+                                                                               {:schema schema
+                                                                                :cause  e}))))))
                                              recovered (try
                                                          (malli.edn/read-string written {:registry candidate
                                                                                          ::m/sci-options {:classes @*classes}})

@@ -720,16 +720,24 @@
                                            :protobuf/type    "google.cloud.vertexai.v1.Schema"
                                            :class            'com.google.cloud.vertexai.api.Schema
                                            :class/url        "https://cloud.google.com/vertex-ai/generative-ai/docs/reference/java/latest/com.google.cloud.vertexai.api.Schema"}
+
                                           [:type {:optional false} :vertexai.api/Type]
+
                                           [:description
                                            {:optional true
                                             :doc      "A brief description of the parameter. This could contain examples of use. Parameter description may be formatted as Markdown."}
                                            :string]
+
                                           [:example {:optional true
                                                      :doc      "example of an object"}
                                            :gcp.protobuf/Value]
+
                                           [:nullable {:optional true} :boolean]
+
                                           [:title {:optional true} :string]
+                                          ;; ENUM -----------------------
+                                          [:enum {:optional true
+                                                  :doc "TYPE=STRING"} [:seqable :string]]
                                           ;; STRING -----------------------
                                           [:format
                                            {:optional true
