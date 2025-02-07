@@ -27,6 +27,7 @@
                   (LoadJobConfiguration/newBuilder destinationTable ^List (seq sourceUris)))]
     (when writeDisposition
       (.setWriteDisposition builder (JobInfo$WriteDisposition/valueOf writeDisposition)))
+    (throw (Exception. "unimplemented"))
     (.build builder)))
 
 (defn to-edn [^LoadJobConfiguration arg] (throw (Exception. "unimplemented")))

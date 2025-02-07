@@ -16,7 +16,7 @@
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableInfo :as TableInfo]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId WriteChannelConfiguration)))
 
 ;; TODO 'dataset-able' 'table-able' etc w/ transforms
 ;; TODO arg specs, switch to ::bq/op keys
@@ -347,6 +347,14 @@
 
 #!-----------------------------------------------------------------------------
 #! Other
+
+(defn writer
+  ([arg]
+   (if (g/valid? :gcp/bigquery.synth.Writer arg)
+     (let [{:keys [bigquery jobId writeChannelConfiguration]} arg]
+       (if (some? jobId)
+         (.writer (client bigquery) (JobId/from-edn jobId) (WriteChannelConfiguration/from-edn writeChannelConfiguration))))))
+  ([jobId writeChannelConfiguration]))
 
 ;createConnection()
 ;createConnection(@NonNull ConnectionSettings connectionSettings)

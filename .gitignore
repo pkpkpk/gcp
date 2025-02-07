@@ -6,3 +6,4 @@ cljs-runtime
 dh.js
 target
 .nrepl-port
+.konserve

@@ -220,7 +220,7 @@
                                                [:table :gcp/bigquery.synth.table]]
 
    :gcp/bigquery.synth.TableList              [:map
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
+                                               [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
                                                [:datasetId {:optional true} :gcp/bigquery.DatasetId]
                                                [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableListOption]]]
 
