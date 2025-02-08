@@ -16,7 +16,7 @@
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableInfo :as TableInfo]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId WriteChannelConfiguration)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId TableDataWriteChannel WriteChannelConfiguration)))
 
 ;; TODO 'dataset-able' 'table-able' etc w/ transforms
 ;; TODO arg specs, switch to ::bq/op keys
@@ -348,13 +348,20 @@
 #!-----------------------------------------------------------------------------
 #! Other
 
-(defn writer
+(defn ^TableDataWriteChannel writer
   ([arg]
-   (if (g/valid? :gcp/bigquery.synth.Writer arg)
-     (let [{:keys [bigquery jobId writeChannelConfiguration]} arg]
-       (if (some? jobId)
-         (.writer (client bigquery) (JobId/from-edn jobId) (WriteChannelConfiguration/from-edn writeChannelConfiguration))))))
-  ([jobId writeChannelConfiguration]))
+   (if (g/valid? :gcp/bigquery.synth.WriterCreate arg)
+     (let [{:keys [bigquery jobId writeChannelConfiguration]} arg
+       #_ #_    cfg (WriteChannelConfiguration/from-edn writeChannelConfiguration)]
+       #_(if (some? jobId)
+         (.writer (client bigquery) (JobId/from-edn jobId) cfg)
+         (.writer (client bigquery) cfg)))
+     (if (g/valid? :gcp/bigquery.WriteChannelConfiguration arg)
+       (writer {:writeChannelConfiguration arg})
+       (throw (g/human-ex-info [:or :gcp/bigquery.WriteChannelConfiguration :gcp/bigquery.synth.WriterCreate] arg)))))
+  ([jobId writeChannelConfiguration]
+   (writer {:jobId jobId
+            :writeChannelConfiguration writeChannelConfiguration})))
 
 ;createConnection()
 ;createConnection(@NonNull ConnectionSettings connectionSettings)

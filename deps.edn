@@ -1,6 +1,6 @@
 {:paths   ["src/main"]
  :deps    {org.clojure/clojure                                {:mvn/version "1.12.0"}
-           com.google.cloud/google-cloud-bigquery             {:mvn/version "2.45.0"}
+           com.google.cloud/google-cloud-bigquery             {:mvn/version "2.47.0"}
            com.google.cloud/google-cloud-bigquerydatatransfer {:mvn/version "2.56.0"}
            com.google.cloud/google-cloud-discoveryengine      {:mvn/version "0.51.0"}
            com.google.cloud/google-cloud-pubsub               {:mvn/version "1.136.0"}

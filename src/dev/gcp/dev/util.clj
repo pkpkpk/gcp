@@ -1,0 +1,147 @@
+(ns gcp.dev.util
+  (:require [clj-http.client :as http]
+            [clojure.java.io :as io]
+            [clojure.string :as string]
+            [taoensso.telemere :as tt]))
+
+(def home (io/file (System/getProperty "user.home")))
+(def pkpkpk (io/file home "pkpkpk"))
+(def root (io/file pkpkpk "gcp"))
+(def src  (io/file root "src"))
+
+(defn get-url-bytes [^String url]
+  (tt/log! (str "fetching url -> " url))
+  (let [{:keys [status body] :as response} (http/get url {:redirect-strategy :none :as :byte-array})]
+    (if (= 200 status) ;google docs will 301 on missing doc
+      body
+      (throw (ex-info "expected 200 response" {:url url :response response})))))
+
+(defn get-java-ref [^String url]
+  (let [bs (get-url-bytes url)
+        s  (String. bs "UTF-8")
+        ;; can't be bothered to parse but this is decent 2/3 cut
+        start (string/index-of s "devsite-article-body")
+        end (string/index-of s "footer")]
+    (.getBytes (subs s start end))))
+
+(def native-type #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
+                   "boolean" "int" "java.lang.Object"})
+
+(defn parse-type [t]
+  (if (string/starts-with? t "java.util.List<")
+    (let [start (subs t 15)]
+      (subs start 0 (.indexOf start ">")))
+    (if (string/starts-with? t "java.util.Map<")
+      (if (string/starts-with? t "java.util.Map<java.lang.String,")
+        (string/trim (subs t 31 (.indexOf t ">")))
+        (throw (Exception. (str "unimplemented non-string key for type '" t "'"))))
+      t)))
+
+(defn type-dependencies
+  ([cdesc]
+   (type-dependencies #{} cdesc))
+  ([init {:keys [staticMethods instanceMethods isBuilder]}]
+   (reduce
+     (fn [acc {:keys [parameters returnType]}]
+       (let [acc (into acc (comp (map :type) (map parse-type) (remove native-type)) parameters)]
+         (if (not isBuilder) ;; TODO KILL ME
+           (let [ret (parse-type returnType)]
+             (if (native-type ret)
+               acc
+               (conj acc ret)))
+           acc)))
+     init
+     (into staticMethods instanceMethods))))
+
+(defn dot-parts [class]
+  (let [class (if (class? class)
+                (str class)
+                (if (or (symbol? class) (keyword? class))
+                  (name class)
+                  class))]
+    (string/split class #"\.")))
+
+(defn package-parts [className]
+  (assert (string? className))
+  (vec (take 4 (dot-parts className))))
+
+(defn class-parts [className]
+  {:pre [(string? className)]
+   :post [(vector? %) (seq %) (every? string? %)]}
+  (vec (nthrest (dot-parts className) 4)))
+
+#_(into (pop (class-parts className)) (string/split (peek ps) #"\$"))
+
+(defn package-keys
+  [{:keys [name] :as package}]
+  (let [class-names (into #{} (filter #(= 1 (count %))) (map class-parts (:classes package)))
+        class-keys (into (sorted-set) (map #(keyword "gcp" (string/join "." (into [name] %)))) class-names)]
+    class-keys))
+
+(defn ->malli-type [package t]
+  (case t
+    ;"java.lang.Object"
+    "java.lang.String" :string
+    ("boolean" "java.lang.Boolean") :boolean
+    ("int" "java.lang.Integer" "long" "java.lang.Long") :int
+    "java.util.Map<java.lang.String, java.lang.String>" [:map-of :string :string]
+    (cond
+
+      (string/starts-with? t "java.util.List<")
+      [:sequential (->malli-type package (string/trim (subs t 15 (dec (count t)))))]
+
+      (or (contains? (set (:classes package)) t)
+          (contains? (set (:enums package)) t))
+      (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t))))
+
+      :else
+      (do
+        (tt/log! :warn (str "WARN unknown malli type" t))
+        t))))
+
+(defn as-dot-string [class-like]
+  (if (class? class-like)
+    (subs (str class-like) 6)
+    (let [class-like (name class-like)]
+      (if (string? class-like)
+        (if (string/includes? class-like "$")
+          (let [parts (dot-parts class-like)]
+            (string/join "." (into (vec (butlast parts)) (string/split (peek parts) #"\$"))))
+          class-like)
+        (throw (Exception. (str "cannot make dot string from type " (type class-like))))))))
+
+(defn as-dollar-string [class-like]
+  (if (class? class-like)
+    (as-dollar-string (as-dot-string class-like))
+    (let [class-like    (name class-like)
+          package-parts (package-parts class-like)
+          class-parts   (class-parts class-like)]
+      (string/join "." (conj package-parts (string/join "$" class-parts))))))
+
+(defn as-registry-key [class-like]
+  (keyword "gcp" (as-dot-string class-like)))
+
+(defn _as-class [class-like]
+  (if (class? class-like)
+    class-like
+    (if (string? class-like)
+      (if (string/ends-with? class-like ".Builder")
+        (let [parts (string/split class-like #"\.")
+              sym   (symbol (str (string/join "." (butlast parts)) "$Builder"))]
+          (resolve sym))
+        (if (string/includes? class-like "$")
+          (resolve (symbol class-like))
+          (or (resolve (symbol class-like))
+              (resolve (symbol (as-dollar-string class-like))))))
+      (throw (Exception. (str "unknown type for class-like '" (type class-like) "'"))))))
+
+(defn as-class [class-like]
+  (let [clazz (_as-class class-like)]
+    (if (class? clazz)
+      clazz
+      (throw (ex-info "failed to create class from class-like '" class-like "'")))))
+
+(defn builder-like? [class-like]
+  (if (class? class-like)
+    (builder-like? (str class-like))
+    (string/ends-with? (name class-like) "Builder")))
