@@ -1,9 +1,8 @@
 (ns gcp.dev.extract
   (:require [clojure.string :as string]
-            [gcp.dev.store :as store]
             [gcp.dev.models :as models]
-            [gcp.dev.util :refer [as-dot-string as-dollar-string as-class
-                                  builder-like?]]
+            [gcp.dev.store :as store]
+            [gcp.dev.util :refer [as-dot-string as-dollar-string as-class builder-like?]]
             [gcp.global :as g]
             [gcp.vertexai.generativeai :as genai]
             [taoensso.telemere :as tt]))
@@ -76,41 +75,17 @@
      (validator! edn)
      edn)))
 
-(defn- $_extract-package-summary
-  ([model package-name package-url]
-   (let [cfg (assoc model
-               :systemInstruction (str "You are given google cloud java package summary page"
-                                       "Extract its parts into arrays.")
-               :generationConfig {:responseMimeType "application/json"
-                                  :responseSchema {:type "OBJECT"
-                                                   ;; TODO settings clients etc
-                                                   :required ["version" "classes" "enums" "exceptions" "interfaces"]
-                                                   :properties {"version" {:type "STRING"
-                                                                           :example "2.47.0"}
-                                                                "classes"
-                                                                {:type "ARRAY"
-                                                                 :items {:type "STRING"
-                                                                         :description "package qualified class name"}}
-                                                                "enums"
-                                                                {:type "ARRAY"
-                                                                 :items {:type "STRING"
-                                                                         :description "package qualified enum name"}}
-                                                                "exceptions"
-                                                                {:type "ARRAY"
-                                                                 :items {:type "STRING"
-                                                                         :description "package qualified exception name"}}
-                                                                "interfaces"
-                                                                {:type "ARRAY"
-                                                                 :items {:type "STRING"
-                                                                         :description "package qualified interface name"}}}}})]
-     (tt/log! (str "$extract-package-summary -> " package-url))
-     (assoc (store/extract-java-ref-aside package-name cfg package-url) :type :package))))
+(def version-schema {:type        "STRING"
+                     :example     "2.47.0"
+                     :description "package version"
+                     :pattern     "^[0-9]+\\.[0-9]+\\.[0-9]+$"})
 
 (defn- $_extract-builder-setters
   "=> {:setterName {:name 'paramName' :type 'java.lang.Long'}}"
   ([model package builder-like]
    (assert (builder-like? builder-like))
    (assert ((set (:builders package)) (as-dot-string builder-like)))
+   (assert (string? (:store package)))
    (let [url               (str (g/coerce some? (:packageRootUrl package)) builder-like)
          {setters :setterMethods :as reflection} (reflect-builder builder-like)
          _                 (g/coerce [:seqable :string] setters)
@@ -138,7 +113,7 @@
                                                                               :members (into (sorted-set) setters)}))))
          cfg               (assoc model :systemInstruction systemInstruction
                                         :generationConfig generationConfig)
-         edn               (store/extract-java-ref-aside (:packageName package) cfg url validator)]
+         edn               (store/extract-java-ref-aside (:store package) cfg url validator)]
      (assoc reflection :setters edn
                        :type :builder))))
 
@@ -149,6 +124,7 @@
     :instanceMethods {:getterName -> {:returnType '', :doc ''}}}"
   [model package class-like]
   (assert ((set (:classes package)) (as-dot-string class-like)))
+  (assert (string? (:store package)))
   (let [url (str (g/coerce some? (:packageRootUrl package)) class-like)
         {:keys [instanceMethods] :as reflection} (reflect-readonly class-like)
         instance-method-names (map name (keys instanceMethods))
@@ -170,21 +146,27 @@
                                                                                    :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}}}}}}
         generationConfig {:responseMimeType "application/json"
                           :responseSchema   {:type       "OBJECT"
-                                             :required   ["doc" "methods"]
-                                             :properties {"doc" {:type "STRING"
+                                             :required   ["doc" "methods" "version"]
+                                             :properties {"version" version-schema
+                                                          "doc" {:type "STRING"
                                                                  :description "description of the class"}
                                                           "methods" {:type       "OBJECT"
                                                                      :required   instance-method-names
                                                                      :properties (into {} (map #(vector % method-schema)) instance-method-names)}}}}
         cfg (assoc model :systemInstruction systemInstruction
                          :generationConfig generationConfig)
-        validator (fn [{:keys [methods doc] :as edn}]
+        validator (fn [{:keys [version methods doc] :as edn}]
+                    (when (not= version (:version package))
+                      (throw (ex-info (str "found different package version for class '" class-like "'")
+                                      {:extracted-version version
+                                       :package-version (:version package)
+                                       :class-like      class-like})))
                     (when-not (and (map? methods)
                                    (= (count instance-method-names) (count methods))
                                    (= (set instance-method-names) (set (map name (keys methods)))))
                       (throw (ex-info "returned keys did not match" {:actual (into (sorted-set) (map name) (keys methods))
                                                                      :members (into (sorted-set) instance-method-names)}))))
-        edn (store/extract-java-ref-aside (:packageName package) cfg url validator)]
+        edn (store/extract-java-ref-aside (:store package) cfg url validator)]
     (assoc reflection :className class-like
                       :type :readonly
                       :doc (:doc edn)
@@ -193,6 +175,7 @@
 (defn- $_extract-enum-detail
   [model package enum-like]
   (assert ((set (:enums package)) (as-dot-string enum-like)))
+  (assert (string? (:store package)))
   (let [values (enum-values (g/coerce some? (resolve (symbol (as-dollar-string enum-like)))))
         url (str (g/coerce some? (:packageRootUrl package)) (as-dot-string enum-like))
         systemInstruction (str "identity the description of the enum class & each of individual value")
@@ -201,18 +184,28 @@
                     :description "description of enum value"}
         generationConfig {:responseMimeType "application/json"
                           :responseSchema   {:type       "OBJECT"
-                                             :properties {"doc" {:type "STRING"
-                                                                 :description "description of the enum class"}
-                                                          "values" {:type       "OBJECT"
-                                                                    :properties {"doc"    {:type        "STRING"
-                                                                                           :description "enum class description"}
-                                                                                 "values" {:type       "OBJECT"
-                                                                                           :required   values
-                                                                                           :properties (into {} (map #(vector % doc-schema)) values)}}}}}}
+                                             :required   ["version" "doc" "values"]
+                                             :properties {"version" version-schema
+                                                          "doc"     {:type        "STRING"
+                                                                     :description "description of the enum class"}
+                                                          "values"  {:type       "OBJECT"
+                                                                     :required   ["doc" "values"]
+                                                                     :properties {"doc"    {:type        "STRING"
+                                                                                            :nullable    true
+                                                                                            :description "enum class description"}
+                                                                                  "values" {:type       "OBJECT"
+                                                                                            :required   values
+                                                                                            :properties (into {} (map #(vector % doc-schema)) values)}}}}}}
         cfg (assoc model :systemInstruction systemInstruction
-                         :generationConfig generationConfig)]
-    (assoc (store/extract-java-ref-aside (:packageName package) cfg url) :type :enum)))
-
+                         :generationConfig generationConfig)
+        validator (fn [{:keys [version] :as edn}]
+                    (when (not= version (:version package))
+                      (throw (ex-info (str "found different package version for enum '" enum-like "'")
+                                      {:edn             edn
+                                       :package-version (:version package)
+                                       :class-like      enum-like}))))
+        res (store/extract-java-ref-aside (:store package) cfg url validator)]
+    (assoc res :type :enum)))
 
 (defn $extract-type-detail
   ([package class-like]
@@ -221,7 +214,7 @@
    (cond
      ;; TODO exceptions! settings! clients!
      ((set (:enums package)) (as-dot-string class-like))
-     ($_extract-readonly model package class-like)
+     ($_extract-enum-detail model package class-like)
 
      (builder-like? class-like)
      ($_extract-builder-setters model package class-like)

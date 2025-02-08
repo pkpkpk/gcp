@@ -24,7 +24,7 @@
       (let [path (.getPath (io/file root store-name))]
         (fs/connect-fs-store path {:opts {:sync? true}})))))
 
-(defn get-bytes-aside [store-name ^String url]
+(defn get-url-bytes-aside [store-name ^String url]
   (or (k/get (connect store-name) url nil {:sync? true})
       (let [bs (util/get-url-bytes url)]
         (k/assoc (connect store-name) url bs {:sync? true})

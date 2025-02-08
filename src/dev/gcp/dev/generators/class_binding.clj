@@ -25,23 +25,6 @@
            (java.io ByteArrayOutputStream)))
 
 
-(comment
-  (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
-
-  ($extract-type-detail @bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> read-only
-  ($extract-type-detail @bigquery "com.google.cloud.bigquery.LoadJobConfiguration.Builder") ;=> builder
-  ($extract-type-detail @bigquery "com.google.cloud.bigquery.Acl$Entity$Type") ;=> enum
-
-  ($extract-type-detail-memo @bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
-  ($extract-type-detail-memo @bigquery "com.google.cloud.bigquery.WriteChannelConfiguration.Builder")
-
-  (get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
-  {:description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion.",
-   :type "string"}
-  )
-
-#!----------------------------------------------------------------------------------------------------------------------
-
 (defn combine-class-accessors
   "combines getter maps from read-only classes with setter maps from builders
    into seq of maps describing the underlying field"
@@ -94,6 +77,11 @@
       :setters setters}
      )))
 
+(comment
+
+
+  )
+
 (defn malli-from-class-doc [package class]
   #_
   (let [readonly ($extract-from-class-doc-memo package class)
@@ -141,23 +129,19 @@
 (comment
   (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
 
-  (member-methods com.google.cloud.bigquery.LoadJobConfiguration)
-  (member-methods com.google.cloud.bigquery.LoadJobConfiguration$Builder)
-  (reflect-readonly com.google.cloud.bigquery.LoadJobConfiguration)
+  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> read-only
+  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration.Builder") ;=> builder
+  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.Acl.Entity.Type") ;=> enum
+  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration.Builder")
 
+  (get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
+  {:description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion.",
+   :type "string"}
   ;com.google.cloud.bigquery.WriteChannelConfiguration
 
-  (def package-schema
-    [:map
-     [:name :string]
-     ;TODO settings & clients
-     [:classes    [:seqable :string]]
-     [:enums      [:seqable :string]]
-     [:exceptions [:seqable :string]]
-     [:interfaces [:seqable :string]]])
 
-  (def pubsub-root (io/file src "main" "gcp" "pubsub"))
-  (def pubsub-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/")
+
   )
 
 ;; TODO

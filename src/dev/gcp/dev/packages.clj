@@ -17,7 +17,8 @@
                                                      ;; TODO settings clients etc
                                                      :required   ["version" "classes" "enums" "exceptions" "interfaces"]
                                                      :properties {"version" {:type    "STRING"
-                                                                             :example "2.47.0"}
+                                                                             :example "2.47.0"
+                                                                             :pattern "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
                                                                   "settings"
                                                                   {:type  "ARRAY"
                                                                    :items {:type        "STRING"
@@ -38,25 +39,28 @@
                                                                   {:type  "ARRAY"
                                                                    :items {:type        "STRING"
                                                                            :description "package qualified interface name"}}}}}}]
+     ;; never cache package summary bytes, always get latest
      (extract/extract-from-bytes cfg (util/get-url-bytes package-url)))))
 
+(def package-schema
+  [:map
+   [:name :string]
+   ;TODO settings & clients
+   [:classes    [:seqable :string]]
+   [:enums      [:seqable :string]]
+   [:exceptions [:seqable :string]]
+   [:interfaces [:seqable :string]]])
+
 (defn bigquery []
-  (let [latest ($package-summary "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
-    (if (not= (:version latest) (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
+  (let [{:keys [version classes] :as latest} ($package-summary "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
+    (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
       (throw (Exception. "new bigquery version!"))
-      (let [bq (assoc latest :packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
-                             :overviewUrl    "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
-                             :root           (io/file util/src "main" "gcp" "bigquery" "v2")
-                             :rootNs         'gcp.bigquery.v2
-                             :packageName    "bigquery"
-                             :packageSymbol  'com.google.cloud.bigquery
-                             :store          (str "bigquery_" (:version latest)))
-            discovery          (j/read-value (store/get-bytes-aside "discovery" "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest") j/keyword-keys-object-mapper)
+      (let [discovery          (j/read-value (store/get-url-bytes-aside "discovery" "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest") j/keyword-keys-object-mapper)
             class-keys         (into (sorted-set)
                                      (comp (map util/class-parts)
                                            (map first)
                                            (map keyword))
-                                     (:classes bq))
+                                     (:classes latest))
             schema-keys        (set (keys (get-in discovery [:schemas])))
             class-intersection (clojure.set/intersection schema-keys class-keys)
             refless-classes    (into (sorted-map)
@@ -66,10 +70,25 @@
                                            (when-not (some some? (map :$ref (vals (get schema :properties))))
                                              [key schema]))))
                                      class-intersection)
-            {builders true classes false} (group-by #(string/ends-with? % "Builder") (:classes bq))
+            {builders true classes false} (group-by #(string/ends-with? % "Builder") classes)
             {cgc-enums true classes false} (group-by #(contains? (:bases (clojure.reflect/reflect (util/as-class %))) 'com.google.cloud.StringEnumValue) classes)]
-        (assoc bq :classes classes
-                  :enums (into (:enums bq) cgc-enums)
-                  :builders builders
-                  :classes-refless refless-classes
-                  :discovery discovery)))))
+        (assoc latest
+          :packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
+          :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
+          :root (io/file util/src "main" "gcp" "bigquery" "v2")
+          :rootNs 'gcp.bigquery.v2
+          :packageName "bigquery"
+          :packageSymbol 'com.google.cloud.bigquery
+          :store (str "bigquery_" (:version latest))
+          :classes classes
+          :enums (into (:enums latest) cgc-enums)
+          :builders builders
+          :classes-refless refless-classes
+          :discovery discovery)))))
+
+;; fetch-all-urls
+;; list-missing-urls
+;; list-missing-extractions
+
+;(def pubsub-root (io/file src "main" "gcp" "pubsub"))
+;(def pubsub-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/")
