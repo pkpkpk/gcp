@@ -70,7 +70,12 @@
    :post [(vector? %) (seq %) (every? string? %)]}
   (vec (nthrest (dot-parts className) 4)))
 
-#_(into (pop (class-parts className)) (string/split (peek ps) #"\$"))
+(defn dollar-parts [className]
+  {:pre [(string? className) (string/includes? className "$")]
+   :post [(vector? %) (seq %) (every? string? %)]}
+  (let [[dollar :as cp] (class-parts className)]
+    (assert (= 1 (count cp)))
+    (string/split dollar #"\$")))
 
 (defn package-keys
   [{:keys [name] :as package}]
@@ -124,22 +129,27 @@
 (defn _as-class [class-like]
   (if (class? class-like)
     class-like
-    (if (string? class-like)
-      (if (string/ends-with? class-like ".Builder")
-        (let [parts (string/split class-like #"\.")
-              sym   (symbol (str (string/join "." (butlast parts)) "$Builder"))]
-          (resolve sym))
+    (try
+      (let [class-like (name class-like)]
         (if (string/includes? class-like "$")
-          (resolve (symbol class-like))
-          (or (resolve (symbol class-like))
-              (resolve (symbol (as-dollar-string class-like))))))
-      (throw (Exception. (str "unknown type for class-like '" (type class-like) "'"))))))
+          (or
+            (resolve (symbol class-like))
+            (let [package (symbol (string/join "." (package-parts class-like)))
+                  [dollar] (class-parts class-like)]
+              (eval `(import ~[package (symbol dollar)]))))
+          (or
+            (resolve (symbol class-like))
+            (let [package (symbol (string/join "." (package-parts class-like)))
+                  dollar  (symbol (string/join "$" (class-parts class-like)))]
+              (eval `(import ~[package (symbol dollar)]))))))
+      (catch Exception e
+        (throw (ex-info "error importing class" {:error e}))))))
 
 (defn as-class [class-like]
   (let [clazz (_as-class class-like)]
     (if (class? clazz)
       clazz
-      (throw (ex-info "failed to create class from class-like '" class-like "'")))))
+      (throw (Exception. (str "failed to create class from class-like '" class-like "'"))))))
 
 (defn builder-like? [class-like]
   (if (class? class-like)

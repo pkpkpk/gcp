@@ -84,13 +84,12 @@
   "=> {:setterName {:name 'paramName' :type 'java.lang.Long'}}"
   ([model package builder-like]
    (assert (builder-like? builder-like))
-   (assert ((set (:builders package)) (as-dot-string builder-like)))
    (assert (string? (:store package)))
    (let [url               (str (g/coerce some? (:packageRootUrl package)) builder-like)
          {setters :setterMethods :as reflection} (reflect-builder builder-like)
          _                 (g/coerce [:seqable :string] setters)
-         systemInstruction (str "extract the builder setters methods description and parameter type"
-                                "please use fully qualified package names for all types that reference gcp sdks")
+         systemInstruction (str "extract the builder setters methods description and parameter type."
+                                " please use fully qualified package names for all types that reference gcp sdks")
          method-schema     {:type        "OBJECT"
                             :nullable    true
                             :description "fully qualified setter parameter if any"
@@ -114,8 +113,9 @@
          cfg               (assoc model :systemInstruction systemInstruction
                                         :generationConfig generationConfig)
          edn               (store/extract-java-ref-aside (:store package) cfg url validator)]
-     (assoc reflection :setters edn
-                       :type :builder))))
+     {:type :builder
+      :className (as-dot-string builder-like)
+      :setterMethods edn})))
 
 (defn- $_extract-readonly
   "{:className ''
@@ -170,7 +170,7 @@
     (assoc reflection :className class-like
                       :type :readonly
                       :doc (:doc edn)
-                      :instanceMethods (:methods edn))))
+                      :getterMethods (:methods edn))))
 
 (defn- $_extract-enum-detail
   [model package enum-like]
@@ -221,3 +221,12 @@
 
      true
      ($_extract-readonly model package class-like))))
+
+(comment
+
+  ($extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> read-only
+  ($extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration.Builder") ;=> builder
+  ($extract-type-detail bigquery "com.google.cloud.bigquery.Acl.Entity.Type") ;=> enum
+  ($extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  ($extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration.Builder")
+  )

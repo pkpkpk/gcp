@@ -52,3 +52,17 @@
            (validator! edn)
            (k/assoc (connect store-name) key edn {:sync? true})
            edn)))))
+
+;;
+;; TODO serializable/haschable malli validators, store w/value in meta?
+;;
+
+(defn generate-content-aside
+  ([store-name model-cfg content validator!]
+   (let [key [model-cfg (str (hasch.core/uuid content))]]
+     (or (k/get (connect store-name) key nil {:sync? true})
+         (let [response (genai/generate-content model-cfg content)
+               edn (genai/response-json response)]
+           (validator! edn)
+           (k/assoc (connect store-name) key edn {:sync? true})
+           edn)))))

@@ -1,4 +1,4 @@
-(ns gcp.dev.generators.class-binding
+(ns gcp.dev.analyzer
   (:require
     [clj-http.client :as http]
     [clojure.edn :as edn]
@@ -14,73 +14,90 @@
     [gcp.dev.util :as util :refer [as-dot-string as-class as-dollar-string builder-like?]]
     [gcp.global :as g]
     gcp.vertexai.v1
-    [gcp.vertexai.generativeai :as genai]
-    [jsonista.core :as j]
-    [konserve.core :as k]
-    [konserve.filestore :as fs]
     [rewrite-clj.zip :as z]
     [taoensso.telemere :as tt]
     [zprint.core :as zp])
   (:import (com.google.cloud.bigquery BigQueryOptions)
            (java.io ByteArrayOutputStream)))
 
+(defn zip-accessors
+  ([package getterMethods setterMethods]
+   (let [setters           (g/coerce [:seqable :string] (sort (map name (keys setterMethods))))
+         getters           (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
+         getter-schema     {:type        "STRING"
+                            :nullable    false
+                            :description "the read only method that corresponds to the setter"}
+         generationConfig  {:responseMimeType "application/json"
+                            :responseSchema   {:type       "OBJECT"
+                                               :required   setters
+                                               :properties (into {} (map #(vector % getter-schema)) setters)}}
+         systemInstruction (str "given a list of getters, match them to their setter in the response schema."
+                                "for every setter there is a getter, but not every getter has a setter")
+         cfg               (assoc models/flash :systemInstruction systemInstruction
+                                               :generationConfig generationConfig)
+         validator!        (fn [edn]
+                             (if (not= (set setters) (set (map name (keys edn))))
+                               (throw (ex-info "missing setter method!" {:getters getters
+                                                                         :setters setters
+                                                                         :edn edn}))
+                               (if (not (every? some? (vals edn)))
+                                 (throw (ex-info "expected getter for every setter" {:getters getters
+                                                                                     :setters setters
+                                                                                     :edn edn}))
+                                 (if-not (clojure.set/subset? (set (vals edn)) (into #{} getters))
+                                   (throw (ex-info "incorrect keys" {:getters getters
+                                                                     :setters setters
+                                                                     :edn edn}))))))
+         res (store/generate-content-aside (:store package) cfg getters validator!)]
+     (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
-(defn combine-class-accessors
-  "combines getter maps from read-only classes with setter maps from builders
-   into seq of maps describing the underlying field"
-  ([package className]
-   (assert (not (builder-like? className)))
-   (let [{:keys [instanceMethods staticMethods] :as readonly}  (extract/$extract-type-detail package className)
-         {:keys [setterMethods] :as builder} (extract/$extract-type-detail package (str className ".Builder"))
-         getters   (remove #(#{"toString" "hashCode" "equals"} (:methodName %)) instanceMethods)
-         setters   (into []
-                         (comp
-                           (remove #(= "build" (:methodName %)))
-                           (map #(dissoc % :returnType)))
-                         (:instanceMethods builder))
-         ;; for every setter there is a getter, but not every getter has a setter
+(defn analyze-accessor
+  ;;; --> everything needed to produce malli schema, to-edn, from-edn
+  ;;; + class doc
+  ;;; + getters w/ params, doc
+  ;;; + setters w/ params, doc
+  ;;; + class dependencies
+  ;;;  -- ie can create dependency tree and emit classes in order
+  [package className]
+  (assert (contains? (set (:simple-accessor package)) className))
+  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
+        {:keys [setterMethods] :as builder} (extract/$extract-type-detail package (str className ".Builder"))
+        zipped (zip-accessors package getterMethods setterMethods)
+        fields (into (sorted-map)
+                     (map
+                       (fn [[setter-key getter-key]]
+                         (let [{:as setterMethod} (get setterMethods setter-key)
+                               {:as getterMethod} (get getterMethods getter-key)]
+                           (assert (some? setterMethod))
+                           (assert (some? getterMethod))
+                           (assert (nil? (:parameters getterMethod)))
+                           [(keyword (:name setterMethod))
+                            {:setterDoc    (get setterMethod :doc)
+                             :setterMethod (symbol setter-key)
+                             :getterDoc    (get getterMethod :doc)
+                             :getterMethod (symbol getter-key)
+                             :returnType   (get getterMethod :returnType)
+                             :type (:type setterMethod)}])))
+                     zipped)]
+    {::type :simple-accessor
+     :doc classDoc
+     :fields fields
+     :staticMethods staticMethods}))
 
-         ;*setters (atom (into {}
-         ;                     (map
-         ;                       (fn [{:keys [methodName] :as m}]
-         ;                         (let [key (string/lower-case (subs methodName 3))]
-         ;                           [key (assoc m ::key key)])))
-         ;                     setters))
-
-         ;fields (reduce (fn [acc {getterMethod :methodName readDoc :doc :keys [returnType] :as getter}]
-         ;                (let [key (string/lower-case (cond-> getterMethod (string/starts-with? getterMethod "get") (subs 3)))]
-         ;                  (if-let [{setterMethod :methodName writeDoc :doc :keys [parameters] :as setter}
-         ;                           (or (get @*setters key)
-         ;                               (reduce (fn [_ [k m]]
-         ;                                         (when (string/starts-with? k key)
-         ;                                           (reduced m))) nil @*setters))]
-         ;                    (let [opt (if (re-seq #"ptional" writeDoc)
-         ;                                true
-         ;                                (if (re-seq #"equired" writeDoc)
-         ;                                  false))]
-         ;                      (assert (= 1 (count parameters)))
-         ;                      (assert (contains? @*setters (::key setter)))
-         ;                      (swap! *setters dissoc (::key setter))
-         ;                      (conj acc (cond-> {:getter    getterMethod
-         ;                                         :type      returnType
-         ;                                         :setter    setterMethod
-         ;                                         :readDoc readDoc
-         ;                                         :writeDoc writeDoc
-         ;                                         :parameter (:name (first parameters))}
-         ;                                        (some? opt) (assoc :optional opt))))
-         ;                    (conj acc {:getter getterMethod :type returnType}))))
-         ;              [] getters)
-         ]
-     ;(assert (empty? @*setters) (str "expected setters to be exhausted: " @*setters))
-     ;fields
-     {:getters getters
-      :setters setters}
-     )))
+(defn analyze-type
+  [package className]
+  )
 
 (comment
-
-
+  (do (require :reload 'gcp.dev.generators.analyzer) (in-ns 'gcp.dev.generators.analyzer))
+  (analyze-accessor bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
+  (analyze-accessor bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (analyze-accessor bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
+  ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
   )
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defn malli-from-class-doc [package class]
   #_
@@ -124,25 +141,13 @@
                 [key opts (util/->malli-type package type)])))
           (sort-by key properties))))
 
+
+
+
+
 #!----------------------------------------------------------------------------------------------------------------------
 
-(comment
-  (do (require :reload 'gcp.dev.generators.class-binding) (in-ns 'gcp.dev.generators.class-binding))
 
-  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> read-only
-  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration.Builder") ;=> builder
-  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.Acl.Entity.Type") ;=> enum
-  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
-  (extract/$extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration.Builder")
-
-  (get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
-  {:description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion.",
-   :type "string"}
-  ;com.google.cloud.bigquery.WriteChannelConfiguration
-
-
-
-  )
 
 ;; TODO
 ;; context, siblings classes as reference
