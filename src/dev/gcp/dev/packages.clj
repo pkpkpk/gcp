@@ -56,7 +56,8 @@
 (defn bigquery []
   (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
-      (throw (Exception. "new bigquery version!"))
+      (throw (ex-info "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
+                                               :extracted version}))
       (let [discovery          (j/read-value (store/get-url-bytes-aside "discovery" "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest") j/keyword-keys-object-mapper)
             class-keys         (into (sorted-set)
                                      (comp (map util/class-parts)
@@ -98,7 +99,9 @@
             simple-accessor (reduce (fn [acc key]
                                       (conj acc
                                             (str "com.google.cloud.bigquery." key)
-                                            (str "com.google.cloud.bigquery." key ".Builder"))) [] (sort (keys _simple-accessor)))]
+                                            (str "com.google.cloud.bigquery." key ".Builder")))
+                                    (sorted-set)
+                                    (sort (keys _simple-accessor)))]
         (assoc latest
           :packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
           :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
@@ -110,9 +113,10 @@
           :builders builders
           :classes-refless refless-classes
           :discovery discovery
-          :allClasses (:classes latest)
-          :classes classes
-          :enums (into (:enums latest) cgc-enums)
+          #!----------------------------
+          :allClasses (into (sorted-set) (:classes latest))
+          :classes (into (sorted-set) classes)
+          :enums (into (sorted-set) (concat (:enums latest) cgc-enums))
           #!----------------------------
           :complex by-class-part
           :simple-static simple-static

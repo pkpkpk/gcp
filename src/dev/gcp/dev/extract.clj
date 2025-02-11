@@ -7,6 +7,8 @@
             [gcp.vertexai.generativeai :as genai]
             [taoensso.telemere :as tt]))
 
+;; TODO vertexai schemas should accept named in properties slots, automatically transform them to string
+
 (defn member-methods [class-like]
   (let [clazz (as-class class-like)]
     (assert (class? clazz) (str "got type " (type clazz) " instead"))
@@ -32,8 +34,7 @@
       (fn [acc {:keys [flags return-type name parameter-types]}]
         (if (and (contains? flags :static)
                  (not (#{"fromPb" "builder"} (clojure.core/name name))))
-          (assoc-in acc [:staticMethods name] {:parameters parameter-types
-                                               :returnType return-type})
+          (update-in acc [:staticMethods name] conj {:parameters parameter-types :returnType return-type})
           (if (and (not (contains? flags :static))
                    (not (#{"hashCode" "equals" "toBuilder"} (clojure.core/name name))))
             (assoc-in acc [:instanceMethods name]
@@ -41,6 +42,8 @@
                               (seq parameter-types) (assoc :parameters parameter-types)))
             acc)))
       {:className       (as-dot-string class-like)
+       ;; TODO this might be dropping polymorphic newBuilder(..)
+       ;; we want all of them, get them special? group-by :name?
        :staticMethods   (sorted-map)
        :instanceMethods (sorted-map)}
       members)))
@@ -126,10 +129,17 @@
   (assert ((set (:classes package)) (as-dot-string class-like)))
   (assert (string? (:store package)))
   (let [url (str (g/coerce some? (:packageRootUrl package)) class-like)
-        {:keys [instanceMethods] :as reflection} (reflect-readonly class-like)
-        instance-method-names (map name (keys instanceMethods))
+        {:keys [instanceMethods staticMethods] :as reflection} (reflect-readonly class-like)
+        getter-method-names (map name (keys instanceMethods))
         systemInstruction (str "identity the class & extract its constructors and methods. omit method entries for .hashCode, and .equals()."
                                "please use fully qualified package names for all types that reference gcp sdks")
+        parameters-schema {:type     "ARRAY"
+                           :nullable true
+                           :items    {:type       "OBJECT"
+                                      :properties {"name" {:type        "STRING"
+                                                           :description "the name of the parameter"}
+                                                   "type" {:type        "STRING"
+                                                           :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}}}}
         method-schema {:type        "OBJECT"
                        :description "a description of the method. if the method has 0 parameters, omit it"
                        :required    ["returnType" "doc"]
@@ -137,40 +147,48 @@
                                                    :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}
                                      "doc"        {:type        "STRING"
                                                    :description "description of the method"}
-                                     "parameters" {:type     "ARRAY"
-                                                   :nullable true
-                                                   :items    {:type       "OBJECT"
-                                                              :properties {"name" {:type        "STRING"
-                                                                                   :description "the name of the parameter"}
-                                                                           "type" {:type        "STRING"
-                                                                                   :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}}}}}}
+                                     "parameters" parameters-schema}}
+        static-methods-schema {:type       "OBJECT"
+                               :required   (map name (keys staticMethods))
+                               :properties (into {}
+                                                 (map
+                                                   (fn [static-method]
+                                                     [(name static-method)
+                                                      {:type "ARRAY"
+                                                       :minLength (count (get staticMethods static-method))
+                                                       :maxLength (count (get staticMethods static-method))
+                                                       :description "each polymorphic parameter list for the static method"
+                                                       :items parameters-schema}]))
+                                                 (keys staticMethods))}
         generationConfig {:responseMimeType "application/json"
                           :responseSchema   {:type       "OBJECT"
-                                             :required   ["doc" "methods" "version"]
+                                             :required   ["version" "doc" "staticMethods" "getterMethods"]
                                              :properties {"version" version-schema
                                                           "doc" {:type "STRING"
                                                                  :description "description of the class"}
-                                                          "methods" {:type       "OBJECT"
-                                                                     :required   instance-method-names
-                                                                     :properties (into {} (map #(vector % method-schema)) instance-method-names)}}}}
+                                                          "staticMethods" static-methods-schema
+                                                          "getterMethods" {:type       "OBJECT"
+                                                                           :required   getter-method-names
+                                                                           :properties (into {} (map #(vector % method-schema)) getter-method-names)}}}}
         cfg (assoc model :systemInstruction systemInstruction
                          :generationConfig generationConfig)
-        validator (fn [{:keys [version methods doc] :as edn}]
+        validator (fn [{:keys [version getterMethods]}]
                     (when (not= version (:version package))
                       (throw (ex-info (str "found different package version for class '" class-like "'")
                                       {:extracted-version version
                                        :package-version (:version package)
                                        :class-like      class-like})))
-                    (when-not (and (map? methods)
-                                   (= (count instance-method-names) (count methods))
-                                   (= (set instance-method-names) (set (map name (keys methods)))))
-                      (throw (ex-info "returned keys did not match" {:actual (into (sorted-set) (map name) (keys methods))
-                                                                     :members (into (sorted-set) instance-method-names)}))))
+                    (when-not (and (map? getterMethods)
+                                   (= (count getter-method-names) (count getterMethods))
+                                   (= (set getter-method-names) (set (map name (keys getterMethods)))))
+                      (throw (ex-info "returned keys did not match" {:actual (into (sorted-set) (map name) (keys getterMethods))
+                                                                     :members (into (sorted-set) getter-method-names)}))))
         edn (store/extract-java-ref-aside (:store package) cfg url validator)]
     (assoc reflection :className class-like
                       :type :readonly
                       :doc (:doc edn)
-                      :getterMethods (:methods edn))))
+                      :getterMethods (:getterMethods edn)
+                      :staticMethods (:staticMethods edn))))
 
 (defn- $_extract-enum-detail
   [model package enum-like]

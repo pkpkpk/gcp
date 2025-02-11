@@ -51,13 +51,22 @@
          res (store/generate-content-aside (:store package) cfg getters validator!)]
      (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
+;(defn type-dependencies
+;  ([node]
+;   (type-dependencies #{} node))
+;  ([init {:keys [staticMethods instanceMethods isBuilder]}]
+;   (reduce
+;     (fn [acc {:keys [parameters returnType]}]
+;       #_(let [acc (into acc (comp (map :type) (map util/parse-type) (remove util/native-type)) parameters)
+;             ret (util/parse-type returnType)]
+;         (if (util/native-type ret)
+;           acc
+;           (conj acc ret))))
+;     init
+;     (into staticMethods instanceMethods))))
+
 (defn analyze-accessor
-  ;;; --> everything needed to produce malli schema, to-edn, from-edn
-  ;;; + class doc
-  ;;; + getters w/ params, doc
-  ;;; + setters w/ params, doc
-  ;;; + class dependencies
-  ;;;  -- ie can create dependency tree and emit classes in order
+   "a complete binding unit, no associated types"
   [package className]
   (assert (contains? (set (:simple-accessor package)) className))
   (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
@@ -77,22 +86,41 @@
                              :getterDoc    (get getterMethod :doc)
                              :getterMethod (symbol getter-key)
                              :returnType   (get getterMethod :returnType)
-                             :type (:type setterMethod)}])))
-                     zipped)]
+                             :type         (get setterMethod :type )}])))
+                     zipped)
+        static-method-types (reduce
+                              (fn [acc [_ arg-lists]]
+                                (reduce #(into %1 (map :type) %2) acc arg-lists))
+                              #{}
+                              staticMethods)
+        fields-types (into #{}
+                           (comp
+                             (map util/parse-type)
+                             (remove util/native-type))
+                           (reduce (fn [acc [_ {:keys [type returnType]}]] (conj acc type returnType)) #{} fields))]
+    ;; TODO dependencies, replace types w/ malli ident
     {::type :simple-accessor
+     :className className
      :doc classDoc
      :fields fields
-     :staticMethods staticMethods}))
+     :staticMethods staticMethods
+     :type-dependencies (into static-method-types fields-types)}))
 
-(defn analyze-type
-  [package className]
-  )
+(defn analyze-enum [package className] (throw (Exception. "unimplemented")))
+
+(defn analyze-type [package className]
+  (cond
+    (contains? (:simple-accessor package) className)
+    (analyze-accessor package className)
+
+    (contains? (:enums package) className)
+    (analyze-enum package className)))
 
 (comment
-  (do (require :reload 'gcp.dev.generators.analyzer) (in-ns 'gcp.dev.generators.analyzer))
-  (analyze-accessor bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
-  (analyze-accessor bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
-  (analyze-accessor bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
+  (analyze-type bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
+  (analyze-type bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (analyze-type bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
   ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
   ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
   )

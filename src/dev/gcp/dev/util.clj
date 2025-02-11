@@ -24,34 +24,63 @@
         end (string/index-of s "footer")]
     (.getBytes (subs s start end))))
 
-(def native-type #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
-                   "boolean" "int" "java.lang.Object"})
+(def native-type
+  #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
+    "boolean" "int" "java.lang.Object"})
 
 (defn parse-type [t]
-  (if (string/starts-with? t "java.util.List<")
+  (assert (string? t))
+  (cond
+    (string/starts-with? t "java.util.List<")
     (let [start (subs t 15)]
       (subs start 0 (.indexOf start ">")))
-    (if (string/starts-with? t "java.util.Map<")
-      (if (string/starts-with? t "java.util.Map<java.lang.String,")
-        (string/trim (subs t 31 (.indexOf t ">")))
-        (throw (Exception. (str "unimplemented non-string key for type '" t "'"))))
-      t)))
 
-(defn type-dependencies
-  ([cdesc]
-   (type-dependencies #{} cdesc))
-  ([init {:keys [staticMethods instanceMethods isBuilder]}]
-   (reduce
-     (fn [acc {:keys [parameters returnType]}]
-       (let [acc (into acc (comp (map :type) (map parse-type) (remove native-type)) parameters)]
-         (if (not isBuilder) ;; TODO KILL ME
-           (let [ret (parse-type returnType)]
-             (if (native-type ret)
-               acc
-               (conj acc ret)))
-           acc)))
-     init
-     (into staticMethods instanceMethods))))
+    (string/starts-with? t "List<")
+    (let [start (subs t 5)]
+      (subs start 0 (.indexOf start ">")))
+
+    (string/starts-with? t "java.util.Map<")
+    (if (string/starts-with? t "java.util.Map<java.lang.String,")
+      (string/trim (subs t 31 (.indexOf t ">")))
+      (throw (Exception. (str "unimplemented non-string key for type '" t "'"))))
+
+    (string/starts-with? t "Map<")
+    (if (string/starts-with? t "Map<java.lang.String,")
+      (string/trim (subs t 21 (.indexOf t ">")))
+      (throw (Exception. (str "unimplemented non-string key for type '" t "'"))))
+
+    :else t))
+
+(defn ->malli-type [package t]
+  (case t
+    ;"java.lang.Object"
+    "java.lang.String" :string
+    ("boolean" "java.lang.Boolean") :boolean
+    ("int" "java.lang.Integer" "long" "java.lang.Long") :int
+    ("Map<java.lang.String, java.lang.String>"
+      "Map<java.lang.String,java.lang.String>"
+      "Map<String,String>"
+      "Map<String, String>"
+      "java.util.Map<String, String>"
+      "java.util.Map<String,String>"
+      "java.util.Map<java.lang.String, java.lang.String>"
+      "java.util.Map<java.lang.String,java.lang.String>") [:map-of :string :string]
+    (cond
+
+      (string/starts-with? t "java.util.List<")
+      [:sequential (->malli-type package (string/trim (subs t 15 (dec (count t)))))]
+
+      (string/starts-with? t "List<")
+      [:sequential (->malli-type package (string/trim (subs t 5 (dec (count t)))))]
+
+      (or (contains? (set (:classes package)) t)
+          (contains? (set (:enums package)) t))
+      (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t))))
+
+      :else
+      (do
+        (tt/log! :warn (str "WARN unknown malli type " t))
+        t))))
 
 (defn dot-parts [class]
   (let [class (if (class? class)
@@ -82,27 +111,6 @@
   (let [class-names (into #{} (filter #(= 1 (count %))) (map class-parts (:classes package)))
         class-keys (into (sorted-set) (map #(keyword "gcp" (string/join "." (into [name] %)))) class-names)]
     class-keys))
-
-(defn ->malli-type [package t]
-  (case t
-    ;"java.lang.Object"
-    "java.lang.String" :string
-    ("boolean" "java.lang.Boolean") :boolean
-    ("int" "java.lang.Integer" "long" "java.lang.Long") :int
-    "java.util.Map<java.lang.String, java.lang.String>" [:map-of :string :string]
-    (cond
-
-      (string/starts-with? t "java.util.List<")
-      [:sequential (->malli-type package (string/trim (subs t 15 (dec (count t)))))]
-
-      (or (contains? (set (:classes package)) t)
-          (contains? (set (:enums package)) t))
-      (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t))))
-
-      :else
-      (do
-        (tt/log! :warn (str "WARN unknown malli type" t))
-        t))))
 
 (defn as-dot-string [class-like]
   (if (class? class-like)
