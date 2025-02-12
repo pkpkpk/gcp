@@ -78,16 +78,16 @@
                                  (let [reflection (clojure.reflect/reflect (util/as-class s))]
                                    (contains? (:bases reflection) 'com.google.cloud.StringEnumValue)))
             {cgc-enums true classes false} (group-by google-enum? classes)
-            builders (filter #(string/ends-with? % "Builder") classes)
+            builders           (filter #(string/ends-with? % "Builder") classes)
 
             ;; TODO we've removed enums, not picked up as associated types...forces inlining
             ;; bad idea?
-            by-class-part (group-by first (map util/class-parts classes))
+            by-class-part      (group-by first (map util/class-parts classes))
 
             ;; simple-static: no builder or associated types, usually just static .of() ctors
-            {_simple-static true
+            {_static-factories true
              by-class-part false} (group-by (fn [[_ v]] (= 1 (count v))) by-class-part)
-            simple-static (vec (sort (map #(str "com.google.cloud.bigquery." %) (keys _simple-static))))
+            static-factories      (into (sorted-set) (map #(str "com.google.cloud.bigquery." %)) (keys _static-factories))
 
             ;; simple-accessors: readonly & builder, no associated types
             ;; TODO filter out types w/ clients ie Dataset, Table, Model, Routine
@@ -96,12 +96,12 @@
              by-class-part false} (group-by (fn [[_ v]] (and (= 2 (count v))
                                                              (or (= "Builder" (peek (nth v 0)))
                                                                  (= "Builder" (peek (nth v 1)))))) by-class-part)
-            simple-accessor (reduce (fn [acc key]
+            accessors          (reduce (fn [acc key]
                                       (conj acc
                                             (str "com.google.cloud.bigquery." key)
                                             (str "com.google.cloud.bigquery." key ".Builder")))
-                                    (sorted-set)
-                                    (sort (keys _simple-accessor)))]
+                                       (sorted-set)
+                                       (sort (keys _simple-accessor)))]
         (assoc latest
           :packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
           :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
@@ -116,11 +116,11 @@
           #!----------------------------
           :allClasses (into (sorted-set) (:classes latest))
           :classes (into (sorted-set) classes)
-          :enums (into (sorted-set) (concat (:enums latest) cgc-enums))
-          #!----------------------------
           :complex by-class-part
-          :simple-static simple-static
-          :simple-accessor simple-accessor)))))
+          #!----------------------------
+          :types/enums (into (sorted-set) (concat (:enums latest) cgc-enums))
+          :types/static-factories static-factories
+          :types/accessors accessors)))))
 
 ;; fetch-all-urls
 ;; list-missing-urls

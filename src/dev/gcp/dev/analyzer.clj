@@ -20,6 +20,73 @@
   (:import (com.google.cloud.bigquery BigQueryOptions)
            (java.io ByteArrayOutputStream)))
 
+(defn zip-static-params [package static-params getterMethods]
+  (let [getters           (g/coerce [:seqable :string] (vec (sort (map name (keys getterMethods)))))
+        getter-schema     {:type        "STRING"
+                           :nullable    false
+                           :enum getters
+                           :description "the name of the read only method that corresponds to the param"}
+        generationConfig  {:responseMimeType "application/json"
+                           :responseSchema   {:type       "OBJECT"
+                                              :required   (vec static-params)
+                                              :properties (into {} (map #(vector % getter-schema)) static-params)}}
+        systemInstruction "for each parameter name, produce the getter method that produces it"
+        cfg               (assoc models/flash :systemInstruction systemInstruction
+                                              :generationConfig generationConfig)
+        validator!        (fn [edn]
+                            (if (not= (set static-params) (set (map name (keys edn))))
+                              (throw (ex-info "missing static param!"
+                                              {:getters getters :static-params static-params :edn edn}))
+                              (if (not (every? some? (vals edn)))
+                                (throw (ex-info "expected getter for every static param"
+                                                {:getters getters :static-params static-params :edn edn}))
+                                (if-not (clojure.set/subset? (set (vals edn)) (into #{} getters))
+                                  (throw (ex-info "incorrect keys" {:edn     edn
+                                                                    :getters getters
+                                                                    :static-params static-params}))))))
+        res               (store/generate-content-aside (:store package) cfg getters validator!)]
+    (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res)))
+
+(defn analyze-static-factory
+  [package className]
+  (assert (contains? (:types/static-factories package) className))
+  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
+        min-param-names (let [n (apply min (map count (get staticMethods :of)))]
+                          (into #{} (comp
+                                      (filter #(= n (count %)))
+                                      (map :name))
+                                (get staticMethods :of)))
+        all-static-params (reduce
+                            (fn [acc [_ arg-lists]]
+                              (reduce #(into %1 (map :name) %2) acc arg-lists))
+                            #{}
+                            staticMethods)
+        zipped (zip-static-params package all-static-params getterMethods)
+        fields (into (sorted-map)
+                     (map
+                       (fn [[param getter-key]]
+                         (let [{:as getterMethod} (get getterMethods getter-key)]
+                           [param
+                            {:getterDoc    (get getterMethod :doc)
+                             :getterMethod (symbol getter-key)
+                             :returnType         (get getterMethod :returnType)}])))
+                     zipped)
+        static-method-types (reduce
+                              (fn [acc [_ arg-lists]]
+                                (reduce #(into %1 (map :type) %2) acc arg-lists))
+                              #{}
+                              staticMethods)
+        all-types (into #{} (comp
+                              (map util/parse-type)
+                              (remove util/native-type))
+                        (into static-method-types (map :returnType) (vals getterMethods) ))]
+    {::type             :static-factory
+     :className         className
+     :doc               classDoc
+     :fields            fields
+     :type-dependencies all-types
+     :staticMethods     staticMethods}))
+
 (defn zip-accessors
   ([package getterMethods setterMethods]
    (let [setters           (g/coerce [:seqable :string] (sort (map name (keys setterMethods))))
@@ -51,27 +118,18 @@
          res (store/generate-content-aside (:store package) cfg getters validator!)]
      (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
-;(defn type-dependencies
-;  ([node]
-;   (type-dependencies #{} node))
-;  ([init {:keys [staticMethods instanceMethods isBuilder]}]
-;   (reduce
-;     (fn [acc {:keys [parameters returnType]}]
-;       #_(let [acc (into acc (comp (map :type) (map util/parse-type) (remove util/native-type)) parameters)
-;             ret (util/parse-type returnType)]
-;         (if (util/native-type ret)
-;           acc
-;           (conj acc ret))))
-;     init
-;     (into staticMethods instanceMethods))))
-
 (defn analyze-accessor
-   "a complete binding unit, no associated types"
+   "a readonly class with builder, together as a complete binding unit. no associated types"
   [package className]
-  (assert (contains? (set (:simple-accessor package)) className))
+  (assert (contains? (:types/accessors package) className))
   (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
         {:keys [setterMethods] :as builder} (extract/$extract-type-detail package (str className ".Builder"))
         zipped (zip-accessors package getterMethods setterMethods)
+        min-param-names (let [n (apply min (map count (get staticMethods :newBuilder)))]
+                          (into #{} (comp
+                                      (filter #(= n (count %)))
+                                      (map :name))
+                                (get staticMethods :newBuilder)))
         fields (into (sorted-map)
                      (map
                        (fn [[setter-key getter-key]]
@@ -85,71 +143,98 @@
                              :setterMethod (symbol setter-key)
                              :getterDoc    (get getterMethod :doc)
                              :getterMethod (symbol getter-key)
+                             :optional     (if (string/includes? (get setterMethod :doc "") "ptional")
+                                             true
+                                             (if (string/includes? (get setterMethod :doc "") "equired")
+                                               false
+                                               ;; as a best guess, the smallest builder params are required
+                                               ;; todo fuzzing to be more empirical
+                                               (not (contains? min-param-names (:name setterMethod)))))
                              :returnType   (get getterMethod :returnType)
-                             :type         (get setterMethod :type )}])))
+                             :type         (get setterMethod :type)}])))
                      zipped)
         static-method-types (reduce
                               (fn [acc [_ arg-lists]]
                                 (reduce #(into %1 (map :type) %2) acc arg-lists))
                               #{}
                               staticMethods)
-        fields-types (into #{}
-                           (comp
-                             (map util/parse-type)
-                             (remove util/native-type))
-                           (reduce (fn [acc [_ {:keys [type returnType]}]] (conj acc type returnType)) #{} fields))]
-    ;; TODO dependencies, replace types w/ malli ident
-    {::type :simple-accessor
-     :className className
-     :doc classDoc
-     :fields fields
-     :staticMethods staticMethods
-     :type-dependencies (into static-method-types fields-types)}))
+        fields-types (reduce (fn [acc [_ {:keys [type returnType]}]] (conj acc type returnType)) #{} fields)
+        all-types (into #{} (comp
+                              (map util/parse-type)
+                              (remove util/native-type))
+                        (into static-method-types fields-types))]
+    {::type             :accessor
+     :className         className
+     :doc               classDoc
+     :fields            fields
+     :staticMethods     staticMethods
+     :type-dependencies all-types}))
 
 (defn analyze-enum [package className] (throw (Exception. "unimplemented")))
 
 (defn analyze-type [package className]
   (cond
-    (contains? (:simple-accessor package) className)
+    (contains? (:types/static-factories package) className)
+    (analyze-static-factory package className)
+
+    (contains? (:types/accessors package) className)
     (analyze-accessor package className)
 
-    (contains? (:enums package) className)
+    (contains? (:types/enums package) className)
     (analyze-enum package className)))
+
+(defn malli-accessor
+  [package {:keys [className doc fields] :as accessor}]
+  (assert (= :accessor (::type accessor)))
+  (into [:map {:key (util/package-key package className)
+               :closed true
+               :doc    doc
+               :class  (symbol className)}]
+        (map
+          (fn [[k v]]
+            [k
+             (dissoc v :returnType :type :setterMethod :getterMethod)
+             (util/->malli-type package (:type v))]))
+        fields))
+
+(defn malli-static-factory
+  [package {:keys [className doc fields] :as static-factory}]
+  (assert (= :static-factory (::type static-factory)))
+  (into [:map {:key (util/package-key package className)
+               :closed true
+               :doc    doc
+               :class  (symbol className)}]
+        (map
+          (fn [[k v]]
+            [k
+             (dissoc v :returnType :type :setterMethod :getterMethod)
+             (util/->malli-type package (:returnType v))]))
+        fields))
+
+(defn malli-enum [package enum] (throw (Exception. "unimplemented")))
+
+(defn malli [package class]
+  (let [{type ::type :as t} (analyze-type package class)]
+    (case type
+      :accessor (malli-accessor package t)
+      :enum (malli-enum package t)
+      :static-factory (malli-static-factory package t))))
 
 (comment
   (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
-  (analyze-type bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
-  (analyze-type bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (analyze-type bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
+  (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
+  (analyze-type bigquery "com.google.cloud.bigquery.WriteChannelConfiguration") ;=> accessor
+  (malli bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (analyze-type bigquery "com.google.cloud.bigquery.FormatOptions") ;=> static-factory
+  (malli bigquery "com.google.cloud.bigquery.FormatOptions")
   (analyze-type bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  (malli bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
   ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
   ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
   )
 
 #!----------------------------------------------------------------------------------------------------------------------
-
-(defn malli-from-class-doc [package class]
-  #_
-  (let [readonly ($extract-from-class-doc-memo package class)
-        fields   (extract-type package class)]
-    (into [:map {:closed true
-                 :class (symbol (:className readonly))}]
-          (map
-            (fn [{:keys [getter setter type optional parameter readDoc writeDoc] :as field}]
-              (let [t (->malli-type package type)
-                    opts (cond-> nil
-                                 (nil? setter)    (assoc :readOnly true)
-                                 (nil? getter)    (assoc :writeOnly true)
-                                 (some? readDoc)  (assoc :readDoc readDoc)
-                                 (some? writeDoc) (assoc :writeDoc writeDoc)
-                                 (some? optional) (assoc :optional optional))
-                    key (if (some? parameter)
-                          (keyword parameter)
-                          (let [_ (when (or (nil? getter) (string/blank? getter)) (throw (ex-info "bad getter!" {:field field})))
-                                param-capped (subs getter 3)
-                                param        (str (string/lower-case (subs param-capped 0 1)) (subs param-capped 1))]
-                            (keyword param)))]
-                (if opts [key opts t] [key t]))))
-          fields)))
 
 (defn ?discovery-schema->malli
   [package class-key]
@@ -169,13 +254,7 @@
                 [key opts (util/->malli-type package type)])))
           (sort-by key properties))))
 
-
-
-
-
 #!----------------------------------------------------------------------------------------------------------------------
-
-
 
 ;; TODO
 ;; context, siblings classes as reference

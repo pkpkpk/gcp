@@ -20,9 +20,15 @@
   (let [bs (get-url-bytes url)
         s  (String. bs "UTF-8")
         ;; can't be bothered to parse but this is decent 2/3 cut
-        start (string/index-of s "devsite-article-body")
-        end (string/index-of s "footer")]
-    (.getBytes (subs s start end))))
+        head (subs s
+                   (string/index-of s "<h1")
+                   (string/index-of s "</h1>"))
+        head (string/trim head)
+        article (subs s
+                      (string/index-of s "<article>")
+                      (string/index-of s "</article>"))
+        article (string/trim article)]
+    (.getBytes (str head article))))
 
 (def native-type
   #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
@@ -51,6 +57,11 @@
 
     :else t))
 
+(declare class-parts)
+
+(defn package-key [package t]
+  (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t)))))
+
 (defn ->malli-type [package t]
   (case t
     ;"java.lang.Object"
@@ -75,7 +86,7 @@
 
       (or (contains? (set (:classes package)) t)
           (contains? (set (:enums package)) t))
-      (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t))))
+      (package-key package t)
 
       :else
       (do
@@ -106,12 +117,6 @@
     (assert (= 1 (count cp)))
     (string/split dollar #"\$")))
 
-(defn package-keys
-  [{:keys [name] :as package}]
-  (let [class-names (into #{} (filter #(= 1 (count %))) (map class-parts (:classes package)))
-        class-keys (into (sorted-set) (map #(keyword "gcp" (string/join "." (into [name] %)))) class-names)]
-    class-keys))
-
 (defn as-dot-string [class-like]
   (if (class? class-like)
     (subs (str class-like) 6)
@@ -130,9 +135,6 @@
           package-parts (package-parts class-like)
           class-parts   (class-parts class-like)]
       (string/join "." (conj package-parts (string/join "$" class-parts))))))
-
-(defn as-registry-key [class-like]
-  (keyword "gcp" (as-dot-string class-like)))
 
 (defn _as-class [class-like]
   (if (class? class-like)

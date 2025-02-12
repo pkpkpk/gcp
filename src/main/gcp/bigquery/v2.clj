@@ -580,39 +580,181 @@
                                                [:enumAsString {:optional false} :boolean]
                                                [:mapTargetType {:optional false} :string]]
 
-   :gcp/bigquery.LoadJobConfiguration         [:map {:closed true
-                                                     :class  'com.google.cloud.bigquery.LoadJobConfiguration}
-                                               [:type [:= "LOAD"]]
-                                               [:autodetect :boolean]
-                                               [:clustering :gcp/bigquery.Clustering]
-                                               [:columnNameCharacterMap :string]
-                                               [:connectionProperties [:sequential :gcp/bigquery.ConnectionProperty]]
-                                               [:createDisposition :gcp/bigquery.JobInfo.CreateDisposition]
-                                               [:createSession :boolean]
-                                               [:csvOptions {:readOnly true} :gcp/bigquery.CsvOptions]
-                                               [:datastoreBackupOptions {:readOnly true} :gcp/bigquery.DatastoreBackupOptions]
-                                               [:decimalTargetTypes [:sequential :string]]
-                                               [:encryptionConfiguration :gcp/bigquery.EncryptionConfiguration]
-                                               [:destinationTable {:optional false} :gcp/bigquery.TableId]
-                                               [:fileSetSpecType :string]
-                                               [:formatOptions :string]
-                                               [:hivePartitioningOptions :gcp/bigquery.HivePartitioningOptions]
-                                               [:jobTimeoutMs :int]
-                                               [:labels [:map-of :string :string]]
-                                               [:maxBadRecords :int]
-                                               [:nullMarker :string]
-                                               [:parquetOptions {:readOnly true} :gcp/bigquery.ParquetOptions]
-                                               [:rangePartitioning :gcp/bigquery.RangePartitioning]
-                                               [:referenceFileSchemaUri :string]
-                                               [:schema :gcp/bigquery.Schema]
-                                               [:schemaUpdateOptions [:sequential :gcp/bigquery.JobInfo.SchemaUpdateOption]]
-                                               [:sourceUris {:optional false} [:sequential :string]]
-                                               [:timePartitioning :gcp/bigquery.TimePartitioning]
-                                               [:useAvroLogicalTypes :boolean]
-                                               [:writeDisposition :gcp/bigquery.JobInfo.WriteDisposition]
-                                               [:ignoreUnknownValues :boolean]
-                                               ]
+   :gcp/bigquery.LoadJobConfiguration
+   [:map
+    {:key :gcp/bigquery.LoadJobConfiguration,
+     :closed true,
+     :doc "Google BigQuery load job configuration. A load job loads data from one of several formats into a
+        table. Data is provided as URIs that point to objects in Google Cloud Storage. Load job
+        configurations have JobConfiguration.Type#LOAD type.",
+     :class com.google.cloud.bigquery.LoadJobConfiguration}
+    [:type [:= "LOAD"]]
+    [:autodetect
+     {:setterDoc "Sets automatic inference of the options and schema for CSV and JSON sources.",
+      :getterDoc "Returns whether automatic inference of the options and schema for CSV and JSON sources is set.",
+      :optional true}
+     :boolean]
+    [:clustering
+     {:setterDoc "Sets the clustering specification for the destination table.",
+      :getterDoc "Returns the clustering specification for the definition table.",
+      :optional true}
+     :gcp/bigquery.Clustering]
+    [:columnNameCharacterMap
+     {:setterDoc "[Optional] Character map supported for column names in CSV/Parquet loads. Defaults to STRICT
+                and can be overridden by Project Config Service. Using this option with unsupporting load
+                formats will result in an error.
+               See Also: <a href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#columnnamecharactermap\">  ColumnNameCharacterMap</a>",
+      :getterDoc "Returns the column name character map used in CSV/Parquet loads.\nSee Also: ColumnNameCharacterMap",
+      :optional true}
+     :string]
+    [:connectionProperties {:setterDoc nil, :getterDoc "", :optional true} [:sequential :gcp/bigquery.ConnectionProperty]]
+    [:createDisposition
+     {:setterDoc "Sets whether the job is allowed to create new tables.",
+      :getterDoc "Returns whether the job is allowed to create new tables.",
+      :optional true}
+     :gcp/bigquery.JobInfo.CreateDisposition]
+    [:createSession {:setterDoc nil, :getterDoc "", :optional true} :boolean]
+    [:decimalTargetTypes
+     {:setterDoc "Defines the list of possible SQL data types to which the source decimal values are converted.
+               This list and the precision and the scale parameters of the decimal field determine the
+               target type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in
+               the specified list and if it supports the precision and the scale. STRING supports all
+               precision and scale values.",
+      :getterDoc "Returns the list of possible SQL data types to which the source decimal values are converted.
+               This list and the precision and the scale parameters of the decimal field determine the target
+               type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the
+               specified list and if it supports the precision and the scale. STRING supports all precision
+               and scale values.",
+      :optional true}
+     [:sequential :string]]
+    [:destinationTable
+     {:setterDoc "Sets the destination table to load the data into.",
+      :getterDoc "Returns the destination table to load the data into.",
+      :optional true}
+     :gcp/bigquery.TableId]
+    [:encryptionConfiguration {:setterDoc nil, :getterDoc "", :optional true} :gcp/bigquery.EncryptionConfiguration]
+    [:fileSetSpecType
+     {:setterDoc "Defines how to interpret files denoted by URIs. By default the files are assumed to be data
+               files (this can be specified explicitly via FILE_SET_SPEC_TYPE_FILE_SYSTEM_MATCH). A second
+               option is \"FILE_SET_SPEC_TYPE_NEW_LINE_DELIMITED_MANIFEST\" which interprets each file as a
+               manifest file, where each line is a reference to a file.",
+      :getterDoc "",
+      :optional true}
+     :string]
+    [:formatOptions
+     {:setterDoc "Sets the source format, and possibly some parsing options, of the external data. Supported
+                formats are CSV, NEWLINE_DELIMITED_JSON and DATASTORE_BACKUP. If not
+                specified, CSV format is assumed.
 
+               <p><a href=\"https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration.sourceFormat\">
+                Source Format</a></p>
+               ",
+      :getterDoc "Returns the format of the data files.",
+      :optional true}
+     :gcp/bigquery.FormatOptions]
+    [:hivePartitioningOptions {:setterDoc nil, :getterDoc "", :optional true} :gcp/bigquery.HivePartitioningOptions]
+    [:ignoreUnknownValues
+     {:setterDoc "Sets whether BigQuery should allow extra values that are not represented in the table schema.
+               If true, the extra values are ignored. If false, records with extra columns
+               are treated as bad records, and if there are too many bad records, an invalid error is
+               returned in the job result. By default unknown values are not allowed.",
+      :getterDoc "Returns whether BigQuery should allow extra values that are not represented in the table
+               schema. If true, the extra values are ignored. If true, records with extra
+               columns are treated as bad records, and if there are too many bad records, an invalid error is
+               returned in the job result. By default unknown values are not allowed.",
+      :optional true}
+     :boolean]
+    [:jobTimeoutMs
+     {:setterDoc "[Optional] Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt
+               to terminate the job.",
+      :getterDoc "Returns the timeout associated with this job",
+      :optional true}
+     :int]
+    [:labels
+     {:setterDoc "The labels associated with this job. You can use these to organize and group your jobs. Label
+               keys and values can be no longer than 63 characters, can only contain lowercase letters,
+               numeric characters, underscores and dashes. International characters are allowed. Label
+               values are optional. Label keys must start with a letter and each label in the list must have
+               a different key.",
+      :getterDoc "Returns the labels associated with this job",
+      :optional true}
+     [:map-of :string :string]]
+    [:maxBadRecords
+     {:setterDoc "Sets the maximum number of bad records that BigQuery can ignore when running the job. If the
+               number of bad records exceeds this value, an invalid error is returned in the job result. By
+               default no bad record is ignored.",
+      :getterDoc "Returns the maximum number of bad records that BigQuery can ignore when running the job. If the
+               number of bad records exceeds this value, an invalid error is returned in the job result. By
+               default no bad record is ignored.",
+      :optional true}
+     :int]
+    [:nullMarker
+     {:setterDoc "Sets the string that represents a null value in a CSV file. For example, if you specify \"N\",
+               BigQuery interprets \"N\" as a null value when loading a CSV file. The default value is the
+               empty string. If you set this property to a custom value, BigQuery throws an error if an
+               empty string is present for all data types except for STRING and BYTE. For
+               STRING and BYTE columns, BigQuery interprets the empty string as an empty
+               value.",
+      :getterDoc "Returns the string that represents a null value in a CSV file.",
+      :optional true}
+     :string]
+    [:rangePartitioning
+     {:setterDoc "Range partitioning specification for this table. Only one of timePartitioning and
+               rangePartitioning should be specified.",
+      :getterDoc "Returns the range partitioning specification for the table",
+      :optional true}
+     :gcp/bigquery.RangePartitioning]
+    [:referenceFileSchemaUri
+     {:setterDoc "When creating an external table, the user can provide a reference file with the table schema.
+               This is enabled for the following formats: AVRO, PARQUET, ORC.",
+      :optional true}
+     :string]
+    [:schema
+     {:setterDoc "Sets the schema for the destination table. The schema can be omitted if the destination table
+               already exists, or if you're loading data from a Google Cloud Datastore backup (i.e.
+               DATASTORE_BACKUP format option).",
+      :getterDoc "Returns the schema for the destination table, if set. Returns null otherwise.",
+      :optional true}
+     :gcp/bigquery.Schema]
+    [:schemaUpdateOptions
+     {:setterDoc "Sets options allowing the schema of the destination table to be updated as a side effect of
+               the load job. Schema update options are supported in two cases: when writeDisposition is
+               WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a
+               partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE
+               will always overwrite the schema.",
+      :getterDoc "Returns options allowing the schema of the destination table to be updated as a side effect of
+               the load job. Schema update options are supported in two cases: when writeDisposition is
+               WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition
+               of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always
+               overwrite the schema.",
+      :optional true}
+     [:sequential :gcp/bigquery.JobInfo.SchemaUpdateOption]]
+    [:sourceUris
+     {:setterDoc "Sets the fully-qualified URIs that point to source data in Google Cloud Storage (e.g.
+               gs://bucket/path). Each URI can contain one '*' wildcard character and it must come after the
+               'bucket' name.",
+      :getterDoc "Returns the fully-qualified URIs that point to source data in Google Cloud Storage (e.g.
+               gs://bucket/path). Each URI can contain one '*' wildcard character and it must come after the
+               'bucket' name.",
+      :optional true}
+     [:sequential :string]]
+    [:timePartitioning
+     {:setterDoc "Sets the time partitioning specification for the destination table.",
+      :getterDoc "Returns the time partitioning specification defined for the destination table.",
+      :optional true}
+     :gcp/bigquery.TimePartitioning]
+    [:useAvroLogicalTypes
+     {:setterDoc "If FormatOptions is set to AVRO, you can interpret logical types into their corresponding
+               types (such as TIMESTAMP) instead of only using their raw types (such as INTEGER). The value
+               may be null.",
+      :getterDoc "Returns True/False. Indicates whether the logical type is interpreted.",
+      :optional true}
+     :boolean]
+    [:writeDisposition
+     {:setterDoc "Sets the action that should occur if the destination table already exists.",
+      :getterDoc "Returns the action that should occur if the destination table already exists.",
+      :optional true}
+     :gcp/bigquery.JobInfo.WriteDisposition]]
 
    :gcp/bigquery.QueryJobConfiguration        [:map
                                                {:closed true
@@ -810,6 +952,146 @@
                                                [:= {:doc "Container of ordered fields each with a type (required) and field name (optional)."} "STRUCT"]
                                                [:= {:doc "Represents a time, independent of a specific date, to microsecond precision."} "TIME"]
                                                [:= {:doc "Represents an absolute point in time, with microsecond precision. Values range between the years 1 and 9999, inclusive."} "TIMESTAMP"]]
+
+   :gcp/bigquery.FormatOptions
+   [:map
+    {:key :gcp/bigquery.FormatOptions,
+     :closed true,
+     :doc "Base class for Google BigQuery format options. These class define the format of external data
+       used by BigQuery, for either federated tables or load jobs.
+
+       Load jobs support the following formats: AVRO, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON,
+       ORC, PARQUET
+
+       Federated tables can be defined against following formats: AVRO, BIGTABLE, CSV,
+       DATASTORE_BACKUP, GOOGLE_SHEETS, JSON",
+     :class 'com.google.cloud.bigquery.FormatOptions}
+    [:format {:getterDoc "Returns the external data format, as a string."}
+     [:enum "ICEBERG" "CSV" "PARQUET" "ORC" "GOOGLE_SHEETS" "NEWLINE_DELIMITED_JSON" "BIGTABLE" "AVRO"]]]
+
+   :gcp/bigquery.WriteChannelConfiguration
+   [:map
+    {:key :gcp/bigquery.WriteChannelConfiguration,
+     :closed true,
+     :doc "Google BigQuery Configuration for a load operation. A load configuration can be used to load data
+        into a table with a com.google.cloud.WriteChannel (BigQuery#writer(WriteChannelConfiguration)).",
+     :class com.google.cloud.bigquery.WriteChannelConfiguration}
+    [:autodetect
+     {:setterDoc "Sets automatic inference of the options and schema for CSV and JSON sources.",
+      :getterDoc "Returns whether automatic inference of the options and schema for CSV and JSON sources is set.",
+      :optional true}
+     :boolean]
+    [:clustering
+     {:setterDoc "Sets the clustering specification for the destination table.",
+      :getterDoc "Returns the clustering specification for the definition table.",
+      :optional true}
+     :gcp/bigquery.Clustering]
+    [:connectionProperties
+     {:setterDoc nil, :getterDoc "string", :optional true}
+     [:sequential :gcp/bigquery.ConnectionProperty]]
+    [:createDisposition
+     {:setterDoc "Sets whether the job is allowed to create new tables.",
+      :getterDoc "Returns whether the job is allowed to create new tables.",
+      :optional true}
+     :gcp/bigquery.JobInfo.CreateDisposition]
+    [:createSession {:setterDoc nil, :getterDoc "string", :optional true} :boolean]
+    [:decimalTargetTypes
+     {:setterDoc "Defines the list of possible SQL data types to which the source decimal values are converted.
+               This list and the precision and the scale parameters of the decimal field determine the
+               target type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in
+               the specified list and if it supports the precision and the scale. STRING supports all
+               precision and scale values.",
+      :getterDoc "Returns the list of possible SQL data types to which the source decimal values are converted.
+               This list and the precision and the scale parameters of the decimal field determine the target
+               type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the
+               specified list and if it supports the precision and the scale. STRING supports all precision
+               and scale values.",
+      :optional true}
+     [:sequential :string]]
+    [:destinationTable
+     {:setterDoc "Sets the destination table to load the data into.",
+      :getterDoc "Returns the destination table to load the data into.",
+      :optional true}
+     :gcp/bigquery.TableId]
+    [:encryptionConfiguration {:setterDoc nil, :getterDoc "string", :optional true} :gcp/bigquery.EncryptionConfiguration]
+    [:formatOptions
+     {:setterDoc "Sets the source format, and possibly some parsing options, of the external data. Supported
+               formats are `CSV`, `NEWLINE_DELIMITED_JSON` and `DATASTORE_BACKUP`. If not
+               specified, `CSV` format is assumed.
+
+               [Source Format](https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration.sourceFormat)",
+      :getterDoc "Returns the format of the data files.",
+      :optional true}
+     :gcp/bigquery.FormatOptions]
+    [:ignoreUnknownValues
+     {:setterDoc "Sets whether BigQuery should allow extra values that are not represented in the table schema.
+               If `true`, the extra values are ignored. If `false`, records with extra columns
+               are treated as bad records, and if there are too many bad records, an invalid error is
+               returned in the job result. By default unknown values are not allowed.",
+      :getterDoc "Returns whether BigQuery should allow extra values that are not represented in the table
+               schema. If true, the extra values are ignored. If true, records with extra
+               columns are treated as bad records, and if there are too many bad records, an invalid error is
+               returned in the job result. By default unknown values are not allowed.",
+      :optional true}
+     :boolean]
+    [:labels {:setterDoc nil, :getterDoc "string", :optional true} [:map-of :string :string]]
+    [:maxBadRecords
+     {:setterDoc "Sets the maximum number of bad records that BigQuery can ignore when running the job. If the
+               number of bad records exceeds this value, an invalid error is returned in the job result. By
+               default no bad record is ignored.",
+      :getterDoc "Returns the maximum number of bad records that BigQuery can ignore when running the job. If the
+               number of bad records exceeds this value, an invalid error is returned in the job result. By
+               default no bad record is ignored.",
+      :optional true}
+     :int]
+    [:nullMarker
+     {:setterDoc "Sets the string that represents a null value in a CSV file. For example, if you specify \\\"N\\\",
+               BigQuery interprets \\\"N\\\" as a null value when loading a CSV file. The default value is the
+               empty string. If you set this property to a custom value, BigQuery throws an error if an
+               empty string is present for all data types except for `STRING` and `BYTE`. For
+               `STRING` and `BYTE` columns, BigQuery interprets the empty string as an empty
+               value.",
+      :getterDoc "Returns the string that represents a null value in a CSV file.",
+      :optional true}
+     :string]
+    [:schema
+     {:setterDoc "Sets the schema for the destination table. The schema can be omitted if the destination table
+               already exists, or if you're loading data from a Google Cloud Datastore backup (i.e. `
+               DATASTORE_BACKUP` format option).",
+      :getterDoc "Returns the schema for the destination table, if set. Returns null otherwise.",
+      :optional true}
+     :gcp/bigquery.Schema]
+    [:schemaUpdateOptions
+     {:setterDoc "Sets options allowing the schema of the destination table to be updated as a side effect of
+               the load job. Schema update options are supported in two cases: when writeDisposition is
+               WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a
+               partition of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE
+               will always overwrite the schema.",
+      :getterDoc "Returns options allowing the schema of the destination table to be updated as a side effect of
+               the load job. Schema update options are supported in two cases: when writeDisposition is
+               WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition
+               of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always
+               overwrite the schema.",
+      :optional true}
+     [:sequential :gcp/bigquery.JobInfo.SchemaUpdateOption]]
+    [:timePartitioning
+     {:setterDoc "Sets the time partitioning specification for the destination table.",
+      :getterDoc "Returns the time partitioning specification defined for the destination table.",
+      :optional true}
+     :gcp/bigquery.TimePartitioning]
+    [:useAvroLogicalTypes
+     {:setterDoc "If FormatOptions is set to AVRO, you can interpret logical types into their corresponding
+               types (such as TIMESTAMP) instead of only using their raw types (such as INTEGER). The value
+               may be `null`.",
+      :getterDoc "Returns True/False. Indicates whether the logical type is interpreted.",
+      :optional true}
+     :boolean]
+    [:writeDisposition
+     {:setterDoc "Sets the action that should occur if the destination table already exists.",
+      :getterDoc "Returns the action that should occur if the destination table already exists.",
+      :optional true}
+     :gcp/bigquery.JobInfo.WriteDisposition]]
+
    })
 
 (g/include-schema-registry! registry)

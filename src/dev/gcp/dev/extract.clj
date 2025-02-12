@@ -33,10 +33,10 @@
     (reduce
       (fn [acc {:keys [flags return-type name parameter-types]}]
         (if (and (contains? flags :static)
-                 (not (#{"fromPb" "builder"} (clojure.core/name name))))
+                 (not (#{"fromPb" "builder" "toString"} (clojure.core/name name))))
           (update-in acc [:staticMethods name] conj {:parameters parameter-types :returnType return-type})
           (if (and (not (contains? flags :static))
-                   (not (#{"hashCode" "equals" "toBuilder"} (clojure.core/name name))))
+                   (not (#{"hashCode" "equals" "toBuilder" "toString"} (clojure.core/name name))))
             (assoc-in acc [:instanceMethods name]
                       (cond-> {:returnType return-type}
                               (seq parameter-types) (assoc :parameters parameter-types)))
@@ -165,7 +165,7 @@
                                              :required   ["version" "doc" "staticMethods" "getterMethods"]
                                              :properties {"version" version-schema
                                                           "doc" {:type "STRING"
-                                                                 :description "description of the class"}
+                                                                 :description "the COMPLETE summary docstring for the class"}
                                                           "staticMethods" static-methods-schema
                                                           "getterMethods" {:type       "OBJECT"
                                                                            :required   getter-method-names

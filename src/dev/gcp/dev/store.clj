@@ -11,6 +11,12 @@
 
 (def root (io/file (System/getProperty "user.home") "pkpkpk" "gcp" ".konserve"))
 
+(defonce connect
+         (memoize
+           (fn [store-name]
+             (let [path (.getPath (io/file root store-name))]
+               (fs/connect-fs-store path {:opts {:sync? true}})))))
+
 (defn evict! [store-name]
   (let [dir (io/file root store-name)]
     (doseq [file (.listFiles dir)]
@@ -18,11 +24,12 @@
 
 (defn list-stores [] (map #(.getName %) (.listFiles root)))
 
-(defonce connect
-  (memoize
-    (fn [store-name]
-      (let [path (.getPath (io/file root store-name))]
-        (fs/connect-fs-store path {:opts {:sync? true}})))))
+(defn list-keys [store]
+  (k/keys (connect store) {:sync? true}))
+
+(defn delete-store [store]
+  (evict! store)
+  (io/delete-file (io/file root store)))
 
 (defn get-url-bytes-aside [store-name ^String url]
   (or (k/get (connect store-name) url nil {:sync? true})
