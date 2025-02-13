@@ -32,7 +32,17 @@
 
 (def native-type
   #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
-    "boolean" "int" "java.lang.Object"})
+    "boolean" "int" "java.lang.Object"
+    "Map<java.lang.String, java.lang.String>"
+    "Map<java.lang.String,java.lang.String>"
+    "Map<String,String>"
+    "Map<String, String>"
+    "java.util.Map<String, String>"
+    "java.util.Map<String,String>"
+    "java.util.Map<java.lang.String, java.lang.String>"
+    "java.util.Map<java.lang.String,java.lang.String>"
+    "List<java.lang.String>"
+    })
 
 (defn parse-type [t]
   (assert (string? t))
@@ -109,6 +119,9 @@
   {:pre [(string? className)]
    :post [(vector? %) (seq %) (every? string? %)]}
   (vec (nthrest (dot-parts className) 4)))
+
+(defn class-dollar-string [className]
+  (string/join "$" (class-parts className)))
 
 (defn dollar-parts [className]
   {:pre [(string? className) (string/includes? className "$")]

@@ -15,8 +15,7 @@
     [gcp.global :as g]
     gcp.vertexai.v1
     [rewrite-clj.zip :as z]
-    [taoensso.telemere :as tt]
-    [zprint.core :as zp])
+    [zprint.core :as zp :refer [zprint]])
   (:import (com.google.cloud.bigquery BigQueryOptions)
            (java.io ByteArrayOutputStream)))
 
@@ -52,10 +51,13 @@
   (assert (contains? (:types/static-factories package) className))
   (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
         min-param-names (let [n (apply min (map count (get staticMethods :of)))]
-                          (into #{} (comp
-                                      (filter #(= n (count %)))
-                                      (map :name))
-                                (get staticMethods :of)))
+                          (reduce
+                            (fn [acc arg-list]
+                              (if-not (= n (count arg-list))
+                                acc
+                                (into acc (map :name) arg-list)))
+                            #{}
+                            (get staticMethods :of)))
         all-static-params (reduce
                             (fn [acc [_ arg-lists]]
                               (reduce #(into %1 (map :name) %2) acc arg-lists))
@@ -69,7 +71,8 @@
                            [param
                             {:getterDoc    (get getterMethod :doc)
                              :getterMethod (symbol getter-key)
-                             :returnType         (get getterMethod :returnType)}])))
+                             :returnType   (get getterMethod :returnType)
+                             :optional     (not (contains? min-param-names (name param)))}])))
                      zipped)
         static-method-types (reduce
                               (fn [acc [_ arg-lists]]
@@ -153,6 +156,22 @@
                              :returnType   (get getterMethod :returnType)
                              :type         (get setterMethod :type)}])))
                      zipped)
+        sugar-free-builders (reduce
+                              (fn [acc params]
+                                (let [names (set (map :name params))]
+                                  (if (clojure.set/subset? names (into #{} (map name) (keys fields)))
+                                    (conj acc params)
+                                    acc)))
+                              []
+                              (get staticMethods :newBuilder))
+        new-builder (let [n (apply min (map count sugar-free-builders))]
+                      (reduce (fn [_ params]
+                                (if (= n (count params))
+                                  (let [params' (into [] (map #(assoc % :field (keyword (:name %)))) params)]
+                                    (reduced params'))))
+                              nil
+                              sugar-free-builders))
+        setter-fields (apply disj (into (sorted-set) (keys fields)) (map :field new-builder))
         static-method-types (reduce
                               (fn [acc [_ arg-lists]]
                                 (reduce #(into %1 (map :type) %2) acc arg-lists))
@@ -163,16 +182,17 @@
                               (map util/parse-type)
                               (remove util/native-type))
                         (into static-method-types fields-types))]
-    {::type             :accessor
-     :className         className
-     :doc               classDoc
-     :fields            fields
-     :staticMethods     staticMethods
-     :type-dependencies all-types}))
+    {::type               :accessor
+     :className           className
+     :doc                 classDoc
+     :fields              fields
+     :newBuilder          new-builder
+     :builderSetterFields setter-fields
+     :typeDependencies    all-types}))
 
 (defn analyze-enum [package className] (throw (Exception. "unimplemented")))
 
-(defn analyze-type [package className]
+(defn analyze [package className]
   (cond
     (contains? (:types/static-factories package) className)
     (analyze-static-factory package className)
@@ -214,7 +234,7 @@
 (defn malli-enum [package enum] (throw (Exception. "unimplemented")))
 
 (defn malli [package class]
-  (let [{type ::type :as t} (analyze-type package class)]
+  (let [{type ::type :as t} (analyze package class)]
     (case type
       :accessor (malli-accessor package t)
       :enum (malli-enum package t)
@@ -222,129 +242,140 @@
 
 (comment
   (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
-  (analyze-type bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
+  (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
   (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
-  (analyze-type bigquery "com.google.cloud.bigquery.WriteChannelConfiguration") ;=> accessor
+  (analyze bigquery "com.google.cloud.bigquery.WriteChannelConfiguration") ;=> accessor
   (malli bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
-  (analyze-type bigquery "com.google.cloud.bigquery.FormatOptions") ;=> static-factory
+  (analyze bigquery "com.google.cloud.bigquery.FormatOptions") ;=> static-factory
   (malli bigquery "com.google.cloud.bigquery.FormatOptions")
-  (analyze-type bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  (analyze bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
   (malli bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
   ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
   ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
   )
 
-#!----------------------------------------------------------------------------------------------------------------------
+(defn sibling-require
+  [{:keys [rootNs] :as package} className]
+  (assert (some? rootNs))
+  (let [req (symbol (str (name rootNs) "." className))
+        alias (symbol className)]
+    [req :as alias]))
 
-(defn ?discovery-schema->malli
-  [package class-key]
-  (when-let [{:keys [description properties id]} (or (get-in package [:discovery :schemas class-key])
-                                                     (get-in package [:discovery :schemas (keyword class-key)]))]
-    (into [:map {:closed true
-                 :doc    description
-                 :id     id}]
-          (map
-            (fn [[key {:keys [type description] :as prop}]]
-              (let [opts (-> prop
-                             (dissoc :description :type)
-                             (assoc :doc description))
-                    opts (cond-> opts
-                                (string/starts-with? description "Optional")
-                                (assoc :optional true))]
-                [key opts (util/->malli-type package type)])))
-          (sort-by key properties))))
+(defn emit-ns-form
+  [{:keys [rootNs packageName] :as package} target]
+  (assert (string/starts-with? target "com.google.cloud"))
+  (assert (contains? (set (:classes package)) target))
+  (let [{:keys [typeDependencies]} (analyze package target)
+        [siblings other] (split-with #(string/starts-with? % (str "com.google.cloud." packageName)) typeDependencies)
+        {siblings             false
+         target-package-enums true} (group-by #(contains? (:types/enums package) %) siblings)
+        sibling-parts   (into (sorted-set) (comp (map util/class-parts) (map first)) siblings)
+        _               (when (seq other)
+                          ;; TODO
+                          ;; dependencies could be any class, google cloud or threetenbp usually if any
+                          ;; get siblings by comparing w/ package classes
+                          (throw (ex-info "unimplemented requires for non-sibling dependencies" {:target-class target
+                                                                                                 :other-deps   other})))
+        [target-package target-class] ((juxt #(symbol (string/join "." (butlast %))) #(symbol (last %))) (util/dot-parts target))
+        requires        (into ['[gcp.global :as g]] (map (partial sibling-require package)) sibling-parts)
+        package-imports (cond-> [target-package target-class]
+                                (seq target-package-enums) (into (comp (map util/class-dollar-string) (map symbol)) target-package-enums))
+        imports         [package-imports]]
+    `(~'ns ~(symbol (str rootNs "." (peek (util/class-parts target))))
+       (:import ~@(sort-by first imports))
+       (:require ~@(sort-by first requires)))))
 
-#!----------------------------------------------------------------------------------------------------------------------
+(defn emit-enum-from-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-static-factory-from-edn [package t] (throw (Exception. "unimplemented")))
+
+(defn emit-from-edn-call
+  [package key {:keys [type] :as field}]
+  (cond
+    (boolean (util/native-type type))
+    `(~'get ~'arg ~key)
+
+    (contains? (:types/enums package) type)
+    (let [from-edn-call (symbol (util/class-dollar-string type) "valueOf")]
+      `(~from-edn-call (~'get ~'arg ~key)))
+
+    (contains? (:classes package) type)
+    (let [from-edn-call (symbol (first (util/class-parts type)) "from-edn")]
+      `(~from-edn-call (~'get ~'arg ~key)))
+
+    (string/starts-with? type "List")
+    (let [type (util/parse-type type)]
+      (if (contains? (:types/enums package) type)
+        (let [from-edn-call (symbol (util/class-dollar-string type) "valueOf")]
+          `(~'map ~from-edn-call (~'get ~'arg ~key)))
+        (if (contains? (:classes package) type)
+          (let [alias (first (util/class-parts type))
+                from-edn-call (symbol alias "from-edn")]
+            `(~'map ~from-edn-call (~'get ~'arg ~key)))
+          (throw (ex-info "unknown list type" {:key key :field field})))))
+
+    true
+    (throw (ex-info "unknown field type for setter" {:key key :field field}))))
+
+(defn emit-setter-call
+  [package key {:keys [setterMethod type] :as field}]
+  (let [method-call (symbol (str "." setterMethod))
+        value (emit-from-edn-call package key field)]
+    `(~'when (~'get ~'arg ~key)
+       (~method-call ~'builder ~value))))
+
+(defn emit-accessor-from-edn
+  [package className]
+  (let [{:keys [builderSetterFields fields] t ::type :as node} (analyze package className)
+        _ (assert (= :accessor t))
+        target-class (-> (util/class-parts className) first symbol)
+        setter-fields (into (sorted-map) (select-keys fields builderSetterFields))
+
+        new-builder (symbol (name target-class) "newBuilder")
+        new-builder-params (map
+                             (fn [{:keys [name type field] :as m}]
+                               (emit-from-edn-call package field m))
+                             (:newBuilder node))
+        let-body `(~'let [~'builder (~new-builder ~@new-builder-params)]
+                    ~@(for [[key field] setter-fields]
+                        (emit-setter-call package key field))
+                    (.build ~'builder))]
+    ;; TODO global/strict!
+    `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className)) [~'arg] ~let-body)))
+
+;(str "(defn ^" (symbol (last parts)) " from-edn [arg] (throw (Exception. \"unimplemented\")))")
+
+(defn emit-from-edn
+  [package className]
+  (let [{t ::type} (analyze package className)]
+    (case t
+      :accessor (emit-accessor-from-edn package className)
+      :enum (emit-enum-from-edn package className)
+      :static-factory (emit-static-factory-from-edn package className))))
+
+;(zp/zprint-str (apply str ns-forms) 80 {:parse-string-all? true :parse {:interpose "\n\n"}})
+;(str "(defn to-edn [^" (symbol (last parts)) " arg] (throw (Exception. \"unimplemented\")))")
 
 ;; TODO
-;; context, siblings classes as reference
-;; registry as content
-;; style guide
-;; generate namespace skeleton: imports. from-edn to-edn outline
-;; sibling files
-;; similar namespaces
-;; target ns
-;; class name
-;; class members
 ;; Validity Testing
 ;; -- valid edn
 ;; -- top-level from-edn to-edn with annotations
 ;; -- namespace skeleton should eval ok
 ;; -- ...clj-kondo?
-;; cache by model-cfg & content hasch
-;; TODO there are enum bindings in vertexai at least that can probably be killed
+;;
+;; => com.google.cloud.ServiceOptions
+
+; TODO there are enum bindings in vertexai at least that can probably be killed
 ;(defn missing-files [package src-root]
-;  (let [expected-binding-names (into (sorted-set) (map first) (map package-parts (:classes package)))
+;  (let [expected-binding-names (into (sorted-set) (map first) (map util/class-parts (:classes package)))
 ;        expected-files (map #(io/file src-root (str % ".clj")) expected-binding-names)]
 ;    (remove #(.exists %) expected-files)))
 
-;; => com.google.cloud.ServiceOptions
+;(defn spit-skeleton
+;  [{:keys [root] :as package} target-class]
+;  (let [class-name (peek (util/class-parts target-class))
+;        target-file (io/file root (str class-name ".clj"))]
+;    (if (.exists target-file)
+;      (throw (ex-info "already exists" {:file target-file}))
+;      (let [src (class-binding-skeleton package target-class)]
+;        (spit target-file src)))))
 
-
-(defn sibling-require
-  [{:keys [rootNs] :as package} className]
-  (let [req (symbol (str (name rootNs) "." className))
-        alias (symbol className)]
-    [req :as alias]))
-
-;;; TODO possible circular deps
-;;; LoadJobConfiguration produced require for JobInfo because of JobInfo$WriteDisposition
-;;; --> in QueryJob & CopyJob bindings import JobInfo$WriteDisposition (its just an enum)
-;;; fix == check if enums and manually import that class$enum?
-;;; this probably means crawling dependency tree
-(defn class-binding-skeleton
-  [{:keys [rootNs packageRootUrl packageName] :as package} target-class]
-  (assert (string/starts-with? target-class "com.google.cloud"))
-  (assert (contains? (set (:classes package)) target-class))
-  #_(let [{:keys [className]
-         :as cdec} ($extract-from-class-doc-memo package target-class)
-        dependencies (into #{} (remove #(or (string/includes? % target-class)
-                                            (string/ends-with? % "Builder")))
-                           (type-dependencies cdec))
-        [siblings other] (split-with #(string/starts-with? % (str "com.google.cloud." packageName)) dependencies)
-        ;; dependencies could be any class, google cloud or threetenbp usually if any
-        ;; get siblings by comparing w/ package classes
-        sibling-parts (into (sorted-set) (comp (map class-parts) (map first)) siblings)
-        _ (when (seq other)
-            (throw (ex-info "unimplemented requires for non-sibling dependencies" {:target-class target-class
-                                                                                   :other-deps other})))
-        parts        (dot-parts target-class)
-        requires     (into ['[gcp.global :as g]] (map (partial sibling-require package)) sibling-parts)
-        target-ns (symbol (str rootNs "." (peek (class-parts className))))
-        ns-forms [`(~'ns ~target-ns
-                     (:import [~(symbol (string/join "." (butlast parts))) ~(symbol (last parts))])
-                     (:require ~@(sort-by first requires)))
-                  (str "(defn ^" (symbol (last parts)) " from-edn [arg] (throw (Exception. \"unimplemented\")))")
-                  (str "(defn to-edn [^" (symbol (last parts)) " arg] (throw (Exception. \"unimplemented\")))")]]
-    (zp/zprint-str (apply str ns-forms) 80 {:parse-string-all? true :parse {:interpose "\n\n"}})))
-
-(defn spit-skeleton
-  [{:keys [root] :as package} target-class]
-  (let [class-name (peek (util/class-parts target-class))
-        target-file (io/file root (str class-name ".clj"))]
-    (if (.exists target-file)
-      (throw (ex-info "already exists" {:file target-file}))
-      (let [src (class-binding-skeleton package target-class)]
-        (spit target-file src)))))
-
-(defn var-editor [v]
-  ;; TODO validate, reload, test etc
-  ;; TODO getText, setText, undo/redo/tx/history
-  (if-not (var? v)
-    (throw (ex-info "must pass var" {:v v}))
-    (let [{:keys [file line column name]} (meta v)
-          state (atom {:file file
-                       :var  name
-                       :zloc (z/of-file file {:track-position? true})})]
-      (fn [new-src]
-        (let [zloc (:zloc @state)
-              found-zloc (z/find zloc z/next
-                                 #(when-let [pos (z/position %)]
-                                    (= [line column] pos)))
-              new-node (z/node (z/of-string new-src))
-              updated-zloc (some-> found-zloc
-                                   (z/replace new-node)
-                                   z/up)]
-          (when updated-zloc
-            (spit file (z/root-string updated-zloc))
-            (swap! state assoc :zloc updated-zloc)))))))

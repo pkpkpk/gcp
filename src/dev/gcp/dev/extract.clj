@@ -42,8 +42,6 @@
                               (seq parameter-types) (assoc :parameters parameter-types)))
             acc)))
       {:className       (as-dot-string class-like)
-       ;; TODO this might be dropping polymorphic newBuilder(..)
-       ;; we want all of them, get them special? group-by :name?
        :staticMethods   (sorted-map)
        :instanceMethods (sorted-map)}
       members)))

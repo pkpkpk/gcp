@@ -966,7 +966,8 @@
        Federated tables can be defined against following formats: AVRO, BIGTABLE, CSV,
        DATASTORE_BACKUP, GOOGLE_SHEETS, JSON",
      :class 'com.google.cloud.bigquery.FormatOptions}
-    [:format {:getterDoc "Returns the external data format, as a string."}
+    [:format {:getterDoc "Returns the external data format, as a string."
+              :optional false}
      [:enum "ICEBERG" "CSV" "PARQUET" "ORC" "GOOGLE_SHEETS" "NEWLINE_DELIMITED_JSON" "BIGTABLE" "AVRO"]]]
 
    :gcp/bigquery.WriteChannelConfiguration
@@ -975,7 +976,7 @@
      :closed true,
      :doc "Google BigQuery Configuration for a load operation. A load configuration can be used to load data
         into a table with a com.google.cloud.WriteChannel (BigQuery#writer(WriteChannelConfiguration)).",
-     :class com.google.cloud.bigquery.WriteChannelConfiguration}
+     :class 'com.google.cloud.bigquery.WriteChannelConfiguration}
     [:autodetect
      {:setterDoc "Sets automatic inference of the options and schema for CSV and JSON sources.",
       :getterDoc "Returns whether automatic inference of the options and schema for CSV and JSON sources is set.",

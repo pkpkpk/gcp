@@ -1,10 +1,11 @@
 (ns gcp.dev.packages
   (:require [clojure.java.io :as io]
+            [clojure.reflect :refer [reflect]]
             [clojure.string :as string]
             [gcp.dev.extract :as extract]
             [gcp.dev.models :as models]
             [gcp.dev.store :as store]
-            [gcp.dev.util :as util]
+            [gcp.dev.util :as util :refer [as-class]]
             [jsonista.core :as j])
   (:import (com.google.cloud.bigquery BigQueryOptions)))
 
@@ -53,6 +54,15 @@
 
 (defonce $package-summary-memo (memoize $package-summary))
 
+(defn google-enum? [class-like]
+  (let [reflection (reflect (util/as-class class-like))]
+    (contains? (:bases reflection) 'com.google.cloud.StringEnumValue)))
+
+(defn variant? [union class-like]
+  (and (contains? (into #{} (map :name) (:members (reflect (as-class union)))) 'getType)
+       (let [reflection (clojure.reflect/reflect (util/as-class class-like))]
+         (contains? (:bases reflection) (symbol union)))))
+
 (defn bigquery []
   (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
@@ -73,12 +83,16 @@
                                            (when-not (some some? (map :$ref (vals (get schema :properties))))
                                              [key schema]))))
                                      class-intersection)
-            google-enum?       (fn [s]
-                                 (assert (string? s))
-                                 (let [reflection (clojure.reflect/reflect (util/as-class s))]
-                                   (contains? (:bases reflection) 'com.google.cloud.StringEnumValue)))
+
             {cgc-enums true classes false} (group-by google-enum? classes)
-            builders           (filter #(string/ends-with? % "Builder") classes)
+
+            unions (into (sorted-map)
+                         (comp (filter #(contains? (into #{} (map :name) (:members (reflect (as-class %)))) 'getType))
+                               (filter #(not-empty (filter (partial variant? %) classes)))
+                               (map #(vector % (into (sorted-set) (filter (partial variant? %) classes)))))
+                         classes)
+
+            builders  (filter #(string/ends-with? % "Builder") classes)
 
             ;; TODO we've removed enums, not picked up as associated types...forces inlining
             ;; bad idea?
@@ -101,7 +115,8 @@
                                             (str "com.google.cloud.bigquery." key)
                                             (str "com.google.cloud.bigquery." key ".Builder")))
                                        (sorted-set)
-                                       (sort (keys _simple-accessor)))]
+                                       (sort (keys _simple-accessor)))
+            ]
         (assoc latest
           :packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
           :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
@@ -119,6 +134,7 @@
           :complex by-class-part
           #!----------------------------
           :types/enums (into (sorted-set) (concat (:enums latest) cgc-enums))
+          :types/unions unions
           :types/static-factories static-factories
           :types/accessors accessors)))))
 
