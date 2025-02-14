@@ -67,12 +67,14 @@
         fields (into (sorted-map)
                      (map
                        (fn [[param getter-key]]
-                         (let [{:as getterMethod} (get getterMethods getter-key)]
-                           [param
-                            {:getterDoc    (get getterMethod :doc)
-                             :getterMethod (symbol getter-key)
-                             :getterReturnType   (get getterMethod :returnType)
-                             :optional     (not (contains? min-param-names (name param)))}])))
+                         (let [{:as getterMethod} (get getterMethods getter-key)
+                               field (cond-> {:getterMethod (symbol getter-key)
+                                              :getterReturnType   (get getterMethod :returnType)
+                                              :optional     (not (contains? min-param-names (name param)))}
+                                             ;; TODO move doc cleaning upstream, remove newlines & normalize spacing
+                                             (and (some? (get getterMethod :doc))
+                                                  (not (string/blank? (get getterMethod :doc)))) (assoc :getterDoc (get getterMethod :doc)))]
+                           [param field])))
                      zipped)
         static-method-types (reduce
                               (fn [acc [_ arg-lists]]
@@ -84,6 +86,7 @@
                               (remove util/native-type))
                         (into static-method-types (map :returnType) (vals getterMethods)))]
     {::type             :static-factory
+     ::key              (util/package-key package className)
      :className         className
      :doc               classDoc
      :fields            fields
@@ -160,6 +163,8 @@
                                                   :optional           optional
                                                   :getterReturnType   (get getterMethod :returnType)
                                                   :setterArgumentType setter-argument-type}
+
+                                                 ;; TODO move doc cleaning upstream, remove newlines & normalize spacing
                                                  (and (some? (get setterMethod :doc))
                                                       (not (string/blank? (get setterMethod :doc))))
                                                  (assoc :setterDoc (get setterMethod :doc))
@@ -200,6 +205,7 @@
                               (remove util/native-type))
                         (flatten (into static-method-types fields-types)))]
     {::type               :accessor
+     ::key                (util/package-key package className)
      :className           className
      :doc                 classDoc
      :fields              fields
@@ -207,11 +213,12 @@
      :builderSetterFields setter-fields
      :typeDependencies    all-types}))
 
-(defn analyze-union [package className](throw (Exception. "unimplemented")))
+(defn analyze-union [package className](throw (Exception. "analyze union unimplemented")))
 
-(defn analyze-enum [package className] (throw (Exception. "unimplemented")))
+(defn analyze-enum [package className] (throw (Exception. "analyze enum unimplemented")))
 
 (defn analyze [package className]
+  {:post [(contains? % ::key) (contains? % ::type)]}
   (cond
     (contains? (:types/unions package) className)
     (analyze-union package className)
@@ -227,6 +234,11 @@
 
     true
     (throw (Exception. "cannot analyze unknown type!"))))
+
+#!---------------------------------------------------------------------------------------
+#!
+#! malli
+#!
 
 (defn malli-accessor
   [package {:keys [className doc fields] :as accessor}]
@@ -266,6 +278,9 @@
       :static-factory (malli-static-factory package t))))
 
 #!---------------------------------------------------------------------------------------
+#!
+#! ns-form
+#!
 
 (defn sibling-require
   [{:keys [rootNs] :as package} className]
@@ -293,30 +308,34 @@
         requires        (into ['[gcp.global :as g]] (map (partial sibling-require package)) sibling-parts)
         package-imports (cond-> [target-package target-class]
                                 (seq target-package-enums) (into (comp (map util/class-dollar-string) (map symbol)) target-package-enums))
-        imports         [package-imports]]
-    `(~'ns ~(symbol (str rootNs "." (peek (util/class-parts target))))
-       (:import ~@(sort-by first imports))
-       (:require ~@(sort-by first requires)))))
+        imports         [package-imports]
+        form `(~'ns ~(symbol (str rootNs "." (peek (util/class-parts target))))
+                (:import ~@(sort-by first imports))
+                (:require ~@(sort-by first requires)))]
+    (zp/zprint-str form)))
 
-(defn emit-enum-from-edn [package t] (throw (Exception. "unimplemented")))
-(defn emit-static-factory-from-edn [package t] (throw (Exception. "unimplemented")))
+#!----------------------------------------------------------------------------------------------------------------------
+#!
+#! from-edn
+#!
 
 (defn emit-from-edn-call
-  [package key {:keys [type] :as field}]
+  [package key {:keys [setterArgumentType] :as field}]
+  (assert (some? setterArgumentType))
   (cond
-    (boolean (util/native-type type))
+    (boolean (util/native-type setterArgumentType))
     `(~'get ~'arg ~key)
 
-    (contains? (:types/enums package) type)
-    (let [from-edn-call (symbol (util/class-dollar-string type) "valueOf")]
+    (contains? (:types/enums package) setterArgumentType)
+    (let [from-edn-call (symbol (util/class-dollar-string setterArgumentType) "valueOf")]
       `(~from-edn-call (~'get ~'arg ~key)))
 
-    (contains? (:classes package) type)
-    (let [from-edn-call (symbol (first (util/class-parts type)) "from-edn")]
+    (contains? (:classes package) setterArgumentType)
+    (let [from-edn-call (symbol (first (util/class-parts setterArgumentType)) "from-edn")]
       `(~from-edn-call (~'get ~'arg ~key)))
 
-    (string/starts-with? type "List")
-    (let [type (util/parse-type type)]
+    (string/starts-with? setterArgumentType "List")
+    (let [type (util/parse-type setterArgumentType)]
       (if (contains? (:types/enums package) type)
         (let [from-edn-call (symbol (util/class-dollar-string type) "valueOf")]
           `(~'map ~from-edn-call (~'get ~'arg ~key)))
@@ -327,7 +346,7 @@
           (throw (ex-info "unknown list type" {:key key :field field})))))
 
     true
-    (throw (ex-info "unknown field type for setter" {:key key :field field}))))
+    (throw (ex-info (str "unknown field type for setter:" (pr-str setterArgumentType)) {:key key :field field}))))
 
 (defn emit-setter-call
   [package key {:keys [setterMethod] :as field}]
@@ -350,13 +369,18 @@
         let-body `(~'let [~'builder (~new-builder ~@new-builder-params)]
                     ~@(for [[key field] setter-fields]
                         (emit-setter-call package key field))
-                    (.build ~'builder))]
-    `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
-       [~'arg]
-       ;TODO (gcp.global/strict!  arg)
-       ~let-body)))
+                    (.build ~'builder))
+        form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
+                [~'arg]
+                (gcp.global/strict! ~(::key node) ~'arg)
+                ~let-body)
+        src (zp/zprint-str form)
+        src' (str (subs src 0 5) " ^" target-class (subs src 5))]
+    src'))
 
-;(str "(defn ^" (symbol (last parts)) " from-edn [arg] (throw (Exception. \"unimplemented\")))")
+(defn emit-enum-from-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-union-from-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-static-factory-from-edn [package t] (throw (Exception. "unimplemented")))
 
 (defn emit-from-edn
   [package className]
@@ -364,7 +388,99 @@
     (case t
       :accessor (emit-accessor-from-edn package className)
       :enum (emit-enum-from-edn package className)
+      :union (emit-union-from-edn package className)
       :static-factory (emit-static-factory-from-edn package className))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#!
+#! to-edn
+#!
+
+(defn emit-to-edn-call
+  [package key {:keys [getterMethod getterReturnType] :as field}]
+  (let [method-call (symbol (str "." getterMethod))]
+    (cond
+      (util/native-type getterReturnType)
+      `(~method-call ~'arg)
+
+      (contains? (:types/enums package) getterReturnType)
+      `(~(symbol (util/class-dollar-string getterReturnType) ".name") (~method-call ~'arg))
+
+      (contains? (:classes package) getterReturnType)
+      (let [to-edn (symbol (first (util/class-parts getterReturnType)) "to-edn")]
+        `(~to-edn (~method-call ~'arg)))
+
+      (or (string/starts-with? getterReturnType "List")
+          (string/starts-with? getterReturnType "java.util.List"))
+      (let [t (util/parse-type getterReturnType)
+            to-edn (if (contains? (:types/enums package) t)
+                     (symbol (util/class-dollar-string t) ".name")
+                     (if (contains? (:types/accessors package) t)
+                       (symbol (first (util/class-parts getterReturnType)) "to-edn")
+                       (throw (ex-info (str "unimplemented " (pr-str t)) {:field field}))))]
+        `(~'mapv ~to-edn (~method-call ~'arg)))
+
+      true
+      (throw (ex-info (str "unimplemented type " (pr-str getterReturnType)) {:key key :field field})))))
+
+(defn emit-accessor-to-edn [package className]
+  (let [{:keys [fields] :as node} (analyze package className)
+        _ (assert (= :accessor (::type node)))
+        target-class (-> (util/class-parts className) first symbol)
+        required-keys (map :field (:newBuilder node))
+        required-fields (into (sorted-map) (select-keys fields required-keys))
+        optional-fields (into (sorted-map) (apply dissoc fields required-keys))
+        base-map (into (sorted-map)
+                       (map
+                         (fn [[key field]]
+                           [key (emit-to-edn-call package key field)]))
+                       required-fields)
+        body `(~'cond-> ~base-map
+                ~@(reduce
+                    (fn [acc [key field]]
+                      (let [add `(~'assoc ~key ~(emit-to-edn-call package key field))]
+                        (conj acc `(~'get ~'arg ~key) add)))
+                    [] optional-fields))
+        form `(~'defn ~'to-edn [~'arg]
+                {:post [(gcp.global/strict! ~(::key node) ~'%)]}
+                ~body)
+        src (zp/zprint-str form)
+        src' (string/replace src "[arg]" (str "[^" target-class  " arg]"))]
+    src'))
+
+(defn emit-enum-to-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-union-to-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-static-factory-to-edn [package t] (throw (Exception. "unimplemented")))
+
+(defn emit-to-edn
+  [package className]
+  (let [{t ::type} (analyze package className)]
+    (case t
+      :accessor (emit-accessor-to-edn package className)
+      :enum (emit-enum-to-edn package className)
+      :union (emit-union-to-edn package className)
+      :static-factory (emit-static-factory-to-edn package className))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#!
+#! complete binding
+#!
+
+(defn spit-binding
+  ([package target-class]
+   (spit-binding package target-class false))
+  ([{:keys [root] :as package} target-class overwrite?]
+   (let [class-name  (peek (util/class-parts target-class))
+         target-file (io/file root (str class-name ".clj"))]
+     (if (and (not overwrite?) (.exists target-file))
+       (throw (ex-info "already exists" {:file target-file}))
+       (let [src (string/join "\n\n"
+                              [(emit-ns-form package target-class)
+                               (emit-from-edn package target-class)
+                               (emit-to-edn package target-class)])]
+         (spit target-file src))))))
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (comment
   (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))

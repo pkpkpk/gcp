@@ -31,8 +31,11 @@
     (.getBytes (str head article))))
 
 (def native-type
-  #{"java.lang.Boolean" "java.lang.String" "java.lang.Integer" "java.lang.Long"
-    "boolean" "int" "java.lang.Object"
+  #{"java.lang.Boolean" "boolean"
+    "java.lang.String"
+    "java.lang.Integer" "int"
+    "java.lang.Long" "long"
+    "java.lang.Object"
     "Map<java.lang.String, java.lang.String>"
     "Map<java.lang.String,java.lang.String>"
     "Map<String,String>"
@@ -42,7 +45,7 @@
     "java.util.Map<java.lang.String, java.lang.String>"
     "java.util.Map<java.lang.String,java.lang.String>"
     "List<java.lang.String>"
-    })
+    "List<String>"})
 
 (defn parse-type [t]
   (assert (string? t))
