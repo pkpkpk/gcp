@@ -73,6 +73,7 @@
   (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t)))))
 
 (defn ->malli-type [package t]
+  (assert (string? t))
   (case t
     ;"java.lang.Object"
     "java.lang.String" :string

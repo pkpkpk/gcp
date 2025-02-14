@@ -7,6 +7,14 @@
             [jsonista.core :as j]
             [malli.dev]))
 
+;; => com.google.cloud.ServiceOptions
+; TODO there are enum bindings in vertexai at least that can probably be killed
+;(defn missing-files [package src-root]
+;  (let [expected-binding-names (into (sorted-set) (map first) (map util/class-parts (:classes package)))
+;        expected-files (map #(io/file src-root (str % ".clj")) expected-binding-names)]
+;    (remove #(.exists %) expected-files)))
+
+
 ;; singlefile dst, prompts?
 
 ; https://developers.google.com/apis-explorer/

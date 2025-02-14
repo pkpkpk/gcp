@@ -15,8 +15,9 @@
             [gcp.bigquery.v2.Table :as Table]
             [gcp.bigquery.v2.TableId :as TableId]
             [gcp.bigquery.v2.TableInfo :as TableInfo]
+            [gcp.bigquery.v2.WriteChannelConfiguration :as WriteChannelConfiguration]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId TableDataWriteChannel WriteChannelConfiguration)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId TableDataWriteChannel)))
 
 ;; TODO 'dataset-able' 'table-able' etc w/ transforms
 ;; TODO arg specs, switch to ::bq/op keys
@@ -352,8 +353,8 @@
   ([arg]
    (if (g/valid? :gcp/bigquery.synth.WriterCreate arg)
      (let [{:keys [bigquery jobId writeChannelConfiguration]} arg
-       #_ #_    cfg (WriteChannelConfiguration/from-edn writeChannelConfiguration)]
-       #_(if (some? jobId)
+           cfg (WriteChannelConfiguration/from-edn writeChannelConfiguration)]
+       (if (some? jobId)
          (.writer (client bigquery) (JobId/from-edn jobId) cfg)
          (.writer (client bigquery) cfg)))
      (if (g/valid? :gcp/bigquery.WriteChannelConfiguration arg)

@@ -71,7 +71,7 @@
                            [param
                             {:getterDoc    (get getterMethod :doc)
                              :getterMethod (symbol getter-key)
-                             :returnType   (get getterMethod :returnType)
+                             :getterReturnType   (get getterMethod :returnType)
                              :optional     (not (contains? min-param-names (name param)))}])))
                      zipped)
         static-method-types (reduce
@@ -82,12 +82,12 @@
         all-types (into #{} (comp
                               (map util/parse-type)
                               (remove util/native-type))
-                        (into static-method-types (map :returnType) (vals getterMethods) ))]
+                        (into static-method-types (map :returnType) (vals getterMethods)))]
     {::type             :static-factory
      :className         className
      :doc               classDoc
      :fields            fields
-     :type-dependencies all-types
+     :typeDependencies  all-types
      :staticMethods     staticMethods}))
 
 (defn zip-accessors
@@ -125,6 +125,7 @@
    "a readonly class with builder, together as a complete binding unit. no associated types"
   [package className]
   (assert (contains? (:types/accessors package) className))
+  (assert (not (util/builder-like? className)))
   (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
         {:keys [setterMethods] :as builder} (extract/$extract-type-detail package (str className ".Builder"))
         zipped (zip-accessors package getterMethods setterMethods)
@@ -137,24 +138,36 @@
                      (map
                        (fn [[setter-key getter-key]]
                          (let [{:as setterMethod} (get setterMethods setter-key)
-                               {:as getterMethod} (get getterMethods getter-key)]
-                           (assert (some? setterMethod))
-                           (assert (some? getterMethod))
-                           (assert (nil? (:parameters getterMethod)))
-                           [(keyword (:name setterMethod))
-                            {:setterDoc    (get setterMethod :doc)
-                             :setterMethod (symbol setter-key)
-                             :getterDoc    (get getterMethod :doc)
-                             :getterMethod (symbol getter-key)
-                             :optional     (if (string/includes? (get setterMethod :doc "") "ptional")
-                                             true
-                                             (if (string/includes? (get setterMethod :doc "") "equired")
-                                               false
-                                               ;; as a best guess, the smallest builder params are required
-                                               ;; todo fuzzing to be more empirical
-                                               (not (contains? min-param-names (:name setterMethod)))))
-                             :returnType   (get getterMethod :returnType)
-                             :type         (get setterMethod :type)}])))
+                               {:as getterMethod} (get getterMethods getter-key)
+                               _ (assert (nil? (:parameters getterMethod)))
+                               _ (assert (some? getterMethod))
+                               _ (assert (some? setterMethod))
+                               optional (if (string/includes? (get setterMethod :doc "") "ptional")
+                                          true
+                                          (if (string/includes? (get setterMethod :doc "") "equired")
+                                            false
+                                            ;; as a best guess, the smallest builder params are required
+                                            (not (contains? min-param-names (:name setterMethod)))))
+                               setter-argument-type (if (= 1 (count (get setterMethod :type)))
+                                                      (first (get setterMethod :type))
+                                                      (let [[native :as natives] (filter util/native-type (get setterMethod :type))]
+                                                        (when-not (= 1 (count natives))
+                                                          (throw (ex-info "polymorphic builder method has weird types" {:setterMethod setterMethod})))
+                                                        native))
+                               field-key (keyword (:name setterMethod))
+                               field-map (cond-> {:setterMethod       (symbol setter-key)
+                                                  :getterMethod       (symbol getter-key)
+                                                  :optional           optional
+                                                  :getterReturnType   (get getterMethod :returnType)
+                                                  :setterArgumentType setter-argument-type}
+                                                 (and (some? (get setterMethod :doc))
+                                                      (not (string/blank? (get setterMethod :doc))))
+                                                 (assoc :setterDoc (get setterMethod :doc))
+
+                                                 (and (some? (get setterMethod :doc))
+                                                      (not (string/blank? (get setterMethod :doc))))
+                                                 (assoc :getterDoc (get getterMethod :doc)))]
+                           [field-key field-map])))
                      zipped)
         sugar-free-builders (reduce
                               (fn [acc params]
@@ -177,11 +190,15 @@
                                 (reduce #(into %1 (map :type) %2) acc arg-lists))
                               #{}
                               staticMethods)
-        fields-types (reduce (fn [acc [_ {:keys [type returnType]}]] (conj acc type returnType)) #{} fields)
+        fields-types (reduce
+                       (fn [acc [_ {:keys [setterArgumentType getterReturnType]}]]
+                         (conj acc setterArgumentType getterReturnType))
+                       #{}
+                       fields)
         all-types (into #{} (comp
                               (map util/parse-type)
                               (remove util/native-type))
-                        (into static-method-types fields-types))]
+                        (flatten (into static-method-types fields-types)))]
     {::type               :accessor
      :className           className
      :doc                 classDoc
@@ -190,10 +207,15 @@
      :builderSetterFields setter-fields
      :typeDependencies    all-types}))
 
+(defn analyze-union [package className](throw (Exception. "unimplemented")))
+
 (defn analyze-enum [package className] (throw (Exception. "unimplemented")))
 
 (defn analyze [package className]
   (cond
+    (contains? (:types/unions package) className)
+    (analyze-union package className)
+
     (contains? (:types/static-factories package) className)
     (analyze-static-factory package className)
 
@@ -201,7 +223,10 @@
     (analyze-accessor package className)
 
     (contains? (:types/enums package) className)
-    (analyze-enum package className)))
+    (analyze-enum package className)
+
+    true
+    (throw (Exception. "cannot analyze unknown type!"))))
 
 (defn malli-accessor
   [package {:keys [className doc fields] :as accessor}]
@@ -213,8 +238,8 @@
         (map
           (fn [[k v]]
             [k
-             (dissoc v :returnType :type :setterMethod :getterMethod)
-             (util/->malli-type package (:type v))]))
+             (dissoc v :setterMethod :getterMethod :getterReturnType :setterArgumentType)
+             (util/->malli-type package (:setterArgumentType v))]))
         fields))
 
 (defn malli-static-factory
@@ -227,8 +252,8 @@
         (map
           (fn [[k v]]
             [k
-             (dissoc v :returnType :type :setterMethod :getterMethod)
-             (util/->malli-type package (:returnType v))]))
+             (dissoc v :setterMethod :getterMethod :getterReturnType :setterArgumentType)
+             (util/->malli-type package (:getterReturnType v))]))
         fields))
 
 (defn malli-enum [package enum] (throw (Exception. "unimplemented")))
@@ -240,19 +265,7 @@
       :enum (malli-enum package t)
       :static-factory (malli-static-factory package t))))
 
-(comment
-  (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
-  (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
-  (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
-  (analyze bigquery "com.google.cloud.bigquery.WriteChannelConfiguration") ;=> accessor
-  (malli bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
-  (analyze bigquery "com.google.cloud.bigquery.FormatOptions") ;=> static-factory
-  (malli bigquery "com.google.cloud.bigquery.FormatOptions")
-  (analyze bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
-  (malli bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
-  ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
-  ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
-  )
+#!---------------------------------------------------------------------------------------
 
 (defn sibling-require
   [{:keys [rootNs] :as package} className]
@@ -317,7 +330,7 @@
     (throw (ex-info "unknown field type for setter" {:key key :field field}))))
 
 (defn emit-setter-call
-  [package key {:keys [setterMethod type] :as field}]
+  [package key {:keys [setterMethod] :as field}]
   (let [method-call (symbol (str "." setterMethod))
         value (emit-from-edn-call package key field)]
     `(~'when (~'get ~'arg ~key)
@@ -329,18 +342,19 @@
         _ (assert (= :accessor t))
         target-class (-> (util/class-parts className) first symbol)
         setter-fields (into (sorted-map) (select-keys fields builderSetterFields))
-
         new-builder (symbol (name target-class) "newBuilder")
         new-builder-params (map
-                             (fn [{:keys [name type field] :as m}]
+                             (fn [{:keys [field] :as m}]
                                (emit-from-edn-call package field m))
                              (:newBuilder node))
         let-body `(~'let [~'builder (~new-builder ~@new-builder-params)]
                     ~@(for [[key field] setter-fields]
                         (emit-setter-call package key field))
                     (.build ~'builder))]
-    ;; TODO global/strict!
-    `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className)) [~'arg] ~let-body)))
+    `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
+       [~'arg]
+       ;TODO (gcp.global/strict!  arg)
+       ~let-body)))
 
 ;(str "(defn ^" (symbol (last parts)) " from-edn [arg] (throw (Exception. \"unimplemented\")))")
 
@@ -352,30 +366,34 @@
       :enum (emit-enum-from-edn package className)
       :static-factory (emit-static-factory-from-edn package className))))
 
-;(zp/zprint-str (apply str ns-forms) 80 {:parse-string-all? true :parse {:interpose "\n\n"}})
-;(str "(defn to-edn [^" (symbol (last parts)) " arg] (throw (Exception. \"unimplemented\")))")
+(comment
+  (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
 
-;; TODO
-;; Validity Testing
-;; -- valid edn
-;; -- top-level from-edn to-edn with annotations
-;; -- namespace skeleton should eval ok
-;; -- ...clj-kondo?
-;;
-;; => com.google.cloud.ServiceOptions
+  (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
+  (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
 
-; TODO there are enum bindings in vertexai at least that can probably be killed
-;(defn missing-files [package src-root]
-;  (let [expected-binding-names (into (sorted-set) (map first) (map util/class-parts (:classes package)))
-;        expected-files (map #(io/file src-root (str % ".clj")) expected-binding-names)]
-;    (remove #(.exists %) expected-files)))
+  (analyze bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (malli bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
 
-;(defn spit-skeleton
-;  [{:keys [root] :as package} target-class]
-;  (let [class-name (peek (util/class-parts target-class))
-;        target-file (io/file root (str class-name ".clj"))]
-;    (if (.exists target-file)
-;      (throw (ex-info "already exists" {:file target-file}))
-;      (let [src (class-binding-skeleton package target-class)]
-;        (spit target-file src)))))
+  ;; TODO this is a union type!
+  (analyze bigquery "com.google.cloud.bigquery.FormatOptions") ;=> static-factory
+  (malli bigquery "com.google.cloud.bigquery.FormatOptions")
+
+  (analyze bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  (malli bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
+  ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
+  )
+
+(defn spit-accessor-binding
+  [{:keys [root] :as package} target-class]
+  (assert (contains? (:types/accessors package) target-class))
+  (let [class-name (peek (util/class-parts target-class))
+        target-file (io/file root (str class-name ".clj"))]
+    (if (.exists target-file)
+      (throw (ex-info "already exists" {:file target-file}))
+      (let [forms [(emit-ns-form package target-class)
+                   (emit-from-edn package target-class)]
+            src (zp/zprint-str (apply str forms) 80 {:parse-string-all? true :parse {:interpose "\n\n"}})]
+        (spit target-file src)))))
 

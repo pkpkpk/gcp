@@ -66,9 +66,7 @@
     (when (get arg :schema)
       (.setSchema builder (Schema/from-edn (get arg :schema))))
     (when (get arg :schemaUpdateOptions)
-      (.setSchemaUpdateOptions builder
-                               (map ^[Class String] JobInfo$SchemaUpdateOption/valueOf
-                                    (get arg :schemaUpdateOptions))))
+      (.setSchemaUpdateOptions builder (map JobInfo$SchemaUpdateOption/valueOf (get arg :schemaUpdateOptions))))
     (when (get arg :timePartitioning)
       (.setTimePartitioning builder
                             (TimePartitioning/from-edn

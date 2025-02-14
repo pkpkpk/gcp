@@ -59,7 +59,7 @@
   (let [clazz (as-class class-like)
         _(assert (class? clazz) (str "expected class got type " (type clazz) " instead"))
         methods (member-methods clazz)
-        members (into []
+        members (into (sorted-set)
                       (comp (map :name)
                             (map name)
                             (filter #(string/starts-with? % "set")))
@@ -94,23 +94,36 @@
          method-schema     {:type        "OBJECT"
                             :nullable    true
                             :description "fully qualified setter parameter if any"
-                            :properties  {"type" {:type        "STRING"
-                                                  :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}
+                            :properties  {"type" {:type  "ARRAY"
+                                                  :description "if there are polymorphic parameter types, include them all here"
+                                                  :items {:type        "STRING"
+                                                          :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}}
                                           "doc"  {:type        "STRING"
                                                   :description "description of the method"}
                                           "name" {:type        "STRING"
                                                   :description "the name of the parameter"}}}
          generationConfig  {:responseMimeType "application/json"
                             :responseSchema   {:type       "OBJECT"
-                                               :required   setters
+                                               :required   (vec setters)
                                                :properties (into {} (map #(vector % method-schema)) setters)}}
          validator         (fn [edn]
-                             (when-not
-                               (and (map? edn)
-                                    (= (count setters) (count edn))
-                                    (= (into (sorted-set) (map name) (keys edn)) (set setters)))
-                               (throw (ex-info "returned keys did not match" {:actual  (into (sorted-set) (map name) (keys edn))
-                                                                              :members (into (sorted-set) setters)}))))
+                             (when-not (map? edn) (throw (Exception. "expected a map")))
+                             (when-not (= (count setters) (count edn))
+                               (throw (ex-info "returned wrong key count" {:edn edn
+                                                                           :edn-count (count edn)
+                                                                           :setters setters
+                                                                           :setters-count (count setters)})))
+                             (when-not (= (into (sorted-set) (map name) (keys edn))
+                                          (set setters))
+                               (throw (ex-info "returned keys did not match" {:extracted  (into (sorted-set) (map name) (keys edn))
+                                                                              :expected (into (sorted-set) setters)
+                                                                              :same? (= (into (sorted-set) (map name) (keys edn))
+                                                                                        (set setters))
+                                                                              :difference (clojure.set/difference (into (sorted-set) setters)
+                                                                                                                  (into (sorted-set) (map name) (keys edn)))
+                                                                              :difference' (clojure.set/difference (into (sorted-set) (map name) (keys edn))
+                                                                                                                   (into (sorted-set) setters))
+                                                                              }))))
          cfg               (assoc model :systemInstruction systemInstruction
                                         :generationConfig generationConfig)
          edn               (store/extract-java-ref-aside (:store package) cfg url validator)]
@@ -185,7 +198,16 @@
     (assoc reflection :className class-like
                       :type :readonly
                       :doc (:doc edn)
-                      :getterMethods (:getterMethods edn)
+                      :getterMethods (into (sorted-map)
+                                           (map
+                                             (fn [[k m]]
+                                               (let [m'
+                                                     (if (and (contains? m :parameters)
+                                                              (empty? (:parameters m)))
+                                                       (dissoc m :parameters)
+                                                       m)]
+                                                 [k m'])))
+                                           (:getterMethods edn))
                       :staticMethods (:staticMethods edn))))
 
 (defn- $_extract-enum-detail
