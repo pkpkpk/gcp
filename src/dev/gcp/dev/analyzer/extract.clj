@@ -1,13 +1,10 @@
-(ns gcp.dev.extract
+(ns gcp.dev.analyzer.extract
   (:require [clojure.data :refer [diff]]
             [clojure.string :as string]
             [gcp.dev.models :as models]
             [gcp.dev.store :as store]
-            [gcp.dev.util :refer [as-dot-string as-dollar-string as-class builder-like? reflect member-methods] :as util]
-            [gcp.global :as g]
-            [gcp.vertexai.generativeai :as genai]))
-
-;; TODO vertexai schemas should accept named in properties slots, automatically transform them to string
+            [gcp.dev.util :refer :all]
+            [gcp.global :as g]))
 
 (defn reflect-readonly [class-like]
   (assert (not (builder-like? class-like)))
@@ -48,15 +45,6 @@
                       methods)]
     {:className (as-dot-string class-like)
      :setterMethods members}))
-
-(defn extract-from-bytes
-  ([model-cfg bytes]
-   (extract-from-bytes model-cfg bytes identity))
-  ([model-cfg bytes validator!]
-   (let [response (genai/generate-content model-cfg [{:mimeType "text/html" :partData bytes}])
-         edn (genai/response-json response)]
-     (validator! edn)
-     edn)))
 
 (def version-schema {:type        "STRING"
                      :example     "2.47.0"
@@ -228,7 +216,7 @@
 (defn $extract-type-detail
   ([package class-like]
    ($extract-type-detail models/pro-2 package class-like))
-  ([model {:keys [classes] :as package} class-like]
+  ([model {:as package} class-like]
    (cond
      ;; TODO exceptions! settings! clients!
      ((set (:enums package)) (as-dot-string class-like))

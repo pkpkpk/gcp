@@ -1,16 +1,27 @@
 (ns gcp.dev.packages
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
-            [gcp.dev.extract :as extract]
             [gcp.dev.models :as models]
             [gcp.dev.store :as store]
             [gcp.dev.util :refer :all]
+            [gcp.vertexai.generativeai :as genai]
             [jsonista.core :as j])
   (:import (com.google.cloud.bigquery BigQueryOptions)))
 
 (def home   (io/file (System/getProperty "user.home")))
 (def root   (io/file home "pkpkpk" "gcp"))
 (def src    (io/file root "src"))
+
+(defn extract-from-url
+  ([model-cfg url]
+   (extract-from-url model-cfg url identity))
+  ([model-cfg url validator!]
+   ;; never cache package summary bytes, always get latest
+   (let [bytes (get-url-bytes url)
+         response (genai/generate-content model-cfg [{:mimeType "text/html" :partData bytes}])
+         edn (genai/response-json response)]
+     (validator! edn)
+     edn)))
 
 (defn $package-summary
   ([package-url]
@@ -44,9 +55,7 @@
                                                                   {:type  "ARRAY"
                                                                    :items {:type        "STRING"
                                                                            :description "package qualified interface name"}}}}}}]
-     ;; never cache package summary bytes, always get latest
-     (println  "fetching package summary")
-     (extract/extract-from-bytes cfg (get-url-bytes package-url)))))
+     (extract-from-url cfg package-url))))
 
 (defonce $package-summary-memo (memoize $package-summary))
 

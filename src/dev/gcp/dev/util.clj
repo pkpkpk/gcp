@@ -2,11 +2,10 @@
   (:require [clj-http.client :as http]
             [clojure.java.io :as io]
             clojure.reflect
-            [clojure.string :as string]
-            [taoensso.telemere :as tt]))
+            [clojure.string :as string]))
 
 (defn get-url-bytes [^String url]
-  (tt/log! (str "fetching url -> " url))
+  (println (str "fetching url -> " url))
   (let [{:keys [status body] :as response} (http/get url {:redirect-strategy :none :as :byte-array})]
     (if (= 200 status) ;google docs will 301 on missing doc
       body
@@ -115,7 +114,7 @@
 
       :else
       (do
-        (tt/log! :warn (str "WARN unknown malli type " t))
+        (println "WARN unknown malli type " t)
         t))))
 
 (defn dot-parts [class]
@@ -209,13 +208,25 @@
 
 ;; TODO member ctors, public fields
 
-(defn public-constructors
-  [class-like]
+(defn public-constructors [class-like]
   (into []
         (filter
           (fn [{:keys [flags] :as m}]
             (and (instance? clojure.reflect.Constructor m)
                  (contains? flags :public))))
+        (sort-by :name (:members (reflect class-like)))))
+
+(defn public-instantiators
+  [class-like]
+  (into []
+        (filter
+          (fn [{:keys [flags] :as m}]
+            (and (contains? flags :public)
+              (or
+                (and
+                  (instance? clojure.reflect.Method m)
+                  (= 'of (get m :name)))
+                (instance? clojure.reflect.Constructor m)))))
         (sort-by :name (:members (reflect class-like)))))
 
 (defn member-methods

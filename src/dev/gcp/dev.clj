@@ -1,120 +1,42 @@
 (ns gcp.dev
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
+            [gcp.dev.analyzer :as ana :refer [analyze]]
+            [gcp.dev.compiler :as c :refer [emit-to-edn emit-from-edn emit-ns-form]]
+            [gcp.dev.malli :refer [malli]]
+            [gcp.global :as g]
             [gcp.vertexai.v1]
             [gcp.vertexai.generativeai :as genai]
-            [integrant.core :as ig]
-            [jsonista.core :as j]
             [malli.dev]))
 
-;; => com.google.cloud.ServiceOptions
-; TODO there are enum bindings in vertexai at least that can probably be killed
+;; TODO
+;;  - kill enum bindings in vertexai in favor of inlining
+;;  - com.google.cloud.ServiceOptions
+;;  - genai response-schemas should accept named in properties slots, automatically transform them to string
+;;  - investigate response-schemas from malli
+
 ;(defn missing-files [package src-root]
 ;  (let [expected-binding-names (into (sorted-set) (map first) (map util/class-parts (:classes package)))
 ;        expected-files (map #(io/file src-root (str % ".clj")) expected-binding-names)]
 ;    (remove #(.exists %) expected-files)))
 
-
 ;; singlefile dst, prompts?
 
-; https://developers.google.com/apis-explorer/
-; https://github.com/googleapis/google-api-java-client-services/tree/main/clients/google-api-services-discovery/v1
-; https://googleapis.dev/java/google-api-services-discovery/latest/index.html
+(comment
+  (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
 
-;#_(io/resource "gcp/vertexai/v1/generativeai/examples.clj")
+  (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
+  (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
 
-;; render https://cloud.google.com/docs/samples
-;; look for POST https://cloud.google.com/_d/dynamic_content response
-(def samples-file (io/file (System/getProperty "user.home") "Downloads/dynamic_content.json"))
+  (analyze bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
+  (malli bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
 
-(defn get-products
-  [sample-vector]
-  (->
-    (into (sorted-set)
-          (comp
-            (filter #(string/starts-with? % "product:"))
-            (remove #(= "product:googlecloud" %)))
-          (get-in sample-vector [20]))))
+  ;; TODO this is a union type!
+  (analyze bigquery "com.google.cloud.bigquery.FormatOptions") ;=> static-factory
+  (malli bigquery "com.google.cloud.bigquery.FormatOptions")
 
-(defn clean-sample [sample]
-  {:title       (nth sample 0)
-   :description (string/trim (nth sample 4))
-   :url         (nth sample 6)
-   :category    (nth sample 7) ;=> this is not a reliable way to group!
-   :products    (get-products sample)})
-
-(defn samples []
-  (let [all (first (j/read-value (slurp samples-file)))]
-    all))
-
-(defn samples-by-products []
-  (group-by :products (map clean-sample (samples))))
-
-#_ (keys (samples-by-products)) ;=> 63 count
-
-;; 2025/01/01
-#_
-([#{"product:identityawareproxy"} 2]
- [#{"product:cloudbuild"} 2]
- [#{"product:cloudcomposer"} 4]
- [#{"product:webrisk"} 4]
- [#{"product:texttospeech"} 5]
- [#{"product:cloudprofiler" "product:googlecloudobservability" "product:unifiedmaintenance"} 6]
- [#{} 6]
- [#{"product:automl" "product:automltranslation" "product:cloudtranslation"} 7]
- [#{"product:documentwarehouse"} 7]
- [#{"product:cloudnetworking" "product:servicedirectory"} 8]
- [#{"product:cloudapplicationintegration" "product:eventarc"} 8]
- [#{"product:enterpriseknowledgegraph"} 9]
- [#{"product:batchforgooglecloud"} 10]
- [#{"product:dataproc"} 11]
- [#{"product:aiplatform" "product:aiplatformdatalabelingservice"} 12]
- [#{"product:cloudtasks"} 14]
- [#{"product:cloudassetinventory"} 15]
- [#{"product:recaptchaenterprise"} 15]
- [#{"product:cloudtranslation"} 16]
- [#{"product:cloudnaturallanguageapi"} 16]
- [#{"product:googlekubernetesengine"} 17]
- [#{"product:cloudcorecompute" "product:googlecloudvmwareengine"} 18]
- [#{"product:transcoderapi"} 18]
- [#{"product:apachekafkaforbigquery"} 20]
- [#{"product:cloudlogging" "product:googlecloudobservability" "product:unifiedmaintenance"} 22]
- [#{"product:cloudapplicationintegration"} 22]
- [#{"product:livestreamapi"} 23]
- [#{"product:dataplex"} 23]
- [#{"product:videointelligenceapi"} 24]
- [#{"product:certificateauthorityservice"} 25]
- [#{"product:bigquery" "product:bigquerydatatransferservice"} 26]
- [#{"product:pubsublite"} 28]
- [#{"product:cloudmonitoring" "product:googlecloudobservability" "product:unifiedmaintenance"} 29]
- [#{"product:identityandaccessmanagement"} 30]
- [#{"product:datacatalog"} 30]
- [#{"product:clouddatabases" "product:cloudsql" "product:cloudsqlforsqlserver"} 31]
- [#{"product:videostitcherapi"} 31]
- [#{"product:vertexaiagentbuilder"} 36]
- [#{"product:documentai"} 38]
- [#{"product:cloudkeymanagementservice"} 41]
- [#{"product:speechtotext"} 47]
- [#{"product:securitycommandcenter"} 52]
- [#{"product:secretmanager"} 53]
- [#{"product:cloudrun"} 53]
- [#{"product:clouddatabases" "product:cloudsql" "product:cloudsqlforpostgresql"} 53]
- [#{"product:clouddatabases" "product:cloudsql" "product:cloudsqlformysql"} 61]
- [#{"product:cloudfunctions"} 61]
- [#{"product:cloudhealthcareapi" "product:cloudlifesciences"} 65]
- [#{"product:dataflow"} 66]
- [#{"product:cloudvision"} 71]
- [#{"product:talentsolution"} 72]
- [#{"product:pubsub"} 74]
- [#{"product:clouddatalossprevention" "product:sensitivedataprotection"} 76]
- [#{"product:clouddatabases" "product:datastore"} 77]
- [#{"product:clouddatabases" "product:cloudspanner"} 92]
- [#{"product:cloudapplicationintegration" "product:workflows"} 111]
- [#{"product:cloudcorecompute" "product:computeengine"} 115]
- [#{"product:bigtable" "product:clouddatabases"} 118]
- [#{"product:clouddatabases" "product:firebase" "product:firestore"} 130]
- [#{"product:cloudstorage"} 130]
- [#{"product:bigquery"} 176]
- [#{"product:vertexai"} 306]
- [#{"product:generativeaionvertexai" "product:vertexai"} 408])
-
+  (analyze bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  (malli bigquery "com.google.cloud.bigquery.Acl.Entity.Type")
+  ;(get-in @bigquery [:discovery :schemas :JobConfigurationQuery :properties :writeDisposition])
+  ;{:type "string" :description "Optional. Specifies the action that occurs if the destination table already exists. The following values are supported: * WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the data, removes the constraints, and uses the schema from the query result. * WRITE_APPEND: If the table already exists, BigQuery appends the data to the table. * WRITE_EMPTY: If the table already exists and contains data, a 'duplicate' error is returned in the job result. The default value is WRITE_EMPTY. Each action is atomic and only occurs if BigQuery is able to complete the job successfully. Creation, truncation and append actions occur as one atomic update upon job completion."}
+  )
