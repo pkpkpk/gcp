@@ -4,6 +4,15 @@
 
 (defn ^DatastoreBackupOptions from-edn
   [arg]
-  (throw (Exception. "unimplemented")))
+  (gcp.global/strict! :gcp/bigquery.DatastoreBackupOptions arg)
+  (let [builder (DatastoreBackupOptions/newBuilder)]
+    (when (get arg :projectionFields)
+      (.setProjectionFields builder (get arg :projectionFields)))
+    (.build builder)))
 
-(defn to-edn [^DatastoreBackupOptions arg] (throw (Exception. "unimplemented")))
+(defn to-edn
+  [^DatastoreBackupOptions arg]
+  {:post [(gcp.global/strict! :gcp/bigquery.DatastoreBackupOptions %)]}
+  (cond-> {}
+    (get arg :projectionFields) (assoc :projectionFields
+                                  (.getProjectionFields arg))))

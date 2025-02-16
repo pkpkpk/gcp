@@ -1,13 +1,9 @@
 (ns gcp.dev.util
   (:require [clj-http.client :as http]
             [clojure.java.io :as io]
+            clojure.reflect
             [clojure.string :as string]
             [taoensso.telemere :as tt]))
-
-(def home (io/file (System/getProperty "user.home")))
-(def pkpkpk (io/file home "pkpkpk"))
-(def root (io/file pkpkpk "gcp"))
-(def src  (io/file root "src"))
 
 (defn get-url-bytes [^String url]
   (tt/log! (str "fetching url -> " url))
@@ -30,6 +26,17 @@
         article (string/trim article)]
     (.getBytes (str head article))))
 
+(defn list-like? [t]
+  (or (string/starts-with? t "List")
+      (string/starts-with? t "java.util.List")))
+
+(defn array-like? [t]
+  (string/ends-with? t "[]"))
+
+(def illegal-native-type
+  #{"java.util.Map"
+    "java.util.List"})
+
 (def native-type
   #{"java.lang.Boolean" "boolean"
     "java.lang.String"
@@ -44,12 +51,16 @@
     "java.util.Map<String,String>"
     "java.util.Map<java.lang.String, java.lang.String>"
     "java.util.Map<java.lang.String,java.lang.String>"
+
     "List<java.lang.String>"
-    "List<String>"})
+    "List<String>"
+    "java.util.List<java.lang.String>"
+    "java.util.List<String>"})
 
 (defn parse-type [t]
   (assert (string? t))
   (cond
+
     (string/starts-with? t "java.util.List<")
     (let [start (subs t 15)]
       (subs start 0 (.indexOf start ">")))
@@ -119,10 +130,21 @@
   (assert (string? className))
   (vec (take 4 (dot-parts className))))
 
+(defn package-part [className]
+  (string/join "." (package-parts className)))
+
 (defn class-parts [className]
   {:pre [(string? className)]
    :post [(vector? %) (seq %) (every? string? %)]}
   (vec (nthrest (dot-parts className) 4)))
+
+(defn class-part [className]
+  (string/join "." (class-parts className)))
+
+(defn base-part [className]
+  ;;   1       2      3         4            5
+  ;; com  google  cloud  $package  $base-class
+  (string/join "." (take 5 (dot-parts className))))
 
 (defn class-dollar-string [className]
   (string/join "$" (class-parts className)))
@@ -182,3 +204,41 @@
   (if (class? class-like)
     (builder-like? (str class-like))
     (string/ends-with? (name class-like) "Builder")))
+
+(defonce reflect (memoize (fn [class-like] (clojure.reflect/reflect (as-class class-like)))))
+
+;; TODO member ctors, public fields
+
+(defn public-constructors
+  [class-like]
+  (into []
+        (filter
+          (fn [{:keys [flags] :as m}]
+            (and (instance? clojure.reflect.Constructor m)
+                 (contains? flags :public))))
+        (sort-by :name (:members (reflect class-like)))))
+
+(defn member-methods
+  "returns public methods we are interested in"
+  [class-like]
+  (into []
+        (comp
+          (remove
+            (fn [{:keys [flags :return-type name] :as m}]
+              (or (contains? flags :private)
+                  (contains? flags :synthetic)
+                  (empty? flags)
+                  (instance? clojure.reflect.Field m)
+                  (and (instance? clojure.reflect.Method m) (nil? return-type))
+                  (#{'toString 'fromPb 'toPb 'equals 'hashCode} name))))
+          (map
+            (fn [{:keys [parameter-types exception-types] :as m}]
+              (let [t (if (instance? clojure.reflect.Constructor m)
+                        :constructor
+                        (do
+                          (assert (instance? clojure.reflect.Method m))
+                          :method))]
+                (cond-> (assoc m :type t)
+                        (empty? parameter-types) (dissoc m :parameter-types)
+                        (empty? exception-types) (dissoc m :exception-types))))))
+        (sort-by :name (:members (reflect class-like)))))

@@ -1,17 +1,20 @@
 (ns gcp.dev.packages
   (:require [clojure.java.io :as io]
-            [clojure.reflect :refer [reflect]]
             [clojure.string :as string]
             [gcp.dev.extract :as extract]
             [gcp.dev.models :as models]
             [gcp.dev.store :as store]
-            [gcp.dev.util :as util :refer [as-class]]
+            [gcp.dev.util :refer :all]
             [jsonista.core :as j])
   (:import (com.google.cloud.bigquery BigQueryOptions)))
 
+(def home   (io/file (System/getProperty "user.home")))
+(def root   (io/file home "pkpkpk" "gcp"))
+(def src    (io/file root "src"))
+
 (defn $package-summary
   ([package-url]
-   (let [cfg {:model             (:model models/flash)
+   (let [cfg {:model             (:model models/flash-2)
               :systemInstruction (str "You are given google cloud java package summary page" "Extract its parts into arrays.")
               :generationConfig  {:responseMimeType "application/json"
                                   :responseSchema   {:type       "OBJECT"
@@ -19,6 +22,7 @@
                                                      :required   ["version" "classes" "enums" "exceptions" "interfaces"]
                                                      :properties {"version" {:type    "STRING"
                                                                              :example "2.47.0"
+                                                                             :description "the semantic version number of the package"
                                                                              :pattern "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
                                                                   "settings"
                                                                   {:type  "ARRAY"
@@ -41,106 +45,151 @@
                                                                    :items {:type        "STRING"
                                                                            :description "package qualified interface name"}}}}}}]
      ;; never cache package summary bytes, always get latest
-     (extract/extract-from-bytes cfg (util/get-url-bytes package-url)))))
-
-(def package-schema
-  [:map
-   [:name :string]
-   ;TODO settings & clients
-   [:classes    [:seqable :string]]
-   [:enums      [:seqable :string]]
-   [:exceptions [:seqable :string]]
-   [:interfaces [:seqable :string]]])
+     (println  "fetching package summary")
+     (extract/extract-from-bytes cfg (get-url-bytes package-url)))))
 
 (defonce $package-summary-memo (memoize $package-summary))
 
-(defn google-enum? [class-like]
-  (let [reflection (reflect (util/as-class class-like))]
-    (contains? (:bases reflection) 'com.google.cloud.StringEnumValue)))
-
 (defn variant? [union class-like]
   (and (contains? (into #{} (map :name) (:members (reflect (as-class union)))) 'getType)
-       (let [reflection (clojure.reflect/reflect (util/as-class class-like))]
-         (contains? (:bases reflection) (symbol union)))))
+       (contains? (:bases (reflect class-like)) (symbol union))))
 
 (defn bigquery []
   (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
       (throw (ex-info "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
                                                :extracted version}))
-      (let [discovery          (j/read-value (store/get-url-bytes-aside "discovery" "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest") j/keyword-keys-object-mapper)
-            class-keys         (into (sorted-set)
-                                     (comp (map util/class-parts)
-                                           (map first)
-                                           (map keyword))
-                                     (:classes latest))
-            schema-keys        (set (keys (get-in discovery [:schemas])))
-            class-intersection (clojure.set/intersection schema-keys class-keys)
-            refless-classes    (into (sorted-map)
-                                     (map
-                                       (fn [key]
-                                         (let [schema (get-in discovery [:schemas key])]
-                                           (when-not (some some? (map :$ref (vals (get schema :properties))))
-                                             [key schema]))))
-                                     class-intersection)
+      (let [discovery   (j/read-value (store/get-url-bytes-aside "discovery" "https://bigquery.googleapis.com/discovery/v1/apis/bigquery/v2/rest") j/keyword-keys-object-mapper)
 
-            {cgc-enums true classes false} (group-by google-enum? classes)
+            enums (into (apply sorted-set (:enums latest))
+                        (filter #(contains? (:bases (reflect %)) 'com.google.cloud.StringEnumValue))
+                        classes)
 
-            unions (into (sorted-map)
-                         (comp (filter #(contains? (into #{} (map :name) (:members (reflect (as-class %)))) 'getType))
-                               (filter #(not-empty (filter (partial variant? %) classes)))
-                               (map #(vector % (into (sorted-set) (filter (partial variant? %) classes)))))
+            classes    (into (sorted-set) (remove enums) classes)
+            builders   (into (sorted-set) (filter #(string/ends-with? % "Builder")) classes)
+
+            abstract-unions (reduce
+                              (fn [acc className]
+                                (let [{:keys [flags]} (reflect className)
+                                      members (member-methods className)]
+                                  (if (and (contains? flags :abstract)
+                                           (some #(= 'getType (:name %)) members))
+                                    (if-let [variants (not-empty (into (sorted-set) (filter (partial variant? className)) classes))]
+                                      (assoc acc className variants)
+                                      acc)
+                                    acc)))
+                              (sorted-map)
+                              classes)
+            abstract-variants (reduce (fn [acc [k vs]] (into acc (map (fn [v] [v k])) vs)) (sorted-map) abstract-unions)
+
+            classes (remove (set (keys abstract-unions)) classes)
+
+            concrete-unions (reduce
+                              (fn [acc className]
+                                (let [{:keys [flags]} (reflect className)
+                                      members (member-methods className)]
+                                  (if (and (not (contains? flags :abstract))
+                                           (some #(= 'getType (:name %)) members))
+                                    (if-let [variants (not-empty (into (sorted-set) (filter (partial variant? className)) classes))]
+                                      (assoc acc className variants)
+                                      acc)
+                                    acc)))
+                              (sorted-map)
+                              classes)
+            concrete-variants (reduce (fn [acc [k vs]] (into acc (map (fn [v] [v k])) vs)) (sorted-map) concrete-unions)
+
+
+            classes (remove (set (keys concrete-unions)) classes)
+
+            service-objects (reduce
+                              (fn [acc className]
+                                (let [ms (member-methods className)]
+                                  (if (some #(= 'getBigQuery (:name %)) ms)
+                                    (conj acc className (str className ".Builder"))
+                                    acc)))
+                              (sorted-set)
+                              classes)
+            classes (into (sorted-set) (remove service-objects) classes)
+            by-base     (into (sorted-map) (group-by base-part classes))
+            standalone  (reduce (fn [acc [k v]] (if (= [k] v) (conj acc k) acc)) (sorted-set) by-base)
+            static-factories (into (sorted-set)
+                                   (comp
+                                     (remove #(string/ends-with? % "Builder"))
+                                     (filter
+                                       (fn [className]
+                                         (or
+                                           (and (contains? standalone className)
+                                                (some #(= 'of (:name %)) (member-methods className)))
+                                           (and (not (contains? by-base className))
+                                                (some #(= 'of (:name %)) (member-methods className)))))))
+                                   classes)
+            nested (into (sorted-set)
+                         (comp
+                           (remove #(string/ends-with? % "Builder"))
+                           (filter #(not (contains? by-base %))))
                          classes)
+            accessors (reduce
+                        (fn [acc className]
+                          (if (contains? classes (str className ".Builder"))
+                            (conj acc className)
+                            acc))
+                        (sorted-set)
+                        classes)]
 
-            builders  (filter #(string/ends-with? % "Builder") classes)
+        ;; TODO classes without solutions
+        ;;  - bigquery.BigQuery.<$>Option
+        ;;    --> mostly static methods that wrap a value  ie (<$>Option/pageSize 43) etc
+        ;;  - bigquery.Acl.<$>
+        ;;    -- normal constructor calls
+        ;;    -- bigquery.Acl.Entity is abstract, wraps Acl.Entity.Type ENUM, read-only?
+        ;;  - bigquery.JobStatistics.<$>Statistics
+        ;;    -- generally read-only, from-edn does not apply here
+        ;;  - many others that are also read only ie "com.google.cloud.bigquery.InsertAllResponse"
+        ;;    --> are constructors private/protected? might be good way to sort into to-edn-only
 
-            ;; TODO we've removed enums, not picked up as associated types...forces inlining
-            ;; bad idea?
-            by-class-part      (group-by first (map util/class-parts classes))
+        #_(clojure.set/difference
+            (:classes bigquery)
+            (:types/accessors bigquery)
+            (:types/static-factories bigquery)
+            (:types/enums bigquery)
+            (:types/builders bigquery)
+            (:types/service-objects bigquery)
+            (set (keys (:types/abstract-unions bigquery)))
+            (set (keys (:types/concrete-unions bigquery)))
+            (set (keys (:types/abstract-variants bigquery)))
+            (set (keys (:types/concrete-variants bigquery))))
 
-            ;; simple-static: no builder or associated types, usually just static .of() ctors
-            {_static-factories true
-             by-class-part false} (group-by (fn [[_ v]] (= 1 (count v))) by-class-part)
-            static-factories      (into (sorted-set) (map #(str "com.google.cloud.bigquery." %)) (keys _static-factories))
+        ;;(filter #(empty? (public-constructors %)) misfits) ;=> to-edn only?
+        ;;
 
-            ;; simple-accessors: readonly & builder, no associated types
-            ;; TODO filter out types w/ clients ie Dataset, Table, Model, Routine
-            ;; or identify them somehow built out-of info types
-            {_simple-accessor true
-             by-class-part false} (group-by (fn [[_ v]] (and (= 2 (count v))
-                                                             (or (= "Builder" (peek (nth v 0)))
-                                                                 (= "Builder" (peek (nth v 1)))))) by-class-part)
-            accessors          (reduce (fn [acc key]
-                                      (conj acc
-                                            (str "com.google.cloud.bigquery." key)
-                                            (str "com.google.cloud.bigquery." key ".Builder")))
-                                       (sorted-set)
-                                       (sort (keys _simple-accessor)))
-            ]
-        (assoc latest
-          :packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
-          :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
-          :root (io/file util/src "main" "gcp" "bigquery" "v2")
-          :rootNs 'gcp.bigquery.v2
-          :packageName "bigquery"
-          :packageSymbol 'com.google.cloud.bigquery
-          :store (str "bigquery_" (:version latest))
-          :builders builders
-          :classes-refless refless-classes
-          :discovery discovery
-          #!----------------------------
-          :allClasses (into (sorted-set) (:classes latest))
-          :classes (into (sorted-set) classes)
-          :complex by-class-part
-          #!----------------------------
-          :types/enums (into (sorted-set) (concat (:enums latest) cgc-enums))
-          :types/unions unions
-          :types/static-factories static-factories
-          :types/accessors accessors)))))
+        {:packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
+         :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
+         :root (io/file src "main" "gcp" "bigquery" "v2")
+         :rootNs 'gcp.bigquery.v2
+         :packageName "bigquery"
+         :packageSymbol 'com.google.cloud.bigquery
+         :store (str "bigquery_" (:version latest))
+         :discovery discovery
 
-;; fetch-all-urls
-;; list-missing-urls
-;; list-missing-extractions
+         #!----------------------------
+         :classes (into (sorted-set) (:classes latest))
+         #!----------------------------
+         :package/version (:version latest)
+         :types/enums enums
+         :types/builders builders
+         :types/settings (into (sorted-set) (:settings latest))
+         :types/interfaces (into (sorted-set) (:interfaces latest))
+         :types/exceptions (into (sorted-set) (:exceptions latest))
+         :types/abstract-unions abstract-unions
+         :types/abstract-variants abstract-variants
+         :types/concrete-unions concrete-unions
+         :types/concrete-variants concrete-variants
+         :types/service-objects service-objects
+         :types/static-factories static-factories
+         :types/accessors accessors
+         :types/nested nested
+         :types/by-base by-base
+         :types/standalone standalone}))))
 
 ;(def pubsub-root (io/file src "main" "gcp" "pubsub"))
 ;(def pubsub-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/")

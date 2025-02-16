@@ -31,6 +31,7 @@
   (evict! store)
   (io/delete-file (io/file root store)))
 
+;; TODO these need versioned store
 (defn get-url-bytes-aside [store-name ^String url]
   (or (k/get (connect store-name) url nil {:sync? true})
       (let [bs (util/get-url-bytes url)]
@@ -66,6 +67,7 @@
 
 (defn generate-content-aside
   ([store-name model-cfg content validator!]
+   (assert (fn? validator!))
    (let [key [model-cfg (str (hasch.core/uuid content))]]
      (or (k/get (connect store-name) key nil {:sync? true})
          (let [response (genai/generate-content model-cfg content)

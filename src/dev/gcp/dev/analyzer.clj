@@ -6,18 +6,18 @@
     [clojure.repl :refer :all]
     [clojure.set :as s]
     [clojure.string :as string]
-    gcp.bigquery.v2
     [gcp.dev.extract :as extract]
     [gcp.dev.models :as models]
     [gcp.dev.packages :as packages]
     [gcp.dev.store :as store]
-    [gcp.dev.util :as util :refer [as-dot-string as-class as-dollar-string builder-like?]]
+    [gcp.dev.util :as util :refer :all]
     [gcp.global :as g]
     gcp.vertexai.v1
     [rewrite-clj.zip :as z]
     [zprint.core :as zp :refer [zprint]])
   (:import (com.google.cloud.bigquery BigQueryOptions)
-           (java.io ByteArrayOutputStream)))
+           (java.io ByteArrayOutputStream)
+           (java.util.regex Pattern)))
 
 (defn zip-static-params [package static-params getterMethods]
   (let [getters           (g/coerce [:seqable :string] (vec (sort (map name (keys getterMethods)))))
@@ -82,11 +82,11 @@
                               #{}
                               staticMethods)
         all-types (into #{} (comp
-                              (map util/parse-type)
-                              (remove util/native-type))
+                              (map parse-type)
+                              (remove native-type))
                         (into static-method-types (map :returnType) (vals getterMethods)))]
     {::type             :static-factory
-     ::key              (util/package-key package className)
+     ::key              (package-key package className)
      :className         className
      :doc               classDoc
      :fields            fields
@@ -94,10 +94,8 @@
      :staticMethods     staticMethods}))
 
 (defn zip-accessors
-  ([package getterMethods setterMethods]
-   (let [setters           (g/coerce [:seqable :string] (sort (map name (keys setterMethods))))
-         getters           (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
-         getter-schema     {:type        "STRING"
+  ([package getters setters]
+   (let [getter-schema     {:type        "STRING"
                             :nullable    false
                             :description "the read only method that corresponds to the setter"}
          generationConfig  {:responseMimeType "application/json"
@@ -106,8 +104,8 @@
                                                :properties (into {} (map #(vector % getter-schema)) setters)}}
          systemInstruction (str "given a list of getters, match them to their setter in the response schema."
                                 "for every setter there is a getter, but not every getter has a setter")
-         cfg               (assoc models/flash :systemInstruction systemInstruction
-                                               :generationConfig generationConfig)
+         cfg               (assoc models/flash-2 :systemInstruction systemInstruction
+                                                 :generationConfig generationConfig)
          validator!        (fn [edn]
                              (if (not= (set setters) (set (map name (keys edn))))
                                (throw (ex-info "missing setter method!" {:getters getters
@@ -117,34 +115,69 @@
                                  (throw (ex-info "expected getter for every setter" {:getters getters
                                                                                      :setters setters
                                                                                      :edn edn}))
-                                 (if-not (clojure.set/subset? (set (vals edn)) (into #{} getters))
+                                 (if-not (or (set (vals edn)) (set getters)
+                                             (clojure.set/subset? (set (vals edn)) (set getters)))
                                    (throw (ex-info "incorrect keys" {:getters getters
                                                                      :setters setters
                                                                      :edn edn}))))))
          res (store/generate-content-aside (:store package) cfg getters validator!)]
      (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
+(defn abstract-variant? [package className]
+  (boolean
+    (when-let [base (get-in package [:types/variants className])]
+      (get-in package [:types/abstract-unions base]))))
+
+(defn abstract-getters [className]
+  (let [{:keys [members]} (clojure.reflect/reflect (as-class className))]
+    (reduce
+      (fn [acc m]
+        (if (and (contains? m :return-type)
+                 (contains? (:flags m) :public)
+                 (contains? (:flags m) :abstract)
+                 (not (#{'toBuilder} (:name m))))
+          (assoc acc (keyword (name (:name m))) {:returnType (get m :returnType)
+                                                 :doc (str "abstract method inherited from " className)})
+          acc))
+      {}
+      members)))
+
 (defn analyze-accessor
    "a readonly class with builder, together as a complete binding unit. no associated types"
   [package className]
   (assert (contains? (:types/accessors package) className))
-  (assert (not (util/builder-like? className)))
+  (assert (not (builder-like? className)))
   (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
         {:keys [setterMethods] :as builder} (extract/$extract-type-detail package (str className ".Builder"))
-        zipped (zip-accessors package getterMethods setterMethods)
-        min-param-names (let [n (apply min (map count (get staticMethods :newBuilder)))]
-                          (into #{} (comp
-                                      (filter #(= n (count %)))
-                                      (map :name))
-                                (get staticMethods :newBuilder)))
+        setters  (g/coerce [:seqable :string] (sort (map name (keys setterMethods))))
+        getterMethods (cond-> getterMethods
+                              (abstract-variant? package className)
+                              (merge (abstract-getters (get-in package [:types/variants className]))))
+        getters  (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
+        zipped (zip-accessors package getters setters)
+        min-param-names (when-let [ms (not-empty (get staticMethods :newBuilder))]
+                          (let [n (apply min (map count ms))]
+                            (into #{} (comp
+                                        (filter #(= n (count %)))
+                                        (map :name))
+                                  (get staticMethods :newBuilder))))
         fields (into (sorted-map)
                      (map
                        (fn [[setter-key getter-key]]
                          (let [{:as setterMethod} (get setterMethods setter-key)
                                {:as getterMethod} (get getterMethods getter-key)
+                               _ (when (nil? getterMethod)
+                                   (throw (ex-info (str "expected getter method for getter " getter-key)
+                                                   {:setter-key setter-key
+                                                    :getter-key getter-key
+                                                    :zipped zipped})))
                                _ (assert (nil? (:parameters getterMethod)))
-                               _ (assert (some? getterMethod))
-                               _ (assert (some? setterMethod))
+                               _ (when (nil? setterMethod)
+                                   (throw (ex-info (str "expected setter method for setter " setter-key)
+                                                   {:setter-key         setter-key
+                                                    :getter-key         getter-key
+                                                    :setter-method-keys (sort (keys setterMethods))
+                                                    :zipped             zipped})))
                                optional (if (string/includes? (get setterMethod :doc "") "ptional")
                                           true
                                           (if (string/includes? (get setterMethod :doc "") "equired")
@@ -153,11 +186,21 @@
                                             (not (contains? min-param-names (:name setterMethod)))))
                                setter-argument-type (if (= 1 (count (get setterMethod :type)))
                                                       (first (get setterMethod :type))
-                                                      (let [[native :as natives] (filter util/native-type (get setterMethod :type))]
-                                                        (when-not (= 1 (count natives))
-                                                          (throw (ex-info "polymorphic builder method has weird types" {:setterMethod setterMethod})))
-                                                        native))
-                               field-key (keyword (:name setterMethod))
+                                                      (if-let [[native :as natives] (not-empty (filter native-type (get setterMethod :type)))]
+                                                        (do
+                                                          (when-not (= 1 (count natives))
+                                                            (throw (ex-info "polymorphic builder method has weird native types" {:setterMethod setterMethod})))
+                                                          native)
+                                                        (let [ts (get setterMethod :type)]
+                                                          (if (and (= 2 (count ts))
+                                                                   (or (and (list-like? (nth ts 0))
+                                                                            (array-like? (nth ts 1)))
+                                                                       (and (list-like? (nth ts 1))
+                                                                            (array-like? (nth ts 0)))))
+                                                            (or (and (list-like? (nth ts 0)) (nth ts 0))
+                                                                (and (list-like? (nth ts 1)) (nth ts 1)))
+                                                            (throw (ex-info "polymorphic builder method has weird non-native types" {:setterMethod setterMethod}))))))
+                               field-key (g/coerce keyword? (keyword (:name setterMethod)))
                                field-map (cond-> {:setterMethod       (symbol setter-key)
                                                   :getterMethod       (symbol getter-key)
                                                   :optional           optional
@@ -182,13 +225,14 @@
                                     acc)))
                               []
                               (get staticMethods :newBuilder))
-        new-builder (let [n (apply min (map count sugar-free-builders))]
-                      (reduce (fn [_ params]
-                                (if (= n (count params))
-                                  (let [params' (into [] (map #(assoc % :field (keyword (:name %)))) params)]
-                                    (reduced params'))))
-                              nil
-                              sugar-free-builders))
+        new-builder (when (seq sugar-free-builders)
+                      (let [n (apply min (map count sugar-free-builders))]
+                        (reduce (fn [_ params]
+                                  (if (= n (count params))
+                                    (let [params' (into [] (map #(assoc % :field (keyword (:name %)))) params)]
+                                      (reduced params'))))
+                                nil
+                                sugar-free-builders)))
         setter-fields (apply disj (into (sorted-set) (keys fields)) (map :field new-builder))
         static-method-types (reduce
                               (fn [acc [_ arg-lists]]
@@ -200,12 +244,15 @@
                          (conj acc setterArgumentType getterReturnType))
                        #{}
                        fields)
-        all-types (into #{} (comp
-                              (map util/parse-type)
-                              (remove util/native-type))
-                        (flatten (into static-method-types fields-types)))]
+        all-types (reduce (fn [acc item]
+                            (into acc (comp
+                                        (map parse-type)
+                                        (remove native-type))
+                                  (if (string? item) [item] item)))
+                          #{}
+                          (concat static-method-types fields-types))]
     {::type               :accessor
-     ::key                (util/package-key package className)
+     ::key                (package-key package className)
      :className           className
      :doc                 classDoc
      :fields              fields
@@ -213,15 +260,89 @@
      :builderSetterFields setter-fields
      :typeDependencies    all-types}))
 
-(defn analyze-union [package className](throw (Exception. "analyze union unimplemented")))
 
-(defn analyze-enum [package className] (throw (Exception. "analyze enum unimplemented")))
+#!--------------------------------------------------------------------------------------------------------
+
+;(defn variant-tags [class-like]
+;  (let [reflection (clojure.reflect/reflect (as-class class-like))]
+;    (reduce (fn [acc {:keys [flags] :as m}]
+;              (if (and (contains? flags :final)
+;                       (= (name (:name m))
+;                          (string/upper-case (name (:name m)))))
+;                (let [fld (.getDeclaredField (as-class class-like) (name (:name m)))]
+;                  (.setAccessible fld true)
+;                  (conj acc (.get fld nil)))
+;                acc))
+;            #{}
+;            (:members reflection))))
+
+;(defn zip-variant-class-tags
+;  [package variant-classes variant-tags]
+;  (let [variant-schema    {:type        "STRING"
+;                           :nullable    false
+;                           :enum       (vec variant-tags)
+;                           :description "the tag that corresponds to the class"}
+;        generationConfig  {:responseMimeType "application/json"
+;                           :responseSchema   {:type       "OBJECT"
+;                                              :required   (vec variant-classes)
+;                                              :properties (into {} (map #(vector % variant-schema)) variant-classes)}}
+;        systemInstruction (str "given a list of class names, match them to a tag")
+;        cfg               (assoc models/pro :systemInstruction systemInstruction
+;                                            :generationConfig generationConfig)
+;        validator! (fn [edn]
+;                     (when-not (= (count edn) (count variant-classes))
+;                       (throw (ex-info "incorrect count" {:expected (count variant-classes)
+;                                                          :actual (count edn)})))
+;                     (when-not (= variant-classes (set (map name (keys edn))))
+;                       (throw (ex-info "incorrect classes" {:variant-classes variant-classes
+;                                                            :edn-keys (set (map name (keys edn)))})))
+;                     (when-not (clojure.set/subset? (set (vals edn)) variant-tags)
+;                       (throw (ex-info "incorrect tags" {:variant-tags variant-tags
+;                                                         :edn edn}))))
+;        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]
+;    (into (sorted-map) (map (fn [[k v]] [(name k) v])) edn)))
+
+;; TODO abstract-unions (get public abstract methods from base class to zip setters)
+;; TODO concrete-unions
+
+;(defn analyze-union [package className]
+;  (let [{:keys [doc]} (extract/$extract-type-detail package className)
+;        variant-classes (get-in package [:types/unions className])
+;        tags (variant-tags className)
+;        ;zipped (zip-variant-class-tags package variant-classes tags)
+;        ;classless-tags (apply disj tags (vals zipped))
+;        ]
+;    {::type            :union
+;     ::key             (util/package-key package className)
+;     :doc              doc
+;     :typeDependencies variant-classes
+;     :variantTags tags
+;     ;:class->tag zipped
+;     ;:classless-tags classless-tags
+;     }))
+
+#!--------------------------------------------------------------------------------------------------------
+
+(defn analyze-abstract-union [package className] (throw (Exception. "analyze-abstract-union unimplemented")))
+
+#!--------------------------------------------------------------------------------------------------------
+
+(defn analyze-concrete-union [package className] (throw (Exception. "analyze-concrete-union unimplemented")))
+
+#!--------------------------------------------------------------------------------------------------------
+
+(defn analyze-enum [package className] (throw (Exception. "analyze-enum unimplemented")))
+
+#!--------------------------------------------------------------------------------------------------------
 
 (defn analyze [package className]
   {:post [(contains? % ::key) (contains? % ::type)]}
   (cond
-    (contains? (:types/unions package) className)
-    (analyze-union package className)
+    (contains? (:types/abstract-unions package) className)
+    (analyze-abstract-union package className)
+
+    (contains? (:types/concrete-unions package) className)
+    (analyze-concrete-union package className)
 
     (contains? (:types/static-factories package) className)
     (analyze-static-factory package className)
@@ -233,7 +354,7 @@
     (analyze-enum package className)
 
     true
-    (throw (Exception. "cannot analyze unknown type!"))))
+    (throw (Exception. (str "cannot analyze unknown type! " className)))))
 
 #!---------------------------------------------------------------------------------------
 #!
@@ -243,7 +364,7 @@
 (defn malli-accessor
   [package {:keys [className doc fields] :as accessor}]
   (assert (= :accessor (::type accessor)))
-  (into [:map {:key (util/package-key package className)
+  (into [:map {:key (package-key package className)
                :closed true
                :doc    doc
                :class  (symbol className)}]
@@ -251,13 +372,13 @@
           (fn [[k v]]
             [k
              (dissoc v :setterMethod :getterMethod :getterReturnType :setterArgumentType)
-             (util/->malli-type package (:setterArgumentType v))]))
+             (->malli-type package (:setterArgumentType v))]))
         fields))
 
 (defn malli-static-factory
   [package {:keys [className doc fields] :as static-factory}]
   (assert (= :static-factory (::type static-factory)))
-  (into [:map {:key (util/package-key package className)
+  (into [:map {:key (package-key package className)
                :closed true
                :doc    doc
                :class  (symbol className)}]
@@ -265,15 +386,25 @@
           (fn [[k v]]
             [k
              (dissoc v :setterMethod :getterMethod :getterReturnType :setterArgumentType)
-             (util/->malli-type package (:getterReturnType v))]))
+             (->malli-type package (:getterReturnType v))]))
         fields))
 
-(defn malli-enum [package enum] (throw (Exception. "unimplemented")))
+(defn malli-union
+  [package {:keys [doc typeDependencies]}]
+  (let []
+    [:and
+     [:map {:doc doc}
+      [:type {:optional false} [:enum]]]
+     (into [:or] (map (partial package-key package) typeDependencies))]))
+
+(defn malli-enum [package node]
+  (throw (Exception. "malli enum unimplemented")))
 
 (defn malli [package class]
   (let [{type ::type :as t} (analyze package class)]
     (case type
       :accessor (malli-accessor package t)
+      :union (malli-union package t)
       :enum (malli-enum package t)
       :static-factory (malli-static-factory package t))))
 
@@ -281,6 +412,9 @@
 #!
 #! ns-form
 #!
+
+;; TODO label as machine generated do not edit
+;; TODO ns doc string, versioning, producing code hash
 
 (defn sibling-require
   [{:keys [rootNs] :as package} className]
@@ -297,19 +431,19 @@
         [siblings other] (split-with #(string/starts-with? % (str "com.google.cloud." packageName)) typeDependencies)
         {siblings             false
          target-package-enums true} (group-by #(contains? (:types/enums package) %) siblings)
-        sibling-parts   (into (sorted-set) (comp (map util/class-parts) (map first)) siblings)
+        sibling-parts   (into (sorted-set) (comp (map class-parts) (map first)) siblings)
         _               (when (seq other)
                           ;; TODO
                           ;; dependencies could be any class, google cloud or threetenbp usually if any
                           ;; get siblings by comparing w/ package classes
                           (throw (ex-info "unimplemented requires for non-sibling dependencies" {:target-class target
                                                                                                  :other-deps   other})))
-        [target-package target-class] ((juxt #(symbol (string/join "." (butlast %))) #(symbol (last %))) (util/dot-parts target))
+        [target-package target-class] ((juxt #(symbol (string/join "." (butlast %))) #(symbol (last %))) (dot-parts target))
         requires        (into ['[gcp.global :as g]] (map (partial sibling-require package)) sibling-parts)
         package-imports (cond-> [target-package target-class]
-                                (seq target-package-enums) (into (comp (map util/class-dollar-string) (map symbol)) target-package-enums))
+                                (seq target-package-enums) (into (comp (map class-dollar-string) (map symbol)) target-package-enums))
         imports         [package-imports]
-        form `(~'ns ~(symbol (str rootNs "." (peek (util/class-parts target))))
+        form `(~'ns ~(symbol (str rootNs "." (peek (class-parts target))))
                 (:import ~@(sort-by first imports))
                 (:require ~@(sort-by first requires)))]
     (zp/zprint-str form)))
@@ -323,24 +457,25 @@
   [package key {:keys [setterArgumentType] :as field}]
   (assert (some? setterArgumentType))
   (cond
-    (boolean (util/native-type setterArgumentType))
+    (boolean (native-type setterArgumentType))
     `(~'get ~'arg ~key)
 
     (contains? (:types/enums package) setterArgumentType)
-    (let [from-edn-call (symbol (util/class-dollar-string setterArgumentType) "valueOf")]
+    (let [from-edn-call (symbol (class-dollar-string setterArgumentType) "valueOf")]
       `(~from-edn-call (~'get ~'arg ~key)))
 
     (contains? (:classes package) setterArgumentType)
-    (let [from-edn-call (symbol (first (util/class-parts setterArgumentType)) "from-edn")]
+    (let [from-edn-call (symbol (first (class-parts setterArgumentType)) "from-edn")]
       `(~from-edn-call (~'get ~'arg ~key)))
 
-    (string/starts-with? setterArgumentType "List")
+    (or (string/starts-with? setterArgumentType "List")
+        (string/starts-with? setterArgumentType "java.util.List"))
     (let [type (util/parse-type setterArgumentType)]
       (if (contains? (:types/enums package) type)
-        (let [from-edn-call (symbol (util/class-dollar-string type) "valueOf")]
+        (let [from-edn-call (symbol (class-dollar-string type) "valueOf")]
           `(~'map ~from-edn-call (~'get ~'arg ~key)))
         (if (contains? (:classes package) type)
-          (let [alias (first (util/class-parts type))
+          (let [alias (first (class-parts type))
                 from-edn-call (symbol alias "from-edn")]
             `(~'map ~from-edn-call (~'get ~'arg ~key)))
           (throw (ex-info "unknown list type" {:key key :field field})))))
@@ -359,7 +494,7 @@
   [package className]
   (let [{:keys [builderSetterFields fields] t ::type :as node} (analyze package className)
         _ (assert (= :accessor t))
-        target-class (-> (util/class-parts className) first symbol)
+        target-class (-> (class-parts className) first symbol)
         setter-fields (into (sorted-map) (select-keys fields builderSetterFields))
         new-builder (symbol (name target-class) "newBuilder")
         new-builder-params (map
@@ -400,7 +535,7 @@
   [package key {:keys [getterMethod getterReturnType] :as field}]
   (let [method-call (symbol (str "." getterMethod))]
     (cond
-      (util/native-type getterReturnType)
+      (native-type getterReturnType)
       `(~method-call ~'arg)
 
       (contains? (:types/enums package) getterReturnType)
@@ -412,11 +547,11 @@
 
       (or (string/starts-with? getterReturnType "List")
           (string/starts-with? getterReturnType "java.util.List"))
-      (let [t (util/parse-type getterReturnType)
+      (let [t (parse-type getterReturnType)
             to-edn (if (contains? (:types/enums package) t)
-                     (symbol (util/class-dollar-string t) ".name")
+                     (symbol (class-dollar-string t) ".name")
                      (if (contains? (:types/accessors package) t)
-                       (symbol (first (util/class-parts getterReturnType)) "to-edn")
+                       (symbol (first (class-parts t)) "to-edn")
                        (throw (ex-info (str "unimplemented " (pr-str t)) {:field field}))))]
         `(~'mapv ~to-edn (~method-call ~'arg)))
 
@@ -426,7 +561,7 @@
 (defn emit-accessor-to-edn [package className]
   (let [{:keys [fields] :as node} (analyze package className)
         _ (assert (= :accessor (::type node)))
-        target-class (-> (util/class-parts className) first symbol)
+        target-class (-> (class-parts className) first symbol)
         required-keys (map :field (:newBuilder node))
         required-fields (into (sorted-map) (select-keys fields required-keys))
         optional-fields (into (sorted-map) (apply dissoc fields required-keys))
@@ -470,7 +605,7 @@
   ([package target-class]
    (spit-binding package target-class false))
   ([{:keys [root] :as package} target-class overwrite?]
-   (let [class-name  (peek (util/class-parts target-class))
+   (let [class-name  (peek (class-parts target-class))
          target-file (io/file root (str class-name ".clj"))]
      (if (and (not overwrite?) (.exists target-file))
        (throw (ex-info "already exists" {:file target-file}))
@@ -504,7 +639,7 @@
 (defn spit-accessor-binding
   [{:keys [root] :as package} target-class]
   (assert (contains? (:types/accessors package) target-class))
-  (let [class-name (peek (util/class-parts target-class))
+  (let [class-name (peek (class-parts target-class))
         target-file (io/file root (str class-name ".clj"))]
     (if (.exists target-file)
       (throw (ex-info "already exists" {:file target-file}))

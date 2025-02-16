@@ -1,31 +1,13 @@
 (ns gcp.dev.extract
-  (:require [clojure.string :as string]
+  (:require [clojure.data :refer [diff]]
+            [clojure.string :as string]
             [gcp.dev.models :as models]
             [gcp.dev.store :as store]
-            [gcp.dev.util :refer [as-dot-string as-dollar-string as-class builder-like?]]
+            [gcp.dev.util :refer [as-dot-string as-dollar-string as-class builder-like? reflect member-methods] :as util]
             [gcp.global :as g]
-            [gcp.vertexai.generativeai :as genai]
-            [taoensso.telemere :as tt]))
+            [gcp.vertexai.generativeai :as genai]))
 
 ;; TODO vertexai schemas should accept named in properties slots, automatically transform them to string
-
-(defn member-methods [class-like]
-  (let [clazz (as-class class-like)]
-    (assert (class? clazz) (str "got type " (type clazz) " instead"))
-    (into []
-          (comp
-            (remove
-              (fn [{:keys [flags :return-type]}]
-                (or (contains? flags :private)
-                    (contains? flags :synthetic)
-                    (empty? flags)
-                    (nil? return-type))))
-            (map
-              (fn [{:keys [parameter-types exception-types] :as m}]
-                (cond-> m
-                        (empty? parameter-types) (dissoc m :parameter-types)
-                        (empty? exception-types) (dissoc m :exception-types)))))
-          (sort-by :name (:members (clojure.reflect/reflect clazz))))))
 
 (defn reflect-readonly [class-like]
   (assert (not (builder-like? class-like)))
@@ -91,17 +73,16 @@
          _                 (g/coerce [:seqable :string] setters)
          systemInstruction (str "extract the builder setters methods description and parameter type."
                                 " please use fully qualified package names for all types that reference gcp sdks")
-         method-schema     {:type        "OBJECT"
-                            :nullable    true
-                            :description "fully qualified setter parameter if any"
-                            :properties  {"type" {:type  "ARRAY"
-                                                  :description "if there are polymorphic parameter types, include them all here"
-                                                  :items {:type        "STRING"
-                                                          :description "the fully qualified type descriptor. if a list, use List<$TYPE> syntax"}}
-                                          "doc"  {:type        "STRING"
-                                                  :description "description of the method"}
-                                          "name" {:type        "STRING"
-                                                  :description "the name of the parameter"}}}
+         method-schema     {:type       "OBJECT"
+                            :required   ["type" "doc" "name"]
+                            :properties {"type" {:type        "ARRAY"
+                                                 :description "if there are polymorphic parameter types, include them all here"
+                                                 :items       {:type        "STRING"
+                                                               :description "**FULLY QUALIFIED TYPE PARAMETER**. if a list, use List<$TYPE> syntax"}}
+                                         "doc"  {:type        "STRING"
+                                                 :description "description of the method"}
+                                         "name" {:type        "STRING"
+                                                 :description "the name of the parameter"}}}
          generationConfig  {:responseMimeType "application/json"
                             :responseSchema   {:type       "OBJECT"
                                                :required   (vec setters)
@@ -113,17 +94,16 @@
                                                                            :edn-count (count edn)
                                                                            :setters setters
                                                                            :setters-count (count setters)})))
-                             (when-not (= (into (sorted-set) (map name) (keys edn))
-                                          (set setters))
+                             (when-not (= (into (sorted-set) (map name) (keys edn)) (set setters))
                                (throw (ex-info "returned keys did not match" {:extracted  (into (sorted-set) (map name) (keys edn))
                                                                               :expected (into (sorted-set) setters)
                                                                               :same? (= (into (sorted-set) (map name) (keys edn))
                                                                                         (set setters))
-                                                                              :difference (clojure.set/difference (into (sorted-set) setters)
-                                                                                                                  (into (sorted-set) (map name) (keys edn)))
-                                                                              :difference' (clojure.set/difference (into (sorted-set) (map name) (keys edn))
-                                                                                                                   (into (sorted-set) setters))
-                                                                              }))))
+                                                                              :diff (diff (into (sorted-set) setters)
+                                                                                          (into (sorted-set) (map name) (keys edn)))})))
+                             (let [types (apply concat (map :type (vals edn)))]
+                               (when (some util/illegal-native-type types)
+                                 (throw (ex-info "illegal native types" {:types types})))))
          cfg               (assoc model :systemInstruction systemInstruction
                                         :generationConfig generationConfig)
          edn               (store/extract-java-ref-aside (:store package) cfg url validator)]
