@@ -12,20 +12,50 @@
 (def root   (io/file home "pkpkpk" "gcp"))
 (def src    (io/file root "src"))
 
+;; HTML layout is different than class reference.. nested articles, H1 is inside inner article
+;; [:article
+;;   [:h1 <package ...>]
+;;   ...
+;;   [:h2 category header]
+;;   [:div
+;;      [:table <items...>]]
+;;   [:h2 category header]
+;;   [:div
+;;     [:table <items...>]]
+
+(defn ^String get-overview [^String url]
+  (let [bs (get-url-bytes url)
+        s  (String. bs "UTF-8")
+        ;; can't be bothered to parse but this is decent 2/3 cut
+        header-open-start (string/index-of s "<h1")
+        s (subs s (inc header-open-start))
+        header-open-close (string/index-of s ">")
+        header-open-end (string/index-of s "</h1>")
+        header (string/trim (subs s (inc header-open-close) header-open-end))
+        _ (println "retrieved reference doc for " (pr-str header))
+        ;article-start (string/index-of s "<article>")
+        article-end (string/index-of s "</article>")
+        ;_ (println "article-start" article-start)
+        _ (println "article-end" article-end)
+        article (subs s (+ header-open-end 5) article-end)
+        article (string/trim article)]
+    (str header article)))
+
 (defn extract-from-url
   ([model-cfg url]
    (extract-from-url model-cfg url identity))
   ([model-cfg url validator!]
    ;; never cache package summary bytes, always get latest
-   (let [bytes (get-url-bytes url)
-         response (genai/generate-content model-cfg [{:mimeType "text/html" :partData bytes}])
+   (let [overview (get-overview url)
+         response (genai/generate-content model-cfg [{:mimeType "text/html" :partData (.getBytes overview)}])
          edn (genai/response-json response)]
      (validator! edn)
      edn)))
 
+
 (defn $package-summary
   ([package-url]
-   (let [cfg {:model             (:model models/flash-2)
+   (let [cfg {:model             (:model models/pro-2)
               :systemInstruction (str "You are given google cloud java package summary page" "Extract its parts into arrays.")
               :generationConfig  {:responseMimeType "application/json"
                                   :responseSchema   {:type       "OBJECT"
@@ -76,7 +106,7 @@
     (get-in package [:discovery :schemas])))
 
 (defn bigquery []
-  (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
+  (let [{:keys [version classes] :as latest} ($package-summary "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
       (throw (ex-info "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
                                                :extracted version}))
@@ -174,6 +204,7 @@
          :store (str "bigquery_" (:version latest))
          :discovery discovery
          :package/version (:version latest)
+         :all-classes (into (sorted-set) (:classes latest))
          :types/enums enums
          :types/builders builders
          :types/settings (into (sorted-set) (:settings latest))

@@ -364,9 +364,10 @@
 
    ;;--------------------------------------------------------------------------
    ;; Jobs
+   ;;
 
    :gcp/bigquery.BigQuery.JobListOption       [:or
-                                               [:map {:closed true} [:fields [:sequential :gcp/bigquery.JobField]]]
+                                               [:map {:closed true} [:fields [:sequential :gcp/bigquery.BigQuery.JobField]]]
                                                [:map {:closed true} [:maxCreationTime :int]]
                                                [:map {:closed true} [:minCreationTime :int]]
                                                [:map {:closed true} [:pageSize :int]]
@@ -375,9 +376,9 @@
                                                [:map {:closed true} [:stateFilters [:sequential :gcp/bigquery.JobStatus.State]]]]
 
    :gcp/bigquery.BigQuery.JobOption           [:or
-                                               {:doc "union-map :gcp/bigquery.etryConfig|:fields|:retryOptions"}
-                                               [:map [:bigQueryRetryConfig :gcp/bigquery.BigQueryRetryConfig]]
-                                               [:map [:fields [:sequential :gcp/bigquery.JobField]]]
+                                               {:doc "union-map :gcp/bigquery.BigQueryRetryConfig|:fields|:retryOptions"}
+                                               [:map [:BigQueryRetryConfig :gcp/bigquery.BigQueryRetryConfig]]
+                                               [:map [:fields [:sequential :gcp/bigquery.BigQuery.JobField]]]
                                                [:map [:options [:sequential :gcp.core/RetryOption]]]]
 
    :gcp/bigquery.JobId                        [:map {:closed true}
@@ -441,14 +442,6 @@
    :gcp/bigquery.Job                          [:and
                                                :gcp/bigquery.JobInfo
                                                [:map [:bigquery :gcp/bigquery.synth.clientable]]]
-
-   :gcp/bigquery.JobInfo.CreateDisposition    [:enum "CREATE_IF_NEEDED" "CREATE_NEVER"]
-
-   :gcp/bigquery.JobInfo.WriteDisposition     [:enum "WRITE_APPEND" "WRITE_EMPTY" "WRITE_TRUNCATE"]
-
-   :gcp/bigquery.JobInfo.SchemaUpdateOption   [:enum "ALLOW_FIELD_ADDITION" "ALLOW_FIELD_RELAXATION"]
-
-   :gcp/bigquery.JobField                     [:enum "CONFIGURATION" "ETAG" "ID" "JOB_REFERENCE" "SELF_LINK" "STATISTICS" "STATUS" "USER_EMAIL"]
 
    :gcp/bigquery.JobConfiguration             [:and
                                                {:doc      "abstract class for Copy/Extract/Load/Query configs"
@@ -872,40 +865,6 @@
                                                 [:geography :string]]
                                                [:map-of :string [:ref :gcp/bigquery.QueryParameterValue]]
                                                [:sequential [:ref :gcp/bigquery.QueryParameterValue]]]
-   ;;-------------------------------
-   ;; enums
-
-   :gcp/bigquery.BigQuery.DatasetField        [:enum "ACCESS" "CREATION_TIME" "DATASET_REFERENCE"
-                                               "DEFAULT_TABLE_EXPIRATION_MS" "DESCRIPTION" "ETAG"
-                                               "FRIENDLY_NAME" "ID" "LABELS" "LAST_MODIFIED_TIME"
-                                               "LOCATION" "SELF_LINK"]
-
-   :gcp/bigquery.BigQuery.TableField          [:enum
-                                               "CREATION_TIME"
-                                               "DESCRIPTION"
-                                               "ETAG"
-                                               "EXPIRATION_TIME"
-                                               "EXTERNAL_DATA_CONFIGURATION"
-                                               "FRIENDLY_NAME"
-                                               "ID"
-                                               "LABELS"
-                                               "LAST_MODIFIED_TIME"
-                                               "LOCATION"
-                                               "NUM_BYTES"
-                                               "NUM_LONG_TERM_BYTES"
-                                               "NUM_ROWS"
-                                               "RANGE_PARTITIONING"
-                                               "SCHEMA"
-                                               "SELF_LINK"
-                                               "STREAMING_BUFFER"
-                                               "TABLE_REFERENCE"
-                                               "TIME_PARTITIONING"
-                                               "TYPE"
-                                               "VIEW"]
-
-   :gcp/bigquery.BigQuery.TableMetadataView   [:enum "BASIC" "FULL" "STORAGE_STATS" "TABLE_METADATA_VIEW_UNSPECIFIED"]
-
-   :gcp/bigquery.JobStatus.State              [:enum "DONE" "PENDING" "RUNNING"]
 
    #!--------------------------------------------------------------------------
    #! :gcp/bigquery.StandardSQL
@@ -932,26 +891,6 @@
    :gcp/bigquery.StandardSQLTableType
    [:map {:closed true}
     [:columns [:sequential :gcp/bigquery.StandardSQLField]]]
-
-   :gcp/bigquery.StandardSQLTypeName          [:or
-                                               {:url "https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"}
-                                               [:= {:doc "Ordered list of zero or more elements of any non-array type."} "ARRAY"]
-                                               [:= {:doc "A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale."} "BIGNUMERIC"]
-                                               [:= {:doc "A Boolean value (true or false)."} "BOOLEAN"]
-                                               [:= {:doc "Variable-length binary data."} "BYTES"]
-                                               [:= {:doc "Represents a logical calendar date. Values range between the years 1 and 9999, inclusive."} "DATE"]
-                                               [:= {:doc "Represents a year, month, day, hour, minute, second, and subsecond (microsecond precision)."} "DATETIME"]
-                                               [:= {:doc "A 64-bit IEEE binary floating-point value."} "FLOAT"]
-                                               [:= {:doc "Represents a set of geographic points, represented as a Well Known Text (WKT) string."} "GEOGRAPHY"]
-                                               [:= {:doc "A 64-bit signed integer value."} "INT64"]
-                                               [:= {:doc "Represents duration or amount of time."} "INTERVAL"]
-                                               [:= {:doc "Represents JSON data."} "JSON"]
-                                               [:= {:doc "A decimal value with 38 digits of precision and 9 digits of scale."} "NUMERIC"]
-                                               [:= {:doc "Represents a contiguous range of values."} "RANGE"]
-                                               [:= {:doc "Variable-length character (Unicode) data."} "STRING"]
-                                               [:= {:doc "Container of ordered fields each with a type (required) and field name (optional)."} "STRUCT"]
-                                               [:= {:doc "Represents a time, independent of a specific date, to microsecond precision."} "TIME"]
-                                               [:= {:doc "Represents an absolute point in time, with microsecond precision. Values range between the years 1 and 9999, inclusive."} "TIMESTAMP"]]
 
    :gcp/bigquery.FormatOptions
    [:map
@@ -1091,8 +1030,399 @@
      {:setterDoc "Sets the action that should occur if the destination table already exists.",
       :getterDoc "Returns the action that should occur if the destination table already exists.",
       :optional true}
-     :gcp/bigquery.JobInfo.WriteDisposition]]
+     :gcp/bigquery.JobInfo.WriteDisposition]]})
 
-   })
+(def enum-registry
+  {:gcp/bigquery.Acl.Entity.Type [:enum
+                                  {:class "com.google.cloud.bigquery.Acl.Entity.Type",
+                                   :gcp/key :gcp/bigquery.Acl.Entity.Type,
+                                   :doc "Types of BigQuery entities."}
+                                  "USER"
+                                  "VIEW"
+                                  "IAM_MEMBER"
+                                  "ROUTINE"
+                                  "DOMAIN"
+                                  "DATASET"
+                                  "GROUP"],
+   :gcp/bigquery.Acl.Role [:or
+                           {:class "com.google.cloud.bigquery.Acl.Role",
+                            :gcp/key :gcp/bigquery.Acl.Role,
+                            :doc "Dataset roles supported by BigQuery. See Also: Dataset Roles"}
+                           [:= {:doc "Can read, query, copy or export tables in the dataset."} "READER"]
+                           [:= {:doc "Same as WRITER plus can update and delete the dataset."} "OWNER"]
+                           [:= {:doc "Same as READER plus can edit or append data in the dataset."} "WRITER"]],
+   :gcp/bigquery.BigQuery.DatasetField [:enum
+                                        {:class "com.google.cloud.bigquery.BigQuery.DatasetField",
+                                         :gcp/key :gcp/bigquery.BigQuery.DatasetField,
+                                         :doc "Fields of a BigQuery Dataset resource. See Also: Dataset Resource"}
+                                        "ID"
+                                        "LABELS"
+                                        "FRIENDLY_NAME"
+                                        "DESCRIPTION"
+                                        "SELF_LINK"
+                                        "ETAG"
+                                        "DEFAULT_TABLE_EXPIRATION_MS"
+                                        "DATASET_REFERENCE"
+                                        "LAST_MODIFIED_TIME"
+                                        "LOCATION"
+                                        "CREATION_TIME"
+                                        "ACCESS"],
+   :gcp/bigquery.BigQuery.JobField [:enum
+                                    {:class "com.google.cloud.bigquery.BigQuery.JobField",
+                                     :gcp/key :gcp/bigquery.BigQuery.JobField,
+                                     :doc "Fields of a BigQuery Job resource. See Also: Job Resource(https://cloud.google.com/bigquery/docs/reference/v2/jobs#resource)"}
+                                    "USER_EMAIL"
+                                    "ID"
+                                    "STATISTICS"
+                                    "SELF_LINK"
+                                    "CONFIGURATION"
+                                    "ETAG"
+                                    "JOB_REFERENCE"
+                                    "STATUS"],
+   :gcp/bigquery.BigQuery.ModelField [:or
+                                      {:class "com.google.cloud.bigquery.BigQuery.ModelField",
+                                       :gcp/key :gcp/bigquery.BigQuery.ModelField,
+                                       :doc "Fields of a BigQuery Model resource. See Also: Model Resource"}
+                                      [:=
+                                       {:doc "The labels associated with this model. You can use these to organize and group your models."}
+                                       "LABELS"]
+                                      [:= {:doc "A descriptive name for this model."} "FRIENDLY_NAME"]
+                                      [:=
+                                       {:doc "The time when this model expires, in milliseconds since the epoch."}
+                                       "EXPIRATION_TIME"]
+                                      [:= {:doc "An object that contains information about the model."} "MODEL_REFERENCE"]
+                                      [:= {:doc "Information about the training runs for this model."} "TRAINING_RUNS"]
+                                      [:= {:doc "Description of the model"} "DESCRIPTION"]
+                                      [:= {:doc "Feature columns"} "FEATURE_COLUMNS"]
+                                      [:= {:doc "A hash of this resource."} "ETAG"]
+                                      [:= {:doc "type for the model"} "TYPE"]
+                                      [:= {:doc "Last modified time of the model"} "LAST_MODIFIED_TIME"]
+                                      [:= {:doc "The geographic location where the model resides."} "LOCATION"]
+                                      [:= {:doc "Creation time of model"} "CREATION_TIME"]
+                                      [:= {:doc "Label columns"} "LABEL_COLUMNS"]],
+   :gcp/bigquery.BigQuery.RoutineField [:or
+                                        {:class "com.google.cloud.bigquery.BigQuery.RoutineField",
+                                         :gcp/key :gcp/bigquery.BigQuery.RoutineField,
+                                         :doc "Fields of a BigQuery Routine resource. See Also: Routine Resource"}
+                                        [:= {:doc "represents the return type of a routine"} "RETURN_TYPE"]
+                                        [:= {:doc "represents the definition body of a routine"} "DEFINITION_BODY"]
+                                        [:= {:doc "represents the type of a routine"} "ROUTINE_TYPE"]
+                                        [:= {:doc "represents the etag of a routine"} "ETAG"]
+                                        [:= {:doc "represents the language of a routine"} "LANGUAGE"]
+                                        [:= {:doc "represents the reference of a routine"} "ROUTINE_REFERENCE"]
+                                        [:= {:doc "represents the last modified time of a routine"} "LAST_MODIFIED_TIME"]
+                                        [:= {:doc "represents the imported libraries of a routine"} "IMPORTED_LIBRARIES"]
+                                        [:= {:doc "represents an argument of a routine"} "ARGUMENTS"]
+                                        [:= {:doc "represents the creation time of a routine"} "CREATION_TIME"]],
+   :gcp/bigquery.BigQuery.TableField [:or
+                                      {:class "com.google.cloud.bigquery.BigQuery.TableField",
+                                       :gcp/key :gcp/bigquery.BigQuery.TableField,
+                                       :doc "Fields of a BigQuery Table resource. See Also: Table Resource"}
+                                      [:= {:doc "An opaque ID uniquely identifying the table."} "ID"]
+                                      [:=
+                                       {:doc "The labels associated with this table. You can use key:value pairs to organize and group tables. Label keys and values can be no longer than 63 characters, can only contain lowercase letters, numeric characters, underscores and dashes. International characters are allowed. Label values are optional. Label keys must start with a letter and each label in the list must have a different key."}
+                                       "LABELS"]
+                                      [:= {:doc "A descriptive name for this table."} "FRIENDLY_NAME"]
+                                      [:=
+                                       {:doc "The number of bytes in the table that are considered \"long-term storage\"."}
+                                       "NUM_LONG_TERM_BYTES"]
+                                      [:=
+                                       {:doc "The time when this table expires, in milliseconds since the epoch."}
+                                       "EXPIRATION_TIME"]
+                                      [:= {:doc "Describes the schema of this table."} "SCHEMA"]
+                                      [:= {:doc "Specifies the definition of a logical view."} "VIEW"]
+                                      [:=
+                                       {:doc "Contains information on the table's streaming buffer, if any, if streaming inserts are in use."}
+                                       "STREAMING_BUFFER"]
+                                      [:= {:doc "A user-friendly description of this table."} "DESCRIPTION"]
+                                      [:=
+                                       {:doc "A URL that can be used to access this table using the REST API."}
+                                       "SELF_LINK"]
+                                      [:=
+                                       {:doc "Describes the data format, location, and other properties of a table stored outside of BigQuery. By defining these properties, the data source can then be queried as if it were a standard BigQuery table."}
+                                       "EXTERNAL_DATA_CONFIGURATION"]
+                                      [:= {:doc "A hash of the table metadata."} "ETAG"]
+                                      [:=
+                                       {:doc "The number of rows in the table. This does not include data that is being buffered."}
+                                       "NUM_ROWS"]
+                                      [:= {:doc "Specifies time-based partitioning for this table."} "TIME_PARTITIONING"]
+                                      [:= {:doc "Describes the table type."} "TYPE"]
+                                      [:=
+                                       {:doc "The time when this table was last modified, in milliseconds since the epoch."}
+                                       "LAST_MODIFIED_TIME"]
+                                      [:=
+                                       {:doc "The geographic location where the table resides. This value is inherited from the dataset."}
+                                       "LOCATION"]
+                                      [:=
+                                       {:doc "Describes the table. Cannot be used with external data configuration."}
+                                       "TABLE_REFERENCE"]
+                                      [:=
+                                       {:doc "The time when this table was created, in milliseconds since the epoch."}
+                                       "CREATION_TIME"]
+                                      [:=
+                                       {:doc "Specifies range-based partitioning for this table."}
+                                       "RANGE_PARTITIONING"]
+                                      [:=
+                                       {:doc "The size of the table in bytes. This does not include data that is being buffered."}
+                                       "NUM_BYTES"]],
+   :gcp/bigquery.BigQuery.TableMetadataView [:enum
+                                             {:class "com.google.cloud.bigquery.BigQuery.TableMetadataView",
+                                              :gcp/key :gcp/bigquery.BigQuery.TableMetadataView,
+                                              :doc "Metadata of a BigQuery Table. See Also: Table Resource"}
+                                             "BASIC"
+                                             "FULL"
+                                             "TABLE_METADATA_VIEW_UNSPECIFIED"
+                                             "STORAGE_STATS"],
+   :gcp/bigquery.Field.Mode [:enum
+                             {:class "com.google.cloud.bigquery.Field.Mode",
+                              :gcp/key :gcp/bigquery.Field.Mode,
+                              :doc "Mode for a BigQuery Table field. Mode#NULLABLE fields can be set to null, Mode#REQUIRED fields must be provided. Mode#REPEATED fields can contain more than one value."}
+                             "REPEATED"
+                             "REQUIRED"
+                             "NULLABLE"],
+   :gcp/bigquery.FieldValue.Attribute [:or
+                                       {:class "com.google.cloud.bigquery.FieldValue.Attribute",
+                                        :gcp/key :gcp/bigquery.FieldValue.Attribute,
+                                        :doc "The field value's attribute, giving information on the field's content type."}
+                                       [:=
+                                        {:doc "A primitive field value. A `FieldValue` is primitive when the corresponding field has type LegacySQLTypeName#BYTES, LegacySQLTypeName#BOOLEAN, LegacySQLTypeName#STRING, LegacySQLTypeName#FLOAT, LegacySQLTypeName#INTEGER, LegacySQLTypeName#NUMERIC, LegacySQLTypeName#TIMESTAMP, LegacySQLTypeName#GEOGRAPHY or the value is set to `null`."}
+                                        "PRIMITIVE"]
+                                       [:= {:doc "A `FieldValue` for a field with Field.Mode#REPEATED mode."} "REPEATED"]
+                                       [:= {:doc "A `FieldValue` for a field of type LegacySQLTypeName#RECORD."} "RECORD"]
+                                       [:= {:doc "A `FieldValue` for a field of type LegacySQLTypeName#RANGE."} "RANGE"]],
+   :gcp/bigquery.JobConfiguration.Type [:or
+                                        {:class "com.google.cloud.bigquery.JobConfiguration.Type",
+                                         :gcp/key :gcp/bigquery.JobConfiguration.Type,
+                                         :doc "Type of a BigQuery Job."}
+                                        [:=
+                                         {:doc "An Extract Job exports a BigQuery table to Google Cloud Storage. Instances of `JobConfiguration` for this type are implemented by `ExtractJobConfiguration`."}
+                                         "EXTRACT"]
+                                        [:=
+                                         {:doc "A Query Job runs a query against BigQuery data. Instances of `JobConfiguration` for this type are implemented by `QueryJobConfiguration`."}
+                                         "QUERY"]
+                                        [:=
+                                         {:doc "A Copy Job copies an existing table to another new or existing table. Instances of `JobConfiguration` for this type are implemented by `CopyJobConfiguration`."}
+                                         "COPY"]
+                                        [:=
+                                         {:doc "A Load Job loads data from one of several formats into a table. Instances of `JobConfiguration` for this type are implemented by `LoadJobConfiguration`."}
+                                         "LOAD"]],
+   :gcp/bigquery.JobInfo.CreateDisposition [:or
+                                            {:class "com.google.cloud.bigquery.JobInfo.CreateDisposition",
+                                             :gcp/key :gcp/bigquery.JobInfo.CreateDisposition,
+                                             :doc "Specifies whether the job is allowed to create new tables."}
+                                            [:=
+                                             {:doc "Configures the job to create the table if it does not exist."}
+                                             "CREATE_IF_NEEDED"]
+                                            [:=
+                                             {:doc "Configures the job to fail with a not-found error if the table does not exist."}
+                                             "CREATE_NEVER"]],
+   :gcp/bigquery.JobInfo.SchemaUpdateOption [:or
+                                             {:class "com.google.cloud.bigquery.JobInfo.SchemaUpdateOption",
+                                              :gcp/key :gcp/bigquery.JobInfo.SchemaUpdateOption,
+                                              :doc "Specifies options relating to allowing the schema of the destination table to be updated as a side effect of the load or query job."}
+                                             [:=
+                                              {:doc "Allow relaxing a required field in the original schema to nullable."}
+                                              "ALLOW_FIELD_RELAXATION"]
+                                             [:=
+                                              {:doc "Allow adding a nullable field to the schema."}
+                                              "ALLOW_FIELD_ADDITION"]],
+   :gcp/bigquery.JobInfo.WriteDisposition [:or
+                                           {:class "com.google.cloud.bigquery.JobInfo.WriteDisposition",
+                                            :gcp/key :gcp/bigquery.JobInfo.WriteDisposition,
+                                            :doc "Specifies the action that occurs if the destination table already exists."}
+                                           [:=
+                                            {:doc "Configures the job to overwrite the table data if table already exists."}
+                                            "WRITE_TRUNCATE"]
+                                           [:=
+                                            {:doc "Configures the job to fail with a duplicate error if the table already exists."}
+                                            "WRITE_EMPTY"]
+                                           [:=
+                                            {:doc "Configures the job to append data to the table if it already exists."}
+                                            "WRITE_APPEND"]],
+   :gcp/bigquery.JobStatistics.QueryStatistics.StatementType [:enum
+                                                              {:class "com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType",
+                                                               :gcp/key :gcp/bigquery.JobStatistics.QueryStatistics.StatementType,
+                                                               :doc "StatementType represents possible types of SQL statements reported as part of the QueryStatistics of a BigQuery job."}
+                                                              "ALTER_TABLE"
+                                                              "CREATE_EXTERNAL_TABLE"
+                                                              "DROP_SEARCH_INDEX"
+                                                              "DROP_TABLE"
+                                                              "MERGE"
+                                                              "INSERT"
+                                                              "CALL"
+                                                              "ALTER_VIEW"
+                                                              "CREATE_FUNCTION"
+                                                              "CREATE_SNAPSHOT_TABLE"
+                                                              "CREATE_TABLE_FUNCTION"
+                                                              "CREATE_TABLE_AS_SELECT"
+                                                              "CREATE_TABLE"
+                                                              "SELECT"
+                                                              "ALTER_SCHEMA"
+                                                              "UPDATE"
+                                                              "EXPORT_DATA"
+                                                              "CREATE_SEARCH_INDEX"
+                                                              "CREATE_PROCEDURE"
+                                                              "ALTER_MATERIALIZED_VIEW"
+                                                              "DELETE"
+                                                              "EXPORT_MODEL"
+                                                              "DROP_ROW_ACCESS_POLICY"
+                                                              "DROP_PROCEDURE"
+                                                              "DROP_EXTERNAL_TABLE"
+                                                              "TRUNCATE_TABLE"
+                                                              "DROP_MODEL"
+                                                              "CREATE_MATERIALIZED_VIEW"
+                                                              "DROP_FUNCTION"
+                                                              "DROP_TABLE_FUNCTION"
+                                                              "DROP_MATERIALIZED_VIEW"
+                                                              "DROP_SNAPSHOT_TABLE"
+                                                              "DROP_VIEW"
+                                                              "DROP_SCHEMA"
+                                                              "LOAD_DATA"
+                                                              "SCRIPT"
+                                                              "CREATE_SCHEMA"
+                                                              "CREATE_VIEW"
+                                                              "CREATE_MODEL"
+                                                              "CREATE_ROW_ACCESS_POLICY"],
+   :gcp/bigquery.JobStatus.State [:or
+                                  {:class "com.google.cloud.bigquery.JobStatus.State",
+                                   :gcp/key :gcp/bigquery.JobStatus.State,
+                                   :doc "Possible states that a BigQuery Job can assume."}
+                                  [:= {:doc "The BigQuery Job is being executed."} "RUNNING"]
+                                  [:=
+                                   {:doc "The BigQuery Job has completed either succeeding or failing. If failed #getError() will be non-null."}
+                                   "DONE"]
+                                  [:= {:doc "The BigQuery Job is waiting to be executed."} "PENDING"]],
+   :gcp/bigquery.LegacySQLTypeName [:or
+                                    {:class "com.google.cloud.bigquery.LegacySQLTypeName",
+                                     :gcp/key :gcp/bigquery.LegacySQLTypeName,
+                                     :doc "A type used in legacy SQL contexts. NOTE: some contexts use a mix of types; for example, for queries that use standard SQL, the return types are the legacy SQL types. See Also: https://cloud.google.com/bigquery/data-types"}
+                                    [:=
+                                     {:doc "Represents a time, independent of a specific date, to microsecond precision. Note, support for this type is limited in legacy SQL."}
+                                     "TIME"]
+                                    [:= {:doc "A Boolean value (true or false)."} "BOOLEAN"]
+                                    [:= {:doc "Represents duration or amount of time."} "INTERVAL"]
+                                    [:=
+                                     {:doc "A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale"}
+                                     "BIGNUMERIC"]
+                                    [:=
+                                     {:doc "Represents a logical calendar date. Note, support for this type is limited in legacy SQL."}
+                                     "DATE"]
+                                    [:= {:doc "Variable-length binary data."} "BYTES"]
+                                    [:=
+                                     {:doc "Represents a set of geographic points, represented as a Well Known Text (WKT) string."}
+                                     "GEOGRAPHY"]
+                                    [:=
+                                     {:doc "A decimal value with 38 digits of precision and 9 digits of scale. Note, support for this type is limited in legacy SQL."}
+                                     "NUMERIC"]
+                                    [:= {:doc "Represents JSON data"} "JSON"]
+                                    [:= {:doc "A 64-bit signed integer value."} "INTEGER"]
+                                    [:= {:doc "A record type with a nested schema."} "RECORD"]
+                                    [:= {:doc "A 64-bit IEEE binary floating-point value."} "FLOAT"]
+                                    [:= {:doc "Variable-length character (Unicode) data."} "STRING"]
+                                    [:=
+                                     {:doc "Represents a year, month, day, hour, minute, second, and subsecond (microsecond precision). Note, support for this type is limited in legacy SQL."}
+                                     "DATETIME"]
+                                    [:=
+                                     {:doc "Represents an absolute point in time, with microsecond precision."}
+                                     "TIMESTAMP"]
+                                    [:= {:doc "Represents a contiguous range of values."} "RANGE"]],
+   :gcp/bigquery.QueryJobConfiguration.Priority [:or
+                                                 {:class "com.google.cloud.bigquery.QueryJobConfiguration.Priority",
+                                                  :gcp/key :gcp/bigquery.QueryJobConfiguration.Priority,
+                                                  :doc "Priority levels for a query. If not specified the priority is assumed to be Priority#INTERACTIVE."}
+                                                 [:=
+                                                  {:doc "Query is queued and started as soon as idle resources are available, usually within a few minutes. If the query hasn't started within 3 hours, its priority is changed to Priority#INTERACTIVE."}
+                                                  "BATCH"]
+                                                 [:=
+                                                  {:doc "Query is executed as soon as possible and count towards the concurrent rate limit and the daily rate limit."}
+                                                  "INTERACTIVE"]],
+   :gcp/bigquery.StandardSQLTypeName [:or
+                                      {:class "com.google.cloud.bigquery.StandardSQLTypeName",
+                                       :gcp/key :gcp/bigquery.StandardSQLTypeName,
+                                       :doc "A type used in standard SQL contexts. For example, these types are used in queries with query parameters, which requires usage of standard SQL. See Also: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"}
+                                      [:=
+                                       {:doc "Represents a time, independent of a specific date, to microsecond precision."}
+                                       "TIME"]
+                                      [:= {:doc "A 64-bit IEEE binary floating-point value."} "FLOAT64"]
+                                      [:= {:doc "Represents duration or amount of time."} "INTERVAL"]
+                                      [:=
+                                       {:doc "A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale"}
+                                       "BIGNUMERIC"]
+                                      [:= {:doc "A Boolean value (true or false)."} "BOOL"]
+                                      [:=
+                                       {:doc "Represents a logical calendar date. Values range between the years 1 and 9999, inclusive."}
+                                       "DATE"]
+                                      [:= {:doc "Variable-length binary data."} "BYTES"]
+                                      [:=
+                                       {:doc "Represents a set of geographic points, represented as a Well Known Text (WKT) string."}
+                                       "GEOGRAPHY"]
+                                      [:=
+                                       {:doc "A decimal value with 38 digits of precision and 9 digits of scale."}
+                                       "NUMERIC"]
+                                      [:= {:doc "Ordered list of zero or more elements of any non-array type."} "ARRAY"]
+                                      [:= {:doc "Represents JSON data."} "JSON"]
+                                      [:= {:doc "Variable-length character (Unicode) data."} "STRING"]
+                                      [:=
+                                       {:doc "Represents a year, month, day, hour, minute, second, and subsecond (microsecond precision)."}
+                                       "DATETIME"]
+                                      [:=
+                                       {:doc "Container of ordered fields each with a type (required) and field name (optional)."}
+                                       "STRUCT"]
+                                      [:=
+                                       {:doc "Represents an absolute point in time, with microsecond precision. Values range between the years 1 and 9999, inclusive."}
+                                       "TIMESTAMP"]
+                                      [:= {:doc "A 64-bit signed integer value."} "INT64"]
+                                      [:= {:doc "Represents a contiguous range of values."} "RANGE"]],
+   :gcp/bigquery.TableDefinition.Type [:or
+                                       {:class "com.google.cloud.bigquery.TableDefinition.Type",
+                                        :gcp/key :gcp/bigquery.TableDefinition.Type,
+                                        :doc "The table type."}
+                                       [:=
+                                        {:doc "A virtual table defined by a SQL query. Instances of `TableDefinition` for this type are implemented by [ViewDefinition](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ViewDefinition). See Also: [Views](https://cloud.google.com/bigquery/querying-data#views)"}
+                                        "VIEW"]
+                                       [:= {:doc "unknown"} "SNAPSHOT"]
+                                       [:=
+                                        {:doc "SQL query whose result is persisted. Instances of `MaterializedViewDefinition` for this type are implemented by [MaterializedViewDefinition](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.MaterializedViewDefinition). See Also: [Views](https://cloud.google.com/bigquery/querying-data#views)"}
+                                        "MATERIALIZED_VIEW"]
+                                       [:=
+                                        {:doc "A BigQuery table backed by external data. Instances of `TableDefinition` for this type are implemented by [ExternalTableDefinition](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExternalTableDefinition). See Also: [Federated Data Sources](https://cloud.google.com/bigquery/federated-data-sources)"}
+                                        "EXTERNAL"]
+                                       [:=
+                                        {:doc "A BigQuery table representing BigQuery ML Model. See Also: [ BigQuery ML Model](https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-create#models_in_bqml_name)"}
+                                        "MODEL"]
+                                       [:=
+                                        {:doc "A normal BigQuery table. Instances of `TableDefinition` for this type are implemented by [StandardTableDefinition](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.StandardTableDefinition)."}
+                                        "TABLE"]],
+   :gcp/bigquery.TableMetadataCacheUsage.UnusedReason [:or
+                                                       {:class "com.google.cloud.bigquery.TableMetadataCacheUsage.UnusedReason",
+                                                        :gcp/key :gcp/bigquery.TableMetadataCacheUsage.UnusedReason,
+                                                        :doc "Reason for not using metadata caching for the table."}
+                                                       [:=
+                                                        {:doc "Metadata caching feature is not enabled. Update BigLake tables to enable the metadata caching."}
+                                                        "METADATA_CACHING_NOT_ENABLED"]
+                                                       [:=
+                                                        {:doc "Unused reasons not specified."}
+                                                        "UNUSED_REASON_UNSPECIFIED"]
+                                                       [:=
+                                                        {:doc "Metadata cache was outside the table's maxStaleness."}
+                                                        "EXCEEDED_MAX_STALENESS"]
+                                                       [:= {:doc "Other unknown reason."} "OTHER_REASON"]],
+   :gcp/bigquery.TimePartitioning.Type [:or
+                                        {:class "com.google.cloud.bigquery.TimePartitioning.Type",
+                                         :gcp/key :gcp/bigquery.TimePartitioning.Type,
+                                         :doc "[Optional] The supported types are DAY, HOUR, MONTH, and YEAR, which will generate one partition per day, hour, month, and year, respectively. When the interval is not specified, the default behavior is DAY."}
+                                        [:= {:doc "Table is partitioned per month."} "MONTH"]
+                                        [:= {:doc "Table is partitioned per year."} "YEAR"]
+                                        [:= {:doc "Table is partitioned per hour."} "HOUR"]
+                                        [:= {:doc "Table is partitioned per day."} "DAY"]],
+   :gcp/bigquery.UserDefinedFunction.Type [:enum
+                                           {:class "com.google.cloud.bigquery.UserDefinedFunction.Type",
+                                            :gcp/key :gcp/bigquery.UserDefinedFunction.Type,
+                                            :doc "Type of user-defined function. User defined functions can be provided inline as code blobs (#INLINE) or as a Google Cloud Storage URI (#FROM_URI)."}
+                                           "FROM_URI"
+                                           "INLINE"]})
 
-(g/include-schema-registry! registry)
+(assert (empty? (clojure.set/intersection (set (keys registry))
+                                          (set (keys enum-registry)))))
+
+(g/include-schema-registry! (merge registry enum-registry))

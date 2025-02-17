@@ -12,6 +12,8 @@
             [gcp.vertexai.generativeai :as genai]
             [malli.dev]))
 
+(set! *print-namespace-maps* false)
+
 ;; TODO
 ;;  - kill enum bindings in vertexai in favor of inlining
 ;;  - com.google.cloud.ServiceOptions
@@ -24,6 +26,19 @@
 ;    (remove #(.exists %) expected-files)))
 
 ;; singlefile dst, prompts?
+;;
+;;
+
+(defn into-registry
+  ([package key]
+   (into-registry (sorted-map) package key))
+  ([registry package key]
+   (into registry
+         (map
+           (fn [className]
+             (let [schema (malli package className)]
+               [(:gcp/key (second schema)) schema])))
+         (g/coerce set? (get package key)))))
 
 (comment
   (do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
