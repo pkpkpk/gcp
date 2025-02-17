@@ -18,16 +18,11 @@
 ;;  - kill enum bindings in vertexai in favor of inlining
 ;;  - com.google.cloud.ServiceOptions
 ;;  - genai response-schemas should accept named in properties slots, automatically transform them to string
+;;  - singlefile dst, prompts?
 ;;  - investigate response-schemas from malli
-
-;(defn missing-files [package src-root]
-;  (let [expected-binding-names (into (sorted-set) (map first) (map util/class-parts (:classes package)))
-;        expected-files (map #(io/file src-root (str % ".clj")) expected-binding-names)]
-;    (remove #(.exists %) expected-files)))
-
-;; singlefile dst, prompts?
-;;
-;;
+;;  - index samples + repositories + bookmarks
+;;  - configuration inference -> instead of looking at :type, check if schema can be matched unambiguously
+;;  - enum for FormatOptions (& ExportJobConfiguration)... says JSON in docstrings but is actually NEWLINE_DELIMITED_JSON
 
 (defn into-registry
   ([package key]
@@ -36,6 +31,7 @@
    (into registry
          (map
            (fn [className]
+             (Thread/sleep 1000)
              (let [schema (malli package className)]
                [(:gcp/key (second schema)) schema])))
          (g/coerce set? (get package key)))))

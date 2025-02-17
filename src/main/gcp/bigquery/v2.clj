@@ -283,16 +283,6 @@
                                                [:tableConstraints {:optional true} :gcp/bigquery.TableConstraints]
                                                [:timePartitioning {:optional true} :gcp/bigquery.TimePartitioning]]
 
-   :gcp/bigquery.TableDefinition              [:and
-                                               [:map
-                                                [:type [:enum "EXTERNAL" "MATERIALIZED_VIEW" "MODEL" "SNAPSHOT" "TABLE" "VIEW"]]
-                                                [:schema {:optional true} :gcp/bigquery.Schema]]
-                                               [:or
-                                                :gcp/bigquery.ExternalTableDefinition
-                                                :gcp/bigquery.MaterializedViewDefinition
-                                                :gcp/bigquery.StandardTableDefinition
-                                                :gcp/bigquery.ViewDefinition]]
-
    :gcp/bigquery.PrimaryKey                   [:map {:closed true}
                                                [:columns [:sequential {:min 1} :string]]]
 
@@ -443,17 +433,7 @@
                                                :gcp/bigquery.JobInfo
                                                [:map [:bigquery :gcp/bigquery.synth.clientable]]]
 
-   :gcp/bigquery.JobConfiguration             [:and
-                                               {:doc      "abstract class for Copy/Extract/Load/Query configs"
-                                                :class    'com.google.cloud.bigquery.JobConfiguration
-                                                :from-edn 'gcp.bigquery.v2.JobConfiguration/from-edn
-                                                :to-edn   'gcp.bigquery.v2.JobConfiguration/to-edn}
-                                               [:map [:type [:enum "COPY" "EXTRACT" "LOAD" "QUERY"]]]
-                                               [:or
-                                                :gcp/bigquery.CopyJobConfiguration
-                                                :gcp/bigquery.ExtractJobConfiguration
-                                                :gcp/bigquery.LoadJobConfiguration
-                                                :gcp/bigquery.QueryJobConfiguration]]
+
 
    :gcp/bigquery.CopyJobConfiguration         [:map
                                                [:type [:= "COPY"]]
@@ -891,23 +871,6 @@
    :gcp/bigquery.StandardSQLTableType
    [:map {:closed true}
     [:columns [:sequential :gcp/bigquery.StandardSQLField]]]
-
-   :gcp/bigquery.FormatOptions
-   [:map
-    {:key :gcp/bigquery.FormatOptions,
-     :closed true,
-     :doc "Base class for Google BigQuery format options. These class define the format of external data
-       used by BigQuery, for either federated tables or load jobs.
-
-       Load jobs support the following formats: AVRO, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON,
-       ORC, PARQUET
-
-       Federated tables can be defined against following formats: AVRO, BIGTABLE, CSV,
-       DATASTORE_BACKUP, GOOGLE_SHEETS, JSON",
-     :class 'com.google.cloud.bigquery.FormatOptions}
-    [:format {:getterDoc "Returns the external data format, as a string."
-              :optional false}
-     [:enum "ICEBERG" "CSV" "PARQUET" "ORC" "GOOGLE_SHEETS" "NEWLINE_DELIMITED_JSON" "BIGTABLE" "AVRO"]]]
 
    :gcp/bigquery.WriteChannelConfiguration
    [:map
@@ -1422,7 +1385,50 @@
                                            "FROM_URI"
                                            "INLINE"]})
 
-(assert (empty? (clojure.set/intersection (set (keys registry))
-                                          (set (keys enum-registry)))))
+(def union-registry
+  {:gcp/bigquery.FormatOptions
+   [:and
+    {:class "com.google.cloud.bigquery.FormatOptions",
+     :gcp/key :gcp/bigquery.FormatOptions,
+     :doc "Base class for Google BigQuery format options. These class define the format of external data used by BigQuery, for either federated tables or load jobs. Load jobs support the following formats: AVRO, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON, ORC, PARQUET Federated tables can be defined against following formats: AVRO, BIGTABLE, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON"}
+    [:map
+     [:type
+      {:optional true}
+      [:enum "DATASTORE_BACKUP" "CSV" "GOOGLE_SHEETS" "ORC" "BIGTABLE" "PARQUET" "AVRO" "ICEBERG" "NEWLINE_DELIMITED_JSON"]]]
+    [:or
+     ;:gcp/bigquery.AvroOptions
+     ;:gcp/bigquery.BigtableOptions
+     :gcp/bigquery.CsvOptions
+     :gcp/bigquery.DatastoreBackupOptions
+     ;:gcp/bigquery.GoogleSheetsOptions
+     :gcp/bigquery.ParquetOptions]]
 
-(g/include-schema-registry! (merge registry enum-registry))
+   :gcp/bigquery.JobConfiguration
+   [:and
+    {:doc      "abstract class for Copy/Extract/Load/Query configs"
+     :class    'com.google.cloud.bigquery.JobConfiguration
+     :from-edn 'gcp.bigquery.v2.JobConfiguration/from-edn
+     :to-edn   'gcp.bigquery.v2.JobConfiguration/to-edn}
+    [:map [:type [:enum "COPY" "EXTRACT" "LOAD" "QUERY"]]]
+    [:or
+     :gcp/bigquery.CopyJobConfiguration
+     :gcp/bigquery.ExtractJobConfiguration
+     :gcp/bigquery.LoadJobConfiguration
+     :gcp/bigquery.QueryJobConfiguration]]
+
+   :gcp/bigquery.TableDefinition
+   [:and
+    [:map
+     [:type [:enum "EXTERNAL" "MATERIALIZED_VIEW" "MODEL" "SNAPSHOT" "TABLE" "VIEW"]]
+     [:schema {:optional true} :gcp/bigquery.Schema]]
+    [:or
+     :gcp/bigquery.ExternalTableDefinition
+     :gcp/bigquery.MaterializedViewDefinition
+     :gcp/bigquery.StandardTableDefinition
+     :gcp/bigquery.ViewDefinition]]})
+
+(assert (empty? (clojure.set/intersection (set (keys registry))
+                                          (set (keys enum-registry))
+                                          (set (keys union-registry)))))
+
+(g/include-schema-registry! (merge registry enum-registry union-registry))

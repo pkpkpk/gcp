@@ -5,7 +5,7 @@
             [gcp.dev.models :as models]
             [gcp.global :as g]))
 
-(defn align-accessors
+(defn align-accessor-methods
   "setters == Foo.builder.setBar<param> -> ['setBar', 'setBaz', ...]
    getters == Foo.getBar() , Foo.baz() ->  ['getBar', 'baz', ...]"
   ([package getters setters]
@@ -37,9 +37,10 @@
          res (store/generate-content-aside (:store package) cfg getters validator!)]
      (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
-(defn align-static-params
+(defn align-static-params-to-getters
   "static-params ==  Foo.of(A a, B b) => ['a', 'b']
-   getters == foo.getA() , foo.B() etc => ['getA', 'B']"
+   getters == foo.getA() , foo.B() etc => ['getA', 'B']
+   |-alignment-> {:a 'getA', :b 'B'} "
   [package static-params getterMethods]
   (let [getters           (g/coerce [:seqable :string] (vec (sort (map name (keys getterMethods)))))
         getter-schema     {:type        "STRING"
@@ -67,10 +68,16 @@
         res               (store/generate-content-aside (:store package) cfg getters validator!)]
     (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res)))
 
-(defn align-variant-class-tags
+(defn align-variant-class-to-variant-tags
+  "concrete-unions are base classes that can accept subclasses with own settings or tags
+   that provide identity ie FormatOptions is a base class; CsvOptions, ParquetOptions etc are instances
+   of FormatOptions with their own per format configuration, but FormatOptions can also create
+   empty instances for JSON via static methods.
+
+   This alignment call marries the subclasses to their :type tag, so we know what to do with edn args"
   [package variant-classes variant-tags]
-  (let [variant-schema    {:type        "STRING"
-                           :nullable    false
+  (let [variant-schema    {:type       "STRING"
+                           :nullable   false
                            :enum       (vec variant-tags)
                            :description "the tag that corresponds to the class"}
         generationConfig  {:responseMimeType "application/json"
@@ -92,3 +99,30 @@
                                                          :edn edn}))))
         edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]
     (into (sorted-map) (map (fn [[k v]] [(name k) v])) edn)))
+
+(defn align-variant-tags-to-static-methods
+  "For static-unions:
+      given tags that do not have subclasses, choose the static method that instantiates the base
+      class correctly for that tag"
+  [package variant-tags static-methods]
+  (let [method-schema     {:type        "STRING"
+                           :nullable    false
+                           :enum        (vec static-methods)
+                           :description "method name corresponding to the tag"}
+        generationConfig  {:responseMimeType "application/json"
+                           :responseSchema   {:type       "OBJECT"
+                                              :required   (vec variant-tags)
+                                              :properties (into {} (map #(vector % method-schema)) variant-tags)}}
+        systemInstruction (str "for each tag, match it with the correct method name")
+        cfg               (assoc models/pro-2 :systemInstruction systemInstruction
+                                              :generationConfig generationConfig)
+        validator! (fn [edn]
+                     (when-not (= variant-tags (set (map name (keys edn))))
+                       (throw (ex-info "incorrect tags" {:expected-tags (set variant-tags)
+                                                         :actual-tags (set (map name (keys edn)))})))
+                     (when-not (clojure.set/subset? (set (vals edn)) (set static-methods))
+                       (throw (ex-info "incorrect methods" {:expected-superset static-methods
+                                                            :actual-values (vals edn)}))))
+        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]
+    (into (sorted-map) (map (fn [[k v]] [(name k) (symbol v)])) edn)))
+

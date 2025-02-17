@@ -12,8 +12,9 @@
             [gcp.bigquery.v2.TimePartitioning :as TimePartitioning]
             [gcp.global :as g]))
 
-(defn from-edn
+(defn ^WriteChannelConfiguration from-edn
   [arg]
+  (g/strict! :gcp/bigquery.WriteChannelConfiguration arg)
   (let [builder (WriteChannelConfiguration/newBuilder
                   (TableId/from-edn (get arg :destinationTable)))]
     (when (get arg :autodetect) (.setAutodetect builder (get arg :autodetect)))

@@ -223,12 +223,3 @@
 
      true
      ($_extract-readonly model package class-like))))
-
-(comment
-
-  ($extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> read-only
-  ($extract-type-detail bigquery "com.google.cloud.bigquery.LoadJobConfiguration.Builder") ;=> builder
-  ($extract-type-detail bigquery "com.google.cloud.bigquery.Acl.Entity.Type") ;=> enum
-  ($extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
-  ($extract-type-detail bigquery "com.google.cloud.bigquery.WriteChannelConfiguration.Builder")
-  )

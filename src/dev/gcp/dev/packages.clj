@@ -35,10 +35,7 @@
         _ (println "retrieved reference doc for " (pr-str header))
         ;article-start (string/index-of s "<article>")
         article-end (string/index-of s "</article>")
-        ;_ (println "article-start" article-start)
-        _ (println "article-end" article-end)
-        article (subs s (+ header-open-end 5) article-end)
-        article (string/trim article)]
+        article (string/trim (subs s (+ header-open-end 5) article-end))]
     (str header article)))
 
 (defn extract-from-url
@@ -106,7 +103,7 @@
     (get-in package [:discovery :schemas])))
 
 (defn bigquery []
-  (let [{:keys [version classes] :as latest} ($package-summary "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
+  (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
       (throw (ex-info "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
                                                :extracted version}))

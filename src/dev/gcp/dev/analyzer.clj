@@ -20,6 +20,11 @@
            (java.io ByteArrayOutputStream)
            (java.util.regex Pattern)))
 
+#!--------------------------------------------------------------------------------------------------------
+#!
+#! :types/static-factories
+#!
+
 (defn analyze-static-factory
   [package className]
   (assert (contains? (:types/static-factories package) className))
@@ -37,7 +42,7 @@
                               (reduce #(into %1 (map :name) %2) acc arg-lists))
                             #{}
                             staticMethods)
-        zipped (align/align-static-params package all-static-params getterMethods)
+        zipped (align/align-static-params-to-getters package all-static-params getterMethods)
         fields (into (sorted-map)
                      (map
                        (fn [[param getter-key]]
@@ -67,13 +72,18 @@
      :typeDependencies  all-types
      :staticMethods     staticMethods}))
 
+#!--------------------------------------------------------------------------------------------------------
+#!
+#! :types/accessors
+#!
+
 (defn abstract-variant? [package className]
   (boolean
     (when-let [base (get-in package [:types/variants className])]
       (get-in package [:types/abstract-unions base]))))
 
 (defn abstract-getters [className]
-  (let [{:keys [members]} (clojure.reflect/reflect (as-class className))]
+  (let [{:keys [members]} (reflect (as-class className))]
     (reduce
       (fn [acc m]
         (if (and (contains? m :return-type)
@@ -98,7 +108,7 @@
                               (abstract-variant? package className)
                               (merge (abstract-getters (get-in package [:types/variants className]))))
         getters  (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
-        zipped (align/align-accessors package getters setters)
+        zipped (align/align-accessor-methods package getters setters)
         min-param-names (when-let [ms (not-empty (get staticMethods :newBuilder))]
                           (let [n (apply min (map count ms))]
                             (into #{} (comp
@@ -204,40 +214,54 @@
      :builderSetterFields setter-fields
      :typeDependencies    all-types}))
 
+#!--------------------------------------------------------------------------------------------------------
+#!
+#! :types/enums
+#!
+
+(defn analyze-enum [package className]
+  (let [{:as detail} (extract/$extract-type-detail package className)]
+    (merge {::type :enum
+            :gcp/key (package-key package className)
+            :className className}
+           detail)))
 
 #!--------------------------------------------------------------------------------------------------------
+#!
+#! :types/concrete-unions
+#!
 
-;(defn variant-tags [class-like]
-;  (let [reflection (clojure.reflect/reflect (as-class class-like))]
-;    (reduce (fn [acc {:keys [flags] :as m}]
-;              (if (and (contains? flags :final)
-;                       (= (name (:name m))
-;                          (string/upper-case (name (:name m)))))
-;                (let [fld (.getDeclaredField (as-class class-like) (name (:name m)))]
-;                  (.setAccessible fld true)
-;                  (conj acc (.get fld nil)))
-;                acc))
-;            #{}
-;            (:members reflection))))
+(defn variant-tags [class-like]
+  (let [reflection (reflect (as-class class-like))]
+    (reduce (fn [acc {:keys [flags] :as m}]
+              (if (and (contains? flags :final)
+                       (= (name (:name m))
+                          (string/upper-case (name (:name m)))))
+                (let [fld (.getDeclaredField (as-class class-like) (name (:name m)))]
+                  (.setAccessible fld true)
+                  (conj acc (.get fld nil)))
+                acc))
+            #{}
+            (:members reflection))))
 
-;; TODO abstract-unions (get public abstract methods from base class to zip setters)
-;; TODO concrete-unions
-
-;(defn analyze-union [package className]
-;  (let [{:keys [doc]} (extract/$extract-type-detail package className)
-;        variant-classes (get-in package [:types/unions className])
-;        tags (variant-tags className)
-;        ;zipped (align/align-variant-class-tags package variant-classes tags)
-;        ;classless-tags (apply disj tags (vals zipped))
-;        ]
-;    {::type            :union
-;     ::key             (util/package-key package className)
-;     :doc              doc
-;     :typeDependencies variant-classes
-;     :variantTags tags
-;     ;:class->tag zipped
-;     ;:classless-tags classless-tags
-;     }))
+(defn analyze-concrete-union [package className]
+  (let [{:keys [doc]} (extract/$extract-type-detail package className)
+        variant-classes (g/coerce [:seqable :string] (get-in package [:types/concrete-unions className]))
+        tags (variant-tags className)
+        zipped (align/align-variant-class-to-variant-tags package variant-classes tags)
+        classless-tags (apply disj tags (vals zipped))
+        static-method-names (map (comp name :name) (public-instantiators className))
+        classless-methods (align/align-variant-tags-to-static-methods package classless-tags static-method-names)]
+    ;; TODO get methods for classless tags
+    {::type            :concrete-union
+     :gcp/key          (util/package-key package className)
+     :className        className
+     :doc              doc
+     :typeDependencies variant-classes
+     :variantTags      tags
+     :classless-tags   classless-tags
+     :class->tag       zipped
+     :classless-methods classless-methods}))
 
 #!--------------------------------------------------------------------------------------------------------
 
@@ -245,19 +269,11 @@
 
 #!--------------------------------------------------------------------------------------------------------
 
-(defn analyze-concrete-union [package className] (throw (Exception. "analyze-concrete-union unimplemented")))
-
-#!--------------------------------------------------------------------------------------------------------
-
-(defn analyze-enum [package className]
-  (let [{:as detail} (extract/$extract-type-detail package className)]
-    (merge {::type :enum
-            :gcp/key (package-key package className)} detail)))
-
-#!--------------------------------------------------------------------------------------------------------
-
 (defn analyze [package className]
-  {:post [(contains? % :gcp/key) (contains? % ::type)]}
+  {:post [(contains? % :gcp/key)
+          (contains? % ::type)
+          (contains? % :className)
+          (string? (get % :className))]}
   (cond
     (contains? (:types/abstract-unions package) className)
     (analyze-abstract-union package className)
@@ -276,5 +292,3 @@
 
     true
     (throw (Exception. (str "cannot analyze unknown type! " className)))))
-
-

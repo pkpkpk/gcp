@@ -32,16 +32,8 @@
              (->malli-type package (:getterReturnType v))]))
         fields))
 
-(defn- malli-union
-  [package {:keys [doc typeDependencies]}]
-  (let []
-    [:and
-     [:map {:doc doc}
-      [:type {:optional false} [:enum]]]
-     (into [:or] (map (partial package-key package) typeDependencies))]))
-
 (defn- malli-enum
-  [package {:keys [values doc className] :as node}]
+  [_ {:keys [values doc className] :as node}]
   (let [doc (clean-doc doc)
         opts (cond-> {:class (as-dot-string className)
                       :gcp/key (:gcp/key node)}
@@ -56,6 +48,17 @@
                   [:= (name val)])))
             values))))
 
+(defn- malli-union
+  [package {:keys [doc typeDependencies variantTags className] :as node}]
+  (let [doc (clean-doc doc)
+        opts (cond-> {:class (as-dot-string className)
+                      :gcp/key (:gcp/key node)}
+                     doc (assoc :doc doc))]
+    [:and opts
+     [:map
+      [:type {:optional true} (into [:enum] variantTags)]]
+     (into [:or] (map (partial package-key package) typeDependencies))]))
+
 (defn malli [package className]
   {:post [(vector? %)
           (map? (second %))
@@ -65,7 +68,7 @@
     (assert (some? (:className t)))
     (case type
       :accessor (malli-accessor package t)
-      ;:union (malli-union package t)
+      :concrete-union (malli-union package t)
       :enum (malli-enum package t)
       :static-factory (malli-static-factory package t)
       (throw (Exception. (str "cannot create schema for " className))))))

@@ -7,7 +7,7 @@
             [gcp.global :as g]
             [zprint.core :as zp]))
 
-#!---------------------------------------------------------------------------------------
+#!----------------------------------------------------------------------------------------------------------------------
 #!
 #! ns-form
 #!
@@ -30,7 +30,7 @@
         [siblings other] (split-with #(string/starts-with? % (str "com.google.cloud." packageName)) typeDependencies)
         {siblings             false
          target-package-enums true} (group-by #(contains? (:types/enums package) %) siblings)
-        sibling-parts   (into (sorted-set) (comp (map className) (map first)) siblings)
+        sibling-parts   (into (sorted-set) (comp (map class-parts) (map first)) siblings)
         _               (when (seq other)
                           ;; TODO
                           ;; dependencies could be any class, google cloud or threetenbp usually if any
@@ -89,8 +89,7 @@
     `(~'when (~'get ~'arg ~key)
        (~method-call ~'builder ~value))))
 
-(defn emit-accessor-from-edn
-  [package className]
+(defn emit-accessor-from-edn [package className]
   (let [{:keys [builderSetterFields fields] t ::ana/type :as node} (analyze package className)
         _ (assert (= :accessor t))
         target-class (-> (class-parts className) first symbol)
@@ -112,18 +111,40 @@
         src' (str (subs src 0 5) " ^" target-class (subs src 5))]
     src'))
 
-(defn emit-enum-from-edn [package t] (throw (Exception. "unimplemented")))
-(defn emit-union-from-edn [package t] (throw (Exception. "unimplemented")))
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn emit-concrete-union-from-edn
+  [package {:keys [className] :as node}]
+  ;; we want to be as tolerant as possible:
+  ;;  -- if tag is present, dispatch on tag
+  ;;  -- if tag is not present but map is full, test variant subclasses
+  ;;  ----- if singular hit, choose
+  ;;  ----- if multiple hits, throw ambiguous
+  ;;  -- if tag is not present but map is empty, throw
+  (let [target-class (-> (class-parts className) first symbol)
+        body `(~'if-let [~'tag (~'get ~'arg :type)]
+                ()
+                ())
+        form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
+                [~'arg]
+                (gcp.global/strict! ~(:gcp/key node) ~'arg)
+                ~body)
+        src (zp/zprint-str form)]
+    (str (subs src 0 5) " ^" target-class (subs src 5))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn emit-abstract-union-from-edn [package t] (throw (Exception. "unimplemented")))
 (defn emit-static-factory-from-edn [package t] (throw (Exception. "unimplemented")))
 
 (defn emit-from-edn
   [package className]
-  (let [{t ::ana/type} (analyze package className)]
+  (let [{t ::ana/type :as node} (analyze package className)]
     (case t
-      :accessor (emit-accessor-from-edn package className)
-      :enum (emit-enum-from-edn package className)
-      :union (emit-union-from-edn package className)
-      :static-factory (emit-static-factory-from-edn package className))))
+      :accessor (emit-accessor-from-edn package node)
+      :concrete-union (emit-concrete-union-from-edn package node)
+      :static-factory (emit-static-factory-from-edn package node)
+      (throw (Exception. (str "cannot emit from-edn for className '" className "' with type '" t "'"))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #!
@@ -182,8 +203,13 @@
         src' (string/replace src "[arg]" (str "[^" target-class  " arg]"))]
     src'))
 
-(defn emit-enum-to-edn [package t] (throw (Exception. "unimplemented")))
-(defn emit-union-to-edn [package t] (throw (Exception. "unimplemented")))
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn emit-concrete-union-to-edn [package t] (throw (Exception. "unimplemented")))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn emit-abstract-union-to-edn [package t] (throw (Exception. "unimplemented")))
 (defn emit-static-factory-to-edn [package t] (throw (Exception. "unimplemented")))
 
 (defn emit-to-edn
@@ -191,9 +217,9 @@
   (let [{t ::ana/type} (analyze package className)]
     (case t
       :accessor (emit-accessor-to-edn package className)
-      :enum (emit-enum-to-edn package className)
-      :union (emit-union-to-edn package className)
-      :static-factory (emit-static-factory-to-edn package className))))
+      :concrete-union (emit-concrete-union-to-edn package className)
+      :static-factory (emit-static-factory-to-edn package className)
+      (throw (Exception. (str "cannot emit from-edn for className '" className "' with type '" t "'"))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #!
