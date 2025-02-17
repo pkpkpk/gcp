@@ -17,7 +17,10 @@
              (let [path (.getPath (io/file root store-name))]
                (fs/connect-fs-store path {:opts {:sync? true}})))))
 
-(defn evict! [store-name]
+(defn evict-key! [store-name key]
+  (k/dissoc (connect store-name) key {:sync? true}))
+
+(defn evict-all-keys! [store-name]
   (let [dir (io/file root store-name)]
     (doseq [file (.listFiles dir)]
       (io/delete-file file false))))
@@ -28,7 +31,7 @@
   (k/keys (connect store) {:sync? true}))
 
 (defn delete-store [store]
-  (evict! store)
+  (evict-all-keys! store)
   (io/delete-file (io/file root store)))
 
 ;; TODO these need versioned store

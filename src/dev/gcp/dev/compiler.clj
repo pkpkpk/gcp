@@ -1,4 +1,5 @@
-(ns gcp.dev.compiler
+(ns ^{:doc "emit clojure code for roundtripping edn <-> sdk instances"}
+  gcp.dev.compiler
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
             [gcp.dev.analyzer :as ana :refer [analyze]]
@@ -90,7 +91,7 @@
 
 (defn emit-accessor-from-edn
   [package className]
-  (let [{:keys [builderSetterFields fields] t ::type :as node} (analyze package className)
+  (let [{:keys [builderSetterFields fields] t ::ana/type :as node} (analyze package className)
         _ (assert (= :accessor t))
         target-class (-> (class-parts className) first symbol)
         setter-fields (into (sorted-map) (select-keys fields builderSetterFields))
@@ -105,7 +106,7 @@
                     (.build ~'builder))
         form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
                 [~'arg]
-                (gcp.global/strict! ~(::key node) ~'arg)
+                (gcp.global/strict! ~(:gcp/key node) ~'arg)
                 ~let-body)
         src (zp/zprint-str form)
         src' (str (subs src 0 5) " ^" target-class (subs src 5))]
@@ -117,7 +118,7 @@
 
 (defn emit-from-edn
   [package className]
-  (let [{t ::type} (analyze package className)]
+  (let [{t ::ana/type} (analyze package className)]
     (case t
       :accessor (emit-accessor-from-edn package className)
       :enum (emit-enum-from-edn package className)
@@ -158,7 +159,7 @@
 
 (defn emit-accessor-to-edn [package className]
   (let [{:keys [fields] :as node} (analyze package className)
-        _ (assert (= :accessor (::type node)))
+        _ (assert (= :accessor (::ana/type node)))
         target-class (-> (class-parts className) first symbol)
         required-keys (map :field (:newBuilder node))
         required-fields (into (sorted-map) (select-keys fields required-keys))
@@ -175,7 +176,7 @@
                         (conj acc `(~'get ~'arg ~key) add)))
                     [] optional-fields))
         form `(~'defn ~'to-edn [~'arg]
-                {:post [(gcp.global/strict! ~(::key node) ~'%)]}
+                {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
                 ~body)
         src (zp/zprint-str form)
         src' (string/replace src "[arg]" (str "[^" target-class  " arg]"))]
@@ -187,7 +188,7 @@
 
 (defn emit-to-edn
   [package className]
-  (let [{t ::type} (analyze package className)]
+  (let [{t ::ana/type} (analyze package className)]
     (case t
       :accessor (emit-accessor-to-edn package className)
       :enum (emit-enum-to-edn package className)

@@ -63,6 +63,18 @@
   (and (contains? (into #{} (map :name) (:members (reflect (as-class union)))) 'getType)
        (contains? (:bases (reflect class-like)) (symbol union))))
 
+(defn discovery-properties [package]
+  (reduce
+    (fn [acc [schema-key {:keys [properties]}]]
+      (into acc
+            (map
+              (fn [[property-key v]]
+                ;; this is 100% overwriting repeat properties
+                [property-key (assoc v :path [schema-key property-key])]))
+            properties))
+    (sorted-map)
+    (get-in package [:discovery :schemas])))
+
 (defn bigquery []
   (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
@@ -91,8 +103,6 @@
                               classes)
             abstract-variants (reduce (fn [acc [k vs]] (into acc (map (fn [v] [v k])) vs)) (sorted-map) abstract-unions)
 
-            classes (remove (set (keys abstract-unions)) classes)
-
             concrete-unions (reduce
                               (fn [acc className]
                                 (let [{:keys [flags]} (reflect className)
@@ -107,9 +117,6 @@
                               classes)
             concrete-variants (reduce (fn [acc [k vs]] (into acc (map (fn [v] [v k])) vs)) (sorted-map) concrete-unions)
 
-
-            classes (remove (set (keys concrete-unions)) classes)
-
             service-objects (reduce
                               (fn [acc className]
                                 (let [ms (member-methods className)]
@@ -118,7 +125,14 @@
                                     acc)))
                               (sorted-set)
                               classes)
-            classes (into (sorted-set) (remove service-objects) classes)
+            options (into (sorted-set) (filter #(string/ends-with? % "Option")) classes)
+
+            classes (into (sorted-set)
+                          (remove (clojure.set/union options
+                                                     service-objects
+                                                     (set (keys concrete-unions))
+                                                     (set (keys abstract-unions)))) classes)
+
             by-base     (into (sorted-map) (group-by base-part classes))
             standalone  (reduce (fn [acc [k v]] (if (= [k] v) (conj acc k) acc)) (sorted-set) by-base)
             static-factories (into (sorted-set)
@@ -143,34 +157,14 @@
                             (conj acc className)
                             acc))
                         (sorted-set)
-                        classes)]
-
-        ;; TODO classes without solutions
-        ;;  - bigquery.BigQuery.<$>Option
-        ;;    --> mostly static methods that wrap a value  ie (<$>Option/pageSize 43) etc
-        ;;  - bigquery.Acl.<$>
-        ;;    -- normal constructor calls
-        ;;    -- bigquery.Acl.Entity is abstract, wraps Acl.Entity.Type ENUM, read-only?
-        ;;  - bigquery.JobStatistics.<$>Statistics
-        ;;    -- generally read-only, from-edn does not apply here
-        ;;  - many others that are also read only ie "com.google.cloud.bigquery.InsertAllResponse"
-        ;;    --> are constructors private/protected? might be good way to sort into to-edn-only
-
-        #_(clojure.set/difference
-            (:classes bigquery)
-            (:types/accessors bigquery)
-            (:types/static-factories bigquery)
-            (:types/enums bigquery)
-            (:types/builders bigquery)
-            (:types/service-objects bigquery)
-            (set (keys (:types/abstract-unions bigquery)))
-            (set (keys (:types/concrete-unions bigquery)))
-            (set (keys (:types/abstract-variants bigquery)))
-            (set (keys (:types/concrete-variants bigquery))))
-
-        ;;(filter #(empty? (public-constructors %)) misfits) ;=> to-edn only?
-        ;;
-
+                        classes)
+            read-only (into (sorted-set)
+                            (filter
+                              (fn [className]
+                                (and
+                                  (not (contains? (:types/builders bigquery) className))
+                                  (empty? (public-instantiators className)))))
+                            (:classes latest))]
         {:packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
          :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
          :root (io/file src "main" "gcp" "bigquery" "v2")
@@ -179,10 +173,6 @@
          :packageSymbol 'com.google.cloud.bigquery
          :store (str "bigquery_" (:version latest))
          :discovery discovery
-
-         #!----------------------------
-         :classes (into (sorted-set) (:classes latest))
-         #!----------------------------
          :package/version (:version latest)
          :types/enums enums
          :types/builders builders
@@ -194,11 +184,37 @@
          :types/concrete-unions concrete-unions
          :types/concrete-variants concrete-variants
          :types/service-objects service-objects
+         :types/bigquery-options options
          :types/static-factories static-factories
          :types/accessors accessors
          :types/nested nested
          :types/by-base by-base
-         :types/standalone standalone}))))
+         :types/standalone standalone
+         :types/read-only read-only}))))
+
+;; TODO classes without solutions
+;;  - bigquery.BigQuery.<$>Option
+;;    --> mostly static methods that wrap a value  ie (<$>Option/pageSize 43) etc
+;;  - bigquery.Acl.<$>
+;;    -- normal constructor calls
+;;    -- bigquery.Acl.Entity is abstract, wraps Acl.Entity.Type ENUM, read-only?
+;;  - bigquery.JobStatistics.<$>Statistics
+;;    -- generally read-only, from-edn does not apply here
+;;  - many others that are also read only ie "com.google.cloud.bigquery.InsertAllResponse"
+;;    --> are constructors private/protected? might be good way to sort into to-edn-only
+
+#_(clojure.set/difference
+    (:classes bigquery)
+    (:types/accessors bigquery)
+    (:types/static-factories bigquery)
+    (:types/enums bigquery)
+    (:types/builders bigquery)
+    (:types/service-objects bigquery)
+    (set (keys (:types/abstract-unions bigquery)))
+    (set (keys (:types/concrete-unions bigquery)))
+    (set (keys (:types/abstract-variants bigquery)))
+    (set (keys (:types/concrete-variants bigquery))))
+
 
 ;(def pubsub-root (io/file src "main" "gcp" "pubsub"))
 ;(def pubsub-api-doc-base "https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/")

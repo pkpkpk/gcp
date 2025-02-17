@@ -90,7 +90,7 @@
                                                                               :diff (diff (into (sorted-set) setters)
                                                                                           (into (sorted-set) (map name) (keys edn)))})))
                              (let [types (apply concat (map :type (vals edn)))]
-                               (when (some util/illegal-native-type types)
+                               (when (some illegal-native-type types)
                                  (throw (ex-info "illegal native types" {:types types})))))
          cfg               (assoc model :systemInstruction systemInstruction
                                         :generationConfig generationConfig)
@@ -105,7 +105,6 @@
     :staticMethods {sym {:parameters [..] :returnType ''}
     :instanceMethods {:getterName -> {:returnType '', :doc ''}}}"
   [model package class-like]
-  (assert ((set (:classes package)) (as-dot-string class-like)))
   (assert (string? (:store package)))
   (let [url (str (g/coerce some? (:packageRootUrl package)) class-like)
         {:keys [instanceMethods staticMethods] :as reflection} (reflect-readonly class-like)
@@ -152,10 +151,10 @@
         cfg (assoc model :systemInstruction systemInstruction
                          :generationConfig generationConfig)
         validator (fn [{:keys [version getterMethods]}]
-                    (when (not= version (:version package))
+                    (when (not= version (:package/version package))
                       (throw (ex-info (str "found different package version for class '" class-like "'")
                                       {:extracted-version version
-                                       :package-version (:version package)
+                                       :package/version (:package/version package)
                                        :class-like      class-like})))
                     (when-not (and (map? getterMethods)
                                    (= (count getter-method-names) (count getterMethods))
@@ -180,7 +179,7 @@
 
 (defn- $_extract-enum-detail
   [model package enum-like]
-  (assert ((set (:enums package)) (as-dot-string enum-like)))
+  (assert ((set (:types/enums package)) (as-dot-string enum-like)))
   (assert (string? (:store package)))
   (let [values (enum-values (g/coerce some? (resolve (symbol (as-dollar-string enum-like)))))
         url (str (g/coerce some? (:packageRootUrl package)) (as-dot-string enum-like))
@@ -188,30 +187,27 @@
         doc-schema {:type "STRING"
                     :nullable true
                     :description "description of enum value"}
+        schema {:type     "OBJECT"
+                :required ["version" "doc" "values"]
+                :properties {"version" version-schema
+                             "doc"     {:type        "STRING"
+                                        :nullable    true
+                                        :description "enum class description"}
+                             "values"  {:type       "OBJECT"
+                                        :required values
+                                        :properties (into {} (map #(vector % doc-schema)) values)}}}
         generationConfig {:responseMimeType "application/json"
-                          :responseSchema   {:type       "OBJECT"
-                                             :required   ["version" "doc" "values"]
-                                             :properties {"version" version-schema
-                                                          "doc"     {:type        "STRING"
-                                                                     :description "description of the enum class"}
-                                                          "values"  {:type       "OBJECT"
-                                                                     :required   ["doc" "values"]
-                                                                     :properties {"doc"    {:type        "STRING"
-                                                                                            :nullable    true
-                                                                                            :description "enum class description"}
-                                                                                  "values" {:type       "OBJECT"
-                                                                                            :required   values
-                                                                                            :properties (into {} (map #(vector % doc-schema)) values)}}}}}}
+                          :responseSchema   schema}
         cfg (assoc model :systemInstruction systemInstruction
                          :generationConfig generationConfig)
         validator (fn [{:keys [version] :as edn}]
-                    (when (not= version (:version package))
+                    (when (not= version (:package/version package))
                       (throw (ex-info (str "found different package version for enum '" enum-like "'")
                                       {:edn             edn
-                                       :package-version (:version package)
+                                       :package/version (:package/version package)
                                        :class-like      enum-like}))))
         res (store/extract-java-ref-aside (:store package) cfg url validator)]
-    (assoc res :type :enum)))
+    (assoc res ::type :enum :className (as-dot-string enum-like))))
 
 (defn $extract-type-detail
   ([package class-like]
@@ -219,7 +215,7 @@
   ([model {:as package} class-like]
    (cond
      ;; TODO exceptions! settings! clients!
-     ((set (:enums package)) (as-dot-string class-like))
+     ((set (:types/enums package)) (as-dot-string class-like))
      ($_extract-enum-detail model package class-like)
 
      (builder-like? class-like)

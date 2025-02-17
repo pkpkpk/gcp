@@ -1,9 +1,12 @@
 (ns gcp.dev
   (:require [clojure.java.io :as io]
+            [clojure.repl :refer :all]
             [clojure.string :as string]
             [gcp.dev.analyzer :as ana :refer [analyze]]
             [gcp.dev.compiler :as c :refer [emit-to-edn emit-from-edn emit-ns-form]]
             [gcp.dev.malli :refer [malli]]
+            [gcp.dev.packages :as packages]
+            [gcp.dev.util :refer :all]
             [gcp.global :as g]
             [gcp.vertexai.v1]
             [gcp.vertexai.generativeai :as genai]
@@ -23,7 +26,8 @@
 ;; singlefile dst, prompts?
 
 (comment
-  (do (require :reload 'gcp.dev.analyzer) (in-ns 'gcp.dev.analyzer))
+  (do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
+  (def bigquery (packages/bigquery))
 
   (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
   (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")

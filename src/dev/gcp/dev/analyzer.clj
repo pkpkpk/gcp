@@ -6,6 +6,7 @@
     [clojure.repl :refer :all]
     [clojure.set :as s]
     [clojure.string :as string]
+    [gcp.dev.analyzer.align :as align]
     [gcp.dev.analyzer.extract :as extract]
     [gcp.dev.models :as models]
     [gcp.dev.packages :as packages]
@@ -18,33 +19,6 @@
   (:import (com.google.cloud.bigquery BigQueryOptions)
            (java.io ByteArrayOutputStream)
            (java.util.regex Pattern)))
-
-(defn zip-static-params [package static-params getterMethods]
-  (let [getters           (g/coerce [:seqable :string] (vec (sort (map name (keys getterMethods)))))
-        getter-schema     {:type        "STRING"
-                           :nullable    false
-                           :enum getters
-                           :description "the name of the read only method that corresponds to the param"}
-        generationConfig  {:responseMimeType "application/json"
-                           :responseSchema   {:type       "OBJECT"
-                                              :required   (vec static-params)
-                                              :properties (into {} (map #(vector % getter-schema)) static-params)}}
-        systemInstruction "for each parameter name, produce the getter method that produces it"
-        cfg               (assoc models/flash :systemInstruction systemInstruction
-                                              :generationConfig generationConfig)
-        validator!        (fn [edn]
-                            (if (not= (set static-params) (set (map name (keys edn))))
-                              (throw (ex-info "missing static param!"
-                                              {:getters getters :static-params static-params :edn edn}))
-                              (if (not (every? some? (vals edn)))
-                                (throw (ex-info "expected getter for every static param"
-                                                {:getters getters :static-params static-params :edn edn}))
-                                (if-not (clojure.set/subset? (set (vals edn)) (into #{} getters))
-                                  (throw (ex-info "incorrect keys" {:edn     edn
-                                                                    :getters getters
-                                                                    :static-params static-params}))))))
-        res               (store/generate-content-aside (:store package) cfg getters validator!)]
-    (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res)))
 
 (defn analyze-static-factory
   [package className]
@@ -63,7 +37,7 @@
                               (reduce #(into %1 (map :name) %2) acc arg-lists))
                             #{}
                             staticMethods)
-        zipped (zip-static-params package all-static-params getterMethods)
+        zipped (align/align-static-params package all-static-params getterMethods)
         fields (into (sorted-map)
                      (map
                        (fn [[param getter-key]]
@@ -86,42 +60,12 @@
                               (remove native-type))
                         (into static-method-types (map :returnType) (vals getterMethods)))]
     {::type             :static-factory
-     ::key              (package-key package className)
+     :gcp/key           (package-key package className)
      :className         className
      :doc               classDoc
      :fields            fields
      :typeDependencies  all-types
      :staticMethods     staticMethods}))
-
-(defn zip-accessors
-  ([package getters setters]
-   (let [getter-schema     {:type        "STRING"
-                            :nullable    false
-                            :description "the read only method that corresponds to the setter"}
-         generationConfig  {:responseMimeType "application/json"
-                            :responseSchema   {:type       "OBJECT"
-                                               :required   setters
-                                               :properties (into {} (map #(vector % getter-schema)) setters)}}
-         systemInstruction (str "given a list of getters, match them to their setter in the response schema."
-                                "for every setter there is a getter, but not every getter has a setter")
-         cfg               (assoc models/flash-2 :systemInstruction systemInstruction
-                                                 :generationConfig generationConfig)
-         validator!        (fn [edn]
-                             (if (not= (set setters) (set (map name (keys edn))))
-                               (throw (ex-info "missing setter method!" {:getters getters
-                                                                         :setters setters
-                                                                         :edn edn}))
-                               (if (not (every? some? (vals edn)))
-                                 (throw (ex-info "expected getter for every setter" {:getters getters
-                                                                                     :setters setters
-                                                                                     :edn edn}))
-                                 (if-not (or (set (vals edn)) (set getters)
-                                             (clojure.set/subset? (set (vals edn)) (set getters)))
-                                   (throw (ex-info "incorrect keys" {:getters getters
-                                                                     :setters setters
-                                                                     :edn edn}))))))
-         res (store/generate-content-aside (:store package) cfg getters validator!)]
-     (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
 (defn abstract-variant? [package className]
   (boolean
@@ -154,7 +98,7 @@
                               (abstract-variant? package className)
                               (merge (abstract-getters (get-in package [:types/variants className]))))
         getters  (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
-        zipped (zip-accessors package getters setters)
+        zipped (align/align-accessors package getters setters)
         min-param-names (when-let [ms (not-empty (get staticMethods :newBuilder))]
                           (let [n (apply min (map count ms))]
                             (into #{} (comp
@@ -252,7 +196,7 @@
                           #{}
                           (concat static-method-types fields-types))]
     {::type               :accessor
-     ::key                (package-key package className)
+     :gcp/key             (package-key package className)
      :className           className
      :doc                 classDoc
      :fields              fields
@@ -276,32 +220,6 @@
 ;            #{}
 ;            (:members reflection))))
 
-;(defn zip-variant-class-tags
-;  [package variant-classes variant-tags]
-;  (let [variant-schema    {:type        "STRING"
-;                           :nullable    false
-;                           :enum       (vec variant-tags)
-;                           :description "the tag that corresponds to the class"}
-;        generationConfig  {:responseMimeType "application/json"
-;                           :responseSchema   {:type       "OBJECT"
-;                                              :required   (vec variant-classes)
-;                                              :properties (into {} (map #(vector % variant-schema)) variant-classes)}}
-;        systemInstruction (str "given a list of class names, match them to a tag")
-;        cfg               (assoc models/pro :systemInstruction systemInstruction
-;                                            :generationConfig generationConfig)
-;        validator! (fn [edn]
-;                     (when-not (= (count edn) (count variant-classes))
-;                       (throw (ex-info "incorrect count" {:expected (count variant-classes)
-;                                                          :actual (count edn)})))
-;                     (when-not (= variant-classes (set (map name (keys edn))))
-;                       (throw (ex-info "incorrect classes" {:variant-classes variant-classes
-;                                                            :edn-keys (set (map name (keys edn)))})))
-;                     (when-not (clojure.set/subset? (set (vals edn)) variant-tags)
-;                       (throw (ex-info "incorrect tags" {:variant-tags variant-tags
-;                                                         :edn edn}))))
-;        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]
-;    (into (sorted-map) (map (fn [[k v]] [(name k) v])) edn)))
-
 ;; TODO abstract-unions (get public abstract methods from base class to zip setters)
 ;; TODO concrete-unions
 
@@ -309,7 +227,7 @@
 ;  (let [{:keys [doc]} (extract/$extract-type-detail package className)
 ;        variant-classes (get-in package [:types/unions className])
 ;        tags (variant-tags className)
-;        ;zipped (zip-variant-class-tags package variant-classes tags)
+;        ;zipped (align/align-variant-class-tags package variant-classes tags)
 ;        ;classless-tags (apply disj tags (vals zipped))
 ;        ]
 ;    {::type            :union
@@ -331,12 +249,15 @@
 
 #!--------------------------------------------------------------------------------------------------------
 
-(defn analyze-enum [package className] (throw (Exception. "analyze-enum unimplemented")))
+(defn analyze-enum [package className]
+  (let [{:as detail} (extract/$extract-type-detail package className)]
+    (merge {::type :enum
+            :gcp/key (package-key package className)} detail)))
 
 #!--------------------------------------------------------------------------------------------------------
 
 (defn analyze [package className]
-  {:post [(contains? % ::key) (contains? % ::type)]}
+  {:post [(contains? % :gcp/key) (contains? % ::type)]}
   (cond
     (contains? (:types/abstract-unions package) className)
     (analyze-abstract-union package className)

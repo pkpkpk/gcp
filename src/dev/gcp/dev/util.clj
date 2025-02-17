@@ -4,6 +4,15 @@
             clojure.reflect
             [clojure.string :as string]))
 
+(defn clean-doc [doc]
+  (when (and doc (not (string/blank? doc)))
+    (-> doc
+        string/trim
+        (string/replace #"\\n" " ")
+        (string/replace #"\n" " ")
+        (string/replace #"\\" "")
+        (string/replace #"\s+" " "))))
+
 (defn get-url-bytes [^String url]
   (println (str "fetching url -> " url))
   (let [{:keys [status body] :as response} (http/get url {:redirect-strategy :none :as :byte-array})]
@@ -15,15 +24,17 @@
   (let [bs (get-url-bytes url)
         s  (String. bs "UTF-8")
         ;; can't be bothered to parse but this is decent 2/3 cut
-        head (subs s
-                   (string/index-of s "<h1")
-                   (string/index-of s "</h1>"))
-        head (string/trim head)
+        header-open-start (string/index-of s "<h1")
+        s (subs s (inc header-open-start))
+        header-open-close (string/index-of s ">")
+        header-open-end (string/index-of s "</h1>")
+        header (string/trim (subs s (inc header-open-close) header-open-end))
+        _ (println "retrieved reference doc for " (pr-str header))
         article (subs s
                       (string/index-of s "<article>")
                       (string/index-of s "</article>"))
         article (string/trim article)]
-    (.getBytes (str head article))))
+    (.getBytes (str header article))))
 
 (defn list-like? [t]
   (or (string/starts-with? t "List")
@@ -225,7 +236,8 @@
               (or
                 (and
                   (instance? clojure.reflect.Method m)
-                  (= 'of (get m :name)))
+                  (or (#{'of 'newBuilder 'toBuilder} (get m :name))
+                      (= (symbol (as-dollar-string class-like)) (get m :return-type))))
                 (instance? clojure.reflect.Constructor m)))))
         (sort-by :name (:members (reflect class-like)))))
 
