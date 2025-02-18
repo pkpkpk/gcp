@@ -8,35 +8,22 @@
 
 (defn reflect-readonly [class-like]
   (assert (not (builder-like? class-like)))
-  (let [members (member-methods class-like)]
-    (reduce
-      (fn [acc {:keys [flags return-type name parameter-types]}]
-        (if (and (contains? flags :static)
-                 (not (#{"fromPb" "builder" "toString"} (clojure.core/name name))))
-          (update-in acc [:staticMethods name] conj {:parameters parameter-types :returnType return-type})
-          (if (and (not (contains? flags :static))
-                   (not (#{"hashCode" "equals" "toBuilder" "toString"} (clojure.core/name name))))
-            (assoc-in acc [:instanceMethods name]
-                      (cond-> {:returnType return-type}
-                              (seq parameter-types) (assoc :parameters parameter-types)))
-            acc)))
-      {:className       (as-dot-string class-like)
-       :staticMethods   (sorted-map)
-       :instanceMethods (sorted-map)}
-      members)))
+  {:className       (as-dot-string class-like)
+   :staticMethods   (into (sorted-map)
+                          (map (fn [m] [(:name m) m]))
+                          (static-methods class-like))
+   :instanceMethods (into (sorted-map)
+                          (map (fn [m] [(:name m) m]))
+                          (instance-methods class-like))})
 
-(defn reflect-builder [class-like]
+(defn setter-methods [class-like]
   (assert (builder-like? class-like))
-  (let [clazz (as-class class-like)
-        _(assert (class? clazz) (str "expected class got type " (type clazz) " instead"))
-        methods (member-methods clazz)
-        members (into (sorted-set)
-                      (comp (map :name)
-                            (map name)
-                            (filter #(string/starts-with? % "set")))
-                      methods)]
-    {:className (as-dot-string class-like)
-     :setterMethods members}))
+  (let [methods (instance-methods class-like)]
+    (into (sorted-set)
+          (comp (map :name)
+                (map name)
+                (filter #(string/starts-with? % "set")))
+          methods)))
 
 (def version-schema {:type        "STRING"
                      :example     "2.47.0"
@@ -49,7 +36,7 @@
    (assert (builder-like? builder-like))
    (assert (string? (:store package)))
    (let [url               (str (g/coerce some? (:packageRootUrl package)) builder-like)
-         {setters :setterMethods :as reflection} (reflect-builder builder-like)
+         setters           (setter-methods builder-like)
          _                 (g/coerce [:seqable :string] setters)
          systemInstruction (str "extract the builder setters methods description and parameter type."
                                 " please use fully qualified package names for all types that reference gcp sdks")
@@ -154,20 +141,20 @@
                       (throw (ex-info "returned keys did not match" {:actual (into (sorted-set) (map name) (keys getterMethods))
                                                                      :members (into (sorted-set) getter-method-names)}))))
         edn (store/extract-java-ref-aside (:store package) cfg url validator)]
-    (assoc reflection :className class-like
-                      :type :readonly
-                      :doc (:doc edn)
-                      :getterMethods (into (sorted-map)
-                                           (map
-                                             (fn [[k m]]
-                                               (let [m'
-                                                     (if (and (contains? m :parameters)
-                                                              (empty? (:parameters m)))
-                                                       (dissoc m :parameters)
-                                                       m)]
-                                                 [k m'])))
-                                           (:getterMethods edn))
-                      :staticMethods (:staticMethods edn))))
+    {:className     class-like
+     :type          :readonly
+     :doc           (clean-doc (:doc edn))
+     :getterMethods (into (sorted-map)
+                          (map
+                            (fn [[k m]]
+                              (let [m'
+                                    (if (and (contains? m :parameters)
+                                             (empty? (:parameters m)))
+                                      (dissoc m :parameters)
+                                      (update m :doc clean-doc))]
+                                [k m'])))
+                          (:getterMethods edn))
+     :staticMethods (:staticMethods edn)}))
 
 (defn- $_extract-enum-detail
   [model package enum-like]

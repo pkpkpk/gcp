@@ -241,30 +241,83 @@
                 (instance? clojure.reflect.Constructor m)))))
         (sort-by :name (:members (reflect class-like)))))
 
-(defn member-methods
-  "returns public methods we are interested in"
-  [class-like]
+
+(defn clean-method
+  [{:keys [parameter-types exception-types return-type] :as m}]
+  (cond-> (dissoc m :return-type :parameter-types)
+          (empty? exception-types) (dissoc m :exception-types)
+          (seq parameter-types) (assoc :parameters parameter-types)
+          (some? return-type) (assoc :returnType return-type)))
+
+(defn constructors [class-like]
   (into []
         (comp
-          (remove
-            (fn [{:keys [flags :return-type name] :as m}]
-              (or (contains? flags :private)
-                  (contains? flags :synthetic)
-                  (empty? flags)
-                  (instance? clojure.reflect.Field m)
-                  (and (instance? clojure.reflect.Method m) (nil? return-type))
-                  (#{'toString 'fromPb 'toPb 'equals 'hashCode} name))))
-          (map
-            (fn [{:keys [parameter-types exception-types] :as m}]
-              (let [t (if (instance? clojure.reflect.Constructor m)
-                        :constructor
-                        (do
-                          (assert (instance? clojure.reflect.Method m))
-                          :method))]
-                (cond-> (assoc m :type t)
-                        (empty? parameter-types) (dissoc m :parameter-types)
-                        (empty? exception-types) (dissoc m :exception-types))))))
+          (filter #(instance? clojure.reflect.Constructor %))
+          (filter #(contains? (:flags %) :public))
+          (map clean-method))
         (sort-by :name (:members (reflect class-like)))))
+
+(defn static-methods [class-like]
+  (into []
+        (comp
+          (filter #(instance? clojure.reflect.Method %))
+          (filter #(contains? (:flags %) :public))
+          (filter #(contains? (:flags %) :static))
+          (map clean-method))
+        (sort-by :name (:members (reflect class-like)))))
+
+(defn instance-methods [class-like]
+  (into [] ;; includes abstract methods
+        (comp
+          (filter #(instance? clojure.reflect.Method %))
+          (filter #(contains? (:flags %) :public))
+          (remove #(contains? (:flags %) :static))
+          (remove #(contains? #{'toString 'fromPb 'toPb 'equals 'hashCode 'builder 'toBuilder} (:name %)))
+          (map clean-method))
+        (sort-by :name (:members (reflect class-like)))))
+
+(defn abstract-methods [class-like]
+  (into []
+        (comp
+          (filter #(instance? clojure.reflect.Method %))
+          (filter #(contains? (:flags %) :public))
+          (filter #(contains? (:flags %) :abstract))
+          (map clean-method))
+        (sort-by :name (:members (reflect class-like)))))
+
+(defn concrete-methods [class-like]
+  (into []
+        (comp
+          (filter #(instance? clojure.reflect.Method %))
+          (filter #(contains? (:flags %) :public))
+          (remove #(contains? (:flags %) :abstract))
+          (map clean-method))
+        (sort-by :name (:members (reflect class-like)))))
+
+(defn builder-methods [class-like]
+  (let [builder-sym (if (builder-like? class-like)
+                      (symbol (as-dollar-string class-like))
+                      (symbol (as-dollar-string (string/join "." (conj (dot-parts class-like) "Builder")))))]
+    (into []
+          (comp
+            (filter #(instance? clojure.reflect.Method %))
+            (filter #(contains? (:flags %) :public))
+            (filter #(= builder-sym (:return-type %)))
+            (map clean-method))
+          (sort-by :name (:members (reflect class-like))))))
+
+(defn static-factory-methods [class-like]
+  (let [self-sym (symbol (as-dollar-string class-like))]
+    (into []
+          (comp
+            (filter #(instance? clojure.reflect.Method %))
+            (filter #(contains? (:flags %) :public))
+            (filter #(= self-sym (:return-type %)))
+            (map clean-method))
+          (sort-by :name (:members (reflect class-like))))))
+
+(defn abstract-class? [class-like]
+  (contains? (:flags (reflect class-like)) :abstract))
 
 (defn enum-values [class-like]
   (let [meth (.getMethod (as-class class-like) "values" (into-array Class []))]

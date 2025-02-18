@@ -118,35 +118,32 @@
 
             abstract-unions (reduce
                               (fn [acc className]
-                                (let [{:keys [flags]} (reflect className)
-                                      members (member-methods className)]
-                                  (if (and (contains? flags :abstract)
-                                           (some #(= 'getType (:name %)) members))
-                                    (if-let [variants (not-empty (into (sorted-set) (filter (partial variant? className)) classes))]
-                                      (assoc acc className variants)
-                                      acc)
-                                    acc)))
+                                (if (and (abstract-class? className)
+                                         ;; getType() not always an abstract method !
+                                         (some #(= 'getType (:name %)) (instance-methods className)))
+                                  (if-let [variants (not-empty (into (sorted-set) (filter (partial variant? className)) classes))]
+                                    (assoc acc className variants)
+                                    acc)
+                                  acc))
                               (sorted-map)
                               classes)
             abstract-variants (reduce (fn [acc [k vs]] (into acc (map (fn [v] [v k])) vs)) (sorted-map) abstract-unions)
 
             concrete-unions (reduce
                               (fn [acc className]
-                                (let [{:keys [flags]} (reflect className)
-                                      members (member-methods className)]
-                                  (if (and (not (contains? flags :abstract))
-                                           (some #(= 'getType (:name %)) members))
-                                    (if-let [variants (not-empty (into (sorted-set) (filter (partial variant? className)) classes))]
-                                      (assoc acc className variants)
-                                      acc)
-                                    acc)))
+                                (if (and (not (abstract-class? className))
+                                         (some #(= 'getType (:name %)) (instance-methods className)))
+                                  (if-let [variants (not-empty (into (sorted-set) (filter (partial variant? className)) classes))]
+                                    (assoc acc className variants)
+                                    acc)
+                                  acc))
                               (sorted-map)
                               classes)
             concrete-variants (reduce (fn [acc [k vs]] (into acc (map (fn [v] [v k])) vs)) (sorted-map) concrete-unions)
 
             service-objects (reduce
                               (fn [acc className]
-                                (let [ms (member-methods className)]
+                                (let [ms (instance-methods className)]
                                   (if (some #(= 'getBigQuery (:name %)) ms)
                                     (conj acc className (str className ".Builder"))
                                     acc)))
@@ -169,9 +166,9 @@
                                        (fn [className]
                                          (or
                                            (and (contains? standalone className)
-                                                (some #(= 'of (:name %)) (member-methods className)))
+                                                (some #(= 'of (:name %)) (static-factory-methods className)))
                                            (and (not (contains? by-base className))
-                                                (some #(= 'of (:name %)) (member-methods className)))))))
+                                                (some #(= 'of (:name %)) (static-factory-methods className)))))))
                                    classes)
             nested (into (sorted-set)
                          (comp

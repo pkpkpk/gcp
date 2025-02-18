@@ -274,19 +274,19 @@
   (let [{:keys [getterMethods doc]} (extract/$extract-type-detail package className)
         variant-classes (g/coerce [:seqable :string] (get-in package [:types/abstract-unions className]))
         {:keys [returnType] :as getType} (g/coerce some? (get getterMethods :getType))
-        _ (assert (contains? (:types/enums package) returnType) "expected enum type as returnType for abstract union .getType()")
-        tags (enum-values returnType)
-        zipped (align/align-variant-class-to-variant-tags package variant-classes tags)]
-    (merge
-      {::type          :abstract-union
-       :gcp/key        (package-key package className)
-       :className      className
-       :doc            (clean-doc doc)
-       :variantClasses variant-classes
-       :variantTags    tags
-       :class->tag     zipped
-       :tag->class     (clojure.set/map-invert zipped)
-       :getType        getType})))
+        _               (assert (contains? (:types/enums package) returnType) "expected enum type as returnType for abstract union .getType()")
+        tags            (set (enum-values returnType))
+        zipped          (align/align-variant-class-to-variant-tags package variant-classes tags)]
+    {::type          :abstract-union
+     :gcp/key        (package-key package className)
+     :className      className
+     :doc            (clean-doc doc)
+     :variantClasses variant-classes
+     :typeDependencies variant-classes
+     :variantTags    tags
+     :class->tag     zipped
+     :tag->class     (clojure.set/map-invert zipped)
+     :getType        getType}))
 
 #!--------------------------------------------------------------------------------------------------------
 

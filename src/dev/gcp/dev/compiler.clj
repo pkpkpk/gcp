@@ -193,8 +193,7 @@
 
 (defn emit-concrete-union-to-edn
   [_ {:keys [className variantTags] :as node}]
-  (g/coerce map? node)
-  (assert (= :concrete-union (::ana/type node)))
+  (g/coerce [:map [::ana/type [:= :concrete-union]]] node)
   (let [target-class (-> (class-parts className) first symbol)
         case-body (reduce
                     (fn [acc tag]
@@ -205,12 +204,12 @@
                         (conj acc tag {:type tag})))
                     []
                     variantTags)
+        get-type (if (= "java.lang.String" (get-in node [:getType :returnType]))
+                   `(.getType ~'arg)
+                   `(.name (.getType ~'arg)))
         form `(~'defn ~'to-edn [~'arg]
                 {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
-                (~'case ~(if (= 'java.lang.String (get-in node [:getType :returnType]))
-                           (.getType ~'arg)
-                           (.name (.getType ~'arg)))
-                   ~@case-body))]
+                (~'case ~get-type ~@case-body))]
     (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
 
 #!----------------------------------------------------------------------------------------------------------------------
@@ -218,9 +217,49 @@
 #! :types/abstract-unions
 #!
 
-(defn emit-abstract-union-to-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-abstract-union-from-edn
+  [package {:keys [className variantTags] :as node}]
+  (g/coerce [:map [::ana/type [:= :abstract-union]]] node)
+  (let [variantTags (g/coerce [:set :string] variantTags)
+        target-class (-> (class-parts className) first symbol)
+        body (reduce
+               (fn [acc tag]
+                 (let [variant       (get-in node [:tag->class tag])
+                       gcp-key       (package-key package variant)
+                       alias         (first (class-parts variant))
+                       from-edn-call (symbol alias "from-edn")]
+                   (conj acc `(~'and (~'or (~'= ~tag (~'get ~'arg :type))
+                                       (gcp.global/valid? ~gcp-key ~'arg))
+                                (~from-edn-call ~'arg)))))
+               ['or]
+               (sort variantTags))
+        body (conj body `(throw (ex-info ~(str "failed to match variant for union " className) {:arg ~'arg :expected ~variantTags})))
+        form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
+                [~'arg]
+                (gcp.global/strict! ~(:gcp/key node) ~'arg)
+                ~(list* body))
+        src (zp/zprint-str form)]
+    (str (subs src 0 5) " ^" target-class (subs src 5))))
 
-(defn emit-abstract-union-from-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-abstract-union-to-edn
+  [_ {:keys [className variantTags] :as node}]
+  (g/coerce [:map [::ana/type [:= :abstract-union]]] node)
+  (let [target-class (-> (class-parts className) first symbol)
+        case-body (reduce
+                    (fn [acc tag]
+                      (let [variant (get-in node [:tag->class tag])
+                            alias       (first (class-parts variant))
+                            to-edn-call (symbol alias "to-edn")]
+                        (conj acc tag `(~'assoc (~to-edn-call ~'arg) :type ~tag))))
+                    []
+                    variantTags)
+        form `(~'defn ~'to-edn [~'arg]
+                {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
+                (~'case ~(if (= "java.lang.String" (get-in node [:getType :returnType]))
+                           `(.getType ~'arg)
+                           `(.name (.getType ~'arg)))
+                  ~@case-body))]
+    (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! #! :types/static-factories
