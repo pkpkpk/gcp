@@ -252,16 +252,17 @@
         classless-tags (apply disj tags (vals zipped))
         static-method-names (map (comp name :name) (public-instantiators className))
         classless-methods (align/align-variant-tags-to-static-methods package classless-tags static-method-names)]
-    ;; TODO get methods for classless tags
     {::type            :concrete-union
      :gcp/key          (util/package-key package className)
      :className        className
      :doc              doc
      :typeDependencies variant-classes
      :variantTags      tags
-     :classless-tags   classless-tags
      :class->tag       zipped
-     :classless-methods classless-methods}))
+     :tag->class       (clojure.set/map-invert zipped)
+     :classlessTags    classless-tags
+     :tag->method classless-methods}))
+
 
 #!--------------------------------------------------------------------------------------------------------
 

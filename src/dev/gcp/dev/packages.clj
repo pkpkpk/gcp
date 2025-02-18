@@ -192,33 +192,35 @@
                                   (not (contains? (:types/builders bigquery) className))
                                   (empty? (public-instantiators className)))))
                             (:classes latest))]
-        {:packageRootUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
-         :overviewUrl "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
-         :root (io/file src "main" "gcp" "bigquery" "v2")
-         :rootNs 'gcp.bigquery.v2
-         :packageName "bigquery"
-         :packageSymbol 'com.google.cloud.bigquery
-         :store (str "bigquery_" (:version latest))
-         :discovery discovery
-         :package/version (:version latest)
-         :all-classes (into (sorted-set) (:classes latest))
-         :types/enums enums
-         :types/builders builders
-         :types/settings (into (sorted-set) (:settings latest))
-         :types/interfaces (into (sorted-set) (:interfaces latest))
-         :types/exceptions (into (sorted-set) (:exceptions latest))
-         :types/abstract-unions abstract-unions
+        {:packageRootUrl          "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
+         :overviewUrl             "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
+         :root                    (io/file src "main" "gcp" "bigquery" "v2")
+         :rootNs                  'gcp.bigquery.v2
+         :packageName             "bigquery"
+         :packageSymbol           'com.google.cloud.bigquery
+         :store                   (str "bigquery_" (:version latest))
+         :discovery               discovery
+         :package/version         (:version latest)
+         :types/all               (clojure.set/union (into (sorted-set) (:classes latest)) enums)
+         :types/enums             enums
+         :types/builders          builders
+         :types/settings          (into (sorted-set) (:settings latest))
+         :types/interfaces        (into (sorted-set) (:interfaces latest))
+         :types/exceptions        (into (sorted-set) (:exceptions latest))
+         :types/abstract-unions   abstract-unions
          :types/abstract-variants abstract-variants
-         :types/concrete-unions concrete-unions
+         :types/concrete-unions   concrete-unions
          :types/concrete-variants concrete-variants
-         :types/service-objects service-objects
-         :types/bigquery-options options
-         :types/static-factories static-factories
-         :types/accessors accessors
-         :types/nested nested
-         :types/by-base by-base
-         :types/standalone standalone
-         :types/read-only read-only}))))
+         :types/variants          (merge abstract-variants concrete-variants)
+         :types/unions            (merge abstract-unions concrete-unions)
+         :types/service-objects   service-objects
+         :types/bigquery-options  options
+         :types/static-factories  static-factories
+         :types/accessors         accessors
+         :types/nested            nested
+         :types/by-base           by-base
+         :types/standalone        standalone
+         :types/read-only         read-only}))))
 
 ;; TODO classes without solutions
 ;;  - bigquery.BigQuery.<$>Option

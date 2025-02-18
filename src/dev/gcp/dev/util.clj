@@ -8,9 +8,10 @@
   (when (and doc (not (string/blank? doc)))
     (-> doc
         string/trim
+        (string/replace #"\\\S\\" "")
         (string/replace #"\\n" " ")
         (string/replace #"\n" " ")
-        (string/replace #"\\" "")
+        (string/replace #"\\\\" "\\")
         (string/replace #"\s+" " "))))
 
 (defn get-url-bytes [^String url]
@@ -119,13 +120,12 @@
       (string/starts-with? t "List<")
       [:sequential (->malli-type package (string/trim (subs t 5 (dec (count t)))))]
 
-      (or (contains? (set (:classes package)) t)
-          (contains? (set (:enums package)) t))
+      (contains? (:types/all package) t)
       (package-key package t)
 
       :else
       (do
-        (println "WARN unknown malli type " t)
+        (println "\n\n WARN unknown malli type " t "\n\n")
         t))))
 
 (defn dot-parts [class]

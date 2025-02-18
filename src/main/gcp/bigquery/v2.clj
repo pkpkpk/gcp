@@ -467,91 +467,12 @@
                                                [:printHeader {:optional true} :boolean]
                                                [:useAvroLogicalTypes {:optional true} :boolean]]
 
-   :gcp/bigquery.FormatOptions.Type [:enum "AVRO", "CSV", "DATASTORE_BACKUP", "GOOGLE_SHEETS", "JSON", "ORC", "PARQUET"]
-
-   :gcp/bigquery.CsvOptions
-   [:map {:closed true,
-          :class 'com.google.cloud.bigquery.CsvOptions}
-    [:type {:readOnly true} [:= "CSV"]]
-    [:allowJaggedRows
-     {:readDoc "Returns whether BigQuery should accept rows that are missing trailing optional columns. If
-             <code translate=\"no\" dir=\"ltr\">true</code>, BigQuery treats missing trailing columns as null values. If <code translate=\"no\" dir=\"ltr\">false</code>,
-             records with missing trailing columns are treated as bad records, and if the number of bad
-             records exceeds <a class=\"xref\" href=\"/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExternalTableDefinition#com_google_cloud_bigquery_ExternalTableDefinition_getMaxBadRecords__\">ExternalTableDefinition#getMaxBadRecords()</a>, an invalid error is
-             returned in the job result.",
-      :writeDoc "Set whether BigQuery should accept rows that are missing trailing optional columns. If `
-              true`, BigQuery treats missing trailing columns as null values. If `false`, records
-              with missing trailing columns are treated as bad records, and if there are too many bad
-              records, an invalid error is returned in the job result. By default, rows with missing
-              trailing columns are considered bad records.",
-      :optional true}
-     :boolean]
-    [:allowQuotedNewLines
-     {:readDoc "Returns whether BigQuery should allow quoted data sections that contain newline characters in a\nCSV file.",
-      :writeDoc "Sets whether BigQuery should allow quoted data sections that contain newline characters in a
-              CSV file. By default quoted newline are not allowed."}
-     :boolean]
-    [:encoding
-     {:readDoc "Returns the character encoding of the data. The supported values are UTF-8 or ISO-8859-1. If
-             not set, UTF-8 is used. BigQuery decodes the data after the raw, binary data has been split
-             using the values set in <a class=\"xref\" href=\"/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.CsvOptions#com_google_cloud_bigquery_CsvOptions_getQuote__\">#getQuote()</a> and <a class=\"xref\" href=\"/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.CsvOptions#com_google_cloud_bigquery_CsvOptions_getFieldDelimiter__\">#getFieldDelimiter()</a>.",
-      :writeDoc "Sets the character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The
-              default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split
-              using the values set in #setQuote(String) and #setFieldDelimiter(String)."}
-     :string]
-    [:fieldDelimiter
-     {:readDoc "Returns the separator for fields in a CSV file.",
-      :writeDoc "Sets the separator for fields in a CSV file. BigQuery converts the string to ISO-8859-1
-              encoding, and then uses the first byte of the encoded string to split the data in its raw,
-              binary state. BigQuery also supports the escape sequence \"\\t\" to specify a tab separator. The
-              default value is a comma (',')."}
-     :string]
-    [:nullMarker
-     {:readDoc "Returns the string that represents a null value in a CSV file.",
-      :writeDoc "\\[Optional] Specifies a string that represents a null value in a CSV file. For example, if you
-              specify \"\\N\", BigQuery interprets \"\\N\" as a null value when querying a CSV file. The
-              default value is the empty string. If you set this property to a custom value, BigQuery
-              throws an error if an empty string is present for all data types except for STRING and BYTE.
-              For STRING and BYTE columns, BigQuery interprets the empty string as an empty value.",
-      :optional true}
-     :string]
-    [:preserveAsciiControlCharacters
-     {:readDoc "Returns whether BigQuery should allow ascii control characters in a CSV file. By default ascii
-             control characters are not allowed.",
-      :writeDoc "Sets whether BigQuery should allow ASCII control characters in a CSV file. By default ASCII
-              control characters are not allowed."}
-     :boolean]
-    [:quote
-     {:readDoc "Returns the value that is used to quote data sections in a CSV file.",
-      :writeDoc "Sets the value that is used to quote data sections in a CSV file. BigQuery converts the
-              string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split
-              the data in its raw, binary state. The default value is a double-quote ('\"'). If your data
-              does not contain quoted sections, set the property value to an empty string. If your data
-              contains quoted newline characters, you must also set #setAllowQuotedNewLines(boolean) property to `true`."}
-     :string]
-    [:skipLeadingRows
-     {:readDoc "Returns the number of rows at the top of a CSV file that BigQuery will skip when reading the\ndata.",
-      :writeDoc "Sets the number of rows at the top of a CSV file that BigQuery will skip when reading the
-              data. The default value is 0. This property is useful if you have header rows in the file
-              that should be skipped."}
-     :int]]
-
-   :gcp/bigquery.DatastoreBackupOptions       [:map {:closed true
-                                                     :class 'com.google.cloud.bigquery.DatastoreBackupOptions}
-                                               [:projectionFields {:optional false} [:sequential :string]]]
-
    :gcp/bigquery.HivePartitioningOptions      [:map {:closed true
                                                      :class 'com.google.cloud.bigquery.HivePartitioningOptions}
                                                [:fields {:optional false} [:sequential :string]]
                                                [:mode {:optional false} :string]
                                                [:requirePartitionFilter {:optional false} :boolean]
                                                [:sourceUriPrefix {:optional false} :string]]
-
-   :gcp/bigquery.ParquetOptions               [:map {:closed true
-                                                     :class 'com.google.cloud.bigquery.ParquetOptions}
-                                               [:enableListInference {:optional false} :boolean]
-                                               [:enumAsString {:optional false} :boolean]
-                                               [:mapTargetType {:optional false} :string]]
 
    :gcp/bigquery.LoadJobConfiguration
    [:map
@@ -1385,24 +1306,242 @@
                                            "FROM_URI"
                                            "INLINE"]})
 
+(def accessor-registry
+  {:gcp/bigquery.AvroOptions
+   [:map
+    {:gcp/key :gcp/bigquery.AvroOptions,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Google BigQuery options for AVRO format. This class wraps some properties of AVRO files used by
+        BigQuery to parse external data.",
+     :class "com.google.cloud.bigquery.AvroOptions"}
+    [:type {:optional true} [:= "AVRO"]]
+    [:useAvroLogicalTypes
+     {:optional true,
+      :getterDoc "Returns whether BigQuery should interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER).",
+      :setterDoc "[Optional] Sets whether BigQuery should interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER)."}
+     :boolean]]
+
+   :gcp/bigquery.BigtableOptions
+   [:map
+    {:gcp/key :gcp/bigquery.BigtableOptions,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Class BigtableOptions extends FormatOptions",
+     :class "com.google.cloud.bigquery.BigtableOptions"}
+    [:type {:optional true} [:= "BIGTABLE"]]
+    [:columnFamilies
+     {:optional true,
+      :getterDoc "Returns the list of column families.",
+      :setterDoc "List of column families to expose in the table schema along with their types. This list restricts the column families that can be referenced in queries and specifies their value types. You can use this list to do type conversions - see the 'type' field for more details. If you leave this list empty, all column families are present in the table schema and their values are read as BYTES. During a query only the column families referenced in that query are read from Bigtable."}
+     [:sequential :gcp/bigquery.BigtableColumnFamily]]
+    [:ignoreUnspecifiedColumnFamilies
+     {:optional true,
+      :getterDoc "Returns whether অপরিচিত column families are ignored.",
+      :setterDoc "If field is true, then the column families that are not specified in columnFamilies list are not exposed in the table schema. Otherwise, they are read with BYTES type values. The default value is false."}
+     :boolean]
+    [:readRowkeyAsString
+     {:optional true,
+      :getterDoc "Returns whether row key is read as a string.",
+      :setterDoc "If readRowkeyAsString is true, then the rowkey column families will be read and converted to string. Otherwise they are read with BYTES type values and users need to manually cast them with CAST if necessary. The default value is false."}
+     :boolean]]
+
+   :gcp/bigquery.DatastoreBackupOptions
+   [:map
+    {:gcp/key :gcp/bigquery.DatastoreBackupOptions,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Google BigQuery options for Cloud Datastore backup.",
+     :class "com.google.cloud.bigquery.DatastoreBackupOptions"}
+    [:type {:optional true} [:= "DATASTORE_BACKUP"]]
+    [:projectionFields
+     {:optional true,
+      :getterDoc "Returns the value of which entity properties to load into BigQuery from a Cloud Datastore backup.",
+      :setterDoc "Sets which entity properties to load into BigQuery from a Cloud Datastore backup. Property names are case sensitive and must be top-level properties. If no properties are specified, BigQuery loads all properties. If any named property isn't found in the Cloud Datastore backup, an invalid error is returned in the job result."}
+     [:sequential :string]]]
+
+   :gcp/bigquery.GoogleSheetsOptions
+   [:map
+    {:gcp/key :gcp/bigquery.GoogleSheetsOptions,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Google BigQuery options for the Google Sheets format.",
+     :class "com.google.cloud.bigquery.GoogleSheetsOptions"}
+    [:type {:optional true} [:= "GOOGLE_SHEETS"]]
+    [:range
+     {:optional true,
+      :getterDoc "Returns the number of range of a sheet when reading the data.",
+      :setterDoc "[Optional] Range of a sheet to query from. Only used when non-empty. Typical format: sheet_name!top_left_cell_id:bottom_right_cell_id For example: sheet1!A1:B20"}
+     :string]
+    [:skipLeadingRows
+     {:optional true,
+      :getterDoc "Returns the number of rows at the top of a sheet that BigQuery will skip when reading the data.",
+      :setterDoc "Sets the number of rows at the top of a sheet that BigQuery will skip when reading the data. The default value is 0. This property is useful if you have header rows that should be skipped."}
+     :int]]
+
+   :gcp/bigquery.ParquetOptions
+   [:map
+    {:gcp/key :gcp/bigquery.ParquetOptions,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Options class for Parquet format.
+
+        Parquet format is described at https://parquet.apache.org/documentation/latest/.",
+     :class "com.google.cloud.bigquery.ParquetOptions"}
+    [:type {:optional true} [:= "PARQUET"]]
+    [:enableListInference
+     {:optional true,
+      :getterDoc "Whether to infer Parquet LIST logical type as BigQuery REPEATED field. When set, the inferred types for LIST elements are also determined.",
+      :setterDoc "Sets whether to infer list type from leaf types (LIST) or element types (LIST -> ELEMENT)."}
+     :boolean]
+    [:enumAsString
+     {:optional true,
+      :getterDoc "Whether to infer Parquet ENUM logical type as BigQuery STRING type. When unset, ENUM is inferred as BYTES type.",
+      :setterDoc "Sets whether to read Parquet ENUM type as string or raw bytes."}
+     :boolean]
+    [:mapTargetType
+     {:optional true,
+      :getterDoc "Returns how the Parquet map is represented.",
+      :setterDoc "[Optional] Indicates how to represent a Parquet map if present. See Also: MapTargetType"}
+     :string]]
+
+   :gcp/bigquery.CsvOptions
+   [:map
+    {:gcp/key :gcp/bigquery.CsvOptions,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Google BigQuery options for CSV format. This class wraps some properties of CSV files used by
+        BigQuery to parse external data.",
+     :class "com.google.cloud.bigquery.CsvOptions"}
+    [:type {:optional true} [:= "CSV"]]
+    [:allowJaggedRows
+     {:optional true,
+      :getterDoc "Returns whether BigQuery should accept rows that are missing trailing optional columns. If `true`, BigQuery treats missing trailing columns as null values. If `false`, records with missing trailing columns are treated as bad records, and if the number of bad records exceeds [ExternalTableDefinition#getMaxBadRecords()](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExternalTableDefinition#com_google_cloud_bigquery_ExternalTableDefinition_getMaxBadRecords__), an invalid error is returned in the job result.",
+      :setterDoc "Set whether BigQuery should accept rows that are missing trailing optional columns. If `true`, BigQuery treats missing trailing columns as null values. If `false`, records with missing trailing columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. By default, rows with missing trailing columns are considered bad records."}
+     :boolean]
+    [:allowQuotedNewLines
+     {:optional true,
+      :getterDoc "Returns whether BigQuery should allow quoted data sections that contain newline characters in a CSV file.",
+      :setterDoc "Sets whether BigQuery should allow quoted data sections that contain newline characters in a CSV file. By default quoted newline are not allowed."}
+     :boolean]
+    [:encoding
+     {:optional true,
+      :getterDoc "Returns the character encoding of the data. The supported values are UTF-8 or ISO-8859-1. If not set, UTF-8 is used. BigQuery decodes the data after the raw, binary data has been split using the values set in [CsvOptions#getQuote()](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.CsvOptions#com_google_cloud_bigquery_CsvOptions_getQuote__) and [CsvOptions#getFieldDelimiter()](/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.CsvOptions#com_google_cloud_bigquery_CsvOptions_getFieldDelimiter__).",
+      :setterDoc "Sets the character encoding of the data. The supported values are UTF-8 or ISO-8859-1. The default value is UTF-8. BigQuery decodes the data after the raw, binary data has been split using the values set in [com.google.cloud.bigquery.CsvOptions.Builder.setQuote] and [com.google.cloud.bigquery.CsvOptions.Builder.setFieldDelimiter]."}
+     :string]
+    [:fieldDelimiter
+     {:optional true,
+      :getterDoc "Returns the separator for fields in a CSV file.",
+      :setterDoc "Sets the separator for fields in a CSV file. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. BigQuery also supports the escape sequence \" \" to specify a tab separator. The default value is a comma (',')."}
+     :string]
+    [:nullMarker
+     {:optional true,
+      :getterDoc "Returns the string that represents a null value in a CSV file.",
+      :setterDoc "[Optional] Specifies a string that represents a null value in a CSV file. For example, if you specify \"\\N\", BigQuery interprets \"\\N\" as a null value when querying a CSV file. The default value is the empty string. If you set this property to a custom value, BigQuery throws an error if an empty string is present for all data types except for STRING and BYTE. For STRING and BYTE columns, BigQuery interprets the empty string as an empty value."}
+     :string]
+    [:preserveAsciiControlCharacters
+     {:optional true,
+      :getterDoc "Returns whether BigQuery should allow ascii control characters in a CSV file. By default ascii control characters are not allowed.",
+      :setterDoc "Sets whether BigQuery should allow ASCII control characters in a CSV file. By default ASCII control characters are not allowed."}
+     :boolean]
+    [:quote
+     {:optional true,
+      :getterDoc "Returns the value that is used to quote data sections in a CSV file.",
+      :setterDoc "Sets the value that is used to quote data sections in a CSV file. BigQuery converts the string to ISO-8859-1 encoding, and then uses the first byte of the encoded string to split the data in its raw, binary state. The default value is a double-quote ('\"'). If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set [com.google.cloud.bigquery.CsvOptions.Builder.setAllowQuotedNewLines] property to `true`."}
+     :string]
+    [:skipLeadingRows
+     {:optional true,
+      :getterDoc "Returns the number of rows at the top of a CSV file that BigQuery will skip when reading the data.",
+      :setterDoc "Sets the number of rows at the top of a CSV file that BigQuery will skip when reading the data. The default value is 0. This property is useful if you have header rows in the file that should be skipped."}
+     :int]]
+
+
+   :gcp/bigquery.BigtableColumnFamily
+   [:map
+    {:gcp/key :gcp/bigquery.BigtableColumnFamily,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "List of column families to expose in the table schema along with their types. This list restricts
+        the column families that can be referenced in queries and specifies their value types.
+
+        You can use this list to do type conversions - see the 'type' field for more details. If you
+        leave this list empty, all column families are present in the table schema and their values are
+        read as BYTES. During a query only the column families referenced in that query are read from
+        Bigtable.",
+     :class "com.google.cloud.bigquery.BigtableColumnFamily"}
+    [:columns
+     {:optional true,
+      :setterDoc "Lists of columns that should be exposed as individual fields as opposed to a list of (column name, value) pairs. All columns whose qualifier matches a qualifier in this list can be accessed as .. Other columns can be accessed as a list through .Column field.",
+      :getterDoc "string"}
+     [:sequential :gcp/bigquery.BigtableColumn]]
+    [:encoding
+     {:optional true,
+      :setterDoc "The encoding of the values when the type is not STRING.  Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions.  This can be overridden for a specific column by listing that column in 'columns' and specifying an encoding for it.",
+      :getterDoc "string"}
+     :string]
+    [:familyID {:optional true, :setterDoc "Identifier of the column family.", :getterDoc "string"} :string]
+    [:onlyReadLatest
+     {:optional true,
+      :setterDoc "If true, only the latest version of values are exposed for all columns in this column family. This can be overridden for a specific column by listing that column in 'columns' and specifying a different setting for that column.",
+      :getterDoc "string"}
+     :boolean]
+    [:type
+     {:optional true,
+      :setterDoc "The type to convert the value in cells of this column family. The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value.  Following BigQuery types are allowed (case-sensitive): BYTES STRING INTEGER FLOAT BOOLEAN.  The default type is BYTES. This can be overridden for a specific column by listing that column in 'columns' and specifying a type for it.",
+      :getterDoc "string"}
+     :string]]
+
+   :gcp/bigquery.BigtableColumn
+   [:map
+    {:gcp/key :gcp/bigquery.BigtableColumn,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Class BigtableColumn.",
+     :class "com.google.cloud.bigquery.BigtableColumn"}
+    [:encoding
+     {:optional true,
+      :getterDoc "Returns the encoding of the values when a field is not explicitly set.",
+      :setterDoc "The encoding of the values when the type is not STRING. Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions.nEncoding can also be set at the column family level. However, the setting at the column level takes precedence if 'encoding' is set at both levels."}
+     :string]
+    [:fieldName
+     {:optional true,
+      :getterDoc "Returns the field name of the column.",
+      :setterDoc "If the qualifier is not a valid BigQuery field identifier, a valid identifier must be provided as the column field name and is used as field name in queries."}
+     :string]
+    [:onlyReadLatest
+     {:optional true,
+      :getterDoc "Returns whether to read the latest or all versions.",
+      :setterDoc "If this is set, only the latest version of value in this column are exposed.n'onlyReadLatest' can also be set at the column family level. However, the setting at the column level takes precedence if 'onlyReadLatest' is set at both levels."}
+     :boolean]
+    [:qualifierEncoded
+     {:optional true,
+      :getterDoc "Returns the qualifier encoded of the column.",
+      :setterDoc "Qualifier of the column.nColumns in the parent column family that has this exact qualifier are exposed as . field. If the qualifier is valid UTF-8 string, it can be specified in the qualifier_string field. Otherwise, a base-64 encoded value must be set to qualifier_encoded. The column field name is the same as the column qualifier. However, if the qualifier is not a valid BigQuery field identifier, a valid identifier must be provided as field_name."}
+     :string]
+    [:type
+     {:optional true,
+      :getterDoc "Returns the type of the column.",
+      :setterDoc "The type to convert the value in cells of this column.nThe values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): BYTES STRING INTEGER FLOAT BOOLEAN Default type is BYTES.n'type' can also be set at the column family level. However, the setting at the column level takes precedence if 'type' is set at both levels."}
+     :string]]})
+
 (def union-registry
   {:gcp/bigquery.FormatOptions
-   [:and
+   [:or
     {:class "com.google.cloud.bigquery.FormatOptions",
+     :gcp/type :concrete-union,
      :gcp/key :gcp/bigquery.FormatOptions,
      :doc "Base class for Google BigQuery format options. These class define the format of external data used by BigQuery, for either federated tables or load jobs. Load jobs support the following formats: AVRO, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON, ORC, PARQUET Federated tables can be defined against following formats: AVRO, BIGTABLE, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON"}
-    [:map
-     [:type
-      {:optional true}
-      [:enum "DATASTORE_BACKUP" "CSV" "GOOGLE_SHEETS" "ORC" "BIGTABLE" "PARQUET" "AVRO" "ICEBERG" "NEWLINE_DELIMITED_JSON"]]]
-    [:or
-     ;:gcp/bigquery.AvroOptions
-     ;:gcp/bigquery.BigtableOptions
-     :gcp/bigquery.CsvOptions
-     :gcp/bigquery.DatastoreBackupOptions
-     ;:gcp/bigquery.GoogleSheetsOptions
-     :gcp/bigquery.ParquetOptions]]
+    :gcp/bigquery.AvroOptions
+    :gcp/bigquery.BigtableOptions
+    :gcp/bigquery.CsvOptions
+    :gcp/bigquery.DatastoreBackupOptions
+    :gcp/bigquery.GoogleSheetsOptions
+    :gcp/bigquery.ParquetOptions
+    [:map {:closed true} [:type [:= "ORC"]]]
+    [:map {:closed true} [:type [:= "ICEBERG"]]]
+    [:map {:closed true} [:type [:= "NEWLINE_DELIMITED_JSON"]]]]
 
+   ;;TODO redo
    :gcp/bigquery.JobConfiguration
    [:and
     {:doc      "abstract class for Copy/Extract/Load/Query configs"
@@ -1416,6 +1555,7 @@
      :gcp/bigquery.LoadJobConfiguration
      :gcp/bigquery.QueryJobConfiguration]]
 
+   ;;TODO redo
    :gcp/bigquery.TableDefinition
    [:and
     [:map
@@ -1427,8 +1567,12 @@
      :gcp/bigquery.StandardTableDefinition
      :gcp/bigquery.ViewDefinition]]})
 
-(assert (empty? (clojure.set/intersection (set (keys registry))
-                                          (set (keys enum-registry))
-                                          (set (keys union-registry)))))
+(defn assert-disjoint! [r0 r1]
+  (when-let [both (not-empty (clojure.set/intersection (set (keys r0)) (set (keys r1))))]
+    (throw (Exception. (str "overlapping keys: " both)))))
 
-(g/include-schema-registry! (merge registry enum-registry union-registry))
+(assert-disjoint! registry enum-registry)
+(assert-disjoint! registry union-registry)
+(assert-disjoint! registry accessor-registry)
+
+(g/include-schema-registry! (merge registry enum-registry union-registry accessor-registry))

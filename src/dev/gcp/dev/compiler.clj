@@ -118,12 +118,23 @@
   ;; we want to be as tolerant as possible:
   ;;  -- if tag is present, dispatch on tag
   ;;  -- if tag is not present but map is full, test variant subclasses
-  ;;  ----- if singular hit, choose
-  ;;  ----- if multiple hits, throw ambiguous
-  ;;  -- if tag is not present but map is empty, throw
+  ;;  ----- if hit, choose
+  ;;  ----- no hit, throw
   (let [target-class (-> (class-parts className) first symbol)
+        tagged (reduce
+                 (fn [acc tag]
+                   (if-let [variant (get-in node [:tag->class tag])]
+                     (let [alias (first (class-parts variant))
+                           from-edn-call (symbol alias "from-edn")]
+                       (conj acc tag (list from-edn-call 'arg)))
+                     (let [method (g/coerce some? (get-in node [:tag->method tag]))
+                           meth (symbol (name target-class) (name method))]
+                       (conj acc tag (list meth)))))
+                 []
+                 (sort (:variantTags node)))
         body `(~'if-let [~'tag (~'get ~'arg :type)]
-                ()
+                (~'case ~'tag
+                  ~@tagged)
                 ())
         form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
                 [~'arg]
