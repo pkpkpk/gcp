@@ -49,7 +49,7 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 #!
-#! from-edn
+#! :types/accessors
 #!
 
 (defn emit-from-edn-call
@@ -107,76 +107,8 @@
                 [~'arg]
                 (gcp.global/strict! ~(:gcp/key node) ~'arg)
                 ~let-body)
-        src (zp/zprint-str form)
-        src' (str (subs src 0 5) " ^" target-class (subs src 5))]
-    src'))
-
-#!----------------------------------------------------------------------------------------------------------------------
-
-(defn emit-concrete-union-from-edn
-  [package {:keys [className variantTags] :as node}]
-  (let [variantTags (g/coerce [:set :string] variantTags)
-        target-class (-> (class-parts className) first symbol)
-        body (reduce
-               (fn [acc tag]
-                 (if-let [variant (get-in node [:tag->class tag])]
-                   (let [gcp-key (package-key package variant)
-                         alias (first (class-parts variant))
-                         from-edn-call (symbol alias "from-edn")]
-                     (conj acc `(~'and (~'or (~'= ~tag (~'get ~'arg :type))
-                                             (gcp.global/valid? ~gcp-key ~'arg))
-                                  (~from-edn-call ~'arg))))
-                   (let [method (g/coerce some? (get-in node [:tag->method tag]))
-                         meth (symbol (name target-class) (name method))]
-                     (conj acc `(~'and (~'= ~tag (~'get ~'arg :type))  ~(list meth))))))
-               ['or]
-               (sort variantTags))
-        body (conj body `(throw (ex-info ~(str "failed to match variant for union " className) {:arg ~'arg :expected ~variantTags})))
-        form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
-                [~'arg]
-                (gcp.global/strict! ~(:gcp/key node) ~'arg)
-                ~(list* body))
         src (zp/zprint-str form)]
     (str (subs src 0 5) " ^" target-class (subs src 5))))
-
-(defn emit-concrete-union-to-edn
-  [package {:keys [className variantTags classlessTags] :as node}]
-  (g/coerce map? node)
-  (assert (= :concrete-union (::ana/type node)))
-  (let [target-class (-> (class-parts className) first symbol)
-        case-body (reduce
-                    (fn [acc tag]
-                      (if-let [variant (get-in node [:tag->class tag])]
-                        (let [alias       (first (class-parts variant))
-                              to-edn-call (symbol alias "to-edn")]
-                          (conj acc tag `(~'assoc (~to-edn-call ~'arg) :type ~tag)))
-                        (conj acc tag {:type tag})))
-                    []
-                    variantTags)
-        form `(~'defn ~'to-edn [~'arg]
-                {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
-                (~'case (.getType ~'arg) ;=> NOTE this might be enum for abstract-unions
-                   ~@case-body))]
-    (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
-
-#!----------------------------------------------------------------------------------------------------------------------
-
-(defn emit-abstract-union-from-edn [package t] (throw (Exception. "unimplemented")))
-(defn emit-static-factory-from-edn [package t] (throw (Exception. "unimplemented")))
-
-(defn emit-from-edn
-  [package className]
-  (let [{t ::ana/type :as node} (analyze package className)]
-    (case t
-      :accessor (emit-accessor-from-edn package node)
-      :concrete-union (emit-concrete-union-from-edn package node)
-      :static-factory (emit-static-factory-from-edn package node)
-      (throw (Exception. (str "cannot emit from-edn for className '" className "' with type '" t "'"))))))
-
-#!----------------------------------------------------------------------------------------------------------------------
-#!
-#! to-edn
-#!
 
 (defn emit-to-edn-call
   [package key {:keys [getterMethod getterReturnType] :as field}]
@@ -229,17 +161,94 @@
     (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
 
 #!----------------------------------------------------------------------------------------------------------------------
+#!
+#! :types/concrete-unions
+#!
+
+(defn emit-concrete-union-from-edn
+  [package {:keys [className variantTags] :as node}]
+  (let [variantTags (g/coerce [:set :string] variantTags)
+        target-class (-> (class-parts className) first symbol)
+        body (reduce
+               (fn [acc tag]
+                 (if-let [variant (get-in node [:tag->class tag])]
+                   (let [gcp-key (package-key package variant)
+                         alias (first (class-parts variant))
+                         from-edn-call (symbol alias "from-edn")]
+                     (conj acc `(~'and (~'or (~'= ~tag (~'get ~'arg :type))
+                                             (gcp.global/valid? ~gcp-key ~'arg))
+                                  (~from-edn-call ~'arg))))
+                   (let [method (g/coerce some? (get-in node [:tag->method tag]))
+                         meth (symbol (name target-class) (name method))]
+                     (conj acc `(~'and (~'= ~tag (~'get ~'arg :type))  ~(list meth))))))
+               ['or]
+               (sort variantTags))
+        body (conj body `(throw (ex-info ~(str "failed to match variant for union " className) {:arg ~'arg :expected ~variantTags})))
+        form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
+                [~'arg]
+                (gcp.global/strict! ~(:gcp/key node) ~'arg)
+                ~(list* body))
+        src (zp/zprint-str form)]
+    (str (subs src 0 5) " ^" target-class (subs src 5))))
+
+(defn emit-concrete-union-to-edn
+  [_ {:keys [className variantTags] :as node}]
+  (g/coerce map? node)
+  (assert (= :concrete-union (::ana/type node)))
+  (let [target-class (-> (class-parts className) first symbol)
+        case-body (reduce
+                    (fn [acc tag]
+                      (if-let [variant (get-in node [:tag->class tag])]
+                        (let [alias       (first (class-parts variant))
+                              to-edn-call (symbol alias "to-edn")]
+                          (conj acc tag `(~'assoc (~to-edn-call ~'arg) :type ~tag)))
+                        (conj acc tag {:type tag})))
+                    []
+                    variantTags)
+        form `(~'defn ~'to-edn [~'arg]
+                {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
+                (~'case ~(if (= 'java.lang.String (get-in node [:getType :returnType]))
+                           (.getType ~'arg)
+                           (.name (.getType ~'arg)))
+                   ~@case-body))]
+    (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#!
+#! :types/abstract-unions
+#!
 
 (defn emit-abstract-union-to-edn [package t] (throw (Exception. "unimplemented")))
+
+(defn emit-abstract-union-from-edn [package t] (throw (Exception. "unimplemented")))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! #! :types/static-factories
+#!
+
 (defn emit-static-factory-to-edn [package t] (throw (Exception. "unimplemented")))
+(defn emit-static-factory-from-edn [package t] (throw (Exception. "unimplemented")))
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defn emit-to-edn
   [package className]
   (let [{t ::ana/type :as node} (analyze package className)]
     (case t
       :accessor (emit-accessor-to-edn package node)
+      :abstract-union (emit-abstract-union-to-edn package node)
       :concrete-union (emit-concrete-union-to-edn package node)
       :static-factory (emit-static-factory-to-edn package node)
+      (throw (Exception. (str "cannot emit from-edn for className '" className "' with type '" t "'"))))))
+
+(defn emit-from-edn
+  [package className]
+  (let [{t ::ana/type :as node} (analyze package className)]
+    (case t
+      :accessor (emit-accessor-from-edn package node)
+      :abstract-union (emit-abstract-union-from-edn package node)
+      :concrete-union (emit-concrete-union-from-edn package node)
+      :static-factory (emit-static-factory-from-edn package node)
       (throw (Exception. (str "cannot emit from-edn for className '" className "' with type '" t "'"))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
@@ -249,6 +258,8 @@
 
 (defn emit-binding
   [package className]
+  (when (contains? (:types/nested package) className)
+    (throw (Exception. (str "cannot emit binding for nested type '" className "'"))))
   (let [ns-form (emit-ns-form package className)
         to-edn (emit-to-edn package className)
         forms (cond-> [ns-form to-edn]

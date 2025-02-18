@@ -265,3 +265,10 @@
                         (empty? parameter-types) (dissoc m :parameter-types)
                         (empty? exception-types) (dissoc m :exception-types))))))
         (sort-by :name (:members (reflect class-like)))))
+
+(defn enum-values [class-like]
+  (let [meth (.getMethod (as-class class-like) "values" (into-array Class []))]
+    (->> (.invoke meth nil (into-array Object []))
+         (map #(.name %))
+         sort
+         vec)))

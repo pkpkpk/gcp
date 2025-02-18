@@ -18,17 +18,21 @@
         head (cond-> head
                      ?variant-tag (conj [:type {:optional true} [:= ?variant-tag]]))]
     (into head
-          (map
-            (fn [[k v]]
-              (let [{:keys [setterDoc getterDoc]} v
-                    opts      (dissoc v :setterMethod :setterDoc :getterMethod :getterDoc :getterReturnType :setterArgumentType)
-                    getterDoc (clean-doc getterDoc)
-                    setterDoc (clean-doc setterDoc)]
-                [k
-                 (cond-> opts
-                         getterDoc (assoc :getterDoc getterDoc)
-                         setterDoc (assoc :setterDoc setterDoc))
-                 (->malli-type package (:setterArgumentType v))])))
+          (comp
+            (remove
+              (fn [[k _]]
+                (and ?variant-tag (= k :type))))
+            (map
+              (fn [[k v]]
+                (let [{:keys [setterDoc getterDoc]} v
+                      opts      (dissoc v :setterMethod :setterDoc :getterMethod :getterDoc :getterReturnType :setterArgumentType)
+                      getterDoc (clean-doc getterDoc)
+                      setterDoc (clean-doc setterDoc)]
+                  [k
+                   (cond-> opts
+                           getterDoc (assoc :getterDoc getterDoc)
+                           setterDoc (assoc :setterDoc setterDoc))
+                   (->malli-type package (:setterArgumentType v))]))))
           fields)))
 
 (defn- malli-static-factory
@@ -78,6 +82,18 @@
         (into with-classes)
         (into without-classes))))
 
+(defn- malli-abstract-union
+  [package {:keys [doc class->tag className] :as node}]
+  (assert (= :abstract-union (::ana/type node)))
+  (let [doc (clean-doc doc)
+        opts (cond-> {:class    (as-dot-string className)
+                      :gcp/type (g/coerce keyword? (::ana/type node))
+                      :gcp/key  (g/coerce keyword? (:gcp/key node))}
+                     doc (assoc :doc doc))
+        with-classes (map (partial package-key package) (sort (keys class->tag)))]
+    (-> [:or opts]
+        (into with-classes))))
+
 (defn malli [package className]
   {:post [(vector? %)
           (map? (second %))
@@ -87,6 +103,7 @@
     (assert (some? (:className t)))
     (case type
       :accessor (malli-accessor package t)
+      :abstract-union (malli-abstract-union package t)
       :concrete-union (malli-concrete-union package t)
       :enum (malli-enum package t)
       :static-factory (malli-static-factory package t)

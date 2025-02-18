@@ -1522,7 +1522,42 @@
      {:optional true,
       :getterDoc "Returns the type of the column.",
       :setterDoc "The type to convert the value in cells of this column.nThe values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): BYTES STRING INTEGER FLOAT BOOLEAN Default type is BYTES.n'type' can also be set at the column family level. However, the setting at the column level takes precedence if 'type' is set at both levels."}
-     :string]]})
+     :string]]
+
+   :gcp/bigquery.ModelTableDefinition
+   [:map
+    {:gcp/key :gcp/bigquery.ModelTableDefinition,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "A Google BigQuery Model table definition. This definition is used to represent a BigQuery ML
+        model.
+        See Also: BigQuery  ML Model",
+     :class "com.google.cloud.bigquery.ModelTableDefinition"}
+    [:type {:optional true} [:= "MODEL"]]
+    [:location {:optional true} :string]
+    [:numBytes {:optional true} :int]]
+
+   :gcp/bigquery.SnapshotTableDefinition
+   [:map
+    {:gcp/key :gcp/bigquery.SnapshotTableDefinition,
+     :gcp/type :accessor,
+     :closed true,
+     :doc "Class SnapshotTableDefinition extends TableDefinition",
+     :class "com.google.cloud.bigquery.SnapshotTableDefinition"}
+    [:type {:optional true} [:= "SNAPSHOT"]]
+    [:baseTableId
+     {:optional true,
+      :getterDoc "method getBaseTableId",
+      :setterDoc "Reference describing the ID of the table that was snapshot. *"}
+     :gcp/bigquery.TableId]
+    [:clustering {:optional true} :gcp/bigquery.Clustering]
+    [:dateTime
+     {:optional true,
+      :getterDoc "method getSnapshotTime",
+      :setterDoc "The time at which the base table was snapshot. This value is reported in the JSON response using RFC3339 format. *"}
+     :string]
+    [:rangePartitioning {:optional true} :gcp/bigquery.RangePartitioning]
+    [:timePartitioning {:optional true} :gcp/bigquery.TimePartitioning]]})
 
 (def union-registry
   {:gcp/bigquery.FormatOptions
@@ -1541,31 +1576,29 @@
     [:map {:closed true} [:type [:= "ICEBERG"]]]
     [:map {:closed true} [:type [:= "NEWLINE_DELIMITED_JSON"]]]]
 
-   ;;TODO redo
    :gcp/bigquery.JobConfiguration
-   [:and
-    {:doc      "abstract class for Copy/Extract/Load/Query configs"
-     :class    'com.google.cloud.bigquery.JobConfiguration
-     :from-edn 'gcp.bigquery.v2.JobConfiguration/from-edn
-     :to-edn   'gcp.bigquery.v2.JobConfiguration/to-edn}
-    [:map [:type [:enum "COPY" "EXTRACT" "LOAD" "QUERY"]]]
-    [:or
-     :gcp/bigquery.CopyJobConfiguration
-     :gcp/bigquery.ExtractJobConfiguration
-     :gcp/bigquery.LoadJobConfiguration
-     :gcp/bigquery.QueryJobConfiguration]]
+   [:or
+    {:class "com.google.cloud.bigquery.JobConfiguration",
+     :gcp/type :abstract-union,
+     :gcp/key :gcp/bigquery.JobConfiguration,
+     :doc "Base class for a BigQuery job configuration."}
+    :gcp/bigquery.CopyJobConfiguration
+    :gcp/bigquery.ExtractJobConfiguration
+    :gcp/bigquery.LoadJobConfiguration
+    :gcp/bigquery.QueryJobConfiguration]
 
-   ;;TODO redo
    :gcp/bigquery.TableDefinition
-   [:and
-    [:map
-     [:type [:enum "EXTERNAL" "MATERIALIZED_VIEW" "MODEL" "SNAPSHOT" "TABLE" "VIEW"]]
-     [:schema {:optional true} :gcp/bigquery.Schema]]
-    [:or
-     :gcp/bigquery.ExternalTableDefinition
-     :gcp/bigquery.MaterializedViewDefinition
-     :gcp/bigquery.StandardTableDefinition
-     :gcp/bigquery.ViewDefinition]]})
+   [:or
+    {:class "com.google.cloud.bigquery.TableDefinition",
+     :gcp/type :abstract-union,
+     :gcp/key :gcp/bigquery.TableDefinition,
+     :doc "Base class for a Google BigQuery table definition."}
+    :gcp/bigquery.ExternalTableDefinition
+    :gcp/bigquery.MaterializedViewDefinition
+    :gcp/bigquery.ModelTableDefinition
+    :gcp/bigquery.SnapshotTableDefinition
+    :gcp/bigquery.StandardTableDefinition
+    :gcp/bigquery.ViewDefinition]})
 
 (defn assert-disjoint! [r0 r1]
   (when-let [both (not-empty (clojure.set/intersection (set (keys r0)) (set (keys r1))))]

@@ -11,7 +11,7 @@
     [gcp.dev.models :as models]
     [gcp.dev.packages :as packages]
     [gcp.dev.store :as store]
-    [gcp.dev.util :as util :refer :all]
+    [gcp.dev.util :refer :all]
     [gcp.global :as g]
     gcp.vertexai.v1
     [rewrite-clj.zip :as z]
@@ -244,8 +244,10 @@
             #{}
             (:members reflection))))
 
-(defn analyze-concrete-union [package className]
-  (let [{:keys [doc]} (extract/$extract-type-detail package className)
+(defn analyze-concrete-union
+  "concrete unions have static methods for variants that do no have their own subclass"
+  [package className]
+  (let [{:keys [doc getterMethods]} (extract/$extract-type-detail package className)
         variant-classes (g/coerce [:seqable :string] (get-in package [:types/concrete-unions className]))
         tags (variant-tags className)
         zipped (align/align-variant-class-to-variant-tags package variant-classes tags)
@@ -253,20 +255,38 @@
         static-method-names (map (comp name :name) (public-instantiators className))
         classless-methods (align/align-variant-tags-to-static-methods package classless-tags static-method-names)]
     {::type            :concrete-union
-     :gcp/key          (util/package-key package className)
+     :gcp/key          (package-key package className)
      :className        className
      :doc              doc
      :typeDependencies variant-classes
      :variantTags      tags
      :class->tag       zipped
      :tag->class       (clojure.set/map-invert zipped)
+     :tag->method classless-methods
      :classlessTags    classless-tags
-     :tag->method classless-methods}))
-
+     :getType (g/coerce some? (get getterMethods :getType))}))
 
 #!--------------------------------------------------------------------------------------------------------
 
-(defn analyze-abstract-union [package className] (throw (Exception. "analyze-abstract-union unimplemented")))
+(defn analyze-abstract-union
+  "abstract unions have subclasses for all variants"
+  [package className]
+  (let [{:keys [getterMethods doc]} (extract/$extract-type-detail package className)
+        variant-classes (g/coerce [:seqable :string] (get-in package [:types/abstract-unions className]))
+        {:keys [returnType] :as getType} (g/coerce some? (get getterMethods :getType))
+        _ (assert (contains? (:types/enums package) returnType) "expected enum type as returnType for abstract union .getType()")
+        tags (enum-values returnType)
+        zipped (align/align-variant-class-to-variant-tags package variant-classes tags)]
+    (merge
+      {::type          :abstract-union
+       :gcp/key        (package-key package className)
+       :className      className
+       :doc            (clean-doc doc)
+       :variantClasses variant-classes
+       :variantTags    tags
+       :class->tag     zipped
+       :tag->class     (clojure.set/map-invert zipped)
+       :getType        getType})))
 
 #!--------------------------------------------------------------------------------------------------------
 

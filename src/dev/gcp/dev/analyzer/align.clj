@@ -94,7 +94,8 @@
                      (when-not (= variant-classes (set (map name (keys edn))))
                        (throw (ex-info "incorrect classes" {:variant-classes variant-classes
                                                             :edn-keys (set (map name (keys edn)))})))
-                     (when-not (clojure.set/subset? (set (vals edn)) variant-tags)
+                     (when-not (or (= (set (vals edn)) (set variant-tags))
+                                   (clojure.set/subset? (set (vals edn)) (set variant-tags)))
                        (throw (ex-info "incorrect tags" {:variant-tags variant-tags
                                                          :edn edn}))))
         edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]

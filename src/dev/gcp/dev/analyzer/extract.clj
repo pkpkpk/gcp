@@ -25,14 +25,6 @@
        :instanceMethods (sorted-map)}
       members)))
 
-(defn enum-values [clazz]
-  (assert (class? clazz))
-  (let [meth (.getMethod clazz "values" (into-array Class []))]
-    (->> (.invoke meth nil (into-array Object []))
-         (map #(.name %))
-         sort
-         vec)))
-
 (defn reflect-builder [class-like]
   (assert (builder-like? class-like))
   (let [clazz (as-class class-like)
