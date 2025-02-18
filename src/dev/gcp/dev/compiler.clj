@@ -38,13 +38,13 @@
                           (throw (ex-info "unimplemented requires for non-sibling dependencies" {:target-class className
                                                                                                  :other-deps   other})))
         [target-package target-class] ((juxt #(symbol (string/join "." (butlast %))) #(symbol (last %))) (dot-parts className))
-        requires        (into ['[gcp.global :as g]] (map (partial sibling-require package)) sibling-parts)
+        requires        (into ['gcp.global] (map (partial sibling-require package)) sibling-parts)
         package-imports (cond-> [target-package target-class]
                                 (seq target-package-enums) (into (comp (map class-dollar-string) (map symbol)) target-package-enums))
         imports         [package-imports]
         form `(~'ns ~(symbol (str rootNs "." (peek (class-parts className))))
                 (:import ~@(sort-by first imports))
-                (:require ~@(sort-by first requires)))]
+                (:require ~@(sort-by #(if (vector? %) (first %) %) requires)))]
     (zp/zprint-str form)))
 
 #!----------------------------------------------------------------------------------------------------------------------
@@ -114,34 +114,50 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn emit-concrete-union-from-edn
-  [package {:keys [className] :as node}]
-  ;; we want to be as tolerant as possible:
-  ;;  -- if tag is present, dispatch on tag
-  ;;  -- if tag is not present but map is full, test variant subclasses
-  ;;  ----- if hit, choose
-  ;;  ----- no hit, throw
-  (let [target-class (-> (class-parts className) first symbol)
-        tagged (reduce
-                 (fn [acc tag]
-                   (if-let [variant (get-in node [:tag->class tag])]
-                     (let [alias (first (class-parts variant))
-                           from-edn-call (symbol alias "from-edn")]
-                       (conj acc tag (list from-edn-call 'arg)))
-                     (let [method (g/coerce some? (get-in node [:tag->method tag]))
-                           meth (symbol (name target-class) (name method))]
-                       (conj acc tag (list meth)))))
-                 []
-                 (sort (:variantTags node)))
-        body `(~'if-let [~'tag (~'get ~'arg :type)]
-                (~'case ~'tag
-                  ~@tagged)
-                ())
+  [package {:keys [className variantTags] :as node}]
+  (let [variantTags (g/coerce [:set :string] variantTags)
+        target-class (-> (class-parts className) first symbol)
+        body (reduce
+               (fn [acc tag]
+                 (if-let [variant (get-in node [:tag->class tag])]
+                   (let [gcp-key (package-key package variant)
+                         alias (first (class-parts variant))
+                         from-edn-call (symbol alias "from-edn")]
+                     (conj acc `(~'and (~'or (~'= ~tag (~'get ~'arg :type))
+                                             (gcp.global/valid? ~gcp-key ~'arg))
+                                  (~from-edn-call ~'arg))))
+                   (let [method (g/coerce some? (get-in node [:tag->method tag]))
+                         meth (symbol (name target-class) (name method))]
+                     (conj acc `(~'and (~'= ~tag (~'get ~'arg :type))  ~(list meth))))))
+               ['or]
+               (sort variantTags))
+        body (conj body `(throw (ex-info ~(str "failed to match variant for union " className) {:arg ~'arg :expected ~variantTags})))
         form `(~'defn ~(vary-meta 'from-edn assoc :tag (symbol className))
                 [~'arg]
                 (gcp.global/strict! ~(:gcp/key node) ~'arg)
-                ~body)
+                ~(list* body))
         src (zp/zprint-str form)]
     (str (subs src 0 5) " ^" target-class (subs src 5))))
+
+(defn emit-concrete-union-to-edn
+  [package {:keys [className variantTags classlessTags] :as node}]
+  (g/coerce map? node)
+  (assert (= :concrete-union (::ana/type node)))
+  (let [target-class (-> (class-parts className) first symbol)
+        case-body (reduce
+                    (fn [acc tag]
+                      (if-let [variant (get-in node [:tag->class tag])]
+                        (let [alias       (first (class-parts variant))
+                              to-edn-call (symbol alias "to-edn")]
+                          (conj acc tag `(~'assoc (~to-edn-call ~'arg) :type ~tag)))
+                        (conj acc tag {:type tag})))
+                    []
+                    variantTags)
+        form `(~'defn ~'to-edn [~'arg]
+                {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
+                (~'case (.getType ~'arg) ;=> NOTE this might be enum for abstract-unions
+                   ~@case-body))]
+    (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 
@@ -189,10 +205,10 @@
       true
       (throw (ex-info (str "unimplemented type " (pr-str getterReturnType)) {:key key :field field})))))
 
-(defn emit-accessor-to-edn [package className]
-  (let [{:keys [fields] :as node} (analyze package className)
-        _ (assert (= :accessor (::ana/type node)))
-        target-class (-> (class-parts className) first symbol)
+(defn emit-accessor-to-edn
+  [package {:keys [className fields] :as node}]
+  (assert (= :accessor (::ana/type node)))
+  (let [target-class (-> (class-parts className) first symbol)
         required-keys (map :field (:newBuilder node))
         required-fields (into (sorted-map) (select-keys fields required-keys))
         optional-fields (into (sorted-map) (apply dissoc fields required-keys))
@@ -209,14 +225,8 @@
                     [] optional-fields))
         form `(~'defn ~'to-edn [~'arg]
                 {:post [(gcp.global/strict! ~(:gcp/key node) ~'%)]}
-                ~body)
-        src (zp/zprint-str form)
-        src' (string/replace src "[arg]" (str "[^" target-class  " arg]"))]
-    src'))
-
-#!----------------------------------------------------------------------------------------------------------------------
-
-(defn emit-concrete-union-to-edn [package t] (throw (Exception. "unimplemented")))
+                ~body)]
+    (string/replace (zp/zprint-str form) "[arg]" (str "[^" target-class  " arg]"))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 
@@ -225,17 +235,26 @@
 
 (defn emit-to-edn
   [package className]
-  (let [{t ::ana/type} (analyze package className)]
+  (let [{t ::ana/type :as node} (analyze package className)]
     (case t
-      :accessor (emit-accessor-to-edn package className)
-      :concrete-union (emit-concrete-union-to-edn package className)
-      :static-factory (emit-static-factory-to-edn package className)
+      :accessor (emit-accessor-to-edn package node)
+      :concrete-union (emit-concrete-union-to-edn package node)
+      :static-factory (emit-static-factory-to-edn package node)
       (throw (Exception. (str "cannot emit from-edn for className '" className "' with type '" t "'"))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #!
 #! complete binding
 #!
+
+(defn emit-binding
+  [package className]
+  (let [ns-form (emit-ns-form package className)
+        to-edn (emit-to-edn package className)
+        forms (cond-> [ns-form to-edn]
+                      (not (contains? (:types/read-only package) className))
+                      (conj (emit-from-edn package className)))]
+    (string/join "\n\n" forms)))
 
 (defn spit-binding
   ([package target-class]
@@ -245,20 +264,6 @@
          target-file (io/file root (str class-name ".clj"))]
      (if (and (not overwrite?) (.exists target-file))
        (throw (ex-info "already exists" {:file target-file}))
-       (let [src (string/join "\n\n"
-                              [(emit-ns-form package target-class)
-                               (emit-from-edn package target-class)
-                               (emit-to-edn package target-class)])]
+       (let [src (emit-binding package target-class)]
          (spit target-file src))))))
 
-(defn spit-accessor-binding
-  [{:keys [root] :as package} target-class]
-  (assert (contains? (:types/accessors package) target-class))
-  (let [class-name (peek (class-parts target-class))
-        target-file (io/file root (str class-name ".clj"))]
-    (if (.exists target-file)
-      (throw (ex-info "already exists" {:file target-file}))
-      (let [forms [(emit-ns-form package target-class)
-                   (emit-from-edn package target-class)]
-            src (zp/zprint-str (apply str forms) 80 {:parse-string-all? true :parse {:interpose "\n\n"}})]
-        (spit target-file src)))))
