@@ -1,0 +1,5 @@
+{:paths ["src"]
+ :deps {
+        com.google.cloud/google-cloud-bigquery {:mvn/version "2.48.0"}
+        gcp/global {:local/root "../global"}
+        }}

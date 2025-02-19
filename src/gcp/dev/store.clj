@@ -50,6 +50,18 @@
         (k/assoc (connect store-name) url bs {:sync? true})
         bs)))
 
+(defn extract-java-ref
+  ([store-name model-cfg url]
+   (extract-java-ref store-name model-cfg url identity))
+  ([store-name model-cfg url validator!]
+   (assert (string? store-name))
+   (let [key [model-cfg url]]
+     (let [url-bytes (get-java-ref-aside store-name url)
+           response  (genai/generate-content model-cfg [{:mimeType "text/html" :partData url-bytes}])
+           edn       (genai/response-json response)]
+       (validator! edn)
+       edn))))
+
 (defn extract-java-ref-aside
   ([store-name model-cfg url]
    (extract-java-ref-aside store-name model-cfg url identity))

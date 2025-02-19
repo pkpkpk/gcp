@@ -1,19 +1,18 @@
-{:paths   ["src/main"]
- :deps    {org.clojure/clojure                                {:mvn/version "1.12.0"}
-           com.google.cloud/google-cloud-bigquery             {:mvn/version "2.47.0"}
-           com.google.cloud/google-cloud-bigquerydatatransfer {:mvn/version "2.56.0"}
-           com.google.cloud/google-cloud-discoveryengine      {:mvn/version "0.51.0"}
-           com.google.cloud/google-cloud-pubsub               {:mvn/version "1.136.0"}
-           com.google.cloud/google-cloud-storage              {:mvn/version "2.46.0"}
-           com.google.cloud/google-cloud-vertexai             {:mvn/version "1.16.0"}
-           metosin/jsonista                                   {:mvn/version "0.3.13"}
-           metosin/malli                                      {:mvn/version "0.17.0"}
-           org.babashka/sci                                   {:mvn/version "0.9.44"}}
- :aliases {:dev {:extra-paths ["src/dev" "src/examples"]
-                 :extra-deps  {com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
-                               com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
-                               zprint/zprint {:mvn/version "1.2.9"}
-                               clj-http/clj-http {:mvn/version "3.13.0"}
-                               io.github.frenchy64/fully-satisfies {:mvn/version "1.12.0"}
-                               rewrite-clj/rewrite-clj {:mvn/version "1.1.49"}
-                               io.replikativ/konserve {:mvn/version "0.8.320"}}}}}
+{:paths   ["src"]
+ :deps    {org.clojure/clojure      {:mvn/version "1.12.0"}
+           gcp/artifactregistry     {:local/root "gcp/artifactregistry"}
+           gcp/bigquery             {:local/root "gcp/bigquery"}
+           gcp/bigquerydatatransfer {:local/root "gcp/bigquerydatatransfer"}
+           gcp/discoveryengine      {:local/root "gcp/discoveryengine"}
+           gcp/global               {:local/root "gcp/global"}
+           gcp/pubsub               {:local/root "gcp/pubsub"}
+           gcp/run                  {:local/root "gcp/run"}
+           gcp/storage              {:local/root "gcp/storage"}
+           gcp/vertexai             {:local/root "gcp/vertexai"}
+           com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
+           com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
+           zprint/zprint {:mvn/version "1.2.9"}
+           clj-http/clj-http {:mvn/version "3.13.0"}
+           io.github.frenchy64/fully-satisfies {:mvn/version "1.12.0"}
+           rewrite-clj/rewrite-clj {:mvn/version "1.1.49"}
+           io.replikativ/konserve {:mvn/version "0.8.320"}}}

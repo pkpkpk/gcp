@@ -3,6 +3,7 @@
             [clojure.repl :refer :all]
             [clojure.string :as string]
             [gcp.dev.analyzer :as ana :refer [analyze]]
+            [gcp.dev.analyzer.extract :refer [extract]]
             [gcp.dev.compiler :as c :refer [emit-to-edn emit-from-edn emit-ns-form]]
             [gcp.dev.malli :refer [malli]]
             [gcp.dev.packages :as packages]
@@ -11,6 +12,8 @@
             [gcp.vertexai.v1]
             [gcp.vertexai.generativeai :as genai]
             [malli.dev]))
+
+#_(do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
 
 (set! *print-namespace-maps* false)
 
@@ -23,6 +26,21 @@
 ;;  - index samples + repositories + bookmarks
 ;;  - configuration inference -> instead of looking at :type, check if schema can be matched unambiguously
 ;;  - enum for FormatOptions (& ExportJobConfiguration)... says JSON in docstrings but is actually NEWLINE_DELIMITED_JSON
+
+;(reduce
+;  (fn [_ className]
+;    (when (some #(= % 'byte<>) (map :returnType (instance-methods className)))
+;      (reduced className)))
+;  (sorted-set)
+;  (:types/all bigquery))
+;=> "com.google.cloud.bigquery.FieldValue"
+
+; (def instance-method-return-types
+;   (reduce
+;       (fn [acc ms]
+;         (into acc (map :returnType) ms))
+;       (sorted-set)
+;       (map instance-methods (:types/all bigquery))))
 
 (defn into-registry
   ([package key]

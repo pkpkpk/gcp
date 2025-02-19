@@ -7,7 +7,7 @@
     [clojure.set :as s]
     [clojure.string :as string]
     [gcp.dev.analyzer.align :as align]
-    [gcp.dev.analyzer.extract :as extract]
+    [gcp.dev.analyzer.extract :refer [extract]]
     [gcp.dev.models :as models]
     [gcp.dev.packages :as packages]
     [gcp.dev.store :as store]
@@ -28,7 +28,7 @@
 (defn analyze-static-factory
   [package className]
   (assert (contains? (:types/static-factories package) className))
-  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
+  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract package className)
         min-param-names (let [n (apply min (map count (get staticMethods :of)))]
                           (reduce
                             (fn [acc arg-list]
@@ -101,9 +101,10 @@
   [package className]
   (assert (contains? (:types/accessors package) className))
   (assert (not (builder-like? className)))
-  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/$extract-type-detail package className)
-        {:keys [setterMethods] :as builder} (extract/$extract-type-detail package (str className ".Builder"))
+  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract package className)
+        {:keys [setterMethods] :as builder} (extract package (str className ".Builder"))
         setters  (g/coerce [:seqable :string] (sort (map name (keys setterMethods))))
+        _ (clojure.pprint/pprint (map (fn [[k v]] (assoc (dissoc v :doc) :key k)) getterMethods))
         getterMethods (cond-> getterMethods
                               (abstract-variant? package className)
                               (merge (abstract-getters (get-in package [:types/variants className]))))
@@ -122,9 +123,11 @@
                                {:as getterMethod} (get getterMethods getter-key)
                                _ (when (nil? getterMethod)
                                    (throw (ex-info (str "expected getter method for getter " getter-key)
-                                                   {:setter-key setter-key
+                                                   {:className className
+                                                    :setter-key setter-key
                                                     :getter-key getter-key
-                                                    :zipped zipped})))
+                                                    :zipped zipped
+                                                    :getterMethods getterMethods})))
                                _ (assert (nil? (:parameters getterMethod)))
                                _ (when (nil? setterMethod)
                                    (throw (ex-info (str "expected setter method for setter " setter-key)
@@ -193,18 +196,30 @@
                                 (reduce #(into %1 (map :type) %2) acc arg-lists))
                               #{}
                               staticMethods)
+        ;_ (clojure.pprint/pprint static-method-types)
         fields-types (reduce
                        (fn [acc [_ {:keys [setterArgumentType getterReturnType]}]]
                          (conj acc setterArgumentType getterReturnType))
                        #{}
                        fields)
+        ;_ (clojure.pprint/pprint fields-types)
         all-types (reduce (fn [acc item]
+                            (println "item" item)
                             (into acc (comp
                                         (map parse-type)
                                         (remove native-type))
                                   (if (string? item) [item] item)))
                           #{}
                           (concat static-method-types fields-types))]
+    ;;
+    ;; TODO
+    ;; getType returning nil for returnType?????
+    ;; typeDependencies OFF
+    ;; :type {:setterMethod setType,
+    ;;        :getterMethod getType,
+    ;;        :optional true,
+    ;;        :getterReturnType nil,
+    ;;        :setterArgumentType "com.google.cloud.bigquery.TableDefinition.Type"}}
     {::type               :accessor
      :gcp/key             (package-key package className)
      :className           className
@@ -220,7 +235,7 @@
 #!
 
 (defn analyze-enum [package className]
-  (let [{:as detail} (extract/$extract-type-detail package className)]
+  (let [{:as detail} (extract package className)]
     (merge {::type :enum
             :gcp/key (package-key package className)
             :className className}
@@ -247,7 +262,7 @@
 (defn analyze-concrete-union
   "concrete unions have static methods for variants that do no have their own subclass"
   [package className]
-  (let [{:keys [doc getterMethods]} (extract/$extract-type-detail package className)
+  (let [{:keys [doc getterMethods]} (extract package className)
         variant-classes (g/coerce [:seqable :string] (get-in package [:types/concrete-unions className]))
         tags (variant-tags className)
         zipped (align/align-variant-class-to-variant-tags package variant-classes tags)
@@ -271,7 +286,7 @@
 (defn analyze-abstract-union
   "abstract unions have subclasses for all variants"
   [package className]
-  (let [{:keys [getterMethods doc]} (extract/$extract-type-detail package className)
+  (let [{:keys [getterMethods doc]} (extract package className)
         variant-classes (g/coerce [:seqable :string] (get-in package [:types/abstract-unions className]))
         {:keys [returnType] :as getType} (g/coerce some? (get getterMethods :getType))
         _               (assert (contains? (:types/enums package) returnType) "expected enum type as returnType for abstract union .getType()")

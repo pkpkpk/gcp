@@ -139,8 +139,22 @@
                                    (= (count getter-method-names) (count getterMethods))
                                    (= (set getter-method-names) (set (map name (keys getterMethods)))))
                       (throw (ex-info "returned keys did not match" {:actual (into (sorted-set) (map name) (keys getterMethods))
-                                                                     :members (into (sorted-set) getter-method-names)}))))
-        edn (store/extract-java-ref-aside (:store package) cfg url validator)]
+                                                                     :members (into (sorted-set) getter-method-names)})))
+                    (let [expected-types (into (sorted-map) (map (fn [[_ m]] [(keyword (:name m)) (name (:returnType m))])) instanceMethods)
+                          bad-types (reduce
+                                      (fn [acc [k {t :returnType}]]
+                                        (let [expected-type (get expected-types k)]
+                                          (if (string/starts-with? t (name expected-type))
+                                            acc
+                                            (do
+                                              (println "expected: " expected-type)
+                                              (println "actual: " k " -->" t)
+                                              ))))
+                                      {}
+                                      getterMethods)]))
+        ;edn (store/extract-java-ref-aside (:store package) cfg url validator)
+        edn (store/extract-java-ref (:store package) cfg url validator)
+        ]
     {:className     class-like
      :type          :readonly
      :doc           (clean-doc (:doc edn))
@@ -188,9 +202,9 @@
         res (store/extract-java-ref-aside (:store package) cfg url validator)]
     (assoc res ::type :enum :className (as-dot-string enum-like))))
 
-(defn $extract-type-detail
+(defn extract
   ([package class-like]
-   ($extract-type-detail models/pro-2 package class-like))
+   (extract models/pro-2 package class-like))
   ([model {:as package} class-like]
    (cond
      ;; TODO exceptions! settings! clients!

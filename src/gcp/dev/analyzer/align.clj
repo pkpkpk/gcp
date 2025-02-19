@@ -1,8 +1,9 @@
 (ns ^{:doc "match getters/setters/parameters together semantically.
             naming conventions are sometimes inconsistent ie easier to ask a gemini model than to parse"}
   gcp.dev.analyzer.align
-  (:require [gcp.dev.store :as store]
+  (:require [clojure.data :refer [diff]]
             [gcp.dev.models :as models]
+            [gcp.dev.store :as store]
             [gcp.global :as g]))
 
 (defn align-accessor-methods
@@ -18,22 +19,27 @@
                                                :properties (into {} (map #(vector % getter-schema)) setters)}}
          systemInstruction (str "given a list of getters, match them to their setter in the response schema."
                                 "for every setter there is a getter, but not every getter has a setter")
-         cfg               (assoc models/flash-2 :systemInstruction systemInstruction
-                                                 :generationConfig generationConfig)
+         cfg               (assoc models/pro-2 :systemInstruction systemInstruction
+                                               :generationConfig generationConfig)
          validator!        (fn [edn]
-                             (if (not= (set setters) (set (map name (keys edn))))
+                             (when (not= (set setters) (set (map name (keys edn))))
                                (throw (ex-info "missing setter method!" {:getters getters
                                                                          :setters setters
-                                                                         :edn edn}))
-                               (if (not (every? some? (vals edn)))
-                                 (throw (ex-info "expected getter for every setter" {:getters getters
-                                                                                     :setters setters
-                                                                                     :edn edn}))
-                                 (if-not (or (set (vals edn)) (set getters)
-                                             (clojure.set/subset? (set (vals edn)) (set getters)))
-                                   (throw (ex-info "incorrect keys" {:getters getters
-                                                                     :setters setters
-                                                                     :edn edn}))))))
+                                                                         :edn     edn})))
+                             (when (not (every? some? (vals edn)))
+                               (throw (ex-info "expected getter for every setter" {:getters getters
+                                                                                   :setters setters
+                                                                                   :edn     edn})))
+                             (let [extracted-getters (into (sorted-set) (vals edn))
+                                   control-getters  (into (sorted-set) getters)]
+                               (if (or (= control-getters extracted-getters)
+                                       (clojure.set/subset? extracted-getters control-getters))
+                                 nil
+                                 (let [[unused bad] (diff control-getters extracted-getters)]
+                                   (throw (ex-info "incorrect values" {:expected-getters control-getters
+                                                                       :actual-getters   extracted-getters
+                                                                       :unused           unused
+                                                                       :hallucinated     bad}))))))
          res (store/generate-content-aside (:store package) cfg getters validator!)]
      (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 

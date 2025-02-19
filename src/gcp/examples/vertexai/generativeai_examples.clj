@@ -1,4 +1,4 @@
-(ns gcp.vertexai.generativeai-examples
+(ns gcp.examples.vertexai.generativeai-examples
   (:require [clojure.java.io :as io]
             [gcp.global :as g]
             [gcp.vertexai.v1.VertexAI :as VertexAI]

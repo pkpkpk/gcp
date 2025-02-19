@@ -49,10 +49,13 @@
     "java.util.List"})
 
 (def native-type
-  #{"java.lang.Boolean" "boolean"
+  #{"java.lang.Boolean"
+    "boolean"
     "java.lang.String"
-    "java.lang.Integer" "int"
-    "java.lang.Long" "long"
+    "java.lang.Integer"
+    "int"
+    "java.lang.Long"
+    "long"
     "java.lang.Object"
     "Map<java.lang.String, java.lang.String>"
     "Map<java.lang.String,java.lang.String>"
@@ -62,11 +65,20 @@
     "java.util.Map<String,String>"
     "java.util.Map<java.lang.String, java.lang.String>"
     "java.util.Map<java.lang.String,java.lang.String>"
-
     "List<java.lang.String>"
     "List<String>"
     "java.util.List<java.lang.String>"
-    "java.util.List<String>"})
+    "java.util.List<String>"
+    "java.math.BigDecimal"
+    "java.math.BigInteger"
+    "java.sql.ResultSet"
+    "java.time.Instant"
+    "byte<>"
+    "double"
+    ;java.util.Map
+    ;java.util.List
+    ;java.lang.Iterable
+    "void"})
 
 (defn parse-type [t]
   (assert (string? t))
@@ -97,6 +109,21 @@
 (defn package-key [package t]
   (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t)))))
 
+#_
+#{
+  com.google.api.gax.paging.Page
+  com.google.api.gax.retrying.TimedAttemptSettings
+  com.google.cloud.RetryOption
+  com.google.cloud.Service
+  com.google.cloud.ServiceOptions
+  com.google.cloud.ServiceOptions$Builder
+  com.google.cloud.ServiceRpc
+  com.google.cloud.http.HttpTransportOptions
+  org.threeten.extra.PeriodDuration
+  com.google.common.collect.ImmutableMap
+  com.google.common.collect.ImmutableSet
+  }
+
 (defn ->malli-type [package t]
   (assert (string? t))
   (case t
@@ -119,6 +146,9 @@
 
       (string/starts-with? t "List<")
       [:sequential (->malli-type package (string/trim (subs t 5 (dec (count t)))))]
+
+      (string/starts-with? t "com.google.common.collect.ImmutableList<")
+      [:sequential (->malli-type package (string/trim (subs t 40 (dec (count t)))))]
 
       (contains? (:types/all package) t)
       (package-key package t)
@@ -217,16 +247,6 @@
 
 (defonce reflect (memoize (fn [class-like] (clojure.reflect/reflect (as-class class-like)))))
 
-;; TODO member ctors, public fields
-
-(defn public-constructors [class-like]
-  (into []
-        (filter
-          (fn [{:keys [flags] :as m}]
-            (and (instance? clojure.reflect.Constructor m)
-                 (contains? flags :public))))
-        (sort-by :name (:members (reflect class-like)))))
-
 (defn public-instantiators
   [class-like]
   (into []
@@ -291,6 +311,7 @@
           (filter #(instance? clojure.reflect.Method %))
           (filter #(contains? (:flags %) :public))
           (remove #(contains? (:flags %) :abstract))
+          (remove #(contains? #{'toString 'fromPb 'toPb 'equals 'hashCode 'builder 'toBuilder} (:name %)))
           (map clean-method))
         (sort-by :name (:members (reflect class-like)))))
 
@@ -303,6 +324,7 @@
             (filter #(instance? clojure.reflect.Method %))
             (filter #(contains? (:flags %) :public))
             (filter #(= builder-sym (:return-type %)))
+            (remove #(contains? #{'toString 'fromPb 'toPb 'equals 'hashCode 'builder 'toBuilder} (:name %)))
             (map clean-method))
           (sort-by :name (:members (reflect class-like))))))
 

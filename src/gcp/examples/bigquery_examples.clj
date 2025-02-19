@@ -1,4 +1,4 @@
-(ns gcp.bigquery-examples
+(ns gcp.examples.bigquery-examples
   (:require [gcp.bigquery :as bq]))
 
 #_ (do (require :reload 'gcp.bigquery.bigquery-examples) (in-ns 'gcp.bigquery.bigquery-examples))
