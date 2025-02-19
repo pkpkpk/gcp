@@ -770,4 +770,4 @@
    :storage/StorageClass                                                             :any
    :storage/StorageRoles                                                             :any})
 
-(g/include-schema-registry! registry)
+#_(g/include-schema-registry! registry)

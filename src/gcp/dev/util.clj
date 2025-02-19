@@ -347,3 +347,7 @@
          (map #(.name %))
          sort
          vec)))
+
+(defn variant? [union-class-like variant-class-like]
+  (and (contains? (into #{} (map :name) (:members (reflect union-class-like))) 'getType)
+       (contains? (:bases (reflect variant-class-like)) (symbol union-class-like))))

@@ -5,4 +5,4 @@
   {:pubsub/SubscriptionAdminClient []
    :pubsub/TopicAdminClient []})
 
-(g/include-schema-registry! registry)
+#_(g/include-schema-registry! registry)
