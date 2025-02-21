@@ -63,7 +63,15 @@
                                      (mr/simple-registry candidate))))
     (throw (Exception. "registries must have metadata"))))
 
-(defn valid? [?schema value] (m/validate ?schema value (mopts)))
+(defn valid? [?schema value]
+  (try
+    (m/validate ?schema value (mopts))
+    (catch ExceptionInfo ei
+      (if (and (keyword? ?schema)
+               (= ":malli.core/invalid-schema" (ex-message ei))
+               (nil? (get (mr/schemas *registry*) ?schema)))
+        (throw (ex-info (str "missing schema for " ?schema " in registry") {:schema ?schema :value value}))
+        (throw ei)))))
 
 (defn properties [schema]
   (some-> (get (mr/schemas *registry*) schema) (m/properties (mopts))))

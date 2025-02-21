@@ -35,3 +35,23 @@
                                            }})
 
   )
+
+#_
+(defn load-local-file [file]
+  (let [cfg {:destinationTable {:dataset "gcp_samples" :table "sample_csv"}
+             :formatOptions {:type "CSV"}
+             :autodetect true}
+        jobId {:location "us"
+               :job (str "sample_csv_" (random-uuid))}]
+    (try
+      (let [writer (bq/writer jobId cfg)
+            stream (Channels/newOutputStream writer)
+            _(io/copy (slurp file) stream)
+            _(.close stream)
+            ;completed (.waitFor Job)
+            ]
+        ;(if (nil? completed)
+        ;  (println "Job DNE")
+        ;  completed)
+        ;(bq/get-job jobId)
+        ))))

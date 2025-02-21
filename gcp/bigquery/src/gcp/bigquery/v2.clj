@@ -40,38 +40,6 @@
                                                 :gcp/bigquery.synth.client
                                                 [:map [:bigquery [:or :gcp/bigquery.BigQueryOptions :gcp/bigquery.synth.client]]]]]
 
-   ;;--------------------------------------------------------------------------
-   ;; Routines
-
-   :gcp/bigquery.synth.RoutineList
-   [:map {:closed false}
-    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
-    [:datasetId :gcp/bigquery.DatasetId]
-    [:options {:optional true}  [:sequential :gcp/bigquery.BigQuery.RoutineListOption]]]
-
-   :gcp/bigquery.synth.RoutineCreate
-   [:map {:closed false}
-    [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-    [:routineInfo :gcp/bigquery.RoutineInfo]
-    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.RoutineOption]]]]
-
-   :gcp/bigquery.synth.RoutineGet
-   [:map {:closed false}
-    [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-    [:routineId :gcp/bigquery.RoutineId]
-    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.RoutineOption]]]]
-
-   :gcp/bigquery.synth.RoutineDelete
-   [:map {:closed false}
-    [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-    [:routineId :gcp/bigquery.RoutineId]]
-
-   :gcp/bigquery.synth.RoutineUpdate
-   [:map {:closed false}
-    [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-    [:routineInfo :gcp/bigquery.RoutineInfo]
-    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.RoutineOption]]]]
-
    ;;;-------------------------------
 
    :gcp/bigquery.BigQuery.IAMOption           [:map {:closed true} [:version :string]]
@@ -149,33 +117,6 @@
 
    :gcp/bigquery.BigQuery.DatasetOption       [:map {:closed true} [:fields [:sequential :gcp/bigquery.BigQuery.DatasetField]]]
 
-   :gcp/bigquery.synth.DatasetCreate          [:map
-                                               {:doc "create the dataset defined in :datasetInfo"}
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:datasetInfo :gcp/bigquery.DatasetInfo]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetOption]]]
-   :gcp/bigquery.synth.DatasetGet             [:map
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:datasetId :gcp/bigquery.DatasetId]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetOption]]]
-   :gcp/bigquery.synth.DatasetList            [:maybe
-                                               [:map
-                                                [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                                [:projectId {:optional true} :gcp/bigquery.synth.project]
-                                                [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetListOption]]]]
-   :gcp/bigquery.synth.DatasetUpdate          [:map
-                                               {:doc "update the dataset defined in :datasetInfo"}
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:datasetInfo :gcp/bigquery.DatasetInfo]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetOption]]]
-
-   :gcp/bigquery.synth.DatasetDelete          [:map
-                                               {:doc "update the dataset defined in :datasetInfo"}
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:datasetId :gcp/bigquery.DatasetId]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetDeleteOption]]]
-
-
    :gcp/bigquery.DatasetId                    [:map {:closed true}
                                                [:dataset {:optional true} :gcp/bigquery.synth.dataset]
                                                [:project {:optional true} :gcp/bigquery.synth.project]]
@@ -218,11 +159,6 @@
                                                [:project {:optional true} :gcp/bigquery.synth.project]
                                                [:dataset :gcp/bigquery.synth.dataset]
                                                [:table :gcp/bigquery.synth.table]]
-
-   :gcp/bigquery.synth.TableList              [:map
-                                               [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:datasetId {:optional true} :gcp/bigquery.DatasetId]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableListOption]]]
 
    :gcp/bigquery.PolicyTags                   [:map {:closed true} [:names [:sequential :string]]]
 
@@ -332,25 +268,6 @@
                                                [:numTotalPhysicalBytes {:optional true} :int]]
 
    :gcp/bigquery.Table                        [:and :gcp/bigquery.TableInfo [:map [:bigquery :gcp/bigquery.synth.clientable]]]
-
-   :gcp/bigquery.synth.TableGet               [:map
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:tableId :gcp/bigquery.TableId]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableOption]]]
-
-   :gcp/bigquery.synth.TableCreate            [:map
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:tableInfo :gcp/bigquery.TableInfo]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableOption]]]
-
-   :gcp/bigquery.synth.TableDelete            [:map {:closed true}
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:tableId :gcp/bigquery.TableId]]
-
-   :gcp/bigquery.synth.TableUpdate            [:map
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:tableInfo :gcp/bigquery.TableInfo]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableOption]]]
 
    ;;--------------------------------------------------------------------------
    ;; Jobs
@@ -683,28 +600,6 @@
                                                [:useQueryCache {:optional true} :boolean]
                                                [:userDefinedFunctions {:optional true} [:sequential :gcp/bigquery.UserDefinedFunction]]
                                                [:writeDisposition {:optional true} :gcp/bigquery.JobInfo.WriteDisposition]]
-
-   :gcp/bigquery.synth.JobCreate              [:map
-                                               {:doc "create a job described in :jobInfo"}
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:jobInfo :gcp/bigquery.JobInfo]
-                                               [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.JobOption]]]]
-
-   :gcp/bigquery.synth.JobList                [:maybe
-                                               [:map
-                                                [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                                [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.JobListOption]]]]
-
-   :gcp/bigquery.synth.Query                  [:map {:doc "execute a QueryJobConfiguration"}
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:configuration :gcp/bigquery.QueryJobConfiguration]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.JobOption]]
-                                               [:jobId {:optional true} :gcp/bigquery.JobId]]
-
-   :gcp/bigquery.synth.JobGet                 [:map
-                                               [:gcp/bigquery. {:optional true} :gcp/bigquery.synth.clientable]
-                                               [:jobId :gcp/bigquery.JobId]
-                                               [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.JobOption]]]
 
    #!--------------------------------------------------------------------------
 
@@ -1600,12 +1495,128 @@
     :gcp/bigquery.StandardTableDefinition
     :gcp/bigquery.ViewDefinition]})
 
-(defn assert-disjoint! [r0 r1]
-  (when-let [both (not-empty (clojure.set/intersection (set (keys r0)) (set (keys r1))))]
-    (throw (Exception. (str "overlapping keys: " both)))))
+(def client-api-registry
+  {:gcp/bigquery.synth.JobCreate
+   [:map
+    {:doc "create a job described in :jobInfo"}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:jobInfo :gcp/bigquery.JobInfo]
+    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.JobOption]]]]
 
-(assert-disjoint! registry enum-registry)
-(assert-disjoint! registry union-registry)
-(assert-disjoint! registry accessor-registry)
+   :gcp/bigquery.synth.JobList
+   [:maybe
+    [:map
+     [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+     [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.JobListOption]]]]
 
-(g/include-schema-registry! (merge registry enum-registry union-registry accessor-registry))
+   :gcp/bigquery.synth.Query
+   [:map {:doc "execute a QueryJobConfiguration"}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:configuration :gcp/bigquery.QueryJobConfiguration]
+    [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.JobOption]]
+    [:jobId {:optional true} :gcp/bigquery.JobId]]
+
+   :gcp/bigquery.synth.JobGet
+   [:map
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:jobId :gcp/bigquery.JobId]
+    [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.JobOption]]]
+
+   :gcp/bigquery.synth.RoutineList
+   [:map {:closed false}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:datasetId :gcp/bigquery.DatasetId]
+    [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.RoutineListOption]]]
+
+   :gcp/bigquery.synth.RoutineCreate
+   [:map {:closed false}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:routineInfo :gcp/bigquery.RoutineInfo]
+    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.RoutineOption]]]]
+
+   :gcp/bigquery.synth.RoutineGet
+   [:map {:closed false}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:routineId :gcp/bigquery.RoutineId]
+    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.RoutineOption]]]]
+
+   :gcp/bigquery.synth.RoutineDelete
+   [:map {:closed false}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:routineId :gcp/bigquery.RoutineId]]
+
+   :gcp/bigquery.synth.RoutineUpdate
+   [:map {:closed false}
+    [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+    [:routineInfo :gcp/bigquery.RoutineInfo]
+    [:options {:optional true} [:maybe [:sequential :gcp/bigquery.BigQuery.RoutineOption]]]]
+
+   :gcp/bigquery.synth.DatasetCreate [:map
+                                      {:doc "create the dataset defined in :datasetInfo"}
+                                      [:gcp/bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:datasetInfo :gcp/bigquery.DatasetInfo]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetOption]]]
+
+   :gcp/bigquery.synth.DatasetGet    [:map
+                                      [:gcp/bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:datasetId :gcp/bigquery.DatasetId]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetOption]]]
+
+   :gcp/bigquery.synth.DatasetList   [:maybe
+                                      [:map
+                                       [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                       [:projectId {:optional true} :gcp/bigquery.synth.project]
+                                       [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetListOption]]]]
+
+   :gcp/bigquery.synth.DatasetUpdate [:map
+                                      {:doc "update the dataset defined in :datasetInfo"}
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:datasetInfo :gcp/bigquery.DatasetInfo]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetOption]]]
+
+   :gcp/bigquery.synth.DatasetDelete [:map
+                                      {:doc "update the dataset defined in :datasetInfo"}
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:datasetId :gcp/bigquery.DatasetId]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.DatasetDeleteOption]]]
+
+   :gcp/bigquery.synth.TableList     [:map
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:datasetId {:optional true} :gcp/bigquery.DatasetId]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableListOption]]]
+   :gcp/bigquery.synth.TableGet      [:map
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:tableId :gcp/bigquery.TableId]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableOption]]]
+
+   :gcp/bigquery.synth.TableCreate   [:map
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:tableInfo :gcp/bigquery.TableInfo]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableOption]]]
+
+   :gcp/bigquery.synth.TableDelete   [:map {:closed true}
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:tableId :gcp/bigquery.TableId]]
+
+   :gcp/bigquery.synth.TableUpdate   [:map
+                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                      [:tableInfo :gcp/bigquery.TableInfo]
+                                      [:options {:optional true} [:sequential :gcp/bigquery.BigQuery.TableOption]]]
+
+   :gcp/bigquery.synth.WriterCreate [:map
+                                     [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                     [:writeChannelConfiguration {:optional false} :gcp/bigquery.WriteChannelConfiguration]]
+   })
+
+(defn assert-disjoint-keys! [registries]
+  (let [sets (map #(set (keys %)) registries)
+        total (reduce + (map count sets))
+        united (apply clojure.set/union sets)]
+    (when-not (= (count united) total)
+      #_(when-let [both (not-empty (clojure.set/intersection (set (keys r0)) (set (keys r1))))]
+          (throw (Exception. (str "overlapping keys: " both))))
+      (throw (Exception. "overlapping keys!")))))
+
+(let [registries [registry enum-registry union-registry accessor-registry client-api-registry]]
+  (assert-disjoint-keys! registries)
+  (g/include-schema-registry! (reduce merge registries)))

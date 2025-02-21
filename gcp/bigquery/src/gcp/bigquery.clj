@@ -258,18 +258,6 @@
          destination (g/coerce :gcp/bigquery.TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
 
-; (defn load-table [])
-
-#! TODO TABLE API
-; (defn insert-rows [])
-; (defn list-rows [])
-; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
-; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
-; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
-; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
-; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
-; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
-
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines
 
@@ -368,3 +356,14 @@
 ;createConnection(@NonNull ConnectionSettings connectionSettings)
 ;listPartitions(TableId tableId)
 ;insertAll(InsertAllRequest request)
+; (defn load-table [])
+
+#! TODO TABLE API
+; (defn insert-rows [])
+; (defn list-rows [])
+; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
+; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
+; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
+; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
+; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
+; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
