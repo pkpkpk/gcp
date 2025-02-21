@@ -17,6 +17,9 @@
              (let [path (.getPath (io/file root store-name))]
                (fs/connect-fs-store path {:opts {:sync? true}})))))
 
+(defn get-key [store-name key]
+  (k/get (connect store-name) key nil {:sync? true}))
+
 (defn evict-key! [store-name key]
   (k/dissoc (connect store-name) key {:sync? true}))
 

@@ -11,8 +11,8 @@
            gcp/vertexai             {:local/root "gcp/vertexai"}
            ;com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
            ;com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
-           zprint/zprint {:mvn/version "1.2.9"}
-           clj-http/clj-http {:mvn/version "3.13.0"}
-           ;io.github.frenchy64/fully-satisfies {:mvn/version "1.12.0"}
-           ;rewrite-clj/rewrite-clj {:mvn/version "1.1.49"}
-           io.replikativ/konserve {:mvn/version "0.8.320"}}}
+           zprint/zprint            {:mvn/version "1.2.9"}
+           clj-http/clj-http        {:mvn/version "3.13.0"}
+           rewrite-clj/rewrite-clj  {:mvn/version "1.1.49"}
+           io.replikativ/konserve   {:mvn/version "0.8.320"}
+           org.ow2.asm/asm          {:mvn/version "9.7.1"}}}

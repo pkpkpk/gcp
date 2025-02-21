@@ -2,7 +2,8 @@
   (:require [clj-http.client :as http]
             [clojure.java.io :as io]
             clojure.reflect
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [gcp.dev.asm :as asm]))
 
 (defn clean-doc [doc]
   (when (and doc (not (string/blank? doc)))
@@ -80,6 +81,20 @@
     ;java.lang.Iterable
     "void"})
 
+(def known-types
+  (clojure.set/union native-type
+                     #{"com.google.api.gax.paging.Page"
+                       "com.google.api.gax.retrying.TimedAttemptSettings"
+                       "com.google.cloud.RetryOption"
+                       "com.google.cloud.Service"
+                       "com.google.cloud.ServiceOptions"
+                       "com.google.cloud.ServiceOptions$Builder"
+                       "com.google.cloud.ServiceRpc"
+                       "com.google.cloud.http.HttpTransportOptions"
+                       "org.threeten.extra.PeriodDuration"
+                       "com.google.common.collect.ImmutableMap"
+                       "com.google.common.collect.ImmutableSet"}))
+
 (defn parse-type [t]
   (assert (string? t))
   (cond
@@ -109,25 +124,11 @@
 (defn package-key [package t]
   (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t)))))
 
-#_
-#{
-  com.google.api.gax.paging.Page
-  com.google.api.gax.retrying.TimedAttemptSettings
-  com.google.cloud.RetryOption
-  com.google.cloud.Service
-  com.google.cloud.ServiceOptions
-  com.google.cloud.ServiceOptions$Builder
-  com.google.cloud.ServiceRpc
-  com.google.cloud.http.HttpTransportOptions
-  org.threeten.extra.PeriodDuration
-  com.google.common.collect.ImmutableMap
-  com.google.common.collect.ImmutableSet
-  }
-
 (defn ->malli-type [package t]
   (assert (string? t))
   (case t
     ;"java.lang.Object"
+    "void" :nil
     "java.lang.String" :string
     ("boolean" "java.lang.Boolean") :boolean
     ("int" "java.lang.Integer" "long" "java.lang.Long") :int
@@ -283,7 +284,8 @@
           (filter #(instance? clojure.reflect.Method %))
           (filter #(contains? (:flags %) :public))
           (filter #(contains? (:flags %) :static))
-          (map clean-method))
+          (map clean-method)
+          (map #(dissoc % :declaring-class :flags)))
         (sort-by :name (:members (reflect class-like)))))
 
 (defn instance-methods [class-like]
@@ -351,3 +353,47 @@
 (defn variant? [union-class-like variant-class-like]
   (and (contains? (into #{} (map :name) (:members (reflect union-class-like))) 'getType)
        (contains? (:bases (reflect variant-class-like)) (symbol union-class-like))))
+
+;; signatures only appear for compound types & for classes with actual classfiles
+;; ie no nested types/builders
+;; ... so the only useful information we can get from asm analysis is type parameters
+;; for compound types in top-level accessors. this means for those types, only need LLM to extract docs
+(defn- parse-signature [sig] sig)
+
+(defn instance-methods' [classlike]
+  (let [by-name (into {}
+                      (map
+                        (fn [m]
+                          (let [m' (cond-> {:desc (get m :desc)}
+                                           (get m :signature) (assoc :signature (get m :signature)))]
+                            [(:name m) m'])))
+                      (asm/all-method-info (as-class classlike)))]
+    (into (sorted-map)
+          (map
+            (fn [m]
+              (let [key (name (:name m))
+                    m' (merge (dissoc m :flags :declaring-class)
+                              (get by-name key))]
+                [key m'])))
+          (instance-methods classlike))))
+
+
+(comment
+
+  (instance-methods' "com.google.cloud.bigquery.QueryJobConfiguration")
+  (instance-methods' "com.google.cloud.bigquery.ExternalTableDefinition")
+
+  (def sigs
+    (frequencies
+      (reduce into []
+              (into #{}
+                    (comp
+                      (remove #(contains? (:types/nested bigquery) %))
+                      (map instance-methods')
+                      (map vals)
+                      (map #(map :signature %))
+                      (map #(filter some? %)))
+                    (clojure.set/union (:types/static-factories bigquery)
+                                       (:types/accessors bigquery))))))
+
+  )

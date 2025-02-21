@@ -6,6 +6,28 @@
             [gcp.dev.store :as store]
             [gcp.global :as g]))
 
+(defn- validate-alignment!
+  "expected-keys must be exact.
+   expected-values can be exact or a superset of extracted values"
+  [expected-keys expected-values]
+  (g/coerce [:seqable :string] expected-keys)
+  (g/coerce [:seqable :string] expected-values)
+  (fn [edn]
+    (when (not= (set expected-keys) (set (map name (keys edn))))
+      (throw (ex-info "returned alignment keys are incorrect"
+                      {:expected-keys expected-keys
+                       :actual-keys   (set (map name (keys edn)))
+                       :edn           edn})))
+    (let [expected-values (set expected-values)
+          aligned-values  (into (sorted-set) (vals edn))]
+      (if-not (or (= expected-values aligned-values)
+                  (clojure.set/subset? aligned-values expected-values))
+        (let [[unused bad] (diff expected-values aligned-values)]
+          (throw (ex-info "incorrect values" {:expected-values expected-values
+                                              :aligned-values  aligned-values
+                                              :unused          unused
+                                              :hallucinated    bad})))))))
+
 (defn align-accessor-methods
   "setters == Foo.builder.setBar<param> -> ['setBar', 'setBaz', ...]
    getters == Foo.getBar() , Foo.baz() ->  ['getBar', 'baz', ...]"
@@ -21,26 +43,7 @@
                                 "for every setter there is a getter, but not every getter has a setter")
          cfg               (assoc models/pro-2 :systemInstruction systemInstruction
                                                :generationConfig generationConfig)
-         validator!        (fn [edn]
-                             (when (not= (set setters) (set (map name (keys edn))))
-                               (throw (ex-info "missing setter method!" {:getters getters
-                                                                         :setters setters
-                                                                         :edn     edn})))
-                             (when (not (every? some? (vals edn)))
-                               (throw (ex-info "expected getter for every setter" {:getters getters
-                                                                                   :setters setters
-                                                                                   :edn     edn})))
-                             (let [extracted-getters (into (sorted-set) (vals edn))
-                                   control-getters  (into (sorted-set) getters)]
-                               (if (or (= control-getters extracted-getters)
-                                       (clojure.set/subset? extracted-getters control-getters))
-                                 nil
-                                 (let [[unused bad] (diff control-getters extracted-getters)]
-                                   (throw (ex-info "incorrect values" {:expected-getters control-getters
-                                                                       :actual-getters   extracted-getters
-                                                                       :unused           unused
-                                                                       :hallucinated     bad}))))))
-         res (store/generate-content-aside (:store package) cfg getters validator!)]
+         res (store/generate-content-aside (:store package) cfg getters (validate-alignment! setters getters))]
      (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res))))
 
 (defn align-static-params-to-getters
@@ -60,18 +63,7 @@
         systemInstruction "for each parameter name, produce the getter method that produces it"
         cfg               (assoc models/flash :systemInstruction systemInstruction
                                               :generationConfig generationConfig)
-        validator!        (fn [edn]
-                            (if (not= (set static-params) (set (map name (keys edn))))
-                              (throw (ex-info "missing static param!"
-                                              {:getters getters :static-params static-params :edn edn}))
-                              (if (not (every? some? (vals edn)))
-                                (throw (ex-info "expected getter for every static param"
-                                                {:getters getters :static-params static-params :edn edn}))
-                                (if-not (clojure.set/subset? (set (vals edn)) (into #{} getters))
-                                  (throw (ex-info "incorrect keys" {:edn     edn
-                                                                    :getters getters
-                                                                    :static-params static-params}))))))
-        res               (store/generate-content-aside (:store package) cfg getters validator!)]
+        res               (store/generate-content-aside (:store package) cfg getters (validate-alignment! static-params getters))]
     (into (sorted-map) (map (fn [[k v]] [k (keyword v)])) res)))
 
 (defn align-variant-class-to-variant-tags
@@ -90,21 +82,10 @@
                            :responseSchema   {:type       "OBJECT"
                                               :required   (vec variant-classes)
                                               :properties (into {} (map #(vector % variant-schema)) variant-classes)}}
-        systemInstruction (str "given a list of class names, match them to a tag")
+        systemInstruction "given a list of class names, match them to a tag"
         cfg               (assoc models/pro :systemInstruction systemInstruction
                                             :generationConfig generationConfig)
-        validator! (fn [edn]
-                     (when-not (= (count edn) (count variant-classes))
-                       (throw (ex-info "incorrect count" {:expected (count variant-classes)
-                                                          :actual (count edn)})))
-                     (when-not (= variant-classes (set (map name (keys edn))))
-                       (throw (ex-info "incorrect classes" {:variant-classes variant-classes
-                                                            :edn-keys (set (map name (keys edn)))})))
-                     (when-not (or (= (set (vals edn)) (set variant-tags))
-                                   (clojure.set/subset? (set (vals edn)) (set variant-tags)))
-                       (throw (ex-info "incorrect tags" {:variant-tags variant-tags
-                                                         :edn edn}))))
-        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]
+        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) (validate-alignment! variant-classes variant-tags))]
     (into (sorted-map) (map (fn [[k v]] [(name k) v])) edn)))
 
 (defn align-variant-tags-to-static-methods
@@ -123,13 +104,6 @@
         systemInstruction (str "for each tag, match it with the correct method name")
         cfg               (assoc models/pro-2 :systemInstruction systemInstruction
                                               :generationConfig generationConfig)
-        validator! (fn [edn]
-                     (when-not (= variant-tags (set (map name (keys edn))))
-                       (throw (ex-info "incorrect tags" {:expected-tags (set variant-tags)
-                                                         :actual-tags (set (map name (keys edn)))})))
-                     (when-not (clojure.set/subset? (set (vals edn)) (set static-methods))
-                       (throw (ex-info "incorrect methods" {:expected-superset static-methods
-                                                            :actual-values (vals edn)}))))
-        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) validator!)]
+        edn (store/generate-content-aside (:store package) cfg (vec variant-tags) (validate-alignment! variant-tags static-methods))]
     (into (sorted-map) (map (fn [[k v]] [(name k) (symbol v)])) edn)))
 

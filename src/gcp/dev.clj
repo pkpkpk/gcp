@@ -2,18 +2,22 @@
   (:require [clojure.java.io :as io]
             [clojure.repl :refer :all]
             [clojure.string :as string]
+            [gcp.dev.asm :as asm]
             [gcp.dev.analyzer :as ana :refer [analyze]]
-            [gcp.dev.analyzer.extract :refer [extract]]
+            [gcp.dev.analyzer.extract :as extract]
             [gcp.dev.compiler :as c :refer [emit-to-edn emit-from-edn emit-ns-form]]
             [gcp.dev.malli :refer [malli]]
+            [gcp.dev.models :as models]
             [gcp.dev.packages :as packages]
+            [gcp.dev.packages.bigquery :as bq]
             [gcp.dev.util :refer :all]
             [gcp.global :as g]
-            [gcp.vertexai.v1]
             [gcp.vertexai.generativeai :as genai]
+            [gcp.vertexai.v1]
             [malli.dev]))
 
 #_(do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
+#_(def bigquery (bq/bigquery))
 
 (set! *print-namespace-maps* false)
 
@@ -55,8 +59,6 @@
          (g/coerce set? (get package key)))))
 
 (comment
-  (do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
-  (def bigquery (packages/bigquery))
 
   (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
   (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")

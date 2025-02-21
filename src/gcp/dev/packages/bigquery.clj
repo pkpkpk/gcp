@@ -1,5 +1,6 @@
 (ns gcp.dev.packages.bigquery
   (:require [clojure.java.io :as io]
+            [clojure.set :as s]
             [clojure.string :as string]
             [gcp.dev.store :as store]
             [gcp.dev.util :refer :all]
@@ -9,10 +10,10 @@
 
 ;:~/googleapis/java-bigquery$ git worktree add ../bigquery-2.48.0 v2.48.0
 
-(defn bigquery []
+(defn _bigquery []
   (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
-      (throw (ex-info "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
+      (throw (ex-info   "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
                                                :extracted version}))
       (let [bigquery-repo (io/file googleapis-root (str "bigquery-" version))
             repo-root     (io/file bigquery-repo "google-cloud-bigquery" "src" "main" "java" "com" "google" "cloud" "bigquery")
@@ -93,64 +94,91 @@
                             acc))
                         (sorted-set)
                         classes)
+            simple-accessors (into (sorted-set)
+                                   (filter #(and (contains? by-base %)
+                                                 (= 2 (count (get by-base %)))))
+                                   accessors)
             read-only (into (sorted-set)
                             (filter
                               (fn [className]
                                 (and
-                                  (not (contains? (:types/builders bigquery) className))
+                                  (not (contains? nested className))
                                   (empty? (public-instantiators className)))))
                             (:classes latest))]
-        {:packageRootUrl          "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
-         :overviewUrl             "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
-         :repoRoot                repo-root
-         :targetRoot              target-root
-         :rootNs                  'gcp.bigquery.v2
-         :packageName             "bigquery"
-         :packageSymbol           'com.google.cloud.bigquery
-         :store                   (str "bigquery_" (:version latest))
-         :discovery               discovery
-         :package/version         (:version latest)
-         :types/all               (clojure.set/union (into (sorted-set) (:classes latest)) enums)
-         :types/enums             enums
-         :types/builders          builders
-         :types/settings          (into (sorted-set) (:settings latest))
-         :types/interfaces        (into (sorted-set) (:interfaces latest))
-         :types/exceptions        (into (sorted-set) (:exceptions latest))
-         :types/abstract-unions   abstract-unions
-         :types/abstract-variants abstract-variants
-         :types/concrete-unions   concrete-unions
-         :types/concrete-variants concrete-variants
-         :types/variants          (merge abstract-variants concrete-variants)
-         :types/unions            (merge abstract-unions concrete-unions)
-         :types/service-objects   service-objects
-         :types/bigquery-options  options
-         :types/static-factories  static-factories
-         :types/accessors         accessors
-         :types/nested            nested
-         :types/by-base           by-base
-         :types/standalone        standalone
-         :types/read-only         read-only}))))
+        {:packageRootUrl                "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/"
+         :overviewUrl                   "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery"
+         :repoRoot                      repo-root
+         :targetRoot                    target-root
+         :rootNs                        'gcp.bigquery.v2
+         :packageName                   "bigquery"
+         :packageSymbol                 'com.google.cloud.bigquery
+         :store                         (str "bigquery_" (:version latest))
+         :discovery                     discovery
+         :package/version               (:version latest)
+         #!--------------------------------------------------
+         :lookup/union->variant         (merge abstract-unions concrete-unions)
+         :lookup/variant->union         (merge abstract-variants concrete-variants)
+         :lookup/by-base                by-base
+         #!------------------------------------------------------
+         :pred/accessor                 accessors
+         :pred/builder                  builders
+         :pred/read-only                read-only
+         :pred/nested                   nested
+         :pred/abstract-variants       (into (sorted-set) (keys abstract-variants))
+         :pred/concrete-variants       (into (sorted-set) (keys concrete-variants))
+         #!------------------------------------------------------
+         :types/settings                (into (sorted-set) (:settings latest))
+         :types/interfaces              (into (sorted-set) (:interfaces latest))
+         :types/exceptions              (into (sorted-set) (:exceptions latest))
+         :types/service-objects         service-objects
+         :types/bigquery-options        options
+         #!------------------------------------------------------
+         :types/enums                   enums
+         :types/abstract-unions         (into (sorted-set) (keys abstract-unions))
+         :types/concrete-unions         (into (sorted-set) (keys concrete-unions))
+         :types/static-factories        (s/difference static-factories nested)
+         :types/nested-static-factories (s/intersection nested static-factories)
+         :types/simple-accessors        simple-accessors
+         :types/complex-accessors       (s/difference accessors simple-accessors nested)
+         :types/nested-accessors        (s/intersection nested accessors)}))))
 
-;; TODO classes without solutions
-;;  - bigquery.BigQuery.<$>Option
-;;    --> mostly static methods that wrap a value  ie (<$>Option/pageSize 43) etc
-;;  - bigquery.Acl.<$>
-;;    -- normal constructor calls
-;;    -- bigquery.Acl.Entity is abstract, wraps Acl.Entity.Type ENUM, read-only?
-;;  - bigquery.JobStatistics.<$>Statistics
-;;    -- generally read-only, from-edn does not apply here
-;;  - many others that are also read only ie "com.google.cloud.bigquery.InsertAllResponse"
-;;    --> are constructors private/protected? might be good way to sort into to-edn-only
+(defn all-disjoint? [& sets]
+  (let [total (reduce + (map count sets))
+        united (apply clojure.set/union sets)]
+    (= (count united) total)))
 
-#_(clojure.set/difference
-    (:classes bigquery)
-    (:types/accessors bigquery)
-    (:types/static-factories bigquery)
-    (:types/enums bigquery)
-    (:types/builders bigquery)
-    (:types/service-objects bigquery)
-    (set (keys (:types/abstract-unions bigquery)))
-    (set (keys (:types/concrete-unions bigquery)))
-    (set (keys (:types/abstract-variants bigquery)))
-    (set (keys (:types/concrete-variants bigquery))))
+(def type-categories
+  #{:types/enums
+    :types/abstract-unions
+    :types/concrete-unions
+    :types/static-factories
+    :types/nested-static-factories
+    :types/simple-accessors
+    :types/complex-accessors
+    :types/nested-accessors})
 
+(defn bigquery []
+  (let [bq (_bigquery)]
+    (assert (map? (:lookup/by-base bq)))
+    (assert (map? (:lookup/union->variant bq)))
+    (assert (map? (:lookup/variant->union bq)))
+    (assert (set? (:types/static-factories bq) ))
+    (assert (set? (:types/nested-static-factories bq)))
+    (assert (set? (:types/simple-accessors bq) ))
+    (assert (set? (:types/complex-accessors bq)))
+    (when (seq (s/intersection (:types/static-factories bq) (:types/nested-static-factories bq)))
+      (throw (ex-info "nested static factories should be disjoint"
+                      {:types/static-factories (:types/static-factories bq)
+                       :types/nested-static-factories (:types/nested-static-factories bq)})))
+    (when (or (seq (s/intersection (:types/complex-accessors bq)
+                                   (:types/simple-accessors bq)))
+              (seq (s/intersection (:types/simple-accessors bq)
+                                   (:types/nested-accessors bq)))
+              (seq (s/intersection (:types/complex-accessors bq)
+                                   (:types/nested-accessors bq))))
+      (throw (ex-info "simple, complex, & nested accessors should be disjoint"
+                      {:types/complex-accessors (:types/complex-accessors bq)
+                       :types/simple-accessors (:types/simple-accessors bq)
+                       :types/nested-accessors (:types/nested-accessors bq)})))
+    (assert (apply all-disjoint? (vals (select-keys bq type-categories))))
+    bq))
