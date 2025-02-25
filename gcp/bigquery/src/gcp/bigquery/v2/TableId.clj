@@ -15,6 +15,7 @@
     (.getIAMResourceName (from-edn arg))))
 
 (defn to-edn [^TableId arg]
-  {:project (.getProject arg)
-   :dataset (.getDataset arg)
-   :table (.getTable arg)})
+  (cond-> {:dataset (.getDataset arg)
+           :table   (.getTable arg)}
+          (.getProject arg)
+          (assoc :project (.getProject arg))))

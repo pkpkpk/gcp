@@ -1,6 +1,7 @@
 (ns gcp.bigquery.v2.Field
   (:require [gcp.bigquery.v2.FieldElementType :as FieldElementType]
             [gcp.bigquery.v2.PolicyTags :as PolicyTags]
+            [gcp.global :as g]
             [gcp.global :as global])
   (:import (com.google.cloud.bigquery Field Field$Mode StandardSQLTypeName)))
 
@@ -40,6 +41,7 @@
     (.build builder)))
 
 (defn to-edn [^Field arg]
+  {:post [(g/strict! :gcp/bigquery.Field %)]}
   (cond-> {:name (.getName arg)
            :type (.name (.getType arg))}
 

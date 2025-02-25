@@ -8,10 +8,10 @@
    :gcp.synth/labels                          [:map-of :string :string] ;TODO ..lowercase, char range etc
    :gcp.synth/resourceTags                    [:map-of :string :string]
 
-   :gcp/bigquery.synth.location               :string
-   :gcp/bigquery.synth.project                :string
-   :gcp/bigquery.synth.dataset                :string
-   :gcp/bigquery.synth.table                  :string
+   :gcp/bigquery.synth.location               [:string {:min 1}] ;TODO enum
+   :gcp/bigquery.synth.project                [:string {:min 1}]
+   :gcp/bigquery.synth.dataset                [:string {:min 1}]
+   :gcp/bigquery.synth.table                  [:string {:min 1}]
    :gcp/bigquery.synth.uri                    :string           ;; export supports single wildcard
    :gcp/bigquery.synth.compression            [:enum "GZIP" "DEFLATE" "SNAPPY"]
    :gcp/bigquery.synth.format                 [:enum
@@ -72,7 +72,7 @@
     [:name :string]
     [:dataType :gcp/bigquery.StandardSQLDataType]]
 
-   :gcp/bigquery.RemoteFunctionOptions :any
+   :gcp/bigquery.RemoteFunctionOptions        :any
 
    :gcp/bigquery.RoutineInfo
    [:map {:closed true
@@ -166,7 +166,7 @@
 
    :gcp/bigquery.Field                        [:map {:closed true}
                                                [:name :string]
-                                               [:type :gcp/bigquery.StandardSQLTypeName]
+                                               [:type :gcp/bigquery.LegacySQLTypeName]
                                                [:collation {:optional true} :string]
                                                [:defaultValueExpression {:optional true} :string]
                                                [:description {:optional true} :string]
@@ -385,30 +385,32 @@
                                                [:useAvroLogicalTypes {:optional true} :boolean]]
 
    :gcp/bigquery.HivePartitioningOptions      [:map {:closed true
-                                                     :class 'com.google.cloud.bigquery.HivePartitioningOptions}
+                                                     :class  'com.google.cloud.bigquery.HivePartitioningOptions}
                                                [:fields {:optional false} [:sequential :string]]
                                                [:mode {:optional false} :string]
                                                [:requirePartitionFilter {:optional false} :boolean]
                                                [:sourceUriPrefix {:optional false} :string]]
 
+
+
    :gcp/bigquery.LoadJobConfiguration
    [:map
-    {:key :gcp/bigquery.LoadJobConfiguration,
+    {:key    :gcp/bigquery.LoadJobConfiguration,
      :closed true,
-     :doc "Google BigQuery load job configuration. A load job loads data from one of several formats into a
+     :doc    "Google BigQuery load job configuration. A load job loads data from one of several formats into a
         table. Data is provided as URIs that point to objects in Google Cloud Storage. Load job
         configurations have JobConfiguration.Type#LOAD type.",
-     :class com.google.cloud.bigquery.LoadJobConfiguration}
+     :class  com.google.cloud.bigquery.LoadJobConfiguration}
     [:type [:= "LOAD"]]
     [:autodetect
      {:setterDoc "Sets automatic inference of the options and schema for CSV and JSON sources.",
       :getterDoc "Returns whether automatic inference of the options and schema for CSV and JSON sources is set.",
-      :optional true}
+      :optional  true}
      :boolean]
     [:clustering
      {:setterDoc "Sets the clustering specification for the destination table.",
       :getterDoc "Returns the clustering specification for the definition table.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.Clustering]
     [:columnNameCharacterMap
      {:setterDoc "[Optional] Character map supported for column names in CSV/Parquet loads. Defaults to STRICT
@@ -416,13 +418,13 @@
                 formats will result in an error.
                See Also: <a href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#columnnamecharactermap\">  ColumnNameCharacterMap</a>",
       :getterDoc "Returns the column name character map used in CSV/Parquet loads.\nSee Also: ColumnNameCharacterMap",
-      :optional true}
+      :optional  true}
      :string]
     [:connectionProperties {:setterDoc nil, :getterDoc "", :optional true} [:sequential :gcp/bigquery.ConnectionProperty]]
     [:createDisposition
      {:setterDoc "Sets whether the job is allowed to create new tables.",
       :getterDoc "Returns whether the job is allowed to create new tables.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.JobInfo.CreateDisposition]
     [:createSession {:setterDoc nil, :getterDoc "", :optional true} :boolean]
     [:decimalTargetTypes
@@ -436,12 +438,12 @@
                type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the
                specified list and if it supports the precision and the scale. STRING supports all precision
                and scale values.",
-      :optional true}
+      :optional  true}
      [:sequential :string]]
     [:destinationTable
      {:setterDoc "Sets the destination table to load the data into.",
       :getterDoc "Returns the destination table to load the data into.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.TableId]
     [:encryptionConfiguration {:setterDoc nil, :getterDoc "", :optional true} :gcp/bigquery.EncryptionConfiguration]
     [:fileSetSpecType
@@ -450,7 +452,7 @@
                option is \"FILE_SET_SPEC_TYPE_NEW_LINE_DELIMITED_MANIFEST\" which interprets each file as a
                manifest file, where each line is a reference to a file.",
       :getterDoc "",
-      :optional true}
+      :optional  true}
      :string]
     [:formatOptions
      {:setterDoc "Sets the source format, and possibly some parsing options, of the external data. Supported
@@ -461,7 +463,7 @@
                 Source Format</a></p>
                ",
       :getterDoc "Returns the format of the data files.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.FormatOptions]
     [:hivePartitioningOptions {:setterDoc nil, :getterDoc "", :optional true} :gcp/bigquery.HivePartitioningOptions]
     [:ignoreUnknownValues
@@ -473,13 +475,13 @@
                schema. If true, the extra values are ignored. If true, records with extra
                columns are treated as bad records, and if there are too many bad records, an invalid error is
                returned in the job result. By default unknown values are not allowed.",
-      :optional true}
+      :optional  true}
      :boolean]
     [:jobTimeoutMs
      {:setterDoc "[Optional] Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt
                to terminate the job.",
       :getterDoc "Returns the timeout associated with this job",
-      :optional true}
+      :optional  true}
      :int]
     [:labels
      {:setterDoc "The labels associated with this job. You can use these to organize and group your jobs. Label
@@ -488,7 +490,7 @@
                values are optional. Label keys must start with a letter and each label in the list must have
                a different key.",
       :getterDoc "Returns the labels associated with this job",
-      :optional true}
+      :optional  true}
      [:map-of :string :string]]
     [:maxBadRecords
      {:setterDoc "Sets the maximum number of bad records that BigQuery can ignore when running the job. If the
@@ -497,7 +499,7 @@
       :getterDoc "Returns the maximum number of bad records that BigQuery can ignore when running the job. If the
                number of bad records exceeds this value, an invalid error is returned in the job result. By
                default no bad record is ignored.",
-      :optional true}
+      :optional  true}
      :int]
     [:nullMarker
      {:setterDoc "Sets the string that represents a null value in a CSV file. For example, if you specify \"N\",
@@ -507,25 +509,25 @@
                STRING and BYTE columns, BigQuery interprets the empty string as an empty
                value.",
       :getterDoc "Returns the string that represents a null value in a CSV file.",
-      :optional true}
+      :optional  true}
      :string]
     [:rangePartitioning
      {:setterDoc "Range partitioning specification for this table. Only one of timePartitioning and
                rangePartitioning should be specified.",
       :getterDoc "Returns the range partitioning specification for the table",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.RangePartitioning]
     [:referenceFileSchemaUri
      {:setterDoc "When creating an external table, the user can provide a reference file with the table schema.
                This is enabled for the following formats: AVRO, PARQUET, ORC.",
-      :optional true}
+      :optional  true}
      :string]
     [:schema
      {:setterDoc "Sets the schema for the destination table. The schema can be omitted if the destination table
                already exists, or if you're loading data from a Google Cloud Datastore backup (i.e.
                DATASTORE_BACKUP format option).",
       :getterDoc "Returns the schema for the destination table, if set. Returns null otherwise.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.Schema]
     [:schemaUpdateOptions
      {:setterDoc "Sets options allowing the schema of the destination table to be updated as a side effect of
@@ -538,8 +540,11 @@
                WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition
                of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always
                overwrite the schema.",
-      :optional true}
+      :optional  true}
      [:sequential :gcp/bigquery.JobInfo.SchemaUpdateOption]]
+
+    ;; TODO if present cannot be empty
+    ;; .. this effects newBuilder emitted
     [:sourceUris
      {:setterDoc "Sets the fully-qualified URIs that point to source data in Google Cloud Storage (e.g.
                gs://bucket/path). Each URI can contain one '*' wildcard character and it must come after the
@@ -547,25 +552,38 @@
       :getterDoc "Returns the fully-qualified URIs that point to source data in Google Cloud Storage (e.g.
                gs://bucket/path). Each URI can contain one '*' wildcard character and it must come after the
                'bucket' name.",
-      :optional true}
-     [:sequential :string]]
+      :optional  true}
+     [:seqable [:string {:min 1}]]]
+
     [:timePartitioning
      {:setterDoc "Sets the time partitioning specification for the destination table.",
       :getterDoc "Returns the time partitioning specification defined for the destination table.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.TimePartitioning]
     [:useAvroLogicalTypes
      {:setterDoc "If FormatOptions is set to AVRO, you can interpret logical types into their corresponding
                types (such as TIMESTAMP) instead of only using their raw types (such as INTEGER). The value
                may be null.",
       :getterDoc "Returns True/False. Indicates whether the logical type is interpreted.",
-      :optional true}
+      :optional  true}
      :boolean]
     [:writeDisposition
      {:setterDoc "Sets the action that should occur if the destination table already exists.",
       :getterDoc "Returns the action that should occur if the destination table already exists.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.JobInfo.WriteDisposition]]
+
+
+
+
+
+
+
+
+
+
+
+
 
    :gcp/bigquery.QueryJobConfiguration        [:map
                                                {:closed true
@@ -669,7 +687,7 @@
    [:map {:closed true}
     [:typeKind {:urls     ["https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types"
                            "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.StandardSQLDataType#com_google_cloud_bigquery_StandardSQLDataType_getTypeKind__"]
-                :TODO "TODO just strings for primitives would be nice to accept here ie just \"INT64\" -> {:typeName \"INT64\"}"
+                :TODO     "TODO just strings for primitives would be nice to accept here ie just \"INT64\" -> {:typeName \"INT64\"}"
                 :optional true} :gcp/bigquery.StandardSQLTypeName]
     [:typeName {:optional true} :gcp/bigquery.StandardSQLTypeName]
     [:arrayElementType {:optional true} [:ref :gcp/bigquery.StandardSQLDataType]]
@@ -690,20 +708,20 @@
 
    :gcp/bigquery.WriteChannelConfiguration
    [:map
-    {:key :gcp/bigquery.WriteChannelConfiguration,
+    {:key    :gcp/bigquery.WriteChannelConfiguration,
      :closed true,
-     :doc "Google BigQuery Configuration for a load operation. A load configuration can be used to load data
+     :doc    "Google BigQuery Configuration for a load operation. A load configuration can be used to load data
         into a table with a com.google.cloud.WriteChannel (BigQuery#writer(WriteChannelConfiguration)).",
-     :class 'com.google.cloud.bigquery.WriteChannelConfiguration}
+     :class  'com.google.cloud.bigquery.WriteChannelConfiguration}
     [:autodetect
      {:setterDoc "Sets automatic inference of the options and schema for CSV and JSON sources.",
       :getterDoc "Returns whether automatic inference of the options and schema for CSV and JSON sources is set.",
-      :optional true}
+      :optional  true}
      :boolean]
     [:clustering
      {:setterDoc "Sets the clustering specification for the destination table.",
       :getterDoc "Returns the clustering specification for the definition table.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.Clustering]
     [:connectionProperties
      {:setterDoc nil, :getterDoc "string", :optional true}
@@ -711,7 +729,7 @@
     [:createDisposition
      {:setterDoc "Sets whether the job is allowed to create new tables.",
       :getterDoc "Returns whether the job is allowed to create new tables.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.JobInfo.CreateDisposition]
     [:createSession {:setterDoc nil, :getterDoc "string", :optional true} :boolean]
     [:decimalTargetTypes
@@ -725,12 +743,12 @@
                type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the
                specified list and if it supports the precision and the scale. STRING supports all precision
                and scale values.",
-      :optional true}
+      :optional  true}
      [:sequential :string]]
     [:destinationTable
      {:setterDoc "Sets the destination table to load the data into.",
       :getterDoc "Returns the destination table to load the data into.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.TableId]
     [:encryptionConfiguration {:setterDoc nil, :getterDoc "string", :optional true} :gcp/bigquery.EncryptionConfiguration]
     [:formatOptions
@@ -740,7 +758,7 @@
 
                [Source Format](https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration.sourceFormat)",
       :getterDoc "Returns the format of the data files.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.FormatOptions]
     [:ignoreUnknownValues
      {:setterDoc "Sets whether BigQuery should allow extra values that are not represented in the table schema.
@@ -751,7 +769,7 @@
                schema. If true, the extra values are ignored. If true, records with extra
                columns are treated as bad records, and if there are too many bad records, an invalid error is
                returned in the job result. By default unknown values are not allowed.",
-      :optional true}
+      :optional  true}
      :boolean]
     [:labels {:setterDoc nil, :getterDoc "string", :optional true} [:map-of :string :string]]
     [:maxBadRecords
@@ -761,7 +779,7 @@
       :getterDoc "Returns the maximum number of bad records that BigQuery can ignore when running the job. If the
                number of bad records exceeds this value, an invalid error is returned in the job result. By
                default no bad record is ignored.",
-      :optional true}
+      :optional  true}
      :int]
     [:nullMarker
      {:setterDoc "Sets the string that represents a null value in a CSV file. For example, if you specify \\\"N\\\",
@@ -771,14 +789,14 @@
                `STRING` and `BYTE` columns, BigQuery interprets the empty string as an empty
                value.",
       :getterDoc "Returns the string that represents a null value in a CSV file.",
-      :optional true}
+      :optional  true}
      :string]
     [:schema
      {:setterDoc "Sets the schema for the destination table. The schema can be omitted if the destination table
                already exists, or if you're loading data from a Google Cloud Datastore backup (i.e. `
                DATASTORE_BACKUP` format option).",
       :getterDoc "Returns the schema for the destination table, if set. Returns null otherwise.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.Schema]
     [:schemaUpdateOptions
      {:setterDoc "Sets options allowing the schema of the destination table to be updated as a side effect of
@@ -791,24 +809,24 @@
                WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination table is a partition
                of a table, specified by partition decorators. For normal tables, WRITE_TRUNCATE will always
                overwrite the schema.",
-      :optional true}
+      :optional  true}
      [:sequential :gcp/bigquery.JobInfo.SchemaUpdateOption]]
     [:timePartitioning
      {:setterDoc "Sets the time partitioning specification for the destination table.",
       :getterDoc "Returns the time partitioning specification defined for the destination table.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.TimePartitioning]
     [:useAvroLogicalTypes
      {:setterDoc "If FormatOptions is set to AVRO, you can interpret logical types into their corresponding
                types (such as TIMESTAMP) instead of only using their raw types (such as INTEGER). The value
                may be `null`.",
       :getterDoc "Returns True/False. Indicates whether the logical type is interpreted.",
-      :optional true}
+      :optional  true}
      :boolean]
     [:writeDisposition
      {:setterDoc "Sets the action that should occur if the destination table already exists.",
       :getterDoc "Returns the action that should occur if the destination table already exists.",
-      :optional true}
+      :optional  true}
      :gcp/bigquery.JobInfo.WriteDisposition]]})
 
 (def enum-registry
