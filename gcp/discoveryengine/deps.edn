@@ -1,2 +1,0 @@
-{:paths ["src"]
- :deps {com.google.cloud/google-cloud-discoveryengine {:mvn/version "0.51.0"}}}

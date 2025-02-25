@@ -1,2 +1,0 @@
-{:paths ["src"]
- :deps {com.google.cloud/google-cloud-bigquerydatatransfer {:mvn/version "2.56.0"}}}

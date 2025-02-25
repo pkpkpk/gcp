@@ -7,3 +7,9 @@ dh.js
 target
 .nrepl-port
 .konserve
+gcp/*/.cpcache
+gcp/*/target
+dev/.cpcache
+build/.cpcache
+dev/target
+build/target

@@ -1,13 +1,9 @@
 (ns gcp.dev.store
   (:require [clojure.java.io :as io]
-            [clj-http.client :as http]
-            [clojure.string :as string]
             [gcp.dev.util :as util]
             [gcp.vertexai.generativeai :as genai]
-
             [konserve.core :as k]
-            [konserve.filestore :as fs]
-            [taoensso.telemere :as tt]))
+            [konserve.filestore :as fs]))
 
 (def root (io/file (System/getProperty "user.home") "pkpkpk" "gcp" ".konserve"))
 

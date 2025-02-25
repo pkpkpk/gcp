@@ -1,0 +1,4 @@
+{:paths ["src"]
+ :deps  {io.github.clojure/tools.build {:mvn/version "0.10.7"}
+         org.clojure/clojure           {:mvn/version "1.12.0"}
+         slipset/deps-deploy           {:mvn/version "0.2.2"}}}

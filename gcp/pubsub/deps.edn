@@ -1,3 +1,2 @@
 {:path ["src"]
- :deps {com.google.cloud/google-cloud-pubsub {:mvn/version "1.136.0"}
-        gcp/global {:local/root "../global"}}}
+ :deps {com.google.cloud/google-cloud-pubsub {:mvn/version "1.136.0"}}}
