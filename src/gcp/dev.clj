@@ -2,6 +2,10 @@
   (:require [clojure.java.io :as io]
             [clojure.repl :refer :all]
             [clojure.string :as string]
+            [clojure.test.check :as tc]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
+            [gcp.bigquery.v2.TableId :as TableId]
             [gcp.dev.asm :as asm]
             [gcp.dev.analyzer :as ana :refer [analyze]]
             [gcp.dev.analyzer.extract :as extract]
@@ -30,6 +34,30 @@
 ;;  - index samples + repositories + bookmarks
 ;;  - configuration inference -> instead of looking at :type, check if schema can be matched unambiguously
 ;;  - enum for FormatOptions (& ExportJobConfiguration)... says JSON in docstrings but is actually NEWLINE_DELIMITED_JSON
+
+
+;; TODO gcp.global. priorities
+;;;    0) schemas need to-edn/from-edn in option map as part of malli emitter
+;;;       such that they can be resolved and tested here
+;;;    1) all generated schemas should produce valid instances via from-edn
+;;;    2) edn can be recovered from instances and required fields compared
+;;;     ---  not all types will rt identically, java sdk will backfill values (which we exploit)
+;;;     ---  full equivalence via :readOnly flags?
+;;; #_
+;(def prop
+;  (prop/for-all [t (generator :gcp/bigquery.TableId)]
+;    (= t (TableId/to-edn (TableId/from-edn t)))))
+;
+;#_(tc/quick-check 100 prop)
+;
+;(def prop
+;  (prop/for-all [ljc (generator :gcp/bigquery.LoadJobConfiguration)]
+;    (gcp.bigquery.v2.LoadJobConfiguration/from-edn ljc)))
+;
+;;(tc/quick-check 100 prop)
+;
+;(defn quick-check [])
+;;;
 
 ;(reduce
 ;  (fn [_ className]
@@ -60,8 +88,15 @@
 
 (comment
 
+  ;EncryptionConfiguration
+
+  ;; TODO
+  ;;  -- emitted newBuilder incorrect, :optionalSourceUris in malli incorrect
+  ;;  -- LoadJobConfiguration/to-edn
+  (extract bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
   (analyze bigquery "com.google.cloud.bigquery.LoadJobConfiguration") ;=> accessor
   (malli bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
+  ;(check bigquery "com.google.cloud.bigquery.LoadJobConfiguration")
 
   (analyze bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")
   (malli bigquery "com.google.cloud.bigquery.WriteChannelConfiguration")

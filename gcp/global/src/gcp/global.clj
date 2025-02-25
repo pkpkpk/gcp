@@ -25,6 +25,8 @@
 
 (defn mopts [] {:registry *registry* ::m/sci-options {:classes @*classes}})
 
+(defn get-schema [key] (get (mr/schemas *registry*) key))
+
 (defn include-schema-registry! [registry]
   (if-let [{registry-name ::name} (meta registry)]
     (let [candidate (merge (mr/schemas *registry*) registry)]
@@ -69,12 +71,12 @@
     (catch ExceptionInfo ei
       (if (and (keyword? ?schema)
                (= ":malli.core/invalid-schema" (ex-message ei))
-               (nil? (get (mr/schemas *registry*) ?schema)))
+               (nil? (get-schema ?schema)))
         (throw (ex-info (str "missing schema for " ?schema " in registry") {:schema ?schema :value value}))
         (throw ei)))))
 
 (defn properties [schema]
-  (some-> (get (mr/schemas *registry*) schema) (m/properties (mopts))))
+  (some-> (get-schema schema) (m/properties (mopts))))
 
 (defn explain [?schema value]
   (try
@@ -82,11 +84,11 @@
     (catch ExceptionInfo ei
       (if (and (keyword? ?schema)
                (= ":malli.core/invalid-schema" (ex-message ei))
-               (nil? (get *registry* ?schema)))
+               (nil? (get-schema ?schema)))
         (throw (ex-info (str "missing schema for " ?schema " in registry") {:schema ?schema :value value}))
         (if-let [bad-schema (get-in (ex-data ei) [:data :schema])]
           (if (and (keyword? bad-schema)
-                   (nil? (get *registry* bad-schema)))
+                   (nil? (get-schema bad-schema)))
             (throw (ex-info (str "missing nested schema " bad-schema)
                             {:schema ?schema
                              :data   (ex-data ei)
@@ -128,11 +130,14 @@
 (defmacro strict! [schema-or-spec value]
   `(if-not *strict-mode* ~value (coerce ~schema-or-spec ~value)))
 
+(defn get-schema [key]
+  (get (mr/schemas *registry*) key))
+
 (defn schema
   ([?schema]
    (schema ?schema nil))
   ([?schema opts]
-   (if (keyword? ?schema)
+   (if-let [?schema (and (keyword? ?schema) (get-schema ?schema))]
      (m/schema (get *registry* ?schema) (mopts))
      (m/schema ?schema (merge (mopts) opts)))))
 
