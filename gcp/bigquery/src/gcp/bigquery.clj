@@ -1,6 +1,7 @@
 (ns gcp.bigquery
   (:require [gcp.bigquery.v2]
             [gcp.bigquery.v2.BigQuery :as BQ]
+            [gcp.bigquery.v2.BigQueryException :as BQE]
             [gcp.bigquery.v2.RoutineId :as RoutineId]
             [gcp.bigquery.v2.RoutineInfo :as RoutineInfo]
             [gcp.bigquery.v2.TableResult :as TableResult]
@@ -10,6 +11,7 @@
             [gcp.bigquery.v2.InsertAllResponse :as InsertAllResponse]
             [gcp.bigquery.v2.InsertAllRequest :as InsertAllRequest]
             [gcp.bigquery.v2.Job :as Job]
+            [gcp.bigquery.v2.JobException :as JE]
             [gcp.bigquery.v2.JobId :as JobId]
             [gcp.bigquery.v2.JobInfo :as JobInfo]
             [gcp.bigquery.v2.QueryJobConfiguration :as QJC]
@@ -19,7 +21,7 @@
             [gcp.bigquery.v2.TableInfo :as TableInfo]
             [gcp.bigquery.v2.WriteChannelConfiguration :as WriteChannelConfiguration]
             [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId TableDataWriteChannel)))
+  (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption BigQueryException DatasetId JobException TableDataWriteChannel)))
 
 (defonce ^:dynamic *client* nil)
 
@@ -182,13 +184,18 @@
     (query {:configuration {:type "QUERY" :query arg}})
     (if (contains? arg :query)
       (query {:configuration (assoc arg :type "QUERY")})
-      (let [{:keys [bigquery configuration options jobId]} (g/coerce :gcp/bigquery.synth.Query arg)
-            opts (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))
-            qjc  (QJC/from-edn configuration)
-            res  (if jobId
-                   (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
-                   (.query (client bigquery) qjc opts))]
-        (TableResult/to-edn res)))))
+      (try
+        (let [{:keys [bigquery configuration options jobId]} (g/coerce :gcp/bigquery.synth.Query arg)
+              opts (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))
+              qjc  (QJC/from-edn configuration)
+              res  (if jobId
+                     (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
+                     (.query (client bigquery) qjc opts))]
+          (TableResult/to-edn res))
+        (catch BigQueryException bqe
+          (throw (ex-info "bigquery exception" (BQE/to-edn bqe))))
+        (catch JobException je
+          (throw (ex-info "job exception" (JE/to-edn je))))))))
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines

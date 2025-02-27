@@ -326,11 +326,19 @@
                                                  :doc      "TransactionInfo contains information about a multi-statement transaction that may have associated with a job."}
                                                 [:map {:closed true} [:transactionId :string]]]]
 
-   :gcp/bigquery.BigQueryError                [:map
+   :gcp/bigquery.BigQueryError                [:map {:closed true}
                                                [:debugInfo {:optional true} :string]
                                                [:location {:optional true} :gcp/bigquery.synth.location]
                                                [:message {:optional true} :string]
-                                               [:reason {:optional true} {:doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
+                                               [:reason {:optional true
+                                                         :doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
+
+   :gcp/bigquery.BigQueryException [:map {:closed true}
+                                    [:errors [:sequential :gcp/bigquery.BigQueryError]]]
+
+   :gcp/bigquery.JobException [:map
+                               [:id :gcp/bigquery.JobId]
+                               [:errors [:sequential :gcp/bigquery.BigQueryError]]]
 
    :gcp/bigquery.JobStatus                    [:map {:closed true}
                                                [:error {:optional true} :gcp/bigquery.BigQueryError]
