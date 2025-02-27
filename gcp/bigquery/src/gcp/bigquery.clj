@@ -7,6 +7,8 @@
             [gcp.bigquery.v2.Dataset :as Dataset]
             [gcp.bigquery.v2.DatasetId]
             [gcp.bigquery.v2.DatasetInfo :as DatasetInfo]
+            [gcp.bigquery.v2.InsertAllResponse :as InsertAllResponse]
+            [gcp.bigquery.v2.InsertAllRequest :as InsertAllRequest]
             [gcp.bigquery.v2.Job :as Job]
             [gcp.bigquery.v2.JobId :as JobId]
             [gcp.bigquery.v2.JobInfo :as JobInfo]
@@ -168,10 +170,12 @@
 (defn ^boolean cancel-job [arg]
   (if (string? arg)
     (.cancel (client) ^String arg)
-    (let [{:keys [bigquery jobId]} (g/coerce [:map
-                                              [:jobId :gcp/bigquery.JobId]
-                                              [:bigquery :gcp/bigquery.synth.clientable]] arg)]
-      (.cancel (client bigquery) (JobId/from-edn jobId)))))
+    (if (g/valid? :gcp/bigquery.JobId arg)
+      (cancel-job {:jobId arg})
+      (let [{:keys [bigquery jobId]} (g/coerce [:map
+                                                [:jobId :gcp/bigquery.JobId]
+                                                [:bigquery :gcp/bigquery.synth.clientable]] arg)]
+        (.cancel (client bigquery) (JobId/from-edn jobId))))))
 
 (defn query [arg]
   (if (string? arg)
@@ -279,3 +283,23 @@
   ([jobId writeChannelConfiguration]
    (writer {:jobId jobId
             :writeChannelConfiguration writeChannelConfiguration})))
+
+(defn insert-all
+  ([arg]
+   (if (g/valid? :gcp/bigquery.InsertAllRequest arg)
+     (insert-all {:request arg})
+     (let [{:keys [bigquery request]} (g/coerce :gcp/bigquery.synth.InsertAll arg)
+           response (.insertAll (client bigquery) (InsertAllRequest/from-edn request))]
+       (InsertAllResponse/to-edn response))))
+  ([arg0 arg1]
+   (throw (Exception. "unimplemented")))
+  ([arg0 arg1 arg2]
+   (if (string? arg0)
+     (if (string? arg1)
+       (if (g/valid? [:seqable :map] arg2)
+         (insert-all {:request {:table {:dataset arg0 :table arg1} :rows arg2}})
+         (if (map? arg2)
+           (insert-all arg0 arg1 [arg2])
+           (throw (Exception. "unimplemented"))))
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented")))))

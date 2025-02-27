@@ -680,6 +680,17 @@
                                                [:map-of :string [:ref :gcp/bigquery.QueryParameterValue]]
                                                [:sequential [:ref :gcp/bigquery.QueryParameterValue]]]
 
+   :gcp/bigquery.InsertAllRequest
+   [:map
+    [:table :gcp/bigquery.TableId]
+    [:rows [:seqable :map]]
+    [:ignoreUnknownValues {:optional true} :boolean]
+    [:skipInvalidRows {:optional true} :boolean]
+    [:templateSuffix {:optional true} :string]]
+
+   :gcp/bigquery.InsertAllResponse
+   [:maybe [:map-of :int [:seqable :gcp/bigquery.BigQueryError]]]
+
    #!--------------------------------------------------------------------------
    #! :gcp/bigquery.StandardSQL
 
@@ -1624,7 +1635,10 @@
    :gcp/bigquery.synth.WriterCreate [:map
                                      [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
                                      [:writeChannelConfiguration {:optional false} :gcp/bigquery.WriteChannelConfiguration]]
-   })
+
+   :gcp/bigquery.synth.InsertAll [:map
+                                  [:bigquery {:optional true} :gcp/bigquery.synth.clientable]
+                                  [:request :gcp/bigquery.InsertAllRequest]]})
 
 (let [registries [registry enum-registry union-registry accessor-registry client-api-registry]]
   (g/assert-disjoint-keys! registries)
