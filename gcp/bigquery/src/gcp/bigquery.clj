@@ -19,16 +19,6 @@
             [gcp.global :as g])
   (:import (com.google.cloud.bigquery BigQuery BigQuery$DatasetDeleteOption BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$JobListOption BigQuery$JobOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableListOption BigQuery$TableOption DatasetId TableDataWriteChannel)))
 
-;; TODO 'dataset-able' 'table-able' etc w/ transforms
-;; TODO arg specs, switch to ::bq/op keys
-;; TODO offer resource string arg ie /$project/$dataset/$table?
-;; TODO schema fn args, ergo error reporting
-;; TODO dry-run query sugar
-
-;; TODO sessions, session permissions & roles
-; (ConnectionProperty/of "session_id" *session-id*)
-#_(defonce ^:dynamic *session-id* nil)
-
 (defonce ^:dynamic *client* nil)
 
 (defn ^BigQuery client
@@ -175,11 +165,13 @@
             opts ^BigQuery$JobOption/1 (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))]
         (Job/to-edn (.getJob (client bigquery) (JobId/from-edn jobId) opts))))))
 
-(defn ^boolean cancel-job
-  [{:keys [bigquery jobId]}]
-  (if (string? jobId)
-    (.cancel (client bigquery) ^String jobId)
-    (.cancel (client bigquery) (JobId/from-edn jobId))))
+(defn ^boolean cancel-job [arg]
+  (if (string? arg)
+    (.cancel (client) ^String arg)
+    (let [{:keys [bigquery jobId]} (g/coerce [:map
+                                              [:jobId :gcp/bigquery.JobId]
+                                              [:bigquery :gcp/bigquery.synth.clientable]] arg)]
+      (.cancel (client bigquery) (JobId/from-edn jobId)))))
 
 (defn query [arg]
   (if (string? arg)
@@ -193,76 +185,6 @@
                    (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
                    (.query (client bigquery) qjc opts))]
         (TableResult/to-edn res)))))
-
-(defn
-  ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
-           "https://cloud.google.com/bigquery/docs/reference/standard-sql/export-statements"
-           "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExtractJobConfiguration"]}
-  extract-table
-  ([table format compression dst & opts]
-   (let [table (if (g/valid? :gcp/bigquery.TableId table)
-                 table
-                 (if (g/valid? :gcp/bigquery.TableInfo table)
-                   (get table :tableId)
-                   (throw (ex-info "must provide valid tableId" {:table table
-                                                                 :format format
-                                                                 :dst dst
-                                                                 :opts opts}))))
-         dst (if (string? dst)
-               [dst]
-               (if (g/valid? [:sequential :string] dst)
-                 dst
-                 (throw (ex-info "destination should be string uris" {:table table
-                                                                      :format format
-                                                                      :dst dst
-                                                                      :opts opts}))))
-         configuration (cond-> {:type            "EXTRACT"
-                                :sourceTable     (g/coerce :gcp/bigquery.TableId table)
-                                :format          format
-                                :destinationUris dst}
-                               compression (assoc :compression compression))]
-     (create-job {:gcp/bigquery.(:gcp/bigquery.table) ;; if Table, use same client
-                  :jobInfo  {:configuration (g/coerce :gcp/bigquery.ExtractJobConfiguration configuration)}
-                  :options  (not-empty opts)}))))
-
-(defn clone-table
-  ([source destination]
-   (let [source-tables (if (g/valid? [:sequential :gcp/bigquery.TableId] source)
-                         source
-                         (if (g/valid? :gcp/bigquery.TableId source)
-                           [source]
-                           (if (g/valid? :gcp/bigquery.TableInfo source)
-                             [(:tableId source)]
-                             (if (g/valid? [:sequential :gcp/bigquery.TableInfo] source)
-                               (mapv :tableId source)
-                               (throw (ex-info "cannot create clone source"
-                                               {:source      source
-                                                :destination destination}))))))
-         destination-table (if (g/valid? :gcp/bigquery.TableId destination)
-                             destination
-                             (if (string? destination)
-                               (if (= 1 (count source-tables))
-                                 {:dataset destination
-                                  :table   (get (first source-tables) :table)}
-                                 (throw (ex-info "must provide name for composite destination table"
-                                                 {:source source
-                                                  :destination destination})))
-                               (throw (ex-info "cannot create clone destination"
-                                               {:source source
-                                                :destination destination}))))
-         configuration {:type "COPY"
-                        :sourceTables     (g/coerce [:sequential :gcp/bigquery.TableId] source-tables)
-                        :destinationTable (g/coerce :gcp/bigquery.TableId destination-table)
-                        :operationType    "CLONE",
-                        :writeDisposition "WRITE_EMPTY"}]
-     (create-job {:jobInfo {:configuration (g/coerce :gcp/bigquery.CopyJobConfiguration configuration)}})))
-  ([sourceDataset sourceTable destinationDataset]
-   (let [source (g/coerce :gcp/bigquery.TableId {:dataset sourceDataset :table sourceTable})]
-     (clone-table source destinationDataset)))
-  ([sourceDataset sourceTable destinationDataset destinationTable]
-   (let [source (g/coerce :gcp/bigquery.TableId {:dataset sourceDataset :table sourceTable})
-         destination (g/coerce :gcp/bigquery.TableId {:dataset destinationDataset :table destinationTable})]
-     (clone-table source destination))))
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines
@@ -357,19 +279,3 @@
   ([jobId writeChannelConfiguration]
    (writer {:jobId jobId
             :writeChannelConfiguration writeChannelConfiguration})))
-
-;createConnection()
-;createConnection(@NonNull ConnectionSettings connectionSettings)
-;listPartitions(TableId tableId)
-;insertAll(InsertAllRequest request)
-; (defn load-table [])
-
-#! TODO TABLE API
-; (defn insert-rows [])
-; (defn list-rows [])
-; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
-; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
-; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
-; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
-; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
-; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)

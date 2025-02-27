@@ -45,6 +45,32 @@
 ;; -- pass in history? :history == content, :chat/IHistory -> IHistory ??
 ;; -- readline-chat
 ;; -- IChat protocol... undo, redo, fork, map/reduce/walk
+;;
+;; TODO BigQuery
+;; -- Table.x() api
+;; -- Job.waitFor() etc
+;; -- retries, error handling
+;; (defn insert-rows [])
+;; (defn list-rows [])
+;; -- sessions
+;; ---- session permissions & roles
+;; ---- (ConnectionProperty/of "session_id" *session-id*)
+;; ---- #_(defonce ^:dynamic *session-id* nil)
+;; createConnection()
+;; createConnection(@NonNull ConnectionSettings connectionSettings)
+;; listPartitions(TableId tableId)
+;; insertAll(InsertAllRequest request)
+;; (defn load-table [])
+;; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
+;; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
+;; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
+;; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
+;; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
+;; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
+;; -- 'dataset-able' 'table-able' etc w/ transforms
+;;; TODO offer resource string arg ie /$project/$dataset/$table?
+;;; TODO schema fn args, ergo error reporting
+;;; TODO dry-run query sugar
 
 ;; TODO gcp.global. priorities
 ;;;    0) schemas need to-edn/from-edn in option map as part of malli emitter
