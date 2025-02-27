@@ -46,13 +46,19 @@
 
 (defn list-datasets
   ([] (list-datasets nil))
-  ([{:keys [bigquery projectId options] :as arg}]
-   (g/coerce :gcp/bigquery.synth.DatasetList arg)
-   (let [opts     (into-array BigQuery$DatasetListOption (map BQ/DatasetListOption-from-edn options))
-         datasets (if projectId
-                    (.listDatasets (client bigquery) projectId opts)
-                    (.listDatasets (client bigquery) opts))]
-     (map Dataset/to-edn (seq (.iterateAll datasets))))))
+  ([arg]
+   (if (string? arg)
+     (list-datasets {:projectId arg})
+     (if (g/valid? :gcp/bigquery.synth.DatasetList arg)
+       (let [{:keys [bigquery projectId options]} arg
+             opts     (into-array BigQuery$DatasetListOption (map BQ/DatasetListOption-from-edn options))
+             datasets (if projectId
+                        (.listDatasets (client bigquery) projectId opts)
+                        (.listDatasets (client bigquery) opts))]
+         (map Dataset/to-edn (seq (.iterateAll datasets))))
+       (let [explanation (g/explain :gcp/bigquery.synth.DatasetList arg)]
+         (throw (ex-info "cannot create :gcp/bigquery.synth.DatasetList from arg" {:arg         arg
+                                                                                   :explanation explanation})))))))
 
 (defn create-dataset [arg]
   (if (string? arg)
