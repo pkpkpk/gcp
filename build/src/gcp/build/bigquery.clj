@@ -9,7 +9,6 @@
 
 (def src-root (io/file util/package-root "bigquery" "src"))
 
-
 (defn pom []
   (let [version (str bigquery-version "-"
                      (.format (java.time.LocalDate/now)

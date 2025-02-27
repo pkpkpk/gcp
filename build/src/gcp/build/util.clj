@@ -7,7 +7,7 @@
 
 (def home            (io/file (System/getProperty "user.home")))
 (def project-root    (io/file home "pkpkpk" "gcp"))
-(def package-root    (io/file project-root "gpc"))
+(def package-root    (io/file project-root "gcp"))
 
 (defn pom-template
   [{:keys [version description url]}]
