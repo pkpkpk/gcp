@@ -5,11 +5,11 @@
 
 (defn ^CitationMetadata from-edn
   [{:keys [citations] :as arg}]
-  (global/strict! :vertexai.api/CitationMetadata arg)
+  (global/strict! :gcp/vertexai.api.CitationMetadata arg)
   (let [builder (CitationMetadata/newBuilder)]
     (.addAllCitations builder (map Citation/from-edn citations))
     (.build builder)))
 
 (defn to-edn [^CitationMetadata arg]
-  {:post [(global/strict! :vertexai.api/CitationMetadata %)]}
+  {:post [(global/strict! :gcp/vertexai.api.CitationMetadata %)]}
   {:citations (map Citation/to-edn (.getCitationsList arg))})

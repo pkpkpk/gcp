@@ -72,7 +72,7 @@
            frequencyPenalty
            seed
            routingConfig] :as arg}]
-  (global/strict! :vertexai.api/GenerationConfig arg)
+  (global/strict! :gcp/vertexai.api.GenerationConfig arg)
   (let [builder (GenerationConfig/newBuilder)]
     ;;--------------------------------------------------------------------------------------
     (when stopSequences
@@ -112,7 +112,7 @@
     (.build builder)))
 
 (defn to-edn [^GenerationConfig gc]
-  {:post [(global/strict! :vertexai.api/GenerationConfig %)]}
+  {:post [(global/strict! :gcp/vertexai.api.GenerationConfig %)]}
   (cond-> {:responseMimeType (.getResponseMimeType gc)}
           (.hasTemperature gc)
           (assoc :temperature (.getTemperature gc))

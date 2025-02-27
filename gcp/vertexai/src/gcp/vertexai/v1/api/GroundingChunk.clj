@@ -32,13 +32,13 @@
           (assoc :title (.getTitle arg))))
 
 (defn ^GroundingChunk from-edn [arg]
-  (global/strict! :vertexai.api/GroundingChunk arg)
+  (global/strict! :gcp/vertexai.api.GroundingChunk arg)
   (if (contains? arg :web)
     (Web-from-edn (:web arg))
     (RetrievedContext-from-edn (:retrievedContext arg))))
 
 (defn to-edn [^GroundingChunk arg]
-  {:post [(global/strict! :vertexai.api/GroundingChunk %)]}
+  {:post [(global/strict! :gcp/vertexai.api.GroundingChunk %)]}
   (condp = (.getChunkTypeCase arg)
     GroundingChunk$ChunkTypeCase/WEB {:web (Web-to-edn (.getWeb arg))}
     GroundingChunk$ChunkTypeCase/RETRIEVED_CONTEXT {:retrievedContext (RetrievedContext-to-edn (.getRetrievedContext arg))}

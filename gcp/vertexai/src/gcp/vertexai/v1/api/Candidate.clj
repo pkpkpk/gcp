@@ -50,7 +50,7 @@
     (.build builder)))
 
 (defn to-edn [^Candidate arg]
-  {:post [(global/strict! :vertexai.api/Candidate %)]}
+  {:post [(global/strict! :gcp/vertexai.api.Candidate %)]}
   (cond-> {:avgLogprobs (.getAvgLogprobs arg)
            :index (.getIndex arg)
            :score (.getScore arg)

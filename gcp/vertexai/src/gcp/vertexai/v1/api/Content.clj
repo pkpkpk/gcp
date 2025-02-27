@@ -5,7 +5,7 @@
            [com.google.cloud.vertexai.generativeai ContentMaker]))
 
 (defn ^Content from-edn [arg]
-  (global/strict! :vertexai.api/Content arg)
+  (global/strict! :gcp/vertexai.api.Content arg)
   (if (string? arg)
     (from-edn {:parts [arg]})
     (if (sequential? arg)
@@ -17,6 +17,6 @@
             (.fromMultiModalData (ContentMaker/forRole role) data)))))))
 
 (defn to-edn [^Content c]
-  {:post [(global/strict! :vertexai.api/Content %)]}
+  {:post [(global/strict! :gcp/vertexai.api.Content %)]}
   {:role  (.getRole c)
    :parts (mapv part/->edn (.getPartsList c))})

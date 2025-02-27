@@ -6,7 +6,7 @@
            (com.google.gson JsonObject)))
 
 (defn ^FunctionDeclaration from-edn [arg]
-  (global/strict! :vertexai.api/FunctionDeclaration arg)
+  (global/strict! :gcp/vertexai.api.FunctionDeclaration arg)
   (cond
     (string? arg)
     (FunctionDeclarationMaker/fromJsonString arg)
@@ -27,7 +27,7 @@
         (.build builder)))))
 
 (defn to-edn [^FunctionDeclaration fnd]
-  {:post [(global/strict! :vertexai.api/FunctionDeclaration %)]}
+  {:post [(global/strict! :gcp/vertexai.api.FunctionDeclaration %)]}
   (cond-> {:name (.getName fnd)
            :description (.getDescription fnd)}
           (.hasParameters fnd)

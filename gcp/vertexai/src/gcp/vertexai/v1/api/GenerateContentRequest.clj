@@ -10,7 +10,7 @@
 (defn ^GenerateContentRequest from-edn
   [{:keys [model contents tools systemInstruction
            generationConfig toolConfig safetySettings] :as arg}]
-  (global/strict! :vertexai.api/GenerateContentRequest arg)
+  (global/strict! :gcp/vertexai.api.GenerateContentRequest arg)
   (let [builder (GenerateContentRequest/newBuilder)]
     (.setModel builder model)
     (some->> (not-empty contents) (map Content/from-edn) (.addAllContents builder))
@@ -22,7 +22,7 @@
     (.build builder)))
 
 (defn to-edn [^GenerateContentRequest arg]
-  {:post [(global/strict! :vertexai.api/GenerateContentRequest %)]}
+  {:post [(global/strict! :gcp/vertexai.api.GenerateContentRequest %)]}
   (cond-> {:model (.getModel arg)}
           (.hasGenerationConfig arg)
           (assoc :generationConfig (GenerationConfig/to-edn (.getGenerationConfig arg)))

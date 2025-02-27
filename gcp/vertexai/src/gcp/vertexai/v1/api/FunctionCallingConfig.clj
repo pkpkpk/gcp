@@ -5,7 +5,7 @@
 
 (defn ^FunctionCallingConfig from-edn
   [{:keys [allowedFunctionNames mode] :as arg}]
-  (global/strict! :vertexai.api/FunctionCallingConfig arg)
+  (global/strict! :gcp/vertexai.api.FunctionCallingConfig arg)
   (let [builder (FunctionCallingConfig/newBuilder)]
     (some->> (not-empty allowedFunctionNames)
              (.addAllAllowedFunctionNames builder))

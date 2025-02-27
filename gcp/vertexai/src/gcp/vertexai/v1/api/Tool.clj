@@ -7,7 +7,7 @@
 
 (defn ^Tool from-edn
   [{:keys [functionDeclarations retrieval googleSearchRetrieval] :as arg}]
-  (global/strict! :vertexai.api/Tool arg)
+  (global/strict! :gcp/vertexai.api.Tool arg)
   (let [builder (Tool/newBuilder)]
     (some->> (not-empty functionDeclarations) (map FunctionDeclaration/from-edn) (.addAllFunctionDeclarations builder))
     (some->> googleSearchRetrieval GoogleSearchRetrieval/from-edn (.setGoogleSearchRetrieval builder))
@@ -15,7 +15,7 @@
     (.build builder)))
 
 (defn to-edn [^Tool tool]
-  {:post [(global/strict! :vertexai.api/Tool %)]}
+  {:post [(global/strict! :gcp/vertexai.api.Tool %)]}
   (cond-> {}
           (.hasGoogleSearchRetrieval tool)
           (assoc :googleSearchRetrieval (GoogleSearchRetrieval/to-edn (.getGoogleSearchRetrieval tool)))

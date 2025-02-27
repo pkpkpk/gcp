@@ -9,7 +9,7 @@
            (com.google.protobuf Value)))
 
 (defn ^Schema from-edn [arg]
-  (global/strict! :vertexai.api/Schema arg)
+  (global/strict! :gcp/vertexai.api.Schema arg)
   (let [builder (Schema/newBuilder)]
     (.setType builder (t/from-edn (:type arg)))
     (some->> arg :nullable (.setNullable builder))
@@ -51,7 +51,7 @@
     (from-edn arg)))
 
 (defn to-edn [^Schema schema]
-  {:post [(global/strict! :vertexai.api/Schema %)]}
+  {:post [(global/strict! :gcp/vertexai.api.Schema %)]}
   (let [T    (.name (.getType schema))
         base (cond-> {:nullable (.getNullable schema)}
                      ;;-----------------------------------------------

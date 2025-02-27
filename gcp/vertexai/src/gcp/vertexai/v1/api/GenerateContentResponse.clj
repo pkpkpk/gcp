@@ -42,7 +42,7 @@
 
 (defn ^GenerateContentResponse from-edn
   [{:keys [candidates promptFeedback usageMetadata] :as arg}]
-  (global/strict! :vertexai.api/GenerateContentResponse arg)
+  (global/strict! :gcp/vertexai.api.GenerateContentResponse arg)
   (let [builder (GenerateContentResponse/newBuilder)]
     (some->> usageMetadata usageMetadata-from-edn (.setUsageMetadata builder))
     (some->> promptFeedback promptFeedback-from-edn (.setPromptFeedback builder))
@@ -51,7 +51,7 @@
 
 (defn to-edn
   [^GenerateContentResponse arg]
-  {:post [(global/strict! :vertexai.api/GenerateContentResponse %)]}
+  {:post [(global/strict! :gcp/vertexai.api.GenerateContentResponse %)]}
   (cond-> {}
           (.hasPromptFeedback arg)
           (assoc :promptFeedback (promptFeedback-to-edn (.getPromptFeedback arg)))

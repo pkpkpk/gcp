@@ -3,8 +3,6 @@
                                       VertexAI$Builder
                                       Transport]))
 
-(defn halt! [^VertexAI client] (.close client))
-
 (defn ^VertexAI from-edn
   [{:keys [apiEndpoint customHeaders projectId location
            credentials llmClientSupplier predictionClientSupplier scopes transport]}]

@@ -5,13 +5,13 @@
 
 (defn ^ToolConfig from-edn
   [{:keys [functionCallingConfig] :as arg}]
-  (global/strict! :vertexai.api/ToolConfig arg)
+  (global/strict! :gcp/vertexai.api.ToolConfig arg)
   (let [builder (ToolConfig/newBuilder)]
     (some->> functionCallingConfig FunctionCallingConfig/from-edn (.setFunctionCallingConfig builder))
     (.build builder)))
 
 (defn to-edn [^ToolConfig arg]
-  {:post [(global/strict! :vertexai.api/ToolConfig %)]}
+  {:post [(global/strict! :gcp/vertexai.api.ToolConfig %)]}
   (cond-> {}
           (.hasFunctionCallingConfig arg)
           (assoc :functionCallingConfig (FunctionCallingConfig/to-edn (.getFunctionCallingConfig arg)))))

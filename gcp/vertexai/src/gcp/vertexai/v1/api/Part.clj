@@ -8,7 +8,7 @@
            [com.google.cloud.vertexai.api Part]))
 
 (defn ^Part from-edn [arg]
-  (global/strict! :vertexai.api/Part arg)
+  (global/strict! :gcp/vertexai.api.Part arg)
   (if (string? arg)
     (from-edn {:text arg})
     (if (contains? arg :mimeType)
@@ -28,7 +28,7 @@
         (.build builder)))))
 
 (defn ->edn [^Part part]
-  {:post [(global/strict! :vertexai.api/Part %)]}
+  {:post [(global/strict! :gcp/vertexai.api.Part %)]}
   (cond-> {}
           (.hasText part)
           (assoc :text (.getText part))

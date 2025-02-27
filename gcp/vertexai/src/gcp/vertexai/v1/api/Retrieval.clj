@@ -4,11 +4,11 @@
   (:import (com.google.cloud.vertexai.api Retrieval)))
 
 (defn ^Retrieval from-edn [{:keys [vertexAISearch] :as arg}]
-  (global/strict! :vertexai.api/Retrieval arg)
+  (global/strict! :gcp/vertexai.api.Retrieval arg)
   (let [builder (Retrieval/newBuilder)]
     (.setVertexAiSearch builder (VertexAISearch/from-edn vertexAISearch))
     (.build builder)))
 
 (defn to-edn [^Retrieval arg]
-  {:post [(global/strict! :vertexai.api/Retrieval arg)]}
+  {:post [(global/strict! :gcp/vertexai.api.Retrieval arg)]}
   {:vertexAiSearch (VertexAISearch/to-edn (.getVertexAiSearch arg))})

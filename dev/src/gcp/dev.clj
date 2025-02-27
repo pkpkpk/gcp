@@ -34,7 +34,17 @@
 ;;  - index samples + repositories + bookmarks
 ;;  - configuration inference -> instead of looking at :type, check if schema can be matched unambiguously
 ;;  - enum for FormatOptions (& ExportJobConfiguration)... says JSON in docstrings but is actually NEWLINE_DELIMITED_JSON
-
+;;  - function schemas
+;;  - can we derive :Vertex.api/Schema from malli schemas
+;;  - serialize instance schemas
+;;
+;;
+;; TODO CHAT
+;; -- send-msg-async
+;; -- streaming exampl;es
+;; -- pass in history? :history == content, :chat/IHistory -> IHistory ??
+;; -- readline-chat
+;; -- IChat protocol... undo, redo, fork, map/reduce/walk
 
 ;; TODO gcp.global. priorities
 ;;;    0) schemas need to-edn/from-edn in option map as part of malli emitter

@@ -3,13 +3,13 @@
   (:import [com.google.cloud.vertexai.api FileData]))
 
 (defn ^FileData from-edn [arg]
-  (global/strict! [:ref :vertexai.api/FileData] arg)
+  (global/strict! [:ref :gcp/vertexai.api.FileData] arg)
   (let [builder (FileData/newBuilder)]
     (.setFileUri builder (:fileUri arg))
     (.setMimeType builder (:mimeType arg))
     (.build builder)))
 
 (defn to-edn [^FileData arg]
-  {:post [(global/strict! [:ref :vertexai.api/FileData] %)]}
+  {:post [(global/strict! [:ref :gcp/vertexai.api.FileData] %)]}
   {:mimeType (.getMimeType arg)
    :fileUri (.getFileUri arg)})

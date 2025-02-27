@@ -1626,15 +1626,6 @@
                                      [:writeChannelConfiguration {:optional false} :gcp/bigquery.WriteChannelConfiguration]]
    })
 
-(defn assert-disjoint-keys! [registries]
-  (let [sets (map #(set (keys %)) registries)
-        total (reduce + (map count sets))
-        united (apply clojure.set/union sets)]
-    (when-not (= (count united) total)
-      #_(when-let [both (not-empty (clojure.set/intersection (set (keys r0)) (set (keys r1))))]
-          (throw (Exception. (str "overlapping keys: " both))))
-      (throw (Exception. "overlapping keys!")))))
-
 (let [registries [registry enum-registry union-registry accessor-registry client-api-registry]]
-  (assert-disjoint-keys! registries)
+  (g/assert-disjoint-keys! registries)
   (g/include-schema-registry! (reduce merge registries)))

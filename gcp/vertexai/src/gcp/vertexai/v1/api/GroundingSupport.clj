@@ -4,7 +4,7 @@
   (:import [com.google.cloud.vertexai.api GroundingSupport]))
 
 (defn ^GroundingSupport from-edn [arg]
-  (global/strict! :vertexai.api/GroundingSupport arg)
+  (global/strict! :gcp/vertexai.api.GroundingSupport arg)
   (if (instance? GroundingSupport arg)
     (let [{:keys [segment confidenceScores groundingChunkIndices]} arg
           builder (GroundingSupport/newBuilder)]
@@ -14,7 +14,7 @@
       (.build builder))))
 
 (defn to-edn [^GroundingSupport arg]
-  {:post [(global/strict! :vertexai.api/GroundingSupport %)]}
+  {:post [(global/strict! :gcp/vertexai.api.GroundingSupport %)]}
   (cond-> {}
           (pos? (.getConfidenceScoresCount arg))
           (assoc :confidenceScores (mapv double (.getConfidenceScoresList arg)))

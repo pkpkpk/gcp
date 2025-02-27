@@ -63,7 +63,14 @@
                                      ;; TODO should we be cached compiled schemas instead?
                                      ;; TODO check if schema is already present and unchanged before re-compiling
                                      (mr/simple-registry candidate))))
-    (throw (Exception. "registries must have metadata"))))
+    (throw (Exception. "registry must have metadata with a :gcp.global/name identifier"))))
+
+(defn assert-disjoint-keys! [registries]
+  (let [all-keys (mapcat keys registries)
+        freqs (frequencies all-keys)
+        clashes (->> freqs (filter #(> (val %) 1)) (map key) set)]
+    (when (seq clashes)
+      (throw (ex-info "overlapping keys" {:keys clashes})))))
 
 (defn valid? [?schema value]
   (try

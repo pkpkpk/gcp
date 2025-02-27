@@ -7,7 +7,7 @@
 
 (defn ^Citation from-edn
   [{:keys [startIndex endIndex uri license publicationDate title] :as arg}]
-  (global/strict! :vertexai.api/Citation arg)
+  (global/strict! :gcp/vertexai.api.Citation arg)
   (let [builder (Citation/newBuilder)]
     (some->> startIndex (.setStartIndex builder))
     (some->> endIndex (.setEndIndex builder))
@@ -18,7 +18,7 @@
     (.build builder)))
 
 (defn to-edn [^Citation arg]
-  {:post [(global/strict! :vertexai.api/Citation %)]}
+  {:post [(global/strict! :gcp/vertexai.api.Citation %)]}
   (cond-> {:endIndex (.getEndIndex arg)
            :startIndex (.getStartIndex arg)}
 

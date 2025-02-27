@@ -12,7 +12,7 @@
            systemInstruction
            tools]
     :as arg}]
-  (global/strict! :vertexai.api/CountTokensRequest arg)
+  (global/strict! :gcp/vertexai.api.CountTokensRequest arg)
   (let [builder (CountTokensRequest/newBuilder)]
     (some->> contents (map Content/from-edn) (.addAllContents builder))
     (some->> systemInstruction Content/from-edn (.setSystemInstruction builder))
@@ -23,7 +23,7 @@
     (.build builder)))
 
 (defn to-edn [^CountTokensRequest arg]
-  {:post [(global/strict! :vertexai.api/CountTokensRequest %)]}
+  {:post [(global/strict! :gcp/vertexai.api.CountTokensRequest %)]}
   (cond-> {:endpoint (.getEndpoint arg)
            :model (.getModel arg)}
           (.hasSystemInstruction arg)

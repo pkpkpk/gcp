@@ -7,7 +7,7 @@
 
 (defn ^SafetySetting from-edn
   [{:keys [threshold category] :as arg}]
-  (global/strict! :vertexai.api/SafetySetting arg)
+  (global/strict! :gcp/vertexai.api.SafetySetting arg)
   (let [builder (SafetySetting/newBuilder)
         threshold (if (number? threshold)
                     (SafetySetting$HarmBlockThreshold/forNumber (int threshold))
@@ -18,6 +18,6 @@
 
 (defn to-edn
   [^SafetySetting ss]
-  {:post [(global/strict! :vertexai.api/SafetySetting %)]}
+  {:post [(global/strict! :gcp/vertexai.api.SafetySetting %)]}
   {:category  (hc/to-edn (.getCategory ss))
    :threshold (.name (.getThreshold ss))})

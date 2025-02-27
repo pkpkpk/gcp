@@ -11,7 +11,7 @@
            groundingSupports
            searchEntryPoint
            webSearchQueries] :as arg}]
-  (global/strict! :vertexai.api/GroundingMetaData arg)
+  (global/strict! :gcp/vertexai.api.GroundingMetaData arg)
   (let [builder (GroundingMetadata/newBuilder)]
     (some->> groundingChunks (map gc/from-edn) (.addAllGroundingChunks builder))
     (some->> groundingSupports (map gs/from-edn) (.addAllGroundingSupports builder))
@@ -20,7 +20,7 @@
     (.build builder)))
 
 (defn to-edn [^GroundingMetadata arg]
-  {:post [(global/strict! :vertexai.api/GroundingMetaData %)]}
+  {:post [(global/strict! :gcp/vertexai.api.GroundingMetaData %)]}
   (cond-> {}
           (.hasSearchEntryPoint arg)
           (assoc :searchEntryPoint (sep/to-edn (.getSearchEntryPoint arg)))

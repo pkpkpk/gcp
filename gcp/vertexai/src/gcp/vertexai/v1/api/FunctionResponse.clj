@@ -4,13 +4,13 @@
   (:import [com.google.cloud.vertexai.api FunctionResponse]))
 
 (defn ^FunctionResponse from-edn [arg]
-  (global/strict! :vertexai.api/FunctionResponse arg)
+  (global/strict! :gcp/vertexai.api.FunctionResponse arg)
   (let [builder (FunctionResponse/newBuilder)]
     (.setName builder (:name arg))
     (.setResponse builder (protobuf/struct-from-edn (:response arg)))
     (.build builder)))
 
 (defn to-edn [^FunctionResponse arg]
-  {:post [(global/strict! :vertexai.api/FunctionResponse %)]}
+  {:post [(global/strict! :gcp/vertexai.api.FunctionResponse %)]}
   {:name (.getName arg)
    :response (protobuf/struct-to-edn (.getResponse arg))})

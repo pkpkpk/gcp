@@ -30,7 +30,7 @@
 (defn from-edn [arg] (throw (Exception. "unimplemented")))
 
 (defn to-edn [^SafetyRating arg]
-  {:post [(global/strict! :vertexai.api/SafetyRating %)]}
+  {:post [(global/strict! :gcp/vertexai.api.SafetyRating %)]}
   {:blocked          (.getBlocked arg)
    :category         (hc/to-edn (.getCategory arg))
    :probability      (HarmProbability-to-edn (.getProbability arg))
