@@ -330,7 +330,7 @@
                                                [:debugInfo {:optional true} :string]
                                                [:location {:optional true} :gcp/bigquery.synth.location]
                                                [:message {:optional true} :string]
-                                               [:reason {:doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
+                                               [:reason {:optional true} {:doc "https://cloud.google.com/bigquery/docs/error-messages"} :string]]
 
    :gcp/bigquery.JobStatus                    [:map {:closed true}
                                                [:error {:optional true} :gcp/bigquery.BigQueryError]

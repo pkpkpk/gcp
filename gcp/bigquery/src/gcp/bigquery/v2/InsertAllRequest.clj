@@ -5,7 +5,26 @@
   (:import (com.google.cloud.bigquery InsertAllRequest InsertAllRequest$RowToInsert)
            (java.util HashMap)))
 
-(defn serialize-value [val] (str val))
+(defn serialize-value [val]
+  (if (sequential? val)
+    (if (empty? val)
+      (into-array Object val)
+      (cond
+        (g/valid? [:seqable :int] val)
+        (into-array Long val)
+
+        (g/valid? [:seqable :string] val)
+        (into-array String val)
+
+        :else
+        (into-array Object (map serialize-value val))))
+    (if (map? val)
+      (into {}
+            (map
+              (fn [[k v]]
+                [(name k) (serialize-value v)]))
+            val)
+      (str val))))
 
 (defn ^HashMap serialize-row [row]
   (into {}

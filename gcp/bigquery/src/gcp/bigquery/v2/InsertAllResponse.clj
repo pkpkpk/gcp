@@ -4,11 +4,11 @@
   (:import (com.google.cloud.bigquery InsertAllResponse)))
 
 (defn to-edn [^InsertAllResponse arg]
-  {:post [(g/strict! :gcp/bigquery.InsertAllResponse %)]}
   (when (.hasErrors arg)
-    (let [errors (.getInsertErrors arg)]
-      (into {}
-            (map
-              (fn [[k v]]
-                [k (mapv BigQueryError/to-edn v)]))
-            errors))))
+    (let [errors (.getInsertErrors arg)
+          response (into {}
+                         (map
+                           (fn [[k v]]
+                             [k (mapv BigQueryError/to-edn v)]))
+                         errors)]
+      (g/coerce :gcp/bigquery.InsertAllResponse response))))
