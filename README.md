@@ -2,7 +2,7 @@
  
  lib | snapshot| notes
 -----|---------|------
-`gcp.vertexai` | [![Clojars Project](https://img.shields.io/clojars/v/com.github.pkpkpk/gcp.vertexai.svg?include_prereleases)](https://clojars.org/com.github.pkpkpk/gcp.vertexai) | [`gcp.vertexai.generativeai`](https://github.com/pkpkpk/gcp/blob/main/gcp/vertexai/src/gcp/vertexai/generativeai.clj) :warning: mostly ok, the rest of vertexai :construction:
+`gcp.vertexai` | [![Clojars Project](https://img.shields.io/clojars/v/com.github.pkpkpk/gcp.vertexai.svg?include_prereleases)](https://clojars.org/com.github.pkpkpk/gcp.vertexai) | [`gcp.vertexai.generativeai`](https://github.com/pkpkpk/gcp/blob/main/gcp/vertexai/src/gcp/vertexai/generativeai.clj) ✅:, the rest of vertexai :construction:
 `gcp.bigquery` | [![Clojars Project](https://img.shields.io/clojars/v/com.github.pkpkpk/gcp.bigquery.svg?include_prereleases)](https://clojars.org/com.github.pkpkpk/gcp.bigquery) | (datasets, tables, queries) :white_check_mark:, (jobs, routines, models) :construction:
 `gcp.storage` | :x: | WIP :construction:
 `gcp.pubsub` | :x: | WIP :construction:
