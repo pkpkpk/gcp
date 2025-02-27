@@ -6,27 +6,28 @@
 
 (def lib 'com.github.pkpkpk/gcp.vertexai)
 (def vertexai-version "1.18.0")
-(def version (str vertexai-version "-0.1.0-SNAPSHOT"))
 (def src-root (io/file util/package-root "vertexai" "src"))
 
-(def project
-  {:paths [(.getPath src-root)]
-   :deps {global/lib {:mvn/version global/version}
-          'com.google.cloud/google-cloud-vertexai {:mvn/version vertexai-version}}})
+(defn pom []
+  (let [version (str vertexai-version "-"
+                     (.format (java.time.LocalDate/now)
+                              (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd"))
+                     "-SNAPSHOT")
 
-(def basis (b/create-basis {:project project}))
-
-(def pom {:src-dirs  [(.getPath src-root)]
-          :lib       lib
-          :version   version
-          :basis     basis
-          :pom-data (util/pom-template {:version version
-                                        :description "edn bindings for the google-cloud-vertexai sdk"
-                                        :url "https://github.com/pkpkpk/gcp/gcp/vertexai"})})
-
+        project {:paths [(.getPath src-root)]
+                 :deps  {global/lib                              {:mvn/version global/version}
+                         'com.google.cloud/google-cloud-vertexai {:mvn/version vertexai-version}}}
+        basis (b/create-basis {:project project})]
+    {:src-dirs [(.getPath src-root)]
+     :lib      lib
+     :version  version
+     :basis    basis
+     :pom-data (util/pom-template {:version     version
+                                   :description "edn bindings for the google-cloud-vertexai sdk"
+                                   :url         "https://github.com/pkpkpk/gcp/gcp/vertexai"})}))
 
 (comment
   (do (require :reload 'gcp.build.vertexai) (in-ns 'gcp.build.vertexai))
-  (jar pom)
-  (deploy pom)
+  (jar (pom))
+  (deploy (pom))
   )
