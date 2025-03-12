@@ -117,10 +117,14 @@
    (human-ex-info schema (explain schema value) value))
   ([schema explanation value]
    (let [human (humanize explanation)
+         human-str (pr-str human)
+         human-str (if (< (count human-str) 60)
+                     human-str
+                     (str (subs human-str 0 60) "..."))
          props (properties schema)
          msg   (if-let [clazz (:class props)]
-                 (str "schema for class " clazz " failed.")
-                 (str "schema failed."))]
+                 (str "schema for class " clazz " failed: " human-str)
+                 (str "schema failed: " human-str))]
      (ex-info msg {:explain explanation
                    :human   human
                    :props   props

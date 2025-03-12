@@ -3,8 +3,7 @@
   (:import [com.google.cloud.bigquery BigQuery BigQueryOptions]))
 
 (defn ^BigQueryOptions from-edn
-  [{:keys [location transportOptions useInt64Timestamps
-           projectId] :as arg}]
+  [{:keys [location transportOptions useInt64Timestamps projectId] :as arg}]
   (global/strict! :gcp/bigquery.BigQueryOptions arg)
   (let [builder (BigQueryOptions/newBuilder)]
     (when location
@@ -30,6 +29,8 @@
     (.build builder)))
 
 (defn ^BigQuery get-service [arg]
-  (if (instance? BigQueryOptions arg)
-    (.getService arg)
-    (.getService (from-edn arg))))
+  (if (instance? BigQuery arg)
+    arg
+    (if (instance? BigQueryOptions arg)
+      (.getService arg)
+      (.getService (from-edn arg)))))

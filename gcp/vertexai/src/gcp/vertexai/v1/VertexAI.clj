@@ -1,11 +1,14 @@
 (ns gcp.vertexai.v1.VertexAI
+  (:require [gcp.global :as g])
   (:import [com.google.cloud.vertexai VertexAI
                                       VertexAI$Builder
                                       Transport]))
 
 (defn ^VertexAI from-edn
   [{:keys [apiEndpoint customHeaders projectId location
-           credentials llmClientSupplier predictionClientSupplier scopes transport]}]
+           credentials llmClientSupplier predictionClientSupplier scopes transport]
+    :as arg}]
+  (g/strict! :gcp/vertexai.VertexAI arg)
   (let [builder (VertexAI$Builder.)]
     (some->> apiEndpoint (.setApiEndpoint builder))
     (some->> credentials (.setCredentials builder))
@@ -18,4 +21,3 @@
     (some->> transport Transport/valueOf (.setTransport builder))
     (.build builder)))
 
-(defn to-edn [^VertexAI client] (throw (Exception. "unimplemented")))

@@ -5,7 +5,6 @@
             gcp.type)
   (:import (com.google.cloud.vertexai VertexAI)))
 
-
 ;:gcp/vertexai.synth.Valueable                     {}
 ;:gcp/vertexai.synth.DeclarableFunction            {}
 ;:gcp/vertexai.generativeai.generate-content       {}
@@ -71,26 +70,27 @@
                                                       (= "dataStores" (nth parts 6))
                                                       (some? (nth parts 7)))))]]
 
-   :gcp/vertexai.VertexAI                    [:map {:closed    true
-                                                    :doc       "This class holds default settings and credentials to make Vertex AI API calls. Note: The VertexAI instance will start a service client when the first API call is made. Please close the VertexAI instance after making any API calls so that clients get closed as well."
-                                                    :class     'com.google.cloud.vertexai.VertexAI
-                                                    :from-edn  'gcp.vertexai.v1.VertexAI/from-edn}
-                                              [:apiEndpoint {:optional true} :string]
-                                              [:credentials {:optional true} :gcp.auth/Credentials]
-                                              [:customHeaders {:optional true} [:map-of :string :string]]
-                                              [:llmClientSupplier {:optional true} :any]
-                                              [:location {:optional true} :string]
-                                              [:predictionClientSupplier {:optional true} :any]
-                                              [:projectId {:optional true} :string]
-                                              [:scopes {:optional true} [:sequential :string]]
-                                              [:transport {:optional true}
-                                               [:or
-                                                [:=
-                                                 {:doc "When used, the clients will send gRPC to the backing service. This is usually more efficient and is the default transport."}
-                                                 "GRPC"]
-                                                [:=
-                                                 {:doc "When used, the clients will send REST requests to the backing service."}
-                                                 "REST"]]]]
+   :gcp/vertexai.VertexAI                    [:maybe
+                                              {:doc      "This class holds default settings and credentials to make Vertex AI API calls. Note: The VertexAI instance will start a service client when the first API call is made. Please close the VertexAI instance after making any API calls so that clients get closed as well."
+                                               :class    'com.google.cloud.vertexai.VertexAI
+                                               :from-edn 'gcp.vertexai.v1.VertexAI/from-edn}
+                                              [:map {:closed   true}
+                                               [:apiEndpoint {:optional true} :string]
+                                               [:credentials {:optional true} :gcp.auth/Credentials]
+                                               [:customHeaders {:optional true} [:map-of :string :string]]
+                                               [:llmClientSupplier {:optional true} :any]
+                                               [:location {:optional true} :string]
+                                               [:predictionClientSupplier {:optional true} :any]
+                                               [:projectId {:optional true} :string]
+                                               [:scopes {:optional true} [:sequential :string]]
+                                               [:transport {:optional true}
+                                                [:or
+                                                 [:=
+                                                  {:doc "When used, the clients will send gRPC to the backing service. This is usually more efficient and is the default transport."}
+                                                  "GRPC"]
+                                                 [:=
+                                                  {:doc "When used, the clients will send REST requests to the backing service."}
+                                                  "REST"]]]]]
 
    :gcp/vertexai.api.Content                 [:or
                                               {:doc              "The base structured datatype containing multi-part content of a message. A Content includes a role field designating the producer of the Content and a parts field containing multi-part data that contains the content of the message turn"

@@ -26,8 +26,9 @@
    ;;; Client
 
    :gcp/bigquery.BigQueryOptions              [:maybe
-                                               [:map
+                                               [:map {:closed true}
                                                 [:location {:optional true} :string]
+                                                [:projectId {:optional true} :string]
                                                 [:transportOptions {:optional true} :gcp/TransportOptions]
                                                 [:useInt64Timestamps {:optional true} :boolean]]]
 
