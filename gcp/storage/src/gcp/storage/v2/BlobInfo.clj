@@ -12,7 +12,7 @@
   (throw (Exception. "unimplemented")))
 
 (defn to-edn [^BlobInfo arg]
-  {:post [(global/strict! :storage/BlobInfo %)]}
+  {:post [(global/strict! :gcp/storage.BlobInfo %)]}
   (cond-> {:name (.getName arg)}
 
           (some? (.getBlobId arg))

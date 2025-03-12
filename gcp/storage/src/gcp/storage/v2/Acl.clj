@@ -27,7 +27,7 @@
   (Acl/of (Entity-from-edn entity) (Acl$Role/valueOf role)))
 
 (defn to-edn [^Acl arg]
-  {:post [(g/strict! :storage/Acl %)]}
+  {:post [(g/strict! :gcp/storage.Acl %)]}
   (cond-> {}
           (some? (.getEtag arg))
           (assoc :etag (.getEtag arg))

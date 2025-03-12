@@ -5,11 +5,7 @@
             [gcp.storage.v2.BlobId :as BlobId]
             [gcp.storage.v2.Bucket :as Bucket]
             [gcp.storage.v2.BucketInfo :as BucketInfo]
-            [gcp.storage.v2.Storage.BlobListOption  :as BlobLO]
-            [gcp.storage.v2.Storage.BlobSourceOption :as BlobSourceOption]
-            [gcp.storage.v2.Storage.BucketGetOption :as BucketGetOption]
-            [gcp.storage.v2.Storage.BucketListOption :as BucketListOption]
-            [gcp.storage.v2.Storage.BucketTargetOption :as BucketTargetOption])
+            [gcp.storage.v2.Storage :as S])
   (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BlobSourceOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
 
 (defonce ^:dynamic *client* nil)
@@ -19,10 +15,10 @@
   ([arg]
    (or *client*
        (do
-         (g/strict! :storage.synth/clientable arg)
+         (g/strict! :gcp/storage.synth.clientable arg)
          (if (instance? Storage arg)
            arg
-           (g/client :storage.synth/client arg))))))
+           (g/client :gcp/storage.synth.client arg))))))
 
 #!-----------------------------------------------------------------------------
 #! Bucket Operations
@@ -30,27 +26,27 @@
 (defn list-buckets
   ([] (list-buckets nil))
   ([{:keys [storage options] :as arg}]
-   (g/coerce :storage.synth/BucketList arg)
-   (let [opts (into-array Storage$BucketListOption (map BucketListOption/from-edn options))]
+   (g/coerce :gcp/storage.synth.BucketList arg)
+   (let [opts (into-array Storage$BucketListOption (map S/BucketListOption-from-edn options))]
      (map Bucket/to-edn (seq (.iterateAll (.list (client storage) ^Storage$BucketListOption/1 opts)))))))
 
 (defn get-bucket [arg]
   (if (string? arg)
     (get-bucket {:bucket arg})
-    (if (g/valid? :storage/BucketInfo arg)
+    (if (g/valid? :gcp/storage.BucketInfo arg)
       (get-bucket {:bucket (:name arg)})
-      (let [{:keys [storage bucket options]} (g/coerce :storage.synth/BucketGet arg)
-            opts (into-array Storage$BucketGetOption (map BucketGetOption/from-edn options))]
+      (let [{:keys [storage bucket options]} (g/coerce :gcp/storage.synth.BucketGet arg)
+            opts (into-array Storage$BucketGetOption (map S/BucketGetOption-from-edn options))]
         (Bucket/to-edn (.get (client storage) ^String bucket ^Storage$BucketGetOption/1 opts))))))
 
 (defn create-bucket
   ([arg]
    (if (string? arg)
      (create-bucket {:bucketInfo {:name arg}})
-     (if (g/valid? :storage/BucketInfo arg)
+     (if (g/valid? :gcp/storage.BucketInfo arg)
        (create-bucket {:bucketInfo arg})
-       (let [{:keys [storage bucketInfo options]} (g/coerce :storage.synth/BucketCreate arg)
-             opts ^Storage$BucketTargetOption/1 (into-array Storage$BucketTargetOption (map BucketTargetOption/from-edn options))]
+       (let [{:keys [storage bucketInfo options]} (g/coerce :gcp/storage.synth.BucketCreate arg)
+             opts ^Storage$BucketTargetOption/1 (into-array Storage$BucketTargetOption (map S/BucketTargetOption-from-edn options))]
          (.create (client storage) (BucketInfo/from-edn bucketInfo) opts))))))
 
 ;delete(String bucket, Storage.BucketSourceOption[] options)
@@ -65,20 +61,20 @@
 (defn list-blobs [arg]
   (if (string? arg)
     (list-blobs {:bucket arg})
-    (if (g/valid? :storage/BucketInfo arg)
+    (if (g/valid? :gcp/storage.BucketInfo arg)
       (list-blobs (assoc arg :bucket (:name arg)))
-      (let [{:keys [storage bucket options]} (g/coerce :storage.synth/BlobList arg)
-            opts (into-array Storage$BlobListOption (map BlobLO/from-edn options))]
+      (let [{:keys [storage bucket options]} (g/coerce :gcp/storage.synth.BlobList arg)
+            opts (into-array Storage$BlobListOption (map S/BlobListOption-from-edn options))]
         (map Blob/to-edn (seq (.iterateAll (.list (client storage) bucket ^Storage$BlobListOption/1 opts))))))))
 
 (defn delete-blob
   "blobId|seq<BlobId>|storage.synth.BlobDelete -> seq<bool>"
   ([arg]
-   (if (g/valid? :storage/BlobId arg)
+   (if (g/valid? :gcp/storage.BlobId arg)
      (delete-blob {:blobs [arg]})
-     (if (g/valid? [:sequential :storage/BlobId] arg)
+     (if (g/valid? [:sequential :gcp/storage.BlobId] arg)
        (delete-blob {:blobs arg})
-       (let [{:keys [storage blobs]} (g/coerce :storage.synth/BlobDelete arg)]
+       (let [{:keys [storage blobs]} (g/coerce :gcp/storage.synth.BlobDelete arg)]
          (.delete (client storage) ^Iterable (map BlobId/from-edn blobs))))))
   ([blobId & options]
    (throw (Exception. "unimplemented"))))
@@ -103,10 +99,10 @@
 ;readAllBytes(String bucket, String blob, Storage.BlobSourceOption[] options)
 (defn read-all-bytes
   ([arg]
-   (if (g/valid? :storage/BlobId arg)
+   (if (g/valid? :gcp/storage.BlobId arg)
      (read-all-bytes {:blobId arg})
-     (let [{:keys [storage blobId options]} (g/coerce :storage.synth/ReadAllBytes arg)
-           opts ^Storage$BlobSourceOption/1 (into-array Storage$BlobSourceOption (map BlobSourceOption/from-edn options))]
+     (let [{:keys [storage blobId options]} (g/coerce :gcp/storage.synth.ReadAllBytes arg)
+           opts ^Storage$BlobSourceOption/1 (into-array Storage$BlobSourceOption (map S/BlobSourceOption-from-edn options))]
        (.readAllBytes (client storage) (BlobId/from-edn blobId) opts))))
   ([arg & more]
    (if (string? arg)

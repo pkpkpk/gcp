@@ -4,13 +4,13 @@
 
 (defn ^BlobId from-edn
   [{:keys [bucket name generation] :as arg}]
-  (g/strict! :storage/BlobId arg)
+  (g/strict! :gcp/storage.BlobId arg)
   (if (some? generation)
     (BlobId/of bucket name (long generation))
     (BlobId/of bucket name)))
 
 (defn to-edn [^BlobId arg]
-  {:post [(g/strict! :storage/BlobId %)]}
+  {:post [(g/strict! :gcp/storage.BlobId %)]}
   (cond-> {:bucket (.getBucket arg)
            :name   (.getName arg)}
           (some? (.getGeneration arg))

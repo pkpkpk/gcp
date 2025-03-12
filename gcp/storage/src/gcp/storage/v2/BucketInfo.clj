@@ -13,7 +13,7 @@
   (throw (Exception. "unimplemented")))
 
 (defn ^BucketInfo from-edn [arg]
-  (g/strict! :storage/BucketInfo arg)
+  (g/strict! :gcp/storage.BucketInfo arg)
   (let [builder (BucketInfo/newBuilder (:name arg))]
     (when (:acl arg)
       (.setAcl builder (map Acl/from-edn (:acl arg))))
@@ -80,7 +80,7 @@
     (.build builder)))
 
 (defn to-edn [^BucketInfo arg]
-  {:post [(g/strict! :storage/BucketInfo %)]}
+  {:post [(g/strict! :gcp/storage.BucketInfo %)]}
   (cond-> {:name (.getName arg)}
           (seq (.getAcl arg))
           (assoc :acl (vec (.getAcl arg))) ;; or (mapv Acl/to-edn (.getAcl arg)) if you have Acl/to-edn

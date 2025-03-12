@@ -3,4 +3,5 @@
   (:import (com.google.cloud.storage Blob)))
 
 (defn to-edn [^Blob arg]
-  (assoc (BlobInfo/to-edn arg) :storage (.getStorage arg)))
+  (when arg
+    (assoc (BlobInfo/to-edn arg) :storage (.getStorage arg))))
