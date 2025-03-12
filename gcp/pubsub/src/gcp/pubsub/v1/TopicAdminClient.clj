@@ -1,4 +1,4 @@
-(ns gcp.pubsub.v1.clients.TopicAdminClient
+(ns gcp.pubsub.v1.TopicAdminClient
   (:require [gcp.global :as g]
             [gcp.pubsub.v1.TopicAdminSettings :as TopicAdminSettings])
   (:import [com.google.cloud.pubsub.v1 TopicAdminClient]))

@@ -1,4 +1,4 @@
-(ns gcp.pubsub.v1.clients.SubscriptionAdminClient
+(ns gcp.pubsub.v1.SubscriptionAdminClient
   (:require [gcp.global :as g])
   (:import [com.google.cloud.pubsub.v1 SubscriptionAdminClient]))
 
