@@ -101,9 +101,11 @@
      (generate-content gm-like contentable & more-contentables)
    ```
 
-   A 'requestable' is a GenerateRequestResponse map with a VertexAI client
-   added in the :vertexai key. It contains all information necessary to make
-   a request (assoc gm-like :contents content-seq).
+   A 'requestable' is a :gcp/vertexai.api.GenerateContentRequest map with
+   (optional) VertexAI client in the :vertexai key. It contains all
+   information necessary to make a request.
+
+     (assoc gm-like :contents [\"context\" \"and\" \"prompts\" \"go\" \"here\"]])
 
    You can omit the :vertexai client and it will you the default from your DAC,
    but for vertexai in particular some services and models are only available
@@ -158,11 +160,12 @@
      is sugar for
    `(generate-content gm {:role 'user', :parts [{:fileData {:mimeType 'audio/mp3', ...}}]})`"
   ([requestable]
-   (-> (:vertexai requestable)
-       (.getPredictionServiceClient)
-       (.generateContentCallable)
-       (.call (GenerateContentRequest/from-edn requestable))
-       GenerateContentResponse/to-edn))
+   (let [requestable (as-requestable requestable)]
+     (-> (:vertexai requestable)
+         (.getPredictionServiceClient)
+         (.generateContentCallable)
+         (.call (GenerateContentRequest/from-edn requestable))
+         GenerateContentResponse/to-edn)))
   ([gm-like contentable]
    (generate-content (as-requestable gm-like contentable)))
   ([gm-like contentable & more]

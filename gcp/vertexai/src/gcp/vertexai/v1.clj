@@ -698,7 +698,8 @@
                                               [:totalBillableCharacters :int]]
 
    :gcp/vertexai.api.Schema                  [:map
-                                              {:doc              "Represents a select subset of an OpenAPI 3.0 schema object"
+                                              {:closed true
+                                               :doc              "Represents a select subset of an OpenAPI 3.0 schema object"
                                                :ns               'gcp.vertexai.v1.api.Schema
                                                :from-edn         'gcp.vertexai.v1.api.Schema/from-edn
                                                :to-edn           'gcp.vertexai.v1.api.Schema/to-edn
