@@ -39,12 +39,23 @@
   [(keyword (:name field)) (field-value-to-edn (:type field) fieldValue)])
 
 (defn to-edn [^TableResult res]
-  (when (.hasNextPage res)
-    (throw (Exception. "unimplemented")))
-  (if-let [schema (.getSchema res)]
-    (let [columns    (mapv Field/to-edn (.getFields schema))
-          row-parser (fn [row] (into {} (map parse-row columns row)))]
-      (mapv row-parser (.iterateAll res)))
-    (if (zero? (.getTotalRows res))
-      []
-      res)))
+  (if (zero? (.getTotalRows res))
+    []
+    (let [schema (.getSchema res)]
+      (if (nil? schema)
+        res
+        (let [columns    (mapv Field/to-edn (.getFields schema))
+              row-parser (fn [row] (into {} (map parse-row columns row)))]
+          (if-not (.hasNextPage res)
+            (map row-parser (.iterateAll res))
+            (sequence cat
+              (iteration
+                (fn [page]
+                  (cond
+                    (nil? page) res
+                    (.hasNextPage page) (.getNextPage page)
+                    :else nil))
+                :somef some?
+                :vf (fn [page] (map row-parser (.getValues page)))
+                :kf identity
+                :initk nil))))))))
