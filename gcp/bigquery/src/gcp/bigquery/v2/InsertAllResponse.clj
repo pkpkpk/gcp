@@ -10,5 +10,6 @@
                          (map
                            (fn [[k v]]
                              [k (mapv BigQueryError/to-edn v)]))
-                         errors)]
-      (g/coerce :gcp/bigquery.InsertAllResponse response))))
+                         errors)
+          response (g/coerce :gcp/bigquery.InsertAllResponse response)]
+      (throw (ex-info (str (count errors) " insertion errors") response)))))
