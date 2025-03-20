@@ -615,7 +615,7 @@
                                                [:maximumBytesBilled {:optional true} 'number?]
                                                [:priority {:optional true} [:enum "BATCH" "INTERACTIVE"]]
                                                [:query :string]
-                                               [:queryParameters {:optional true} [:seqable :gcp/bigquery.QueryParameterValue]]
+                                               [:queryParameters {:optional true} :gcp/bigquery.QueryParameterValue]
                                                [:rangePartitioning {:optional true} :gcp/bigquery.RangePartitioning]
                                                [:schemaUpdateOptions
                                                 {:optional true
@@ -686,7 +686,7 @@
                                                 [:interval :string]]
                                                [:map {:closed true}
                                                 [:geography :string]]
-                                               [:map-of :string [:ref :gcp/bigquery.QueryParameterValue]]
+                                               [:map-of [:or :keyword :string] [:ref :gcp/bigquery.QueryParameterValue]]
                                                [:sequential [:ref :gcp/bigquery.QueryParameterValue]]]
 
    :gcp/bigquery.InsertAllRequest

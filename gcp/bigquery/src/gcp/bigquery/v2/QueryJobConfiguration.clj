@@ -36,7 +36,7 @@
           (.setParameterMode builder "NAMED")
           (doseq [[k v] queryParameters]
             (when (some? v)
-              (.addNamedParameter builder (name k) (QueryParameterValue/from-edn val)))))
+              (.addNamedParameter builder (name k) (QueryParameterValue/from-edn v)))))
         (do
           (.setParameterMode builder "POSITIONAL")
           (.setPositionalParameters builder (map QueryParameterValue/from-edn queryParameters)))))

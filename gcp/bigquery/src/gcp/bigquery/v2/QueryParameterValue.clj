@@ -1,5 +1,6 @@
 (ns gcp.bigquery.v2.QueryParameterValue
-  (:require [gcp.global :as global]
+  (:require [gcp.global :as g]
+            [gcp.global :as global]
             [jsonista.core :as j])
   (:import (com.google.cloud.bigquery QueryParameterValue StandardSQLTypeName)
            (com.google.gson JsonObject)
@@ -23,9 +24,18 @@
     (map? arg) (QueryParameterValue/struct
                  (into {} (map (fn [[k v]]
                                  [(name k) (from-edn v)])) arg))
-    (sequential? arg) (QueryParameterValue/array
-                        ^Object/1 (into-array Object (map from-edn arg))
-                        StandardSQLTypeName/ARRAY)
+    (sequential? arg)
+    (cond
+      (g/valid? [:sequential :int] arg)
+      (QueryParameterValue/array ^Long/1 (into-array Long arg) Long)
+
+      (g/valid? [:sequential :string] arg)
+      (QueryParameterValue/array ^String/1 (into-array String arg) String)
+
+      true
+      (QueryParameterValue/array
+        ^Object/1 (into-array Object (map from-edn arg))
+        StandardSQLTypeName/ARRAY))
     :else (throw (IllegalArgumentException. (str "Unknown type for value: " arg)))))
 
 (defn to-edn [^QueryParameterValue arg]
