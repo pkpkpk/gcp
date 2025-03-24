@@ -1,17 +1,21 @@
 (ns gcp.pubsub.v1.TopicAdminClient
-  (:require [gcp.global :as g]
-            [gcp.pubsub.v1.TopicAdminSettings :as TopicAdminSettings])
-  (:import [com.google.cloud.pubsub.v1 TopicAdminClient]))
+  (:require [clojure.string :as string]
+            [gcp.global :as g]
+            [gcp.pubsub.v1.Topic :as Topic]
+            [gcp.pubsub.v1.TopicAdminSettings :as TopicAdminSettings]
+            [gcp.pubsub.v1.PublisherStub :as PublisherStub])
+  (:import [com.google.cloud.pubsub.v1 TopicAdminClient TopicAdminClient$ListTopicSubscriptionsPagedResponse TopicAdminClient$ListTopicsPagedResponse]))
 
-(defonce ^:dynamic *client* nil)
-
-(defn ^TopicAdminClient client [arg]
-  (or *client*
-      (do
-        (g/strict! :pubsub.synth/TopicAdminClientable arg)
-        (if (instance? TopicAdminClient arg)
-          arg
-          (g/client :pubsub.synth/TopicAdminClient arg)))))
+(defn ^TopicAdminClient from-edn
+  ([] (from-edn nil))
+  ([arg]
+   (if (nil? arg)
+     (if (System/getenv "PUBSUB_EMULATOR_HOST")
+       (TopicAdminClient/create (TopicAdminSettings/from-edn arg))
+       (TopicAdminClient/create))
+     (if (g/valid? :gcp/pubsub.TopicAdminSettings arg)
+       (TopicAdminClient/create (TopicAdminSettings/from-edn arg))
+       (TopicAdminClient/create (PublisherStub/from-edn arg))))))
 
 ;;awaitTermination(long duration, TimeUnit unit)
 ;;close()
@@ -22,67 +26,43 @@
 ;;shutdown()
 ;;shutdownNow()
 
-;listTopics(ListTopicsRequest request)
-;listTopics(ProjectName project)
-;listTopics(String project)
-;; https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.pubsub.v1.ListTopicsRequest.Builder
-(defn list-topics [arg]
-  (if (g/valid? :pubsub.TopicAdminClient/ListTopics arg)
-    (let [{:keys [topicAdminClient]} arg])))
+(defn ListTopicsPagedResponse-to-edn
+  ;;https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.cloud.pubsub.v1.TopicAdminClient.ListTopicsPagedResponse
+  [^TopicAdminClient$ListTopicsPagedResponse arg]
+  (if (string/blank? (.getNextPageToken arg))
+    (map Topic/to-edn (.iterateAll arg))
+    (throw (Exception. "unimplemented"))))
+
+(defn ListTopicSubscriptionsPagedResponse-to-edn
+  ;;https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.cloud.pubsub.v1.TopicAdminClient.ListTopicSubscriptionsPagedResponse
+  [^TopicAdminClient$ListTopicSubscriptionsPagedResponse arg]
+  (if (string/blank? (.getNextPageToken arg))
+    (vec (.iterateAll arg))
+    (throw (Exception. "unimplemented"))))
 
 ;listTopicSnapshots(ListTopicSnapshotsRequest request)
 ;listTopicSnapshots(TopicName topic)
 ;listTopicSnapshots(String topic)
 ;listTopicSnapshotsCallable()
-;listTopicSnapshotsPagedCallable()
-
-;listTopicSubscriptions(ListTopicSubscriptionsRequest request)
-;listTopicSubscriptions(ProjectTopicName topic) (deprecated)
-;listTopicSubscriptions(TopicName topic)
-;listTopicSubscriptions(String topic)
-;listTopicSubscriptionsCallable()
-;listTopicSubscriptionsPagedCallable()
-
-
-
-;createTopic(ProjectTopicName name) (deprecated)
-;createTopic(Topic request)
-;createTopic(TopicName name)
-;createTopic(String name)
-;createTopicCallable()
-
-;getTopic(GetTopicRequest request)
-;getTopic(ProjectTopicName topic) (deprecated)
-;getTopic(TopicName topic)
-;getTopic(String topic)
-;getTopicCallable()
 
 ;updateTopic(Topic topic, FieldMask updateMask)
 ;updateTopic(UpdateTopicRequest request)
-;updateTopicCallable()
 
 ;deleteTopic(DeleteTopicRequest request)
 ;deleteTopic(ProjectTopicName topic) (deprecated)
 ;deleteTopic(TopicName topic)
 ;deleteTopic(String topic)
-;deleteTopicCallable()
 
 ;detachSubscription(DetachSubscriptionRequest request)
 ;detachSubscriptionCallable()
 
 ;getIamPolicy(GetIamPolicyRequest request)
 ;getIamPolicy(String resource) (deprecated)
-;getIamPolicyCallable()
+;setIamPolicy(SetIamPolicyRequest request)
+;setIamPolicy(String resource, Policy policy) (deprecated)
+;testIamPermissions(TestIamPermissionsRequest request)
+;testIamPermissions(String resource, List<String> permissions) (deprecated)
 
 ;publish(PublishRequest request)
 ;publish(TopicName topic, List<PubsubMessage> messages)
 ;publish(String topic, List<PubsubMessage> messages)
-;publishCallable()
-
-;setIamPolicy(SetIamPolicyRequest request)
-;setIamPolicy(String resource, Policy policy) (deprecated)
-;setIamPolicyCallable()
-
-;testIamPermissions(TestIamPermissionsRequest request)
-;testIamPermissions(String resource, List<String> permissions) (deprecated)
-;testIamPermissionsCallable()

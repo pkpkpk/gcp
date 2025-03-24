@@ -1,16 +1,17 @@
-(ns gcp.pubsub.v1.TopicAdminSettings
+(ns gcp.pubsub.v1.SubscriptionAdminSettings
   (:require [gcp.global :as g])
   (:import (com.google.api.gax.core NoCredentialsProvider)
            (com.google.api.gax.grpc GrpcTransportChannel)
            (com.google.api.gax.rpc FixedTransportChannelProvider TransportChannelProvider)
-           [com.google.cloud.pubsub.v1 TopicAdminSettings]
+           (com.google.cloud.pubsub.v1 SubscriptionAdminSettings)
            (io.grpc ManagedChannel ManagedChannelBuilder)))
 
-(defn to-edn [^TopicAdminSettings arg] (throw (Exception. "unimplemented")))
+; https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.cloud.pubsub.v1.SubscriptionAdminSettings
+; https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.cloud.pubsub.v1.SubscriptionAdminSettings.Builder
 
-(defn ^TopicAdminSettings from-edn [arg]
-  (g/strict! :gcp/pubsub.TopicAdminSettings arg)
-  (let [builder (TopicAdminSettings/newBuilder)]
+(defn ^SubscriptionAdminSettings from-edn [arg]
+  (g/strict! :gcp/pubsub.SubscriptionAdminSettings arg)
+  (let [builder (SubscriptionAdminSettings/newBuilder)]
     (when-let [emulator-host (System/getenv "PUBSUB_EMULATOR_HOST")]
       (let [channel            ^ManagedChannel (-> (ManagedChannelBuilder/forTarget emulator-host)
                                                    (.usePlaintext)

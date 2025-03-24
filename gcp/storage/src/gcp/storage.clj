@@ -76,8 +76,12 @@
        (delete-blob {:blobs arg})
        (let [{:keys [storage blobs]} (g/coerce :gcp/storage.synth.BlobDelete arg)]
          (.delete (client storage) ^Iterable (map BlobId/from-edn blobs))))))
-  ([blobId & options]
-   (throw (Exception. "unimplemented"))))
+  ([arg0 arg1]
+   (if (string? arg0)
+     (if (string? arg1)
+       (delete-blob {:blobs [{:bucket arg0 :name arg1}]})
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented")))))
 
 ;batch()
 ;blobWriteSession(BlobInfo blobInfo, Storage.BlobWriteOption[] options)

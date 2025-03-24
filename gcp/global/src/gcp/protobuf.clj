@@ -1,7 +1,7 @@
 (ns gcp.protobuf
   (:require [gcp.global :as g]
             [malli.core :as m])
-  (:import (com.google.protobuf ByteString ListValue NullValue ProtocolStringList Struct Value)
+  (:import (com.google.protobuf ByteString ListValue NullValue ProtocolStringList Struct Value Duration)
            (java.nio ByteBuffer)))
 
 (def
@@ -100,3 +100,9 @@
   "https://cloud.google.com/java/docs/reference/protobuf/latest/com.google.protobuf.ProtocolStringList.html"
   [^ProtocolStringList lst]
   (mapv bytestring-to-edn (.asByteStringList lst)))
+
+(defn ^Duration Duration-from-edn [param1]
+  (throw (Exception. "unimplemented")))
+
+(defn Duration-to-edn [^Duration arg]
+  (throw (Exception. "unimplemented")))
