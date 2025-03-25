@@ -1,10 +1,13 @@
 (ns gcp.pubsub
   (:require [gcp.global :as g]
+            [gcp.pubsub.v1.DeleteTopicRequest :as DeleteTopicRequest]
             [gcp.pubsub.v1.GetSubscriptionRequest :as GetSubscriptionRequest]
+            [gcp.pubsub.v1.GetTopicRequest :as GetTopicRequest]
             [gcp.pubsub.v1.ListTopicsRequest :as ListTopicsRequest]
             [gcp.pubsub.v1.ListTopicSubscriptionsRequest :as ListTopicSubscriptionsRequest]
             [gcp.pubsub.v1.Subscription :as Subscription]
             [gcp.pubsub.v1.SubscriptionAdminClient :as SAC]
+            [gcp.pubsub.v1.Topic :as Topic]
             [gcp.pubsub.v1.TopicAdminClient :as TAC]
             [gcp.pubsub.v1.ProjectName :as ProjectName]
             [gcp.pubsub.v1.SubscriptionName :as SubscriptionName]
@@ -15,7 +18,8 @@
 (defonce ^:dynamic *subscription-admin-client* nil)
 
 (defn subscription-admin-client
-  ([] (subscription-admin-client nil))
+  ([]
+   (subscription-admin-client nil))
   ([arg]
    (or *subscription-admin-client*
        (if (instance? SubscriptionAdminClient arg)
@@ -25,7 +29,8 @@
 (defonce ^:dynamic *topic-admin-client* nil)
 
 (defn topic-admin-client
-  ([] (topic-admin-client nil))
+  ([]
+   (topic-admin-client nil))
   ([arg]
    (or *topic-admin-client*
        (if (instance? TopicAdminClient arg)
@@ -40,56 +45,87 @@
    (if (string? arg)
      (list-topics {:project arg})
      (let [{:keys [topicAdminClient project request]} (g/coerce :gcp/pubsub.synth.TopicList arg)
+           client (topic-admin-client topicAdminClient)
            response (if project
-                      (.listTopics (topic-admin-client topicAdminClient) (ProjectName/from-edn project))
-                      (.listTopics (topic-admin-client topicAdminClient) (ListTopicsRequest/from-edn request)))]
+                      (.listTopics client (ProjectName/from-edn project))
+                      (.listTopics client (ListTopicsRequest/from-edn request)))]
        (TAC/ListTopicsPagedResponse-to-edn response))))
   ([arg0 arg1]
    ;; TODO clientable, project|request
    (throw (Exception. "unimplemented"))))
 
-#_
-(let [topic-name (TopicName/ofProjectTopicName project-id topic-id)]
-  (try
-    (.getTopic client ^TopicName topic-name)
-    (catch NotFoundException e
-      nil)))
-;getTopic(GetTopicRequest request)
-;getTopic(ProjectTopicName topic) (deprecated)
-;getTopic(TopicName topic)
-;getTopic(String topic)
+;; TODO :gcp/pubsub.Topic
 (defn get-topic
   ([arg]
-   (throw (Exception. "unimplemented")))
+   (if (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
+     (get-topic {:topic arg})
+     (let [{:keys [topicAdminClient topic request]} (g/coerce :gcp/pubsub.synth.TopicGet arg)
+           client (topic-admin-client topicAdminClient)]
+       (try
+         (Topic/to-edn
+           (if topic
+             (.getTopic client ^String (if (string? topic) topic (str (TopicName/from-edn topic))))
+             (.getTopic client (GetTopicRequest/from-edn request))))
+         (catch NotFoundException _
+           nil)))))
   ([arg0 arg1]
-   (throw (Exception. "unimplemented")))
+   (if (string? arg0)
+     (if (string? arg1)
+       (get-topic {:topic {:project arg0 :topic arg1}})
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented"))))
   ([arg0 arg1 arg2]
+   ;; TODO client project topic
    (throw (Exception. "unimplemented"))))
 
-;createTopic(ProjectTopicName name) (deprecated)
 ;createTopic(Topic request)
 ;createTopic(TopicName name)
 ;createTopic(String name)
 (defn create-topic
   ([arg]
-   (throw (Exception. "unimplemented")))
+   (if (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
+     (create-topic {:topic arg})
+     (let [{:keys [topicAdminClient topic request]} (g/coerce :gcp/pubsub.synth.TopicCreate arg)
+           client (topic-admin-client topicAdminClient)]
+       (Topic/to-edn
+         (if topic
+           (.createTopic client ^String (if (string? topic) topic (str (TopicName/from-edn topic))))
+           (.createTopic client (Topic/from-edn request)))))))
   ([arg0 arg1]
    (throw (Exception. "unimplemented"))))
 
+;; TODO :gcp/pubsub.Topic
 (defn list-topic-subscriptions
   ([arg]
-   (if (g/valid? :gcp/pubsub.TopicName arg)
-     (list-topic-subscriptions {:topicName arg})
-     (let [{:keys [topicAdminClient topicName request]} (g/coerce :gcp/pubsub.synth.TopicListSubscriptions arg)
+   (if (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
+     (list-topic-subscriptions {:topic arg})
+     (let [{:keys [topicAdminClient topic request]} (g/coerce :gcp/pubsub.synth.TopicListSubscriptions arg)
            client (topic-admin-client topicAdminClient)
-           response (if topicName
-                      (.listTopicSubscriptions client (TopicName/from-edn topicName))
+           response (if topic
+                      (.listTopicSubscriptions client ^String (if (string? topic) topic (str (TopicName/from-edn topic))))
                       (.listTopicSubscriptions client (ListTopicSubscriptionsRequest/from-edn request)))]
        (TAC/ListTopicSubscriptionsPagedResponse-to-edn response))))
   ([arg0 arg1]
    (if (string? arg0)
      (if (string? arg1)
-       (list-topic-subscriptions {:topicName {:project arg0 :topic arg1}})))))
+       (list-topic-subscriptions {:topic {:project arg0 :topic arg1}})))))
+
+;; TODO :gcp/pubsub.Topic
+(defn delete-topic
+  ([arg]
+   (if (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
+     (delete-topic {:topic arg})
+     (let [{:keys [topicAdminClient topic request]} (g/coerce :gcp/pubsub.synth.TopicDelete arg)
+           client (topic-admin-client topicAdminClient)]
+       (if topic
+         (.deleteTopic client ^String (if (string? topic) topic (str (TopicName/from-edn topic))))
+         (.deleteTopic client (DeleteTopicRequest/from-edn request))))))
+  ([arg0 arg1]
+   (if (string? arg0)
+     (if (string? arg1)
+       (delete-topic {:topic {:project arg0 :topic arg1}})
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented")))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! Subscription Administration

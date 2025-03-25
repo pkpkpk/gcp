@@ -1,5 +1,7 @@
 (ns gcp.global
-  (:require [sci.core]
+  (:require clojure.string
+            [sci.core :as sci]
+            [sci.core]
             [malli.core :as m]
             malli.edn
             [malli.error :as me]
@@ -27,6 +29,8 @@
 
 (defn get-schema [key] (get (mr/schemas *registry*) key))
 
+(def sci-namespaces {'clojure.string (sci/copy-ns clojure.string (sci/create-ns 'clojure.string {}))})
+
 (defn include-schema-registry! [registry]
   (if-let [{registry-name ::name} (meta registry)]
     (let [candidate (merge (mr/schemas *registry*) registry)]
@@ -34,7 +38,8 @@
                              (reduce (fn [acc [k schema]]
                                        (let [written   (try
                                                          (malli.edn/write-string schema {:registry candidate
-                                                                                         ::m/sci-options {:classes @*classes}})
+                                                                                         ::m/sci-options {:classes @*classes
+                                                                                                          :namespaces sci-namespaces}})
                                                          (catch Exception e
                                                            (let [error-type (:type (ex-data e))]
                                                              (if-let [bad-schema (and (= ::m/invalid-schema error-type)
@@ -49,8 +54,9 @@
                                                                                {:schema schema
                                                                                 :cause  e}))))))
                                              recovered (try
-                                                         (malli.edn/read-string written {:registry candidate
-                                                                                         ::m/sci-options {:classes @*classes}})
+                                                         (malli.edn/read-string written {:registry       candidate
+                                                                                         ::m/sci-options {:classes    @*classes
+                                                                                                          :namespaces sci-namespaces}})
                                                          (catch Exception e
                                                            (throw (ex-info (str "error recovering serialized schema for " k)
                                                                            {:schema schema

@@ -59,7 +59,7 @@
                                               [:fn
                                                {:error/message "datastore-resource-id must conform to format 'projects/{project}/locations/{location}/collections/{collection}/dataStores/{dataStore}'"}
                                                '(fn [s]
-                                                  (let [parts ((requiring-resolve clojure.string/split) s #"/")]
+                                                  (let [parts (clojure.string/split s (re-pattern "/"))]
                                                     (and
                                                       (= "projects" (nth parts 0))
                                                       (some? (nth parts 1))
@@ -74,7 +74,7 @@
                                               {:doc      "This class holds default settings and credentials to make Vertex AI API calls. Note: The VertexAI instance will start a service client when the first API call is made. Please close the VertexAI instance after making any API calls so that clients get closed as well."
                                                :class    'com.google.cloud.vertexai.VertexAI
                                                :from-edn 'gcp.vertexai.v1.VertexAI/from-edn}
-                                              [:map {:closed   true}
+                                              [:map {:closed true}
                                                [:apiEndpoint {:optional true} :string]
                                                [:credentials {:optional true} :gcp.auth/Credentials]
                                                [:customHeaders {:optional true} [:map-of :string :string]]
@@ -698,7 +698,7 @@
                                               [:totalBillableCharacters :int]]
 
    :gcp/vertexai.api.Schema                  [:map
-                                              {:closed true
+                                              {:closed           true
                                                :doc              "Represents a select subset of an OpenAPI 3.0 schema object"
                                                :ns               'gcp.vertexai.v1.api.Schema
                                                :from-edn         'gcp.vertexai.v1.api.Schema/from-edn

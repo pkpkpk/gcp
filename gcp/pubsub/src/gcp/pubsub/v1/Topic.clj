@@ -4,6 +4,8 @@
 
 ;https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.pubsub.v1.Topic
 
+(defn ^Topic from-edn [arg] (throw (Exception. "unimplemented")))
+
 (defn to-edn [^Topic arg]
   (cond-> {:name (.getName arg)}
 

@@ -48,11 +48,6 @@
 ;updateTopic(Topic topic, FieldMask updateMask)
 ;updateTopic(UpdateTopicRequest request)
 
-;deleteTopic(DeleteTopicRequest request)
-;deleteTopic(ProjectTopicName topic) (deprecated)
-;deleteTopic(TopicName topic)
-;deleteTopic(String topic)
-
 ;detachSubscription(DetachSubscriptionRequest request)
 ;detachSubscriptionCallable()
 
