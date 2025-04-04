@@ -4,7 +4,8 @@
             [jsonista.core :as j])
   (:import (com.google.cloud.bigquery QueryParameterValue StandardSQLTypeName)
            (com.google.gson JsonObject)
-           (java.time LocalDate LocalDateTime)))
+           (java.time Instant LocalDate LocalDateTime)
+           (java.util Date)))
 
 (defn ^QueryParameterValue from-edn [arg]
   (global/strict! :gcp/bigquery.QueryParameterValue arg)
@@ -15,34 +16,54 @@
     (float? arg) (QueryParameterValue/float64 (Double/valueOf (double arg)))
     (decimal? arg) (QueryParameterValue/numeric arg)
     (bytes? arg) (QueryParameterValue/bytes arg)
-    (inst? arg) (QueryParameterValue/timestamp (Long/valueOf (.getTime ^java.util.Date arg)))
-    (instance? LocalDate arg) (QueryParameterValue/date (.toString arg))
-    (instance? LocalDateTime arg) (QueryParameterValue/dateTime (.toString arg))
+
+    ;; TODO rt tests to exact precision to and from clojure...
+    ;;  ... successfully writing is not good enough!
+    (instance? java.util.Date arg) (QueryParameterValue/date (.toString arg))
+    (instance? LocalDate arg)      (QueryParameterValue/date (.toString arg))
+    (instance? LocalDateTime arg)  (QueryParameterValue/dateTime (.toString arg))
+    (instance? Instant arg)        (QueryParameterValue/timestamp ^Long (.toEpochMilli ^Instant arg))
+
+    ;; TODO reader tags?
+    ;; TODO jsonista is already here, a json write path is feasible
     (instance? JsonObject arg) (QueryParameterValue/json ^JsonObject arg)
-    (contains? arg :interval) (QueryParameterValue/interval ^String (:interval arg))
+    (contains? arg :interval)  (QueryParameterValue/interval ^String (:interval arg))
     (contains? arg :geography) (QueryParameterValue/geography (:geography arg))
-    (map? arg) (QueryParameterValue/struct
-                 (into {} (map (fn [[k v]]
-                                 [(name k) (from-edn v)])) arg))
+
+    ;; TODO explore & test structs + heterogeneous + recursive values?
+    (map? arg)
+    (QueryParameterValue/struct (into {} (map (fn [[k v]] [(name k) (from-edn v)])) arg))
+
+    ;; TODO explore & test structs + heterogeneous + recursive values?
+    ;;   -- date-types, geo, intervals, json ?
     (sequential? arg)
     (cond
-      (g/valid? [:sequential :int] arg)
-      (QueryParameterValue/array ^Long/1 (into-array Long arg) Long)
-
       (g/valid? [:sequential :string] arg)
       (QueryParameterValue/array ^String/1 (into-array String arg) String)
 
+      (g/valid? [:sequential :boolean] arg)
+      (QueryParameterValue/array ^Boolean/1 (into-array Boolean arg) Boolean)
+
+      (g/valid? [:sequential :int] arg)
+      (QueryParameterValue/array ^Long/1 (into-array Long arg) Long)
+
+      (g/valid? [:sequential :float] arg)
+      (QueryParameterValue/array ^Double/1 (into-array Double arg) Double)
+
+      (g/valid? [:sequential (g/instance-schema java.math.BigDecimal)] arg)
+      (QueryParameterValue/array ^BigDecimal/1 (into-array BigDecimal arg) BigDecimal)
+
       true
-      (QueryParameterValue/array
-        ^Object/1 (into-array Object (map from-edn arg))
-        StandardSQLTypeName/ARRAY))
-    :else (throw (IllegalArgumentException. (str "Unknown type for value: " arg)))))
+      (throw (ex-info "unimplemented sequential type" {:arg arg})))
+
+    :else
+    (throw (IllegalArgumentException. (str "Unknown type for value: " arg)))))
 
 (defn to-edn [^QueryParameterValue arg]
   {:post [(global/strict! :gcp/bigquery.QueryParameterValue %)]}
   (cond
     (some? (.getArrayValues arg)) ;; List<QueryParameterValue>
-    (mapv to-edn (.getArrayValues arg))
+    (mapv to-edn (.getArrayValues arg)) ;; TODO homogenous collections can return use arrays here
 
     (some? (.getStructTypes arg))
     (into {}                                                ; Map<String, QueryParameterValue>

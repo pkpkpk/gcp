@@ -11,13 +11,22 @@
 (def datetime-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd'T'HH:mm:ss"))
 
 (defn field-value-to-edn
-  [field-type ^FieldValue field-value]
+  [{field-type :type
+    sub-fields :subFields
+    :as field} ^FieldValue field-value]
   (g/strict! :gcp/bigquery.LegacySQLTypeName field-type)
   (when-not (.isNull field-value)
     (case (.name (.getAttribute field-value))
-      "RECORD" (.getValue field-value) ;; without schema, falls on user to make sense of this
+      "RECORD" (let [fvl (.getRecordValue field-value)]
+                 (if (.hasSchema fvl)
+                   (into {}
+                         (map
+                           (fn [[sf fv]]
+                             [(keyword (:name sf)) (field-value-to-edn sf fv)]))
+                         (map vector sub-fields fvl))
+                   fvl))
       "RANGE" (Range/to-edn (.getRangeValue field-value))
-      "REPEATED" (mapv (partial field-value-to-edn field-type) (.getRepeatedValue field-value))
+      "REPEATED" (mapv (partial field-value-to-edn field) (.getRepeatedValue field-value))
       "PRIMITIVE"
       (case field-type
         "BOOLEAN"   (.getBooleanValue field-value)
@@ -33,10 +42,9 @@
         "GEOGRAPHY" (.getStringValue field-value)
         "INTERVAL"  (.getPeriodDuration field-value) ;org.threeten.extra.PeriodDuration
         (throw (ex-info (str "unimplemented PRIMITIVE '" field-type "'") {:field-value field-value
-                                                                          :field-type  field-type}))))))
-
-(defn- parse-row [{:as field} fieldValue]
-  [(keyword (:name field)) (field-value-to-edn (:type field) fieldValue)])
+                                                                          :field-type  field-type})))
+      (throw (ex-info (str "unimplemented FieldValue attribute: '" (.name (.getAttribute field-value)) "'")
+                      {:field field :fieldValue field-value})))))
 
 (defn to-edn [^TableResult res]
   (if (zero? (.getTotalRows res))
@@ -44,10 +52,17 @@
     (let [schema (.getSchema res)]
       (if (nil? schema)
         res
-        (let [columns    (mapv Field/to-edn (.getFields schema))
-              row-parser (fn [row] (into {} (map parse-row columns row)))]
+        (let [column-fields (mapv Field/to-edn (.getFields schema))
+              ;; TODO some queries return singular fields with anonymous names
+              ;; ... could drop the name and just return parsed value
+              row->map (fn [row-value-list]
+                         (into {}
+                               (map
+                                 (fn [[field field-value]]
+                                   [(keyword (:name field)) (field-value-to-edn field field-value)]))
+                               (map vector column-fields row-value-list)))]
           (if-not (.hasNextPage res)
-            (map row-parser (.iterateAll res))
+            (map row->map (.iterateAll res))
             (sequence cat
               (iteration
                 (fn [page]
@@ -56,6 +71,6 @@
                     (.hasNextPage page) (.getNextPage page)
                     :else nil))
                 :somef some?
-                :vf (fn [page] (map row-parser (.getValues page)))
+                :vf (fn [page] (map row->map (.getValues page)))
                 :kf identity
                 :initk nil))))))))
