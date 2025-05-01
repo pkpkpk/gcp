@@ -1,8 +1,10 @@
 (ns gcp.storage.v2.StorageOptions
   (:require [gcp.global :as g]
-            [gcp.storage.v2.BlobWriteSessionConfig :as BlobWriteSessionConfig]
-            [gcp.storage.v2.StorageRetryStrategy :as StorageRetryStrategy])
-  (:import (com.google.cloud.storage Storage StorageOptions)))
+            [gcp.gax.retrying.RetrySettings :as RetrySettings]
+            [gcp.storage.v2.BlobWriteSessionConfig :as BlobWriteSessionConfig])
+  (:import (com.google.cloud.storage Storage StorageOptions StorageRetryStrategy)))
+
+#_ (do (require :reload 'gcp.storage.v2.StorageOptions) (in-ns 'gcp.storage.v2.StorageOptions))
 
 (defn ^StorageOptions from-edn
   [{:keys [projectId
@@ -15,8 +17,10 @@
       (.setBlobWriteSessionConfig builder (BlobWriteSessionConfig/from-edn blobWriteSessionConfig)))
     (when openTelemetry
       (.setOpenTelemetry builder openTelemetry))
-    (when storageRetryStrategy
-      (.setStorageRetryStrategy builder (StorageRetryStrategy/from-edn storageRetryStrategy)))
+    (when (contains? arg :storageRetryStrategy)
+      ;; TODO these are static classes, default vs uniform.
+      ;; scalar behaviors are set via :retrySettings
+      (throw (Exception. "unimplemented")))
     ;com.google.cloud.ServiceOptions.Builder.setApiTracerFactory(com.google.api.gax.tracing.ApiTracerFactory)
     ;com.google.cloud.ServiceOptions.Builder.setClientLibToken(java.lang.String)
     ;com.google.cloud.ServiceOptions.Builder.setClock(com.google.api.core.ApiClock)
@@ -27,6 +31,10 @@
       (.setProjectId builder projectId))
     ;com.google.cloud.ServiceOptions.Builder.setQuotaProjectId(java.lang.String)
     ;com.google.cloud.ServiceOptions.Builder.setRetrySettings(com.google.api.gax.retrying.RetrySettings)
+    (when (contains? arg :retrySettings)
+      (let [default-builder (.toBuilder (StorageOptions/getDefaultRetrySettings))
+            retry-settings  (RetrySettings/from-edn default-builder (:retrySettings arg))]
+        (.setRetrySettings builder retry-settings)))
     ;com.google.cloud.ServiceOptions.Builder.setServiceFactory(com.google.cloud.ServiceFactory<ServiceT,OptionsT>)
     ;com.google.cloud.ServiceOptions.Builder.setServiceRpcFactory(com.google.cloud.spi.ServiceRpcFactory<OptionsT>)
     ;com.google.cloud.ServiceOptions.Builder.setTransportOptions(com.google.cloud.TransportOptions)

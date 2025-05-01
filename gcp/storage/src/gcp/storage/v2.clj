@@ -52,6 +52,13 @@
                                                                                           [:blobs [:sequential :gcp/storage.BlobId]]
                                                                                           [:options {:optional true} [:sequential :gcp/storage.Storage.BlobSourceOption]]]
 
+   :gcp/storage.synth.BlobCreate
+   [:map {:closed true}
+    [:storage {:optional true} :gcp/storage.synth.clientable]
+    [:blobInfo {:optional false} :gcp/storage.BlobInfo]
+    [:content {:optional true} 'bytes?]
+    [:options {:optional true} [:sequential :gcp/storage.Storage.BlobSourceOption]]]
+
    :gcp/storage.synth.ReadAllBytes                                                       [:map {:closed true}
                                                                                           [:storage {:optional true} :gcp/storage.synth.clientable]
                                                                                           [:blobId :gcp/storage.BlobId]
@@ -116,7 +123,6 @@
    [:map
     {:class 'com.google.cloud.storage.BlobInfo}
     [:blobId :gcp/storage.BlobId]
-    [:bucket :string]
 
     ;; Access control configuration (ACLs)
     [:acl
@@ -279,12 +285,6 @@
      {:doc      "Returns the blob's metageneration. Used for preconditions and metadata changes."
       :optional true}
      :int]
-
-    ;; Blob name
-    [:name
-     {:doc      "Returns the blob's name."
-      :optional true}
-     :string]
 
     ;; Blob owner
     [:owner

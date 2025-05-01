@@ -1,5 +1,6 @@
 (ns gcp.storage.v2.BlobInfo
-  (:require [gcp.global :as global]
+  (:require [gcp.global :as g]
+            [gcp.global :as global]
             [gcp.storage.v2.Acl :as Acl]
             [gcp.storage.v2.BlobId :as BlobId])
   (:import (com.google.cloud.storage BlobInfo BlobInfo$Retention BlobInfo$CustomerEncryption)))
@@ -13,13 +14,7 @@
 
 (defn to-edn [^BlobInfo arg]
   {:post [(global/strict! :gcp/storage.BlobInfo %)]}
-  (cond-> {:name (.getName arg)}
-
-          (some? (.getBlobId arg))
-          (assoc :blobId (BlobId/to-edn (.getBlobId arg)))
-
-          (some? (.getBucket arg))
-          (assoc :bucket (.getBucket arg))
+  (cond-> {:blobId (BlobId/to-edn (.getBlobId arg))}
 
           (seq (.getAcl arg))
           (assoc :acl (mapv Acl/to-edn (.getAcl arg)))
@@ -122,3 +117,9 @@
 
           (some? (.isDirectory arg))
           (assoc :directory (.isDirectory arg))))
+
+(defn ^BlobInfo from-edn [arg]
+  (g/strict! :gcp/storage.BlobInfo arg)
+  (let [builder (BlobInfo/newBuilder (BlobId/from-edn (:blobId arg)))]
+
+    (.build builder)))

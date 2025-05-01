@@ -3,10 +3,11 @@
             gcp.storage.v2
             [gcp.storage.v2.Blob :as Blob]
             [gcp.storage.v2.BlobId :as BlobId]
+            [gcp.storage.v2.BlobInfo :as BlobInfo]
             [gcp.storage.v2.Bucket :as Bucket]
             [gcp.storage.v2.BucketInfo :as BucketInfo]
             [gcp.storage.v2.Storage :as S])
-  (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BlobSourceOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
+  (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BlobSourceOption Storage$BlobTargetOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
 
 (defonce ^:dynamic *client* nil)
 
@@ -88,12 +89,45 @@
 ;close()
 ;compose(Storage.ComposeRequest composeRequest)
 ;copy(Storage.CopyRequest copyRequest)
-;create(BlobInfo blobInfo, byte[] content, Storage.BlobTargetOption[] options)
-;create(BlobInfo blobInfo, byte[] content, int offset, int length, Storage.BlobTargetOption[] options)
-;create(BlobInfo blobInfo, Storage.BlobTargetOption[] options)
-;create(BlobInfo blobInfo, InputStream content, Storage.BlobWriteOption[] options) (deprecated)
+
+(defn create-blob
+  ([arg]
+   (if (g/valid? :gcp/storage.BlobId arg)
+     (create-blob {:blobInfo {:blobId arg}})
+     (if (g/valid? :gcp/storage.BlobInfo arg)
+       (create-blob {:blobInfo arg})
+       (let [{:keys [storage blobInfo content options]} (g/coerce :gcp/storage.synth.BlobCreate arg)
+             client    (client storage)
+             blob-info (BlobInfo/from-edn blobInfo)
+             opts      ^Storage$BlobTargetOption/1 (into-array Storage$BlobTargetOption (map S/BlobTargetOption-from-edn options))]
+         (if (nil? content)
+           (.create client blob-info opts)
+           (.create client blob-info ^Byte/1 content opts))))))
+  ([arg0 arg1]
+   (if (g/valid? :gcp/storage.BlobId arg0)
+     (create-blob {:blobInfo {:blobId arg0}
+                   :content arg1})
+     (if (g/valid? :gcp/storage.BlobInfo arg0)
+       (create-blob {:blobInfo arg0
+                     :content arg1})
+       (if (string? arg0)
+         (if (string? arg1)
+           (create-blob {:blobInfo {:blobId {:bucket arg0 :name arg1}}})
+           (throw (Exception. "unimplemented")))
+         (throw (Exception. "unimplemented"))))))
+  ([arg0 arg1 arg2]
+   (if (string? arg0)
+     (if (string? arg1)
+       (create-blob {:blobInfo {:blobId {:bucket arg0 :name arg1}} :content arg2})
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented"))))
+  ([arg0 arg1 arg2 & more]
+   ;TODO create(BlobInfo blobInfo, byte[] content, int offset, int length, Storage.BlobTargetOption[] options)
+   (throw (Exception. "unimplemented"))))
+
 ;downloadTo(BlobId blob, OutputStream outputStream, Storage.BlobSourceOption[] options)
 ;downloadTo(BlobId blob, Path path, Storage.BlobSourceOption[] options)
+
 ;get(BlobId blob)
 ;get(BlobId blob, Storage.BlobGetOption[] options)
 ;get(BlobId[] blobIds)
@@ -120,12 +154,13 @@
 ;reader(BlobId blob, Storage.BlobSourceOption[] options)
 ;reader(String bucket, String blob, Storage.BlobSourceOption[] options)
 
-
 ;restore(BlobId blob, Storage.BlobRestoreOption[] options)
+
 ;update(BlobInfo blobInfo)
 ;update(BlobInfo blobInfo, Storage.BlobTargetOption[] options)
 ;update(BlobInfo[] blobInfos)
 ;update(Iterable<BlobInfo> blobInfos)
+
 ;writer(BlobInfo blobInfo, Storage.BlobWriteOption[] options)
 ;writer(URL signedURL)
 
