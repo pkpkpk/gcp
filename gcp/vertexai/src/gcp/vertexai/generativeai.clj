@@ -12,7 +12,8 @@
             [gcp.vertexai.v1.generativeai.protocols :as impl]
             [gcp.vertexai.v1.VertexAI]
             [jsonista.core :as j])
-  (:import (com.google.api.core ApiFutureCallback ApiFutures)
+  (:import (clojure.lang IDeref)
+           (com.google.api.core ApiFutureCallback ApiFutures)
            [com.google.cloud.vertexai VertexAI]
            (com.google.cloud.vertexai.generativeai ResponseStream ResponseStreamIteratorWithHistory)
            (com.google.common.util.concurrent MoreExecutors)))
@@ -55,6 +56,41 @@
                     (swap! *model-name subs (inc (.lastIndexOf ^String @*model-name \/)))))
                 @*model-name)))))
 
+(defn as-request
+  ([request-like]
+   (if (g/valid? :gcp/vertexai.api.GenerateContentRequest request-like)
+     (let [request (GenerateContentRequest/from-edn request-like)]
+       (cond-> request
+               (and (some? (:model request))
+                    (some? (:vertexai request)))
+               (assoc :model (resource-name (:model request) (:vertexai request)))))
+     (if (nil? (get request-like :contents))
+       (throw (Exception. ":contents must be seq of Content maps"))
+       (if (not (g/valid? [:sequential :gcp/vertexai.api.Content] (:contents request-like)))
+         (let [explanation (g/explain [:sequential :gcp/vertexai.api.Content] (:contents request-like))
+               msg         (str ":contents schema failed : " (g/humanize explanation))]
+           (throw (ex-info msg {:explanation explanation :request-like request-like})))
+         (let [explanation (g/explain :gcp/vertexai.api.GenerateContentRequest request-like)
+               msg         (str "cannot form request: " (g/humanize explanation))]
+           (throw (ex-info msg {:explanation explanation :request-like request-like})))))))
+  ([gm-like & contentables]
+   (if (g/valid? [:seqable :gcp/vertexai.synth.contentable] contentables)
+     (as-request (assoc gm-like :contents (vec contentables)))
+     (let [explanation (g/explain [:seqable :gcp/vertexai.synth.contentable] contentables)
+           msg         (str "cannot form content seq from var-args: " (g/humanize explanation))]
+       (throw (ex-info msg {:explanation explanation :contentables contentables}))))))
+
+(defn desugar
+  "Convert edn form with tolerant Content sugar into strict representation suitable for JSON requests."
+  ([request-like]
+   (GenerateContentRequest/to-edn (as-request request-like)))
+  ([gm-like & contentables]
+   (if (g/valid? [:seqable :gcp/vertexai.synth.contentable] contentables)
+     (desugar (assoc gm-like :contents (vec contentables)))
+     (let [explanation (g/explain [:seqable :gcp/vertexai.synth.contentable] contentables)
+           msg         (str "cannot form content seq from var-args: " (g/humanize explanation))]
+       (throw (ex-info msg {:explanation explanation :contentables contentables}))))))
+
 (defn- as-requestable
   ([requestable]
    (let [requestable (update requestable :vertexai client)]
@@ -71,26 +107,12 @@
              (let [explanation (g/explain :gcp/vertexai.synth.Requestable requestable)
                    msg         (str "cannot form request: " (g/humanize explanation))]
                (throw (ex-info msg {:explanation explanation :requestable requestable})))))))))
-  ([gm-like contentable]
-   (if (g/valid? :gcp/vertexai.api.Content contentable)
-     (as-requestable (assoc gm-like :contents [contentable]))
-     (if (g/valid? [:sequential :gcp/vertexai.api.Content] contentable)
-       (as-requestable (assoc gm-like :contents contentable))
-       (let [explanation (g/explain :gcp/vertexai.synth.contentable contentable)
-             msg         (str "cannot form content seq from contentable: " (g/humanize explanation))]
-         (throw (ex-info msg {:explanation explanation :contentable contentable}))))))
-  ([gm-like contentable & more]
-   (if (contentable? contentable)
-     (if (g/valid? [:sequential :gcp/vertexai.synth.contentable] more)
-       (as-requestable gm-like (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
-                                         (cond-> contentable (not (sequential? contentable)) vector)
-                                         more))
-       (let [explanation (g/explain [:sequential :gcp/vertexai.synth.contentable] more)
-             msg         (str "cannot reduce overloaded contentable arguments: " (g/humanize explanation))]
-         (throw (ex-info msg {:explanation explanation :more more}))))
-     (let [explanation (g/explain :gcp/vertexai.synth.contentable contentable)
-           msg         (str "cannot form content seq from contentable: " (g/humanize explanation))]
-       (throw (ex-info msg {:explanation explanation :contentable contentable}))))))
+  ([gm-like & contentables]
+   (if (g/valid? [:seqable :gcp/vertexai.synth.contentable] contentables)
+     (as-requestable (assoc gm-like :contents (vec contentables)))
+     (let [explanation (g/explain [:seqable :gcp/vertexai.synth.contentable] contentables)
+           msg         (str "cannot form content seq from var-args: " (g/humanize explanation))]
+       (throw (ex-info msg {:explanation explanation :contentables contentables}))))))
 
 (defn generate-content
   "Send a request with multimodal 'content' and synchronously wait for a response.
@@ -166,10 +188,8 @@
          (.generateContentCallable)
          (.call (GenerateContentRequest/from-edn requestable))
          GenerateContentResponse/to-edn)))
-  ([gm-like contentable]
-   (generate-content (as-requestable gm-like contentable)))
-  ([gm-like contentable & more]
-   (generate-content (apply (partial as-requestable gm-like contentable) more))))
+  ([gm-like & contentables]
+   (generate-content (apply (partial as-requestable gm-like) contentables))))
 
 (defn generate-content-async
   "same as generate-content but uses direct executor to deliver a promise."
@@ -185,10 +205,8 @@
                                (onFailure [_ throwable] (deliver p throwable)))
                              (MoreExecutors/directExecutor))
      p))
-  ([gm-like contentable]
-   (generate-content-async (as-requestable gm-like contentable)))
-  ([gm-like contentable & more]
-   (generate-content-async (apply (partial as-requestable gm-like contentable) more))))
+  ([gm-like & contentables]
+   (generate-content-async (apply (partial as-requestable gm-like) contentables))))
 
 (defn generate-content-seq
   "returns seq of response maps using ResponseStream iterable"
@@ -201,23 +219,19 @@
                     (ResponseStreamIteratorWithHistory.)
                     (ResponseStream.))]
      (map GenerateContentResponse/to-edn stream)))
-  ([gm-like contentable]
-   (generate-content-seq (as-requestable gm-like contentable)))
-  ([gm-like contentable & more]
-   (generate-content-seq (apply (partial as-requestable gm-like contentable) more))))
+  ([gm-like & contentables]
+   (generate-content-seq (apply (partial as-requestable gm-like) contentables))))
 
 (defn count-tokens
-  ([{:keys [vertexai model] :as gm} contentable]
-   (g/strict! :gcp/vertexai.synth.contentable contentable)
-   (let [contents (cond-> contentable (not (sequential? contentable)) list)
-         request (CountTokensRequest/from-edn (assoc gm :contents contents
-                                                        :model (resource-name model vertexai)
-                                                        :endpoint (resource-name model vertexai)))]
+  ([request-like]
+   (g/coerce [:seqable :gcp/vertexai.synth.contentable] (:contents request-like))
+   (let [{:keys [model vertexai] :as request-like} (as-requestable request-like)
+         request (CountTokensRequest/from-edn (assoc request-like
+                                                :model (resource-name model vertexai)
+                                                :endpoint (resource-name model vertexai)))]
      (CountTokensResponse/to-edn (.countTokens (.getLlmUtilityClient vertexai) request))))
-  ([gm contentable & more]
-   (count-tokens gm (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
-                            (cond-> contentable (not (sequential? contentable)) vector)
-                            more))))
+  ([gm & contentables]
+   (count-tokens (apply (partial as-requestable gm) contentables))))
 
 (defn response-text [response]
   (get-in response [:candidates 0 :content :parts 0 :text]))
@@ -235,15 +249,15 @@
 #! ChatSession
 #!
 
-(defn- default-history
+(defn default-history
   ([]
    (default-history []))
   ([v]
-   (let [*state (atom (g/coerce [:sequential [:or
-                                              :gcp/vertexai.api.GenerateContentRequest
-                                              :gcp/vertexai.api.GenerateContentResponse
-                                              :gcp/vertexai.synth.contentable]] v))]
-     (reify impl/IHistory
+   (let [*state (atom (g/coerce [:sequential :gcp/vertexai.synth.historical] v))]
+     (reify
+       IDeref
+       (deref [_] @*state)
+       impl/IHistory
        (history-to-contentable [_] @*state)
        (history-revert [_ drop-count] (swap! *state subvec 0 (max (- (count @*state) drop-count) 0)))
        (history-add [_ contentable] (swap! *state conj contentable))))))
@@ -356,24 +370,30 @@
         response))))
 
 (defn chat-session ; :gcp/vertexai.synth.ModelConfig + :startingHistory ?
-  [{:keys [startingHistory
+  [{:keys [history
            *currentResponse
            *currentResponseStream
            *previousHistorySize
            *responderState] :as arg}]
   {:post [(gcp.global/strict! :gcp/vertexai.synth.ChatSession %)]}
-  (cond-> (assoc arg :history (if (nil? startingHistory)
-                                (default-history)
-                                (if (satisfies? impl/IHistory arg)
-                                  arg
-                                  (throw (Exception. "kaboom")))))
-          (nil? *responderState) (assoc :*responderState (atom {:maxCalls       10
-                                                                :remainingCalls 10}))
-          (nil? *currentResponse) (assoc :*currentResponse (atom nil))
-          (nil? *currentResponseStream) (assoc :*currentResponseStream (atom nil))
-          (nil? *previousHistorySize) (assoc :*previousHistorySize (atom 0))))
+  (let [history (if (nil? history)
+                  (default-history)
+                  (if (satisfies? impl/IHistory history)
+                    history
+                    (if (g/valid? [:sequence :gcp/vertexai.synth.historical] history)
+                      (default-history history)
+                      (let [explain (g/explain [:sequence :gcp/vertexai.synth.historical] history)
+                            msg     "startingHistory must be IHistory or seq of (Content|GenerateContentRequest|GenerateContentResponse)"
+                            data    {:value history :explanation explain}]
+                        (throw (ex-info msg data))))))]
+    (cond-> (assoc arg :history history)
+            (nil? *responderState) (assoc :*responderState (atom {:maxCalls       10
+                                                                  :remainingCalls 10}))
+            (nil? *currentResponse) (assoc :*currentResponse (atom nil))
+            (nil? *currentResponseStream) (assoc :*currentResponseStream (atom nil))
+            (nil? *previousHistorySize) (assoc :*previousHistorySize (atom 0)))))
 
-(defn clone-chat-session
+#_(defn clone-chat-session
   [{:keys [*currentResponse
            *currentResponseStream
            *previousHistorySize
@@ -390,7 +410,9 @@
    (check-last-response-and-edit-history chat-session)
    (impl/history-add (:history chat-session) contentable)
    (try
-     (let [{:as response} (generate-content chat-session (impl/history-to-contentable (:history chat-session)))]
+     (let [contents (impl/history-to-contentable (:history chat-session))
+           requestable (apply as-requestable chat-session contents)
+           {:as response} (generate-content requestable)]
        (reset! (:*currentResponse chat-session) response)
        (auto-respond chat-session response))
      (catch Exception e
