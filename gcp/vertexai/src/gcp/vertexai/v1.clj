@@ -25,11 +25,6 @@
                                               {:error/message "Contentable should be singular or many Contents like (string|vector<Part>|{:user 'model' :parts [Part...]})"}
                                               :gcp/vertexai.api.Content [:sequential :gcp/vertexai.api.Content]]
 
-   :gcp/vertexai.synth.historical [:or
-                                   :gcp/vertexai.api.GenerateContentRequest
-                                   :gcp/vertexai.api.GenerateContentResponse
-                                   :gcp/vertexai.synth.contentable]
-
    :gcp/vertexai.synth.ModelConfig           [:map
                                               [:generationConfig {:optional true} :gcp/vertexai.api.GenerationConfig]
                                               [:model :string]

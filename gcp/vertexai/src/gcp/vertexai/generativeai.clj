@@ -260,7 +260,7 @@
   ([]
    (default-history []))
   ([v]
-   (let [*state (atom (g/coerce [:sequential :gcp/vertexai.synth.historical] v))]
+   (let [*state (atom (g/coerce [:sequential :gcp/vertexai.synth.contentable] v))]
      (reify
        IDeref
        (deref [_] @*state)
@@ -379,7 +379,7 @@
             (swap! *responderState (fn [{:keys [maxCalls]}] {:remainingCalls maxCalls :maxCalls maxCalls}))))
         response))))
 
-(defn chat-session ; :gcp/vertexai.synth.ModelConfig + :startingHistory ?
+(defn chat-session
   [{:keys [history
            *currentResponse
            *currentResponseStream
@@ -390,10 +390,10 @@
                   (default-history)
                   (if (satisfies? IHistory history)
                     history
-                    (if (g/valid? [:sequence :gcp/vertexai.synth.historical] history)
+                    (if (g/valid? [:sequence :gcp/vertexai.synth.contentable] history)
                       (default-history history)
-                      (let [explain (g/explain [:sequence :gcp/vertexai.synth.historical] history)
-                            msg     "startingHistory must be IHistory or seq of (Content|GenerateContentRequest|GenerateContentResponse)"
+                      (let [explain (g/explain [:sequence :gcp/vertexai.synth.contentable] history)
+                            msg     ":history must be IHistory or seq<contentable>)"
                             data    {:value history :explanation explain}]
                         (throw (ex-info msg data))))))]
     (cond-> (assoc arg :history history)
@@ -403,12 +403,27 @@
             (nil? *currentResponseStream) (assoc :*currentResponseStream (atom nil))
             (nil? *previousHistorySize) (assoc :*previousHistorySize (atom 0)))))
 
-#_(defn clone-chat-session
-  [{:keys [*currentResponse
+(defn clear-chat-session!
+  [{:keys [history
+           *currentResponse
            *currentResponseStream
            *previousHistorySize
            *responderState] :as chat}]
-  (assoc chat :*currentResponse (atom @*currentResponse)
+  (reset! *currentResponse nil)
+  (reset! *currentResponseStream nil)
+  (reset! *previousHistorySize 0)
+  (reset! *responderState {:maxCalls 10 :remainingCalls 10})
+  (history-clear history)
+  chat)
+
+(defn clone-chat-session
+  [{:keys [*currentResponse
+           *currentResponseStream
+           *previousHistorySize
+           *responderState
+           history] :as chat}]
+  (assoc chat :history (history-clone history)
+              :*currentResponse (atom @*currentResponse)
               :*currentResponseStream (atom @*currentResponseStream)
               :*previousHistorySize (atom @*previousHistorySize)
               :*responderState (atom @*responderState)))
