@@ -5,7 +5,7 @@
             [gcp.build.util :as util :refer [jar deploy]]))
 
 (def lib 'com.github.pkpkpk/gcp.vertexai)
-(def vertexai-version "1.18.0")
+(def vertexai-version "1.20.1")
 (def src-root (io/file util/package-root "vertexai" "src"))
 
 (defn pom []
