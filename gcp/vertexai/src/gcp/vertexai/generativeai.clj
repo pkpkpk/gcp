@@ -9,7 +9,6 @@
             [gcp.vertexai.v1.api.CountTokensResponse :as CountTokensResponse]
             [gcp.vertexai.v1.api.GenerateContentRequest :as GenerateContentRequest]
             [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
-            [gcp.vertexai.v1.generativeai.protocols :as impl]
             [gcp.vertexai.v1.VertexAI]
             [jsonista.core :as j])
   (:import (clojure.lang IDeref)
@@ -249,6 +248,14 @@
 #! ChatSession
 #!
 
+(defprotocol IHistory :extend-via-metadata true
+  (history-to-contentable [this])
+  (history-clone [this] "produce new state container w/ identical content")
+  (history-add [this contentable] "add a contentable to conversation")
+  (history-revert [this n] "drop last n contentables from conversation")
+  (history-clear [this])
+  (history-count [this] "how many contentables are in context"))
+
 (defn default-history
   ([]
    (default-history []))
@@ -257,15 +264,18 @@
      (reify
        IDeref
        (deref [_] @*state)
-       impl/IHistory
+       IHistory
        (history-to-contentable [_] @*state)
+       (history-clone [_] (default-history @*state))
        (history-revert [_ drop-count] (swap! *state subvec 0 (max (- (count @*state) drop-count) 0)))
-       (history-add [_ contentable] (swap! *state conj contentable))))))
+       (history-add [_ contentable] (swap! *state conj contentable))
+       (history-clear [_] (reset! *state []))
+       (history-count [_] (count @*state))))))
 
 (defn- check-finish-reason-and-edit-history [chat response]
   (let [finishReason (get-in response [:candidates 0 :finishReason])]
     (when (and (not= "STOP" finishReason) (not= "MAX_TOKEN" finishReason))
-      (impl/history-revert (:history chat) (deref (:*previousHistorySize chat)))
+      (history-revert (:history chat) (deref (:*previousHistorySize chat)))
       (throw (Exception. (format "The last round of conversation will not be added to history because response stream did not finish normally. Finish reason is %s." finishReason))))))
 
 (defn- merge-adjacent-strings [coll part]
@@ -311,7 +321,7 @@
   (when-let [current-response (deref (:*currentResponse chat))]
     (reset! (:*currentResponse chat) nil)
     (check-finish-reason-and-edit-history chat current-response)
-    (impl/history-add (:history chat) (get-in current-response [:candidates 0 :content]))
+    (history-add (:history chat) (get-in current-response [:candidates 0 :content]))
     ;; from comment in ChatSession.java:
     ;;  If `checkFinishReasonAndEditHistory` passes, we add 2 contents:
     ;;     (user's message) + (model's response)
@@ -325,7 +335,7 @@
       (let [response (aggregate-response-stream current-response-stream)]
         (reset! (:*currentResponseStream chat) nil)
         (check-finish-reason-and-edit-history chat response)
-        (impl/history-add (:history chat) (get-in response [:candidates 0 :content]))
+        (history-add (:history chat) (get-in response [:candidates 0 :content]))
         (swap! (:*previousHistorySize chat) + 2)))))
 
 (defn- call [{:keys [library *responderState]} fnc]
@@ -378,7 +388,7 @@
   {:post [(gcp.global/strict! :gcp/vertexai.synth.ChatSession %)]}
   (let [history (if (nil? history)
                   (default-history)
-                  (if (satisfies? impl/IHistory history)
+                  (if (satisfies? IHistory history)
                     history
                     (if (g/valid? [:sequence :gcp/vertexai.synth.historical] history)
                       (default-history history)
@@ -408,16 +418,16 @@
   ([chat-session contentable]
    (g/strict! :gcp/vertexai.synth.ChatSession chat-session)
    (check-last-response-and-edit-history chat-session)
-   (impl/history-add (:history chat-session) contentable)
+   (history-add (:history chat-session) contentable)
    (try
-     (let [contents (impl/history-to-contentable (:history chat-session))
+     (let [contents (history-to-contentable (:history chat-session))
            requestable (apply as-requestable chat-session contents)
            {:as response} (generate-content requestable)]
        (reset! (:*currentResponse chat-session) response)
        (auto-respond chat-session response))
      (catch Exception e
        (check-last-response-and-edit-history chat-session)
-       (impl/history-revert (:history chat-session) (deref (:*previousHistorySize chat-session)))
+       (history-revert (:history chat-session) (deref (:*previousHistorySize chat-session)))
        (throw e))))
   ([chat contentable & more]
    (send-msg chat (reduce (fn [acc c] (if (sequential? c) (into acc c) (conj acc c)))
@@ -429,12 +439,12 @@
   [chat contentable]
   (g/strict! :gcp/vertexai.synth.ChatSession chat)
   (check-last-response-and-edit-history chat)
-  (impl/history-add (:history chat) contentable)
+  (history-add (:history chat) contentable)
   (try
-    (let [stream (generate-content-seq (impl/history-to-contentable (:history chat)))]
+    (let [stream (generate-content-seq (history-to-contentable (:history chat)))]
       (reset! (:*currentResponseStream chat) stream)
       (auto-respond chat (aggregate-response-stream stream)))
     (catch Exception e
       (check-last-response-and-edit-history chat)
-      (impl/history-revert (:history chat) (deref (:*previousHistorySize chat)))
+      (history-revert (:history chat) (deref (:*previousHistorySize chat)))
       (throw e))))
