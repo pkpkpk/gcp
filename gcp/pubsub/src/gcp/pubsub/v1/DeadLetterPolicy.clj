@@ -1,5 +1,6 @@
 (ns gcp.pubsub.v1.DeadLetterPolicy
-  (:require [gcp.global :as g])
+  (:require [gcp.global :as g]
+            [gcp.pubsub.v1.TopicName :as TopicName])
   (:import (com.google.pubsub.v1 DeadLetterPolicy)))
 
 ;;https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.pubsub.v1.DeadLetterPolicy.Builder
@@ -12,9 +13,10 @@
 (defn ^DeadLetterPolicy from-edn [arg]
   (g/strict! :gcp/pubsub.DeadLetterPolicy arg)
   (let [builder (DeadLetterPolicy/newBuilder)]
-    (when (contains? arg :topic)
-      ;(str "projects/" project-id "/topics/" topic-id)
-      (.setDeadLetterTopic arg (:topic arg)))
+    (when-let [topic (:topic arg)]
+      (if (map? topic)
+        (.setDeadLetterTopic builder (str (TopicName/from-edn topic)))
+        (.setDeadLetterTopic builder topic)))
     (when (contains? arg :maxDeliveryAttempts)
       (.setMaxDeliveryAttempts builder (:maxDeliveryAttempts arg)))
     (.build builder)))

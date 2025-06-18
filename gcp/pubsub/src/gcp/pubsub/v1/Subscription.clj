@@ -8,7 +8,9 @@
             [gcp.pubsub.v1.ExpirationPolicy :as ExpirationPolicy]
             [gcp.pubsub.v1.MessageTransform :as MessageTransform]
             [gcp.pubsub.v1.PushConfig :as PushConfig]
-            [gcp.pubsub.v1.RetryPolicy :as RetryPolicy])
+            [gcp.pubsub.v1.RetryPolicy :as RetryPolicy]
+            [gcp.pubsub.v1.SubscriptionName :as SubscriptionName]
+            [gcp.pubsub.v1.TopicName :as TopicName])
   (:import (com.google.pubsub.v1 Subscription Subscription$AnalyticsHubSubscriptionInfo Subscription$State)))
 
 ;https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.pubsub.v1.Subscription
@@ -18,48 +20,50 @@
   (throw (Exception. "unimplemented")))
 
 (defn to-edn [^Subscription arg]
-  (cond-> {:topic (.getTopic arg)
-           :detached (.getDetached arg)
-           :enableExactlyOnceDelivery (.getEnableExactlyOnceDelivery arg)
-           :enableMessageOrdering (.getEnableMessageOrdering arg)
-           :retainAckedMessages (.getRetainAckedMessages arg)
-           :ackDeadlineSeconds (.getAckDeadlineSeconds arg)}
+  (when arg
+    (cond-> {:name                      (.getName arg)
+             :topic                     (.getTopic arg)
+             :detached                  (.getDetached arg)
+             :enableExactlyOnceDelivery (.getEnableExactlyOnceDelivery arg)
+             :enableMessageOrdering     (.getEnableMessageOrdering arg)
+             :retainAckedMessages       (.getRetainAckedMessages arg)
+             :ackDeadlineSeconds        (.getAckDeadlineSeconds arg)}
 
-          (not (string/blank? (.getFilter arg)))
-          (assoc :filter (.getFilter arg))
+            (not (string/blank? (.getFilter arg)))
+            (assoc :filter (.getFilter arg))
 
-          (pos? (.getLabelsCount arg))
-          (assoc :labels (.getLabelsMap arg))
+            (pos? (.getLabelsCount arg))
+            (assoc :labels (.getLabelsMap arg))
 
-          (.hasMessageRetentionDuration arg)
-          (assoc :messageRetentionDuration (.getMessageRetentionDuration arg))
+            (.hasMessageRetentionDuration arg)
+            (assoc :messageRetentionDuration (.getMessageRetentionDuration arg))
 
-          (.hasAnalyticsHubSubscriptionInfo arg)
-          (assoc :analyticsHubSubscriptionInfo (AnalyticsHubInfo-to-edn (.getAnalyticsHubSubscriptionInfo arg)))
+            (.hasAnalyticsHubSubscriptionInfo arg)
+            (assoc :analyticsHubSubscriptionInfo (AnalyticsHubInfo-to-edn (.getAnalyticsHubSubscriptionInfo arg)))
 
-          (.hasBigqueryConfig arg)
-          (assoc :bigqueryConfig (BigQueryConfig/to-edn (.getBigqueryConfig arg)))
+            (.hasBigqueryConfig arg)
+            (assoc :bigqueryConfig (BigQueryConfig/to-edn (.getBigqueryConfig arg)))
 
-          (.hasCloudStorageConfig arg)
-          (assoc :cloudStorageConfig (CloudStorageConfig/to-edn (.getCloudStorageConfig arg)))
+            (.hasCloudStorageConfig arg)
+            (assoc :cloudStorageConfig (CloudStorageConfig/to-edn (.getCloudStorageConfig arg)))
 
-          (.hasExpirationPolicy arg)
-          (assoc :expirationPolicy (ExpirationPolicy/to-edn (.getExpirationPolicy arg)))
+            (.hasExpirationPolicy arg)
+            (assoc :expirationPolicy (ExpirationPolicy/to-edn (.getExpirationPolicy arg)))
 
-          (.hasRetryPolicy arg)
-          (assoc :retryPolicy (RetryPolicy/to-edn (.getRetryPolicy arg)))
+            (.hasRetryPolicy arg)
+            (assoc :retryPolicy (RetryPolicy/to-edn (.getRetryPolicy arg)))
 
-          (.hasDeadLetterPolicy arg)
-          (assoc :deadLetterPolicy (DeadLetterPolicy/to-edn (.getDeadLetterPolicy arg)))
+            (.hasDeadLetterPolicy arg)
+            (assoc :deadLetterPolicy (DeadLetterPolicy/to-edn (.getDeadLetterPolicy arg)))
 
-          (.hasPushConfig arg)
-          (assoc :pushConfig (PushConfig/to-edn (.getPushConfig arg)))
+            (.hasPushConfig arg)
+            (assoc :pushConfig (PushConfig/to-edn (.getPushConfig arg)))
 
-          (.hasTopicMessageRetentionDuration arg)
-          (assoc :topicMessageRetentionDuration (.getTopicMessageRetentionDuration arg))
+            (.hasTopicMessageRetentionDuration arg)
+            (assoc :topicMessageRetentionDuration (.getTopicMessageRetentionDuration arg))
 
-          (not= "STATE_UNSPECIFIED" (.name (.getState arg)))
-          (assoc :state (.name (.getState arg)))))
+            (not= "STATE_UNSPECIFIED" (.name (.getState arg)))
+            (assoc :state (.name (.getState arg))))))
 
 ; https://cloud.google.com/pubsub/docs/reference/rest/v1/projects.subscriptions/create
 ; https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.pubsub.v1.Subscription.Builder
@@ -70,13 +74,17 @@
 (defn ^Subscription from-edn [arg]
   (g/strict! :gcp/pubsub.Subscription arg)
   (let [builder (Subscription/newBuilder)]
-    (.setName builder (g/coerce string? (:name arg)))
-    (.setTopic builder (g/coerce string? (:topic arg)))
+    (.setName builder (if (map? (:name arg))
+                        (str (SubscriptionName/from-edn (:name arg)))
+                        (:name arg)))
+    (.setTopic builder (if (map? (:topic arg))
+                         (str (TopicName/from-edn (:topic arg)))
+                         (:topic arg)))
     #!--optional --------
     (when (contains? arg :ackDeadlineSeconds)
       (.setAckDeadlineSeconds builder (g/coerce :int (:ackDeadlineSeconds arg))))
-    (when (contains? arg :bigqueryConfig)
-      (.setBigqueryConfig builder (BigQueryConfig/from-edn (:bigQueryConfig arg))))
+    (when-let [cfg (get arg :bigqueryConfig)]
+      (.setBigqueryConfig builder (BigQueryConfig/from-edn cfg)))
     (when (contains? arg :cloudStorageConfig)
       (.setCloudStorageConfig builder (CloudStorageConfig/from-edn (:cloudStorageConfig arg))))
     (when (contains? arg :deadLetterPolicy)

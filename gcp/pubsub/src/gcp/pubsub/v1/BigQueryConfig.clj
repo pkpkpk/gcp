@@ -19,11 +19,12 @@
                (not (string/blank? (.getServiceAccountEmail arg))))
           (assoc :serviceAccountEmail (.getServiceAccountEmail arg))))
 
-(defn ^BigQueryConfig from-edn
-  [{:keys [table] :as arg}]
+(defn ^BigQueryConfig from-edn [{:keys [table] :as arg}]
   (g/strict! :gcp/pubsub.BigQueryConfig arg)
   (let [builder (BigQueryConfig/newBuilder)]
-    (.setTable table)
+    (if-let [{:keys [project dataset table]} (and (map? table) table)]
+      (.setTable builder (str project "." dataset "." table))
+      (.setTable builder table))
     ;; TODO setState setServiceAccountEmail
     (when (contains? arg :serviceAccountEmail)
       (.setServiceAccountEmail builder (get arg :serviceAccountEmail)))

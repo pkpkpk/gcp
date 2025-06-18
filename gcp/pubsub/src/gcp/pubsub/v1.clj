@@ -20,6 +20,16 @@
 
    :gcp/pubsub.synth.SubscriptionList        :any
 
+   :gcp/pubsub.synth.SubscriptionGet
+   [:and
+    [:map
+     [:subscriptionAdminClient {:optional true} :gcp/pubsub.SubscriptionAdminClient]]
+    [:or
+     [:map
+      [:subscription [:or :string :gcp/pubsub.SubscriptionName]]]
+     [:map
+      [:request :any]]]]
+
    :gcp/pubsub.synth.SubscriptionCreate      :any
 
    :gcp/pubsub.synth.SubscriptionDelete      :any
@@ -38,7 +48,7 @@
     [:map [:topicAdminClient {:optional true} :gcp/pubsub.TopicAdminClient]]
     [:or
      [:map [:topic [:or :gcp/pubsub.TopicName
-                        :gcp/pubsub.synth.TopicPath]]]
+                    :gcp/pubsub.synth.TopicPath]]]
      [:map [:request :gcp/pubsub.GetTopicRequest]]]]
 
    :gcp/pubsub.synth.TopicCreate
@@ -61,19 +71,33 @@
     [:or
      [:map [:topic [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath]]]
      [:map [:request :gcp/pubsub.DeleteTopicRequest]]]]
-
    #!----------------------------------------------------------------
-   :gcp/pubsub.BigQueryConfig                :any
+
    :gcp/pubsub.CloudStorageConfig            :any
    :gcp/pubsub.ExpirationPolicy              :any
-   :gcp/pubsub.DeadLetterPolicy              :any
    :gcp/pubsub.RetryPolicy                   :any
-
    :gcp/pubsub.DeleteTopicRequest            :any
    :gcp/pubsub.GetTopicRequest               :any
    :gcp/pubsub.ListTopicsRequest             :any
    :gcp/pubsub.ListTopicSubscriptionsRequest :any
    #!----------------------------------------------------------------
+
+   :gcp/pubsub.BigQueryConfig
+   [:map
+    [:writeMetadata :boolean]
+    [:table [:or
+             :gcp/pubsub.synth.TablePath
+             [:map {:doc "effectively :gcp/bigquery.TableId"}
+              [:project :string]
+              [:dataset :string]
+              [:table :string]]]]]
+
+   :gcp/pubsub.DeadLetterPolicy
+   [:map
+    [:maxDeliveryAttempts :int] ; min 5 max?
+    [:topic [:or
+             :gcp/pubsub.synth.TopicPath
+             :gcp/pubsub.TopicName]]]
 
    :gcp/pubsub.ProjectName
    [:or
@@ -93,6 +117,26 @@
             (= "topics" (nth parts 2))
             (some? (nth parts 3)))))]]
 
+   :gcp/pubsub.synth.SubscriptionPath
+   [:and
+    :string
+    [:fn
+     {:error/message "string representations of subscriptions must be in form 'projects/{project}/subscriptions/{subscription}'"}
+     '(fn [s]
+        (let [parts (clojure.string/split s (re-pattern "/"))]
+          (and
+            (= "projects" (nth parts 0))
+            (some? (nth parts 1))
+            (= "subscription" (nth parts 2))
+            (some? (nth parts 3)))))]]
+
+   :gcp/pubsub.synth.TablePath
+   [:and
+    :string
+    [:fn
+     {:error/message "string representations of tables must be in form '{project}.{dataset}.{table}'"}
+     '(fn [s] (= 3 (count (clojure.string/split s (re-pattern "\\.")))))]]
+
    :gcp/pubsub.TopicName
    [:map {:closed true}
     [:project :string]
@@ -102,10 +146,24 @@
    [:map
     [:name :gcp/pubsub.synth.TopicPath]]
 
+   :gcp/pubsub.SubscriptionName
+   [:map {:closed true}
+    [:project :string]
+    [:subscription :string]]
+
    :gcp/pubsub.Publisher
    [:map {:closed true}
     [:topicName :gcp/pubsub.TopicName]
     [:batchSettings {:optional true} :gax/batching.BatchingSettings]]
+
+   :gcp/pubsub.Subscription
+   [:map
+    [:name {:optional false} [:or
+                              :gcp/pubsub.synth.SubscriptionPath
+                              :gcp/pubsub.SubscriptionName]]
+    [:topic {:optional false} [:or
+                               :gcp/pubsub.synth.TopicPath
+                               :gcp/pubsub.TopicName]]]
 
    #!----------------------------------------------------------------
    #! TODO gcp.gax in global

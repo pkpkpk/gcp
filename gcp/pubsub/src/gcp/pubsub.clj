@@ -1,7 +1,9 @@
 (ns gcp.pubsub
-  (:require [gcp.global :as g]
+  (:require [clojure.string :as string]
+            [gcp.global :as g]
+            gcp.pubsub.v1
             [gcp.pubsub.v1.DeleteTopicRequest :as DeleteTopicRequest]
-            [gcp.pubsub.v1.GetSubscriptionRequest :as GetSubscriptionRequest]
+            [gcp.pubsub.v1.GetSubscriptionRequest :as GSR]
             [gcp.pubsub.v1.GetTopicRequest :as GetTopicRequest]
             [gcp.pubsub.v1.ListTopicsRequest :as ListTopicsRequest]
             [gcp.pubsub.v1.ListTopicSubscriptionsRequest :as ListTopicSubscriptionsRequest]
@@ -10,10 +12,11 @@
             [gcp.pubsub.v1.Topic :as Topic]
             [gcp.pubsub.v1.TopicAdminClient :as TAC]
             [gcp.pubsub.v1.ProjectName :as ProjectName]
-            [gcp.pubsub.v1.SubscriptionName :as SubscriptionName]
+            [gcp.pubsub.v1.SubscriptionName :as SN]
             [gcp.pubsub.v1.TopicName :as TopicName])
   (:import (com.google.api.gax.rpc NotFoundException)
-           (com.google.cloud.pubsub.v1 SubscriptionAdminClient TopicAdminClient)))
+           (com.google.cloud.pubsub.v1 SubscriptionAdminClient TopicAdminClient)
+           (com.google.pubsub.v1 GetSubscriptionRequest SubscriptionName)))
 
 (defonce ^:dynamic *subscription-admin-client* nil)
 
@@ -41,6 +44,8 @@
 #! Topic Administration
 
 (defn list-topics
+  ([]
+   (list-topics nil))
   ([arg]
    (if (string? arg)
      (list-topics {:project arg})
@@ -54,11 +59,21 @@
    ;; TODO clientable, project|request
    (throw (Exception. "unimplemented"))))
 
-;; TODO :gcp/pubsub.Topic
+
 (defn get-topic
   ([arg]
-   (if (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
+   (cond
+     (string? arg)
+     (let [[_ project _ topic] (string/split arg #"/")]
+       (get-topic {:project project :topic topic}))
+
+     (and (map? arg) (contains? arg :name))
+     (get-topic (get arg :name))
+
+     (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg) ;;TODO
      (get-topic {:topic arg})
+
+     true
      (let [{:keys [topicAdminClient topic request]} (g/coerce :gcp/pubsub.synth.TopicGet arg)
            client (topic-admin-client topicAdminClient)]
        (try
@@ -94,11 +109,20 @@
   ([arg0 arg1]
    (throw (Exception. "unimplemented"))))
 
-;; TODO :gcp/pubsub.Topic
 (defn list-topic-subscriptions
   ([arg]
-   (if (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
+   (cond
+     (string? arg)
+     (let [[_ project _ topic] (string/split arg #"/")]
+       (list-topic-subscriptions {:project project :topic topic}))
+
+     (and (map? arg) (contains? arg :name))
+     (list-topic-subscriptions (get arg :name))
+
+     (g/valid? [:or :gcp/pubsub.TopicName :gcp/pubsub.synth.TopicPath] arg)
      (list-topic-subscriptions {:topic arg})
+
+     true
      (let [{:keys [topicAdminClient topic request]} (g/coerce :gcp/pubsub.synth.TopicListSubscriptions arg)
            client (topic-admin-client topicAdminClient)
            response (if topic
@@ -150,19 +174,27 @@
 
 (defn get-subscription
   ([arg]
-   (let [{:keys [subscriptionAdminClient subscription request]} (g/coerce :gcp/pubsub.synth.SubscriptionGet arg)
-         client (subscription-admin-client subscriptionAdminClient)]
-     (try
-       (Subscription/to-edn
-         (if request
-           (.getSubscription client (GetSubscriptionRequest/from-edn request))
-           (.getSubscription client (SubscriptionName/from-edn subscription))))
-       (catch NotFoundException _
-         nil))))
+   (if (string? arg)
+     (get-subscription {:subscription arg})
+     (if (g/valid? :gcp/pubsub.SubscriptionName arg)
+       (get-subscription {:subscription arg})
+       (let [{:keys [subscriptionAdminClient subscription request]} (g/coerce :gcp/pubsub.synth.SubscriptionGet arg)
+             client (subscription-admin-client subscriptionAdminClient)]
+         (try
+           (Subscription/to-edn
+             (if request
+               (.getSubscription client ^GetSubscriptionRequest (GSR/from-edn request))
+               (if (string? subscription)
+                 (.getSubscription client ^String subscription)
+                 (.getSubscription client ^SubscriptionName (SN/from-edn subscription)))))
+           (catch NotFoundException _
+             nil))))))
   ([arg0 arg1]
    (if (string? arg0)
      (if (string? arg1)
-       (get-subscription {:subscription {:project arg0 :subscription arg1}})))))
+       (get-subscription {:subscription {:project arg0 :subscription arg1}})
+       (throw (Exception. "unimplemented")))
+     (throw (Exception. "unimplemented")))))
 
 (defn create-subscription
   ([arg]

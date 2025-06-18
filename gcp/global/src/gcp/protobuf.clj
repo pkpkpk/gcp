@@ -101,8 +101,16 @@
   [^ProtocolStringList lst]
   (mapv bytestring-to-edn (.asByteStringList lst)))
 
-(defn ^Duration Duration-from-edn [param1]
-  (throw (Exception. "unimplemented")))
-
-(defn Duration-to-edn [^Duration arg]
-  (throw (Exception. "unimplemented")))
+(defn ^Duration Duration-from-edn [arg]
+  (let [builder (Duration/newBuilder)]
+    (if (int? arg)
+      (.setSeconds builder arg)
+      (let [{:keys [seconds nanos]} arg]
+        (when seconds
+          (.setSeconds builder seconds))
+        (when nanos
+          (.setNanos builder nanos))))
+    (.build builder)))
+;
+;(defn Duration-to-edn [^Duration arg]
+;  (throw (Exception. "unimplemented")))
