@@ -178,17 +178,19 @@
      (get-subscription {:subscription arg})
      (if (g/valid? :gcp/pubsub.SubscriptionName arg)
        (get-subscription {:subscription arg})
-       (let [{:keys [subscriptionAdminClient subscription request]} (g/coerce :gcp/pubsub.synth.SubscriptionGet arg)
-             client (subscription-admin-client subscriptionAdminClient)]
-         (try
-           (Subscription/to-edn
-             (if request
-               (.getSubscription client ^GetSubscriptionRequest (GSR/from-edn request))
-               (if (string? subscription)
-                 (.getSubscription client ^String subscription)
-                 (.getSubscription client ^SubscriptionName (SN/from-edn subscription)))))
-           (catch NotFoundException _
-             nil))))))
+       (if (g/valid? :gcp/pubsub.Subscription arg)
+         (get-subscription {:subscription (:name arg)})
+         (let [{:keys [subscriptionAdminClient subscription request]} (g/coerce :gcp/pubsub.synth.SubscriptionGet arg)
+               client (subscription-admin-client subscriptionAdminClient)]
+           (try
+             (Subscription/to-edn
+               (if request
+                 (.getSubscription client ^GetSubscriptionRequest (GSR/from-edn request))
+                 (if (string? subscription)
+                   (.getSubscription client ^String subscription)
+                   (.getSubscription client ^SubscriptionName (SN/from-edn subscription)))))
+             (catch NotFoundException _
+               nil)))))))
   ([arg0 arg1]
    (if (string? arg0)
      (if (string? arg1)
@@ -202,6 +204,6 @@
      (create-subscription {:subscription arg})
      (let [{:keys [subscription-admin subscription]} (g/coerce :gcp/pubsub.synth.SubscriptionCreate arg)
            client (subscription-admin-client subscription-admin)]
-       (.createSubscription client (Subscription/from-edn subscription)))))
+       (Subscription/to-edn (.createSubscription client (Subscription/from-edn subscription))))))
   ([arg0 arg1]
    (throw (Exception. "unimplemented"))))

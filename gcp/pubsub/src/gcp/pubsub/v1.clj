@@ -30,18 +30,22 @@
      [:map
       [:request :any]]]]
 
-   :gcp/pubsub.synth.SubscriptionCreate      :any
+   :gcp/pubsub.synth.SubscriptionCreate
+   [:map
+    [:subscriptionAdminClient {:optional true} :gcp/pubsub.SubscriptionAdminClient]
+    [:subscription :gcp/pubsub.Subscription]]
 
    :gcp/pubsub.synth.SubscriptionDelete      :any
 
-
-
    :gcp/pubsub.synth.TopicList
    [:and
-    [:map [:topicAdminClient {:optional true} :gcp/pubsub.TopicAdminClient]]
-    [:or
-     [:map [:project [:or :gcp/pubsub.ProjectName :string]]]
-     [:map [:request :gcp/pubsub.ListTopicsRequest]]]]
+    [:map {:error/message "must be a map"}
+     [:topicAdminClient {:optional true} :gcp/pubsub.TopicAdminClient]
+     [:request {:optional true} :gcp/pubsub.ListTopicsRequest]
+     [:project {:optional true} [:or :gcp/pubsub.ProjectName :string]]]
+    [:fn
+     {:error/message "must contain :project or :request"}
+     '(fn [m] (or (contains? m :project) (or (contains? m :request))))]]
 
    :gcp/pubsub.synth.TopicGet
    [:and
@@ -78,7 +82,13 @@
    :gcp/pubsub.RetryPolicy                   :any
    :gcp/pubsub.DeleteTopicRequest            :any
    :gcp/pubsub.GetTopicRequest               :any
-   :gcp/pubsub.ListTopicsRequest             :any
+   :gcp/pubsub.ListTopicsRequest
+   [:map
+    [:project
+     {:doc "The name of the project in which to list topics. Format is projects/{project-id}."}
+     :string]
+    [:pageToken {:optional true} :string]
+    [:pageSize {:optional true} :int]]
    :gcp/pubsub.ListTopicSubscriptionsRequest :any
    #!----------------------------------------------------------------
 
@@ -161,9 +171,12 @@
     [:name {:optional false} [:or
                               :gcp/pubsub.synth.SubscriptionPath
                               :gcp/pubsub.SubscriptionName]]
-    [:topic {:optional false} [:or
-                               :gcp/pubsub.synth.TopicPath
-                               :gcp/pubsub.TopicName]]]
+    [:topic
+     {:optional false
+      :error/message ":topic must be TopicPath string or TopicName map"}
+     [:or
+      :gcp/pubsub.synth.TopicPath
+      :gcp/pubsub.TopicName]]]
 
    #!----------------------------------------------------------------
    #! TODO gcp.gax in global
