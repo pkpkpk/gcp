@@ -79,4 +79,8 @@
                               (get arg :writeDisposition))))
     (.build builder)))
 
-(defn to-edn [^LoadJobConfiguration arg] (throw (Exception. "unimplemented")))
+(defn to-edn [^LoadJobConfiguration arg]
+  ;(throw (Exception. "unimplemented"))
+  (println "WARNING LoadJobConfiguration/to-edn not implemented")
+  arg
+  )

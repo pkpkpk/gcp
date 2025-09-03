@@ -5,7 +5,9 @@
   (:import (com.google.cloud.bigquery QueryParameterValue StandardSQLTypeName)
            (com.google.gson JsonObject)
            (java.time Instant LocalDate LocalDateTime)
-           (java.util Date)))
+           (java.util Date Map)))
+
+;; https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.QueryParameterValue
 
 (defn ^QueryParameterValue from-edn [arg]
   (global/strict! :gcp/bigquery.QueryParameterValue arg)
@@ -18,7 +20,6 @@
     (bytes? arg) (QueryParameterValue/bytes arg)
 
     ;; TODO rt tests to exact precision to and from clojure...
-    ;;  ... successfully writing is not good enough!
     (instance? java.util.Date arg) (QueryParameterValue/date (.toString arg))
     (instance? LocalDate arg)      (QueryParameterValue/date (.toString arg))
     (instance? LocalDateTime arg)  (QueryParameterValue/dateTime (.toString arg))
@@ -30,7 +31,6 @@
     (contains? arg :interval)  (QueryParameterValue/interval ^String (:interval arg))
     (contains? arg :geography) (QueryParameterValue/geography (:geography arg))
 
-    ;; TODO explore & test structs + heterogeneous + recursive values?
     (map? arg)
     (QueryParameterValue/struct (into {} (map (fn [[k v]] [(name k) (from-edn v)])) arg))
 
@@ -52,6 +52,10 @@
 
       (g/valid? [:sequential (g/instance-schema java.math.BigDecimal)] arg)
       (QueryParameterValue/array ^BigDecimal/1 (into-array BigDecimal arg) BigDecimal)
+
+      (g/valid? [:sequential map?] arg)
+      (let [structs (into-array Object (map from-edn arg))]
+        (QueryParameterValue/array ^Object/1 structs StandardSQLTypeName/STRUCT))
 
       true
       (throw (ex-info "unimplemented sequential type" {:arg arg})))

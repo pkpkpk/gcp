@@ -179,23 +179,30 @@
                                                 [:bigquery :gcp/bigquery.synth.clientable]] arg)]
         (.cancel (client bigquery) (JobId/from-edn jobId))))))
 
-(defn query [arg]
-  (if (string? arg)
-    (query {:configuration {:type "QUERY" :query arg}})
-    (if (contains? arg :query)
-      (query {:configuration (assoc arg :type "QUERY")})
-      (try
-        (let [{:keys [bigquery configuration options jobId]} (g/coerce :gcp/bigquery.synth.Query arg)
-              opts (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))
-              qjc  (QJC/from-edn configuration)
-              res  (if jobId
-                     (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
-                     (.query (client bigquery) qjc opts))]
-          (TableResult/to-edn res))
-        (catch BigQueryException bqe
-          (throw (ex-info "bigquery exception" (BQE/to-edn bqe))))
-        (catch JobException je
-          (throw (ex-info "job exception" (JE/to-edn je))))))))
+(defn query
+  ([arg]
+   (if (string? arg)
+     (query {:configuration {:type "QUERY" :query arg}})
+     (if (contains? arg :query)
+       (query {:configuration (assoc arg :type "QUERY")})
+       (try
+         (let [{:keys [bigquery configuration options jobId]} (g/coerce :gcp/bigquery.synth.Query arg)
+               opts (into-array BigQuery$JobOption (map BQ/JobOption-from-edn options))
+               qjc  (QJC/from-edn configuration)
+               res  (if jobId
+                      (.query (client bigquery) qjc (JobId/from-edn jobId) opts)
+                      (.query (client bigquery) qjc opts))]
+           (TableResult/to-edn res))
+         (catch BigQueryException bqe
+           (let [{[err :as es] :errors :as bqe} (BQE/to-edn bqe)
+                 msg (if (= 1 (count es))
+                       (get err :message)
+                       (str "'" (subs (get err :message) 0 30) ", and " (dec (count es)) " more errors"))]
+             (throw (ex-info msg bqe))))
+         (catch JobException je
+           (throw (ex-info "job exception" (JE/to-edn je))))))))
+  ([arg0 arg1]
+   (query {:configuration {:type "QUERY" :query arg0 :queryParameters arg1}})))
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines

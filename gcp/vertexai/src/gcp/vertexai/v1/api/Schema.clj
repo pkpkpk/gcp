@@ -34,7 +34,7 @@
                              (some->> arg :minimum (.setMinimum builder)))
       "OBJECT" (let [properties (get arg :properties)]
                  (.putAllProperties builder (into {} (map (fn [[k v]] [(name k) (from-edn v)])) properties))
-                 (some->> arg :maxProperties (.setMaxProperties builder))
+                 (some->> arg :minProperties (.setMinProperties builder))
                  (some->> arg :maxProperties (.setMaxProperties builder))
                  (some->> arg :required (map name) (.addAllRequired builder)))
       (throw (ex-info (str "unknown schema type '" (:type arg) "'")

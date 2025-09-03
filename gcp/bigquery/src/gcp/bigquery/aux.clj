@@ -1,8 +1,15 @@
 (ns
   ^{:doc "convenience functions that sugar top-level api functions"}
   gcp.bigquery.aux
-  (:require [gcp.bigquery :as bq]
-            [gcp.global :as g]))
+  (:require [clojure.java.io :as io]
+            [gcp.bigquery :as bq]
+            [gcp.global :as g])
+  (:import (com.google.cloud.bigquery Job)
+           (java.nio.channels Channels)))
+
+(defn get-schema [dataset table]
+  (when-let [T (bq/get-table dataset table)]
+    (get-in T [:definition :schema])))
 
 (defn
   ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
@@ -34,6 +41,14 @@
      (bq/create-job {:bigquery (:bigquery table) ;; if Table, use same client
                      :jobInfo  {:configuration (g/coerce :gcp/bigquery.ExtractJobConfiguration configuration)}
                      :options  (not-empty opts)}))))
+
+(defn extract-parquet
+  ([dataset table bucket]
+   (extract-table {:dataset dataset :table table} "PARQUET" "GZIP" (str "gs://" bucket "/" table ".parquet"))))
+
+(defn extract-jsonl
+  ([dataset table bucket]
+   (extract-table {:dataset dataset :table table} "NEWLINE_DELIMITED_JSON" "GZIP" (str "gs://" bucket "/" table ".jsonl"))))
 
 (defn clone-table
   ([source destination]
@@ -73,3 +88,34 @@
    (let [source (g/coerce :gcp/bigquery.TableId {:dataset sourceDataset :table sourceTable})
          destination (g/coerce :gcp/bigquery.TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
+
+(defn- filename-without-ext [f]
+  (let [name    (.getName f)
+        idx     (.lastIndexOf name ".")]
+    (if (pos? idx)
+      (subs name 0 idx)
+      name)))
+
+(defn load-local-file
+  ([dataset table file]
+   (load-local-file dataset table file {:type "CSV"}))
+  ([dataset table file formatOptions]
+   (g/coerce :gcp/bigquery.FormatOptions formatOptions)
+   (let [file (io/file file)
+         _ (assert (.exists file))
+         cfg {:destinationTable {:dataset dataset :table table}
+              :autodetect true
+              :formatOptions formatOptions}
+         jobId {:job (str "load_local_file__" (filename-without-ext file) "__" (random-uuid))}]
+     (try
+       (let [writer (bq/writer jobId cfg)
+             stream (Channels/newOutputStream writer)
+             _(io/copy (slurp file) stream)
+             _(.close stream)
+             ;job (.getJob (bq/client) jobId)
+             ;completed (.wait(For Job)
+             ]
+         ;(if (nil? completed)
+         ;  (println "Job DNE")
+         ;  completed)
+         (bq/get-job jobId))))))
