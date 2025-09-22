@@ -126,53 +126,89 @@
   ([clientable]
    (.name (.getWriteSynchronicity (client clientable)))))
 
-(defn list-exclusions [& args]
-  (let [xs (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-             (.listExclusions (client (first args)) (into-array Logging$ListOption (map L/ListOption:from-edn (rest args))))
-             (.listExclusions (client) (into-array Logging$ListOption (map L/ListOption:from-edn args))))]
-    (map Exclusion/to-edn (seq (.iterateAll xs)))))
+(defn list-exclusions
+  "Lists log exclusions.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.exclusions/list"
+  ([] (list-exclusions nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (list-exclusions arg nil)
+     (list-exclusions nil arg)))
+  ([clientable opts]
+   (let [xs (.listExclusions (client clientable) (L/ListOptions:from-edn opts))]
+     (map Exclusion/to-edn (seq (.iterateAll xs))))))
 
-(defn list-log-entries [& args]
-  (let [xs (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-             (.listMetrics (client (first args)) (into-array Logging$EntryListOption (map L/EntryListOption:from-edn (rest args))))
-             (.listMetrics (client) (into-array Logging$EntryListOption (map L/EntryListOption:from-edn args))))]
-    (map LogEntry/to-edn (seq (.iterateAll xs)))))
+(defn list-log-entries
+  "Lists log entries.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list"
+  ([] (list-log-entries nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (list-log-entries arg nil)
+     (list-log-entries nil arg)))
+  ([clientable opts]
+   (let [xs (.listLogEntries (client clientable) (L/EntryListOptions:from-edn opts))]
+     (map LogEntry/to-edn (seq (.iterateAll xs))))))
 
-(defn list-logs [& args]
-  (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-    (seq (.iterateAll (.listLogs (client (first args)) (into-array Logging$ListOption (map L/ListOption:from-edn (rest args))))))
-    (seq (.iterateAll (.listLogs (client) (into-array Logging$ListOption (map L/ListOption:from-edn args)))))))
+(defn list-logs
+  "Lists the logs in a project.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.logs/list"
+  ([] (list-logs nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (list-logs arg nil)
+     (list-logs nil arg)))
+  ([clientable opts]
+   (seq (.iterateAll (.listLogs (client clientable) (L/ListOptions:from-edn opts))))))
 
-(defn list-metrics [& args]
-  (let [xs (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-             (.listMetrics (client (first args)) (into-array Logging$ListOption (map L/ListOption:from-edn (rest args))))
-             (.listMetrics (client) (into-array Logging$ListOption (map L/ListOption:from-edn args))))]
-    (map Metric/to-edn (seq (.iterateAll xs)))))
+(defn list-metrics
+  "Lists logs-based metrics.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.metrics/list"
+  ([] (list-metrics nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (list-metrics arg nil)
+     (list-metrics nil arg)))
+  ([clientable opts]
+   (let [xs (.listMetrics (client clientable) (L/ListOptions:from-edn opts))]
+     (map Metric/to-edn (seq (.iterateAll xs))))))
 
-(defn list-MRDs [& args]
-  (let [xs (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-             (.listMonitoredResourceDescriptors (client (first args)) (into-array Logging$ListOption (map L/ListOption:from-edn (rest args))))
-             (.listMonitoredResourceDescriptors (client) (into-array Logging$ListOption (map L/ListOption:from-edn args))))]
-    (map
-      (fn [^MonitoredResourceDescriptor mrd]
-        (cond-> {:type (.getType mrd)
-                 :displayName (.getDisplayName mrd)
-                 :name (.getName mrd)}
-                (.getDescription mrd) (assoc :description (.getDescription mrd))
-                (.getLabels mrd) (assoc :labels
-                                        (map
-                                          (fn [^MonitoredResourceDescriptor$LabelDescriptor ld]
-                                            {:description (.getDescription ld)
-                                             :key         (.getKey ld)
-                                             :valueType   (.name (.getValueType ld))})
-                                          (.getLabels mrd)))))
-      (seq (.iterateAll xs)))))
+(defn list-MRDs
+  "Lists MonitoredResourceDescriptors.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/monitoredResourceDescriptors/list"
+  ([] (list-MRDs nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (list-MRDs arg nil)
+     (list-MRDs nil arg)))
+  ([clientable opts]
+   (let [xs (.listMonitoredResourceDescriptors (client clientable) (L/ListOptions:from-edn opts))]
+     (map
+       (fn [^MonitoredResourceDescriptor mrd]
+         (cond-> {:type        (.getType mrd)
+                  :displayName (.getDisplayName mrd)
+                  :name        (.getName mrd)}
+                 (.getDescription mrd) (assoc :description (.getDescription mrd))
+                 (.getLabels mrd) (assoc :labels
+                                         (map
+                                           (fn [^MonitoredResourceDescriptor$LabelDescriptor ld]
+                                             {:description (.getDescription ld)
+                                              :key         (.getKey ld)
+                                              :valueType   (.name (.getValueType ld))})
+                                           (.getLabels mrd)))))
+       (seq (.iterateAll xs))))))
 
-(defn list-sinks [& args]
-  (let [xs (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-             (.listSinks (client (first args)) (into-array Logging$ListOption (map L/ListOption:from-edn (rest args))))
-             (.listSinks (client) (into-array Logging$ListOption (map L/ListOption:from-edn args))))]
-    (map Sink/to-edn (seq (.iterateAll xs)))))
+(defn list-sinks
+  "Lists sinks.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.sinks/list"
+  ([] (list-sinks nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (list-sinks arg nil)
+     (list-sinks nil arg)))
+  ([clientable opts]
+   (let [xs (.listSinks (client clientable) (L/ListOptions:from-edn opts))]
+     (map Sink/to-edn (seq (.iterateAll xs))))))
 
 (defn populate-metadata
   "enrich entries with resource/labels."
@@ -199,12 +235,15 @@
    (.setWriteSynchronicity (client clientable) (Synchronicity/from-edn synchronicity))))
 
 (defn ^LogEntryServerStream tail-log-entries
-  "stream/tail entries
-   https://cloud.google.com/java/docs/reference/google-cloud-logging/latest/com.google.cloud.logging.LogEntryServerStream"
-  [& args]
-  (if (and (some? (first args)) (g/valid? LO/clientable-schema (first args)))
-    (.tailLogEntries (client (first args)) (into-array Logging$TailOption (map L/TailOption:from-edn (rest args))))
-    (.tailLogEntries (client) (into-array Logging$TailOption (map L/TailOption:from-edn args)))))
+  "Tails log entries. The returned iterator blocks until new log entries are available.
+  https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/tail"
+  ([] (tail-log-entries nil nil))
+  ([arg]
+   (if (g/valid? LO/clientable-schema arg)
+     (tail-log-entries arg nil)
+     (tail-log-entries nil arg)))
+  ([clientable opts]
+   (.tailLogEntries (client clientable) (L/TailOptions:from-edn opts))))
 
 (defn update-exclusion
   ([exclusion]
@@ -224,12 +263,14 @@
   ([clientable sink]
    (SinkInfo/to-edn (.update (client clientable) (SinkInfo/from-edn sink)))))
 
-(defn- do-write [client logEntries opts]
-  (.write client
-          (map LogEntry/from-edn logEntries)
-          (into-array Logging$WriteOption (map L/WriteOption:from-edn opts))))
-
-(defn write [& args]
-  (if (g/valid? LO/clientable-schema (first args))
-    (do-write (client (first args)) (second args) (nthrest args 2))
-    (do-write (client nil) (first args) (rest args))))
+(defn write
+  ([logEntries]
+   (write nil logEntries nil))
+  ([arg0 arg1]
+   (if (g/valid? LO/clientable-schema arg0)
+     (write arg0 arg1)
+     (write nil arg0 arg1)))
+  ([clientable logEntries opts]
+   (.write (client clientable)
+           (map LogEntry/from-edn logEntries)
+           (L/WriteOptions:from-edn opts))))
