@@ -8,6 +8,11 @@
   registry
   ^{::g/name ::registry}
   {
+   ::Duration [:or
+               :int
+               [:map
+                [:seconds :int]
+                [:nanos :int]]]
    ::Value      [:or
                  {:class 'com.google.protobuf.Value}
                  :boolean
@@ -111,6 +116,6 @@
         (when nanos
           (.setNanos builder nanos))))
     (.build builder)))
-;
-;(defn Duration-to-edn [^Duration arg]
-;  (throw (Exception. "unimplemented")))
+
+(defn Duration-to-edn [^Duration arg]
+ (throw (Exception. "unimplemented")))

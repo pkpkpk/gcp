@@ -13,3 +13,5 @@ dev/.cpcache
 build/.cpcache
 dev/target
 build/target
+repos
+prompt

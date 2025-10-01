@@ -4,10 +4,10 @@
 
 (def schema
   [:map
-   [:createTime {:optional true} :any]
+   [:createTime {:optional true} any?]
    [:description {:optional true} :string]
    [:disabled {:optional true} :boolean]
-   [:updateTime {:optional true} :any]
+   [:updateTime {:optional true} any?]
    [:name :string]
    [:filter :string]])
 

@@ -18,9 +18,6 @@
            (com.google.cloud MonitoredResourceDescriptor MonitoredResourceDescriptor$LabelDescriptor)
            [com.google.cloud.logging LogEntryServerStream Logging Logging$EntryListOption Logging$ListOption Logging$TailOption Logging$WriteOption]))
 
-;;; TODO
-;;;  --> convert overload opts to singular map arg
-
 (defonce ^:dynamic *client* nil)
 
 (defn ^Logging client

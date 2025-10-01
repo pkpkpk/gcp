@@ -3,7 +3,7 @@
 
 ;https://cloud.google.com/java/docs/reference/google-cloud-logging/latest/com.google.logging.v2.LogName
 
-(def schema :any)
+(def schema any?)
 
 (defn ^LogName from-edn [arg]
   (throw (Exception. "unimplemented")))

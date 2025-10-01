@@ -14,7 +14,7 @@
       [:data :gcp.protobuf/Struct]]
      [:map {:closed true}
       [:type [:= "PROTO"]]
-      [:data :any]]]))
+      [:data any?]]]))
 
 (defn ^Payload from-edn
   [{:keys [type data] :as arg}]

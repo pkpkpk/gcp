@@ -23,9 +23,9 @@
      [:resource {:optional true} MonitoredResource/schema]
      [:severity {:optional true} Severity/schema]
      [:sourceLocation {:optional true} SourceLocation/schema]
-     [:spanId {:optional true} :any]
-     [:timestamp {:optional true} :any]
-     [:trace {:optional true} :any]
+     [:spanId {:optional true} any?]
+     [:timestamp {:optional true} any?]
+     [:trace {:optional true} any?]
      [:traceSampled {:optional true} :boolean]]))
 
 (defn ^LogEntry from-edn

@@ -3,7 +3,7 @@
 
 ;https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.MonitoredResource
 
-(def schema :any)
+(def schema any?)
 
 (defn ^MonitoredResource from-edn [arg]
   (throw (Exception. "unimplemented")))
