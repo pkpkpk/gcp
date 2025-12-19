@@ -1,9 +1,7 @@
 .cpcache
 .shadow-cljs
 *.iml
-node_modules
 cljs-runtime
-dh.js
 target
 .nrepl-port
 .konserve
@@ -15,3 +13,4 @@ dev/target
 build/target
 repos
 prompt
+dev/repl-mcp.log*

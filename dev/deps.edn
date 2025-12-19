@@ -1,20 +1,14 @@
-{:paths ["src"]
- :deps  {org.clojure/clojure      {:mvn/version "1.12.0"}
-         org.clojure/test.check   {:mvn/version "1.1.1"}
-         gcp/bigquery             {:local/root "../gcp/bigquery"}
-         gcp/global               {:local/root "../gcp/global"}
-         gcp/pubsub               {:local/root "../gcp/pubsub"}
-         gcp/storage              {:local/root "../gcp/storage"}
-         gcp/vertexai             {:local/root "../gcp/vertexai"}
-         clj-http/clj-http        {:mvn/version "3.13.0"}
-         rewrite-clj/rewrite-clj  {:mvn/version "1.1.49"}
-         io.replikativ/konserve   {:mvn/version "0.8.320"}
-         org.ow2.asm/asm          {:mvn/version "9.7.1"}
-         zprint/zprint            {:mvn/version "1.2.9"}}}
-
-;gcp/artifactregistry     {:local/root "../gcp/artifactregistry"}
-;gcp/bigquerydatatransfer {:local/root "../gcp/bigquerydatatransfer"}
-;gcp/discoveryengine      {:local/root "../gcp/discoveryengine"}
-;gcp/run                  {:local/root "../gcp/run"}
-;com.google.apis/google-api-services-discovery {:mvn/version "v1-rev20200806-2.0.0"}
-;com.google.cloud/google-cloud-aiplatform      {:mvn/version "3.56.0"}
+{:paths ["src" "test"]
+ :deps  {org.clojure/test.check  {:mvn/version "1.1.2"}
+         gcp/bigquery            {:local/root "../packages/bigquery"}
+         gcp/global              {:local/root "../packages/global"}
+         gcp/logging             {:local/root "../packages/logging"}
+         gcp/monitoring          {:local/root "../packages/monitoring"}
+         gcp/pubsub              {:local/root "../packages/pubsub"}
+         gcp/storage             {:local/root "../packages/storage"}
+         gcp/vertexai            {:local/root "../packages/vertexai"}
+         clj-http/clj-http       {:mvn/version "3.13.0"}
+         rewrite-clj/rewrite-clj {:mvn/version "1.1.49"}
+         io.replikativ/konserve  {:mvn/version "0.8.320"}
+         org.ow2.asm/asm         {:mvn/version "9.7.1"}
+         zprint/zprint           {:mvn/version "1.2.9"}}}
