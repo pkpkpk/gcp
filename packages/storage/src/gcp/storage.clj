@@ -6,10 +6,52 @@
             [gcp.storage.v2.Bucket :as Bucket]
             [gcp.storage.v2.BucketInfo :as BucketInfo]
             [gcp.storage.v2.Storage :as S]
+            [gcp.storage.v2.StorageOptions :as StorageOptions]
             [gcp.storage.v2.synth])
   (:import [com.google.cloud.storage Storage Storage$BlobListOption Storage$BlobSourceOption Storage$BlobTargetOption Storage$BucketGetOption Storage$BucketListOption Storage$BucketTargetOption]))
 
+(def synthetic-schemas
+  {:gcp.storage.v2.synth/client               :any
+   :gcp.storage.v2.synth/clientable           [:maybe
+                                               [:or
+                                                :gcp.storage.v2/StorageOptions
+                                                :gcp.storage.v2.synth/client
+                                                [:map [:storage [:or :gcp.storage.v2/StorageOptions :gcp.storage.v2.synth/client]]]]]
+   :gcp.storage.v2.synth/StorageRetryStrategy :any
+   :gcp.storage.v2.synth/BucketList           [:maybe
+                                               [:map {:closed true}
+                                                [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                                [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BucketListOption]]]]
+   :gcp.storage.v2.synth/BucketGet            [:map {:closed true}
+                                               [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                               [:bucket :string]
+                                               [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BucketGetOption]]]
+   :gcp.storage.v2.synth/BucketCreate         [:map {:closed true}
+                                               [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                               [:bucketInfo :gcp.storage.v2/BucketInfo]
+                                               [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BucketTargetOption]]]
+   :gcp.storage.v2.synth/BlobList             [:map {:closed true}
+                                               [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                               [:bucket :string]
+                                               [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BlobListOption]]]
+   :gcp.storage.v2.synth/BlobDelete           [:map {:closed true}
+                                               [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                               [:blobs [:sequential :gcp.storage.v2/BlobId]]
+                                               [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BlobSourceOption]]]
+   :gcp.storage.v2.synth/BlobCreate           [:map {:closed true}
+                                               [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                               [:blobInfo {:optional false} :gcp.storage.v2/BlobInfo]
+                                               [:content {:optional true} 'bytes?]
+                                               [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BlobSourceOption]]]
+   :gcp.storage.v2.synth/ReadAllBytes         [:map {:closed true}
+                                               [:storage {:optional true} :gcp.storage.v2.synth/clientable]
+                                               [:blobId :gcp.storage.v2/BlobId]
+                                               [:options {:optional true} [:sequential :gcp.storage.v2/Storage.BlobSourceOption]]]})
+
+(g/include-schema-registry! (with-meta synthetic-schemas {:gcp.global/name (str *ns*)}))
+
 (defonce ^:dynamic *client* nil)
+(defonce *clients (atom {}))
 
 (defn ^Storage client
   ([] (client nil))
@@ -19,7 +61,10 @@
          (g/strict! :gcp.storage.v2.synth/clientable arg)
          (if (instance? Storage arg)
            arg
-           (g/client :gcp.storage.v2.synth/client arg))))))
+           (or (get @*clients arg)
+               (let [client (StorageOptions/get-service arg)]
+                 (swap! *clients assoc arg client)
+                 client)))))))
 
 #!-----------------------------------------------------------------------------
 #! Bucket Operations

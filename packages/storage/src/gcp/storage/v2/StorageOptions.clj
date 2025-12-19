@@ -48,7 +48,8 @@
       (.getService (from-edn arg)))))
 
 (def schemas
-  {:gcp.storage.v2/StorageOptions
+  {:gcp.storage.v2.synth/StorageRetryStrategy :any          ;;TODO
+   :gcp.storage.v2/StorageOptions
    [:maybe
     [:map
      [:blobWriteSessionConfig {:optional true} :gcp.storage.v2/BlobWriteSessionConfig]

@@ -1,5 +1,6 @@
 (ns gcp.storage.v2.Acl
-  (:require [gcp.global :as global])
+  (:require [gcp.global :as global]
+            [gcp.storage.v2.synth])
   (:import (com.google.cloud.storage Acl Acl$Domain Acl$Entity Acl$Group Acl$Project$ProjectRole Acl$Role Acl$Project Acl$User)))
 
 (defn Entity:from-edn [{t :type :as arg}]
@@ -64,7 +65,7 @@
    [:map {:closed true} [:type [:= "DOMAIN"]] [:domain :string]]
 
    :gcp.storage.v2/Acl.Project
-   [:map [:projectRole [:enum "EDITORS" "OWNERS" "VIEWERS"]] [:projectId :gcp.storage.v2.synth/project]]
+   [:map [:projectRole [:enum "EDITORS" "OWNERS" "VIEWERS"]] [:projectId :string]]
 
    :gcp.storage.v2/Acl.Group
    [:map {:closed true} [:type [:= "GROUP"]] [:email :string]]
