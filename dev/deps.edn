@@ -1,5 +1,6 @@
 {:paths ["src" "test"]
  :deps  {org.clojure/test.check  {:mvn/version "1.1.2"}
+         com.github.javaparser/javaparser-core {:mvn/version "3.25.10"}
          gcp/bigquery            {:local/root "../packages/bigquery"}
          gcp/global              {:local/root "../packages/global"}
          gcp/logging             {:local/root "../packages/logging"}

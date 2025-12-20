@@ -1,10 +1,10 @@
 (ns gcp.dev.analyzer
   (:require
-    [clojure.pprint :refer [pprint]]
     [clojure.set :as s]
     [clojure.string :as string]
     [gcp.dev.analyzer.align :as align]
     [gcp.dev.analyzer.extract :as extract]
+    [gcp.dev.analyzer.javaparser :as javaparser]
     [gcp.dev.util :refer :all]
     [gcp.global :as g])
   (:import (com.google.cloud.bigquery BigQueryOptions)
@@ -343,3 +343,98 @@
 
     true
     (throw (Exception. (str "cannot analyze unknown type! " className)))))
+
+;; -------------------------------------------------------------------------
+;; Dependency Graph Logic
+;; -------------------------------------------------------------------------
+
+(defn- collect-types
+  "Walks an arbitrary data structure (AST type representation) and collects all Symbols.
+   Excludes common java.lang types if desired, but here we collect everything that looks like a class."
+  [x]
+  (let [types (atom #{})]
+    (clojure.walk/postwalk
+      (fn [form]
+        (when (symbol? form)
+          (let [s (name form)]
+            ;; Heuristic: starts with uppercase or contains dot, likely a class
+            (when (or (string/includes? s ".")
+                      (re-matches #"^[A-Z].*" s))
+              (swap! types conj (name form)))))
+        form)
+      x)
+    @types))
+
+(defn- extract-deps-from-node
+  "Extracts all dependencies (as FQCN strings) from a class AST node."
+  [node]
+  (let [
+        ;; 1. Extends
+        extends-deps (mapcat collect-types (:extends node))
+        ;; 2. Implements
+        implements-deps (mapcat collect-types (:implements node))
+        ;; 3. Fields (types)
+        field-deps (mapcat #(collect-types (:type %)) (:fields node))
+        ;; 4. Methods (return types + parameter types)
+        method-deps (mapcat (fn [m]
+                              (concat (collect-types (:returnType m))
+                                      (mapcat #(collect-types (:type %)) (:parameters m))))
+                            (:methods node))
+        ;; 5. Constructors
+        ctor-deps (mapcat (fn [c]
+                            (mapcat #(collect-types (:type %)) (:parameters c)))
+                          (:constructors node))
+        ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
+        ;;    But we might want to depend on inner classes.
+        ]
+    (into #{} (concat extends-deps implements-deps field-deps method-deps ctor-deps))))
+
+(defn build-dependency-graph
+  "Builds a dependency graph from the package analysis result.
+   Returns a map: {FQCN #{DependencyFQCN ...}}"
+  [package-ast]
+  (let [children (:children package-ast)
+        ;; Create a map of FQCN -> Node for easy lookup and to know what's 'internal'
+        fqcn-map (reduce (fn [acc [simple-name node]]
+                           (let [fqcn (str (:package node) "." (:name node))]
+                             (assoc acc fqcn node)))
+                         {}
+                         children)
+        internal-classes (set (keys fqcn-map))]
+    
+    (reduce (fn [graph [fqcn node]]
+              (let [raw-deps (extract-deps-from-node node)
+                    ;; Filter dependencies to only those within the analyzed package (optional, 
+                    ;; usually we want to see internal structure)
+                    ;; For now, let's keep only edges that point to classes WE know about (internal).
+                    internal-deps (s/intersection (set raw-deps) internal-classes)]
+                (assoc graph fqcn internal-deps)))
+            {}
+            fqcn-map)))
+
+(defn dependency-tree
+  "Generates a dependency tree (nested map) starting from a root class.
+   'package-path' is the file path to the package source (for analysis).
+   'root-class-name' is the simple name or FQCN of the root class (e.g. 'Storage').
+   
+   Returns a map where keys are class names and values are sub-dependencies.
+   Uses a 'seen' set to break cycles."
+  [package-path root-class-name]
+  (let [pkg-ast (javaparser/analyze-package package-path {})
+        graph   (build-dependency-graph pkg-ast)
+        ;; Find FQCN for root-class-name if it's simple
+        root-fqcn (or (when (contains? graph root-class-name) root-class-name)
+                      (first (filter #(string/ends-with? % (str "." root-class-name)) (keys graph))))]
+    
+    (when-not root-fqcn
+      (throw (ex-info (str "Root class not found: " root-class-name) {:available (take 10 (keys graph))})))
+
+    (letfn [(build-tree [node seen]
+              (if (contains? seen node)
+                {node :cycle}
+                (let [deps (get graph node)
+                      new-seen (conj seen node)]
+                  {node (into {} (map #(build-tree % new-seen) deps))})))]
+      
+      (build-tree root-fqcn #{}))))
+

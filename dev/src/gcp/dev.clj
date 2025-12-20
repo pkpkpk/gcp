@@ -25,60 +25,7 @@
 
 (set! *print-namespace-maps* false)
 
-;; TODO
-;;  - kill enum bindings in vertexai in favor of inlining
-;;  - com.google.cloud.ServiceOptions
-;;  - genai response-schemas should accept named in properties slots, automatically transform them to string
-;;  - singlefile dst, prompts?
-;;  - investigate response-schemas from malli
-;;  - index samples + repositories + bookmarks
-;;  - configuration inference -> instead of looking at :type, check if schema can be matched unambiguously
-;;  - enum for FormatOptions (& ExportJobConfiguration)... says JSON in docstrings but is actually NEWLINE_DELIMITED_JSON
-;;  - function schemas
-;;  - can we derive :Vertex.api/Schema from malli schemas
-;;  - serialize instance schemas
-;;
-;;
-;; TODO CHAT
-;; -- send-msg-async
-;; -- streaming exampl;es
-;; -- pass in history? :history == content, :chat/IHistory -> IHistory ??
-;; -- readline-chat
-;; -- IChat protocol... undo, redo, fork, map/reduce/walk
-;;
-;; TODO BigQuery
-;; -- Table.x() api
-;; -- Job.waitFor() etc
-;; -- retries, error handling
-;; (defn insert-rows [])
-;; (defn list-rows [])
-;; -- sessions
-;; ---- session permissions & roles
-;; ---- (ConnectionProperty/of "session_id" *session-id*)
-;; ---- #_(defonce ^:dynamic *session-id* nil)
-;; createConnection()
-;; createConnection(@NonNull ConnectionSettings connectionSettings)
-;; listPartitions(TableId tableId)
-;; insertAll(InsertAllRequest request)
-;; (defn load-table [])
-;; listTableData(TableId tableId, BigQuery.TableDataListOption[] options)
-;; listTableData(TableId tableId, Schema schema, BigQuery.TableDataListOption[] options)
-;; listTableData(String datasetId, String tableId, BigQuery.TableDataListOption[] options)
-;; listTableData(String datasetId, String tableId, Schema schema, BigQuery.TableDataListOption[] options)
-;; setIamPolicy(TableId tableId, Policy policy, BigQuery.IAMOption[] options)
-;; testIamPermissions(TableId table, List<String> permissions, BigQuery.IAMOption[] options)
-;; -- 'dataset-able' 'table-able' etc w/ transforms
-;;; TODO offer resource string arg ie /$project/$dataset/$table?
-;;; TODO schema fn args, ergo error reporting
-;;; TODO dry-run query sugar
 
-;; TODO gcp.global. priorities
-;;;    0) schemas need to-edn/from-edn in option map as part of malli emitter
-;;;       such that they can be resolved and tested here
-;;;    1) all generated schemas should produce valid instances via from-edn
-;;;    2) edn can be recovered from instances and required fields compared
-;;;     ---  not all types will rt identically, java sdk will backfill values (which we exploit)
-;;;     ---  full equivalence via :readOnly flags?
 ;;; #_
 ;(def prop
 ;  (prop/for-all [t (generator :gcp/bigquery.TableId)]
