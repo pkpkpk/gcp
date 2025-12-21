@@ -15,4 +15,4 @@ repos
 prompt
 dev/repl-mcp.log*
 .cache
-dev/.cache
+dev/.gcp_cache

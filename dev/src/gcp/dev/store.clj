@@ -1,6 +1,7 @@
 (ns gcp.dev.store
   (:require [clojure.java.io :as io]
             [gcp.dev.util :as util]
+            [gcp.global :as g]
             [gcp.vertexai.generativeai :as genai]
             [konserve.core :as k]
             [konserve.filestore :as fs]))
@@ -87,5 +88,17 @@
          (let [response (genai/generate-content model-cfg content)
                edn (genai/response-json response)]
            (validator! edn)
+           (k/assoc (connect store-name) key edn {:sync? true})
+           edn)))))
+
+#_
+(defn coerce-gen
+  ([store-name model-cfg content schema]
+   ;;; TODO coerce accepts xform arity
+   ;;; TODO assert valid schema up-front <>
+   (let [key [model-cfg (str (hasch.core/uuid content))]]
+     (or (k/get (connect store-name) key nil {:sync? true})
+         (let [response (genai/generate-content model-cfg content)
+               edn      (g/coerce schema (genai/response-json response))]
            (k/assoc (connect store-name) key edn {:sync? true})
            edn)))))

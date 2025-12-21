@@ -1,5 +1,6 @@
 (ns gcp.dev.analyzer
   (:require
+    [clojure.java.io :as io]
     [clojure.set :as s]
     [clojure.string :as string]
     [gcp.dev.analyzer.align :as align]
@@ -437,4 +438,163 @@
                   {node (into {} (map #(build-tree % new-seen) deps))})))]
       
       (build-tree root-fqcn #{}))))
+
+;; -------------------------------------------------------------------------
+;; Batch Analysis
+;; -------------------------------------------------------------------------
+
+(defn- get-googleapis-repos-path []
+  (let [root (System/getenv "GOOGLEAPIS_REPOS_PATH")]
+    (cond
+      (string/blank? root)
+      (throw (ex-info "GOOGLEAPIS_REPOS_PATH environment variable is not set." {}))
+
+      (not (.isAbsolute (io/file root)))
+      (throw (ex-info "GOOGLEAPIS_REPOS_PATH must be an absolute path." {:path root}))
+
+      :else root)))
+
+(def package-repos
+  (delay
+    (let [root (get-googleapis-repos-path)]
+      {:bigquery (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
+       :storage  (str root "/java-storage/google-cloud-storage/src/main/java")
+       :pubsub   (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
+       :vertexai (str root "/google-cloud-java/java-vertexai")})))
+
+(defn- flatten-types
+  "Recursively collects all types (top-level and nested) from the package AST."
+  [pkg-ast]
+  (let [top-level (vals (:children pkg-ast))]
+    (mapcat (fn [root]
+              (tree-seq (comp seq :nested) :nested root))
+            top-level)))
+
+(defn- ensure-pkg-ast [pkg-or-ast]
+  (if (keyword? pkg-or-ast)
+    (if-let [path (get @package-repos pkg-or-ast)]
+      (javaparser/analyze-package path {})
+      (throw (ex-info "Unknown package keyword" {:package pkg-or-ast :available (keys @package-repos)})))
+    pkg-or-ast))
+
+(defn- collect-nested-types
+  "Recursively collects all nested types (excluding top-level)."
+  [nodes]
+  (mapcat (fn [node]
+            (tree-seq (comp seq :nested) :nested node))
+          (mapcat :nested nodes)))
+
+(defn- collect-nested-outliers
+  "Recursively collects all nested classes categorized as :other, returning absolute path strings (Parent$Child)."
+  [nodes]
+  (letfn [(traverse [node parent-path]
+            (let [current-name (:name node)
+                  current-path (if parent-path
+                                 (str parent-path "$" current-name)
+                                 current-name)
+                  outliers (if (and parent-path (= (:category node) :other))
+                             [current-path]
+                             [])]
+              (reduce (fn [acc child] (into acc (traverse child current-path)))
+                      outliers
+                      (:nested node))))]
+    (mapcat #(traverse % nil) nodes)))
+
+(defn summarize-package
+  "Returns a concise summary of the package analysis result.
+   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
+  [pkg-or-ast]
+  (let [pkg-ast     (ensure-pkg-ast pkg-or-ast)
+        top-level   (vals (:children pkg-ast))
+        class-count (count top-level)
+        git-tag     (:git-tag pkg-ast)
+        git-sha     (:git-sha pkg-ast)
+        clients     (:service-clients pkg-ast)
+        categories  (frequencies (map :category top-level))
+        
+        nested-types (collect-nested-types top-level)
+        nested-categories (frequencies (map :category nested-types))
+        nested-outliers (collect-nested-outliers top-level)]
+    (cond-> {:git-tag    git-tag
+             :git-sha    git-sha
+             :class-count class-count
+             :clients    clients
+             :categories categories
+             :nested-categories nested-categories}
+      (seq nested-outliers) (assoc :nested-outliers (sort nested-outliers)))))
+
+(defn classes-by-type
+  "Returns a sequence of AST nodes for classes of the given category (e.g., :client, :readonly, :builder).
+   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
+  [pkg-or-ast class-type]
+  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)]
+    (filter #(= (:category %) class-type) (vals (:children pkg-ast)))))
+
+(defn class-by-name
+  "Returns the AST node for a class by its simple name (symbol or string).
+   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
+  [pkg-or-ast class-name]
+  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)]
+    (get (:children pkg-ast) (symbol class-name))))
+
+(defn top-level-classes
+  "Returns a sorted sequence of the simple names of all top-level classes in the package."
+  [pkg-or-ast]
+  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)]
+    (->> (keys (:children pkg-ast))
+         (map name)
+         sort)))
+
+(defn- collect-enums-with-path [node parent-path]
+  (let [current-name (:name node)
+        current-path (if parent-path
+                       (str parent-path "." current-name)
+                       current-name)
+        enums (if (= (:category node) :enum)
+                [current-path]
+                [])]
+    (concat enums
+            (mapcat #(collect-enums-with-path % current-path) (:nested node)))))
+
+(defn enums-in-package
+  "Returns a sorted sequence of qualified names of all enums in the package (e.g. 'Outer.Inner.Enum')."
+  [pkg-or-ast]
+  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)
+        top-level (vals (:children pkg-ast))]
+    (->> top-level
+         (mapcat #(collect-enums-with-path % nil))
+         sort)))
+
+(defn clear-cache []
+  (javaparser/clear-cache))
+
+(defn gc-cache 
+  ([] (javaparser/gc-cache))
+  ([days] (javaparser/gc-cache days)))
+
+(defn analyze-package
+  "Analyzes a package specified by keyword (e.g. :bigquery) or path string.
+   Returns the package AST."
+  [pkg-or-path]
+  (if (keyword? pkg-or-path)
+    (if-let [path (get @package-repos pkg-or-path)]
+      (javaparser/analyze-package path {})
+      (throw (ex-info "Unknown package keyword" {:package pkg-or-path :available (keys @package-repos)})))
+    (javaparser/analyze-package pkg-or-path {})))
+
+(defn run-package-analysis []
+  (reduce
+    (fn [acc [k path]]
+      (println "Analyzing" k "...")
+      (assoc acc k (javaparser/analyze-package path {})))
+    {}
+    @package-repos))
+
+(defn summarize-all []
+  (reduce
+    (fn [acc k]
+      (println "Summarizing" k "...")
+      (assoc acc k (summarize-package k)))
+    (sorted-map)
+    (keys @package-repos)))
 

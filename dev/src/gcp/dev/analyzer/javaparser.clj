@@ -32,7 +32,9 @@
   [source-path options]
   (let [source-file (io/file source-path)
         files (if (.isDirectory source-file)
-                (filter #(string/ends-with? (.getName %) ".java") (file-seq source-file))
+                (filter #(and (string/ends-with? (.getName %) ".java")
+                              (not (string/includes? (.getPath %) "/src/test/")))
+                        (file-seq source-file))
                 [source-file])
         opts (merge {:include-private? false :include-package-private? false} options)]
     (core/analyze-package source-path files opts)))
@@ -47,3 +49,10 @@
               *print-level* nil]
       (spit output-path (pr-str result)))
     output-path))
+
+(defn clear-cache []
+  (core/clear-cache))
+
+(defn gc-cache 
+  ([] (core/gc-cache))
+  ([days] (core/gc-cache days)))

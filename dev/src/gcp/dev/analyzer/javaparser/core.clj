@@ -13,7 +13,28 @@
            (java.security MessageDigest)))
 
 (def output-file-path "output.edn")
-(def cache-dir ".cache")
+(def cache-dir (or (System/getenv "GCP_CACHE_PATH") ".cache"))
+
+(defn clear-cache 
+  "Deletes the entire cache directory."
+  []
+  (let [dir (io/file cache-dir)]
+    (when (.exists dir)
+      (run! io/delete-file (reverse (file-seq dir)))
+      (println "Cache cleared."))))
+
+(defn gc-cache 
+  "Deletes cache files older than 'days' (default 7)."
+  ([] (gc-cache 7))
+  ([days]
+   (let [cutoff (- (System/currentTimeMillis) (* days 24 60 60 1000))
+         dir (io/file cache-dir)]
+     (when (.exists dir)
+       (let [deleted (count (for [f (file-seq dir)
+                                  :when (and (.isFile f)
+                                             (< (.lastModified f) cutoff))]
+                              (do (io/delete-file f) 1)))]
+         (println "GC complete. Deleted" deleted "files."))))))
 
 (defn sha256 
   "Computes the SHA-256 hash of a string."
@@ -24,10 +45,10 @@
 
 (def parser-source-hash
   (try
-    ;; Updated path to point to the new location of ast.clj
-    ;; Assumes execution from project root or checks relative to classpath if possible?
-    ;; Since this is a dev script, we can point to the source file relative to dev root.
-    (sha256 (slurp "src/gcp/dev/analyzer/javaparser/ast.clj"))
+    (let [res (io/resource "gcp/dev/analyzer/javaparser/ast.clj")]
+      (if res
+        (sha256 (slurp res))
+        "unknown"))
     (catch Exception _ "unknown")))
 
 (defmacro time-stage [name & body]
@@ -108,6 +129,20 @@
       (when (zero? exit) (string/trim out)))
     (catch Exception _ nil)))
 
+(defn get-pom-version
+  "Extracts the version from a pom.xml file in the given directory."
+  [dir]
+  (let [pom-file (io/file dir "pom.xml")]
+    (when (.exists pom-file)
+      (try
+        (let [content (slurp pom-file)
+              ;; Simple regex to find <version>...</version> inside <project> or <parent>
+              ;; We prioritize the first one found which is usually the artifact version
+              matcher (re-matcher #"<version>(.+?)</version>" content)]
+          (when (re-find matcher)
+            (second (re-groups matcher))))
+        (catch Exception _ nil)))))
+
 (defn get-sdk-name 
   "Infers the SDK name from the directory path."
   [path]
@@ -117,12 +152,23 @@
       (nth parts (dec src-index))
       (last parts))))
 
+(defn find-pom-root
+  "Walks up the directory tree to find the first directory containing a pom.xml file."
+  [dir]
+  (let [d (io/file dir)]
+    (if (or (nil? d) (not (.exists d)))
+      nil
+      (if (.exists (io/file d "pom.xml"))
+        (.getAbsolutePath d)
+        (recur (.getParent d))))))
+
 (defn analyze-package 
   "Analyzes a package (directory of Java files).
    Orchestrates parsing of individual files (cached), and aggregates the results into a package AST.
    Also manages a package-level cache to skip re-aggregation if nothing has changed."
   [path files options]
-  (let [sdk-root (if (.isDirectory (io/file path)) path (.getParent (io/file path)))
+  (let [sdk-root (or (find-pom-root path) 
+                     (if (.isDirectory (io/file path)) path (.getParent (io/file path))))
         repo-sha (get-git-sha sdk-root)
         package-cache-key (sha256 (str parser-source-hash repo-sha (.getAbsolutePath (io/file path))))
         package-cache-file (io/file cache-dir (str "pkg-" package-cache-key ".edn"))]
@@ -152,7 +198,8 @@
                                    {}
                                    files))
               git-sha (time-stage "Getting Repo SHA" repo-sha) ;; Use pre-calculated
-              git-tag (time-stage "Getting Repo Tag" (get-git-tag sdk-root))
+              git-tag (time-stage "Getting Repo Tag" (or (get-git-tag sdk-root)
+                                                         (get-pom-version sdk-root)))
               package-doc (time-stage "Extracting Package Doc"
                             (when-let [info (->> files
                                                (filter #(string/ends-with? (.getName %) "package-info.java"))

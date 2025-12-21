@@ -2,8 +2,36 @@
   (:require [clj-http.client :as http]
             [clojure.java.io :as io]
             clojure.reflect
-            [clojure.string :as string]
-            [gcp.dev.asm :as asm]))
+            [clojure.string :as string])
+  (:import (java.io ByteArrayOutputStream)
+           [org.objectweb.asm ClassReader ClassVisitor Opcodes]))
+
+(defn class-bytes [^Class cls]
+  (with-open [is (.getResourceAsStream cls (str (.getSimpleName cls) ".class"))]
+    (let [os (ByteArrayOutputStream.)]
+      (loop []
+        (let [buf (byte-array 4096)
+              len (.read is buf)]
+          (when (pos? len)
+            (.write os buf 0 len)
+            (recur))))
+      (.toByteArray os))))
+
+(defn all-method-info [cls]
+  (let [acc (atom [])]
+    (doto (ClassReader. (class-bytes cls))
+      (.accept
+        (proxy [ClassVisitor] [Opcodes/ASM9]
+          (visitMethod [access name desc signature exceptions]
+            (swap! acc conj
+                   {:name       name
+                    :desc       desc
+                    :signature  signature
+                    :access     access
+                    :exceptions exceptions})
+            (proxy-super visitMethod access name desc signature exceptions)))
+        0))
+    @acc))
 
 (defn clean-doc [doc]
   (when (and doc (not (string/blank? doc)))
@@ -367,7 +395,7 @@
                           (let [m' (cond-> {:desc (get m :desc)}
                                            (get m :signature) (assoc :signature (get m :signature)))]
                             [(:name m) m'])))
-                      (asm/all-method-info (as-class classlike)))]
+                      (all-method-info (as-class classlike)))]
     (into (sorted-map)
           (map
             (fn [m]
