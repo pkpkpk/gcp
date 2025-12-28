@@ -1,10 +1,10 @@
-(ns gcp.dev.packages.bigquery
+(ns gcp.dev.packages.legacy.bigquery
   (:require [clojure.java.io :as io]
             [clojure.set :as s]
             [clojure.string :as string]
             [gcp.dev.store :as store]
             [gcp.dev.util :refer :all]
-            [gcp.dev.packages :refer [$package-summary-memo packages-root googleapis-root]]
+            [gcp.dev.packages.legacy.packages :refer [$package-summary-memo packages-root googleapis-root]]
             [jsonista.core :as j])
   (:import (com.google.cloud.bigquery BigQueryOptions)))
 

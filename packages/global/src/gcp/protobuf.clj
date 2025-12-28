@@ -28,7 +28,7 @@
 
    ::Struct     [:map-of {:class 'com.google.protobuf.Struct
                           :doc "schema for com.google.protobuf.Struct"}
-                 [:or :string 'simple-keyword?]
+                 [:or :string :keyword]
                  [:ref ::Value]]
 
    ::ByteString [:or {:class 'com.google.protobuf.ByteString
@@ -38,6 +38,9 @@
                  (g/instance-schema java.nio.ByteBuffer)]})
 
 (g/include-schema-registry! registry)
+
+#!-----------------------------------------------------------------------------
+
 (defn ^Timestamp Timestamp-from-edn [arg]
   (let [builder (Timestamp/newBuilder)]
     (if (int? arg)
@@ -52,7 +55,6 @@
 (defn Timestamp-to-edn [^Timestamp arg]
   {:seconds (.getSeconds arg)
    :nanos   (.getNanos arg)})
-
 
 #!-----------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
-(ns gcp.dev.analyzer.javaparser
-  (:require [gcp.dev.analyzer.javaparser.ast :as ast]
-            [gcp.dev.analyzer.javaparser.core :as core]
+(ns gcp.dev.packages.parser
+  (:require [gcp.dev.packages.parser.ast :as ast]
+            [gcp.dev.packages.parser.core :as core]
             [clojure.java.io :as io]
             [clojure.string :as string]))
 
@@ -26,7 +26,7 @@
           {}
           file-paths))
 
-(defn analyze-package
+(defn parse-package
   "Analyzes a source directory and returns the package AST map.
    Leverages parser.core's caching mechanism."
   [source-path options]
@@ -39,11 +39,11 @@
         opts (merge {:include-private? false :include-package-private? false} options)]
     (core/analyze-package source-path files opts)))
 
-(defn analyze-to-file
+(defn parse-to-file
   "Analyzes a source directory and spits the result to an output file.
    Leverages parser.core's caching mechanism."
   [source-path output-path options]
-  (let [result (analyze-package source-path options)]
+  (let [result (parse-package source-path options)]
     (io/make-parents (io/file output-path))
     (binding [*print-length* nil
               *print-level* nil]

@@ -1,14 +1,17 @@
-(ns gcp.dev.analyzer.javaparser.ast
+(ns gcp.dev.packages.parser.ast
   "Core AST extraction logic using JavaParser.
    Responsible for traversing Java source files and extracting structural information
    into Clojure data structures."
-  (:require [clojure.string :as string])
+  (:require [clojure.string :as string]
+            [taoensso.telemere :as tel])
   (:import (com.github.javaparser StaticJavaParser)
-           (com.github.javaparser.ast CompilationUnit ImportDeclaration PackageDeclaration)
-           (com.github.javaparser.ast.body ClassOrInterfaceDeclaration EnumDeclaration FieldDeclaration MethodDeclaration ConstructorDeclaration TypeDeclaration Parameter EnumConstantDeclaration VariableDeclarator BodyDeclaration)
+           (com.github.javaparser.ast CompilationUnit ImportDeclaration Modifier$Keyword PackageDeclaration)
+           (com.github.javaparser.ast.body AnnotationDeclaration ClassOrInterfaceDeclaration EnumDeclaration FieldDeclaration MethodDeclaration ConstructorDeclaration TypeDeclaration Parameter EnumConstantDeclaration VariableDeclarator BodyDeclaration)
+           (com.github.javaparser.ast.comments JavadocComment)
+           (com.github.javaparser.ast.expr NormalAnnotationExpr SingleMemberAnnotationExpr)
            (com.github.javaparser.ast.type ClassOrInterfaceType PrimitiveType ArrayType VoidType WildcardType Type TypeParameter)
            (com.github.javaparser.javadoc Javadoc)
-           (java.io FileInputStream)))
+           (java.io File FileInputStream)))
 
 (defn type-parameter? 
   "Checks if a given Type is a generic type parameter."
@@ -26,8 +29,8 @@
                  (.toText (.get (.getJavadoc node)))
                  (let [comment (.getComment node)]
                    (if (and (.isPresent comment)
-                            (instance? com.github.javaparser.ast.comments.JavadocComment (.get comment)))
-                     (.toText (.parse (.asJavadocComment (.get comment))))
+                            (instance? JavadocComment (.get comment)))
+                     (.toText (.parse (.asJavadocComment ^JavadocComment (.get comment))))
                      nil)))]
       (when text (string/trim text)))
     (catch IllegalArgumentException _ nil)))
@@ -37,10 +40,32 @@
   [node]
   (mapv #(string/trim (.toString %)) (.getModifiers node)))
 
+(defn safe-fqcn [^TypeDeclaration t]
+  (try
+    (if (.isPresent (.getFullyQualifiedName t))
+      (.get (.getFullyQualifiedName t))
+      nil)
+    (catch Exception _ nil)))
+
+(defn extract-local-types
+  "Extracts locally defined types (self and nested) to shadow imports."
+  [^TypeDeclaration type-decl]
+  (let [self-name (.getNameAsString type-decl)
+        self-fqcn (safe-fqcn type-decl)
+        nested (->> (.getMembers type-decl)
+                    (filter #(instance? TypeDeclaration %)))]
+    (cond-> {}
+      self-fqcn (assoc self-name self-fqcn)
+      :always (into (keep (fn [t]
+                            (let [n (.getNameAsString t)
+                                  f (safe-fqcn t)]
+                              (when f [n f])))
+                          nested)))))
+
 (defn build-type-solver 
   "Creates a function that resolves simple class names to their fully qualified names
-   based on the package declaration and imports."
-  [package imports]
+   based on the package declaration, imports, and locally defined types."
+  [package imports local-overrides]
   (let [import-map (reduce (fn [acc ^String i]
                              (let [parts (string/split i #"\.")
                                    simple (last parts)]
@@ -48,9 +73,10 @@
                            {}
                            (map :name imports))]
     (fn [simple-name]
-      (or (get import-map simple-name)
-          (if (contains? #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum"} simple-name)
-            (str "java.lang." simple-name)
+      (or (get local-overrides simple-name)
+          (get import-map simple-name)
+          (if (contains? #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum" "java" "javax" "com" "org" "net" "io"} simple-name)
+            (str (if (contains? #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum"} simple-name) "java.lang." "") simple-name)
             (if package
               (str package "." simple-name)
               simple-name))))))
@@ -81,7 +107,9 @@
               (let [name (.getNameAsString t)
                     scope (.getScope t)]
                 (if (.isPresent scope)
-                  (symbol (str (.getNameAsString (.get scope)) "." name))
+                  (let [scope-ast (parse-type-ast (.get scope) solver)
+                        scope-sym (if (sequential? scope-ast) (first scope-ast) scope-ast)]
+                    (symbol (str scope-sym "." name)))
                   (if-let [args (.getTypeArguments t)]
                     (if (.isPresent args)
                       (let [arg-types (mapv #(parse-type-ast % solver) (.get args))]
@@ -124,8 +152,7 @@
         has-mod? (fn [kw] (some #(and (= (.getKeyword %) kw)) modifiers))
         internal? (some (fn [a]
                           (let [n (.getNameAsString a)]
-                            (or (= n "InternalApi")
-                                (= n "InternalExtensionOnly"))))
+                            (= n "InternalApi")))
                         annotations)
         deprecated? (some (fn [a]
                             (= (.getNameAsString a) "Deprecated"))
@@ -135,10 +162,12 @@
                              (or (string/ends-with? n "Impl")
                                  (string/ends-with? n "Helper")
                                  (string/ends-with? n "RetryAlgorithm")
+                                 (string/ends-with? n "OrBuilder")
+                                 (string/ends-with? n "Callable")
                                  (= n "BigQueryErrorMessages"))))
-        is-private? (has-mod? com.github.javaparser.ast.Modifier$Keyword/PRIVATE)
-        is-public? (has-mod? com.github.javaparser.ast.Modifier$Keyword/PUBLIC)
-        is-protected? (has-mod? com.github.javaparser.ast.Modifier$Keyword/PROTECTED)
+        is-private? (has-mod? Modifier$Keyword/PRIVATE)
+        is-public? (has-mod? Modifier$Keyword/PUBLIC)
+        is-protected? (has-mod? Modifier$Keyword/PROTECTED)
         is-package? (not (or is-private? is-public? is-protected?))]
     (cond
       is-impl-type? false
@@ -160,13 +189,13 @@
   "Extracts annotations from a node."
   [node]
   (mapv (fn [a]
-          {:name (.getNameAsString a)
-           :arguments (if (instance? com.github.javaparser.ast.expr.NormalAnnotationExpr a)
+          {:name      (.getNameAsString a)
+           :arguments (if (instance? NormalAnnotationExpr a)
                         (mapv (fn [p]
-                                {:key (.getNameAsString p)
+                                {:key   (.getNameAsString p)
                                  :value (.toString (.getValue p))})
                               (.getPairs a))
-                        (if (instance? com.github.javaparser.ast.expr.SingleMemberAnnotationExpr a)
+                        (if (instance? SingleMemberAnnotationExpr a)
                           [{:value (.toString (.getMemberValue a))}]
                           []))})
         (.getAnnotations node)))
@@ -430,6 +459,8 @@
       (and (instance? ClassOrInterfaceDeclaration type-decl)
            (.isInterface type-decl)) :interface
       
+      (string/ends-with? name "Builder") :builder
+      
       (union-type? type-decl)
       (if (.isAbstract type-decl) :abstract-union :concrete-union)
       
@@ -444,9 +475,6 @@
                    (and (instance? TypeDeclaration member)
                         (string/ends-with? (.getNameAsString member) "Builder")))
                  (.getMembers type-decl))) :accessor-with-builder
-      
-      ;; A class is a :builder if its own name ends with Builder
-      (string/ends-with? name "Builder") :builder
       
       (sentinel? type-decl) :sentinel
       (static-factory? type-decl) :static-factory
@@ -467,7 +495,7 @@
                        (.get (.getFullyQualifiedName type-decl))
                        name)
                      (catch Exception _ name))]
-          (println "Warning: Uncategorized class found:" fqcn))
+          (tel/log! :warn ["Warning: Uncategorized class found:" fqcn]))
         :other))))
 
 (defn get-package 
@@ -492,11 +520,12 @@
   "Processes a single TypeDeclaration into a map containing its structure, members, and metadata."
   [^TypeDeclaration type-decl package imports options file-git-sha]
   (if (or (not (visible? type-decl options))
-          (instance? com.github.javaparser.ast.body.AnnotationDeclaration type-decl)
+          (instance? AnnotationDeclaration type-decl)
           (and package (string/includes? package ".spi."))
           (string/ends-with? (.getNameAsString type-decl) "Serializer"))
     nil
-    (let [solver (build-type-solver package imports)
+    (let [local-types (extract-local-types type-decl)
+          solver (build-type-solver package imports local-types)
           name (.getNameAsString type-decl)
           kind (cond 
                  (instance? ClassOrInterfaceDeclaration type-decl)
@@ -546,5 +575,5 @@
            (remove nil?)
            vec))
     (catch Exception e
-      (println (str "Error parsing " file-path ": " (.getMessage e)))
+      (tel/log! :error ["Error parsing" file-path ":" (.getMessage e)])
       nil)))

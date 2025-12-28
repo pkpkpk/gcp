@@ -1,600 +1,287 @@
 (ns gcp.dev.analyzer
   (:require
-    [clojure.java.io :as io]
     [clojure.set :as s]
     [clojure.string :as string]
-    [gcp.dev.analyzer.align :as align]
-    [gcp.dev.analyzer.extract :as extract]
-    [gcp.dev.analyzer.javaparser :as javaparser]
-    [gcp.dev.util :refer :all]
-    [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQueryOptions)
-           (java.io ByteArrayOutputStream)
-           (java.util.regex Pattern)))
+    [gcp.dev.packages :as packages]
+    [gcp.dev.util :as u]
+    [taoensso.telemere :as tel]))
 
-#!--------------------------------------------------------------------------------------------------------
-#!
-#! :types/accessors
-#!
+;; -----------------------------------------------------------------------------
+;; Helpers
+;; -----------------------------------------------------------------------------
 
-;(defn abstract-variant? [package className]
-;  (boolean
-;    (when-let [base (get-in package [:types/variants className])]
-;      (get-in package [:types/abstract-unions base]))))
+(defn- get-nested [node name]
+  (first (filter #(= (:name %) name) (:nested node))))
 
-;(defn abstract-getters [className]
-;  (let [{:keys [members]} (reflect (as-class className))]
-;    (reduce
-;      (fn [acc m]
-;        (if (and (contains? m :return-type)
-;                 (contains? (:flags m) :public)
-;                 (contains? (:flags m) :abstract)
-;                 (not (#{'toBuilder} (:name m))))
-;          (assoc acc (keyword (name (:name m))) {:returnType (get m :returnType)
-;                                                 :doc (str "abstract method inherited from " className)})
-;          acc))
-;      {}
-;      members)))
-;
-;(defn desugar-builders [builders fields]
-;  (let [field-names (into #{} (map name) (keys fields))]
-;    ;(println " field-names--> " field-names)
-;    (reduce
-;      (fn [acc params]
-;        (let [param-names (set (map :name params))]
-;          ;(println " param-names--> " param-names)
-;          (if (clojure.set/subset? param-names field-names)
-;            (conj acc params)
-;            acc)))
-;      []
-;      (g/coerce [:vector [:vector [:map [:name :string] [:type :string]]]] builders))))
+(defn- public? [member]
+  (some #{"public"} (:modifiers member)))
 
-;(defn select-builder [builders fields]
-;  (assert (seq builders))
-;  ;; TODO if theres a no arg builder pick it here
-;  (or
-;
-;    ;; desugar & select by name
-;    (when-let [builders (seq (desugar-builders builders fields))]
-;      (let [n (apply min (map count builders))]
-;        (reduce (fn [_ params]
-;                  (if (= n (count params))
-;                    (let [params' (into [] (map #(assoc % :field (keyword (:name %)))) params)]
-;                      (reduced params'))))
-;                nil
-;                builders)))
-;    ;; if desugaring fails, invert and select-by-type?
-;    (let []
-;      (println "failed!")
-;      )))
+(defn- static? [member]
+  (:static? member))
 
-;(defn analyze-accessor
-;   "a readonly class with builder, together as a complete binding unit. no associated types"
-;  [package className]
-;  (assert (contains? (:types/accessors package) className))
-;  (assert (not (builder-like? className)))
-;  (let [{classDoc :doc :keys [getterMethods staticMethods]} (extract/from-src package className)
-;        setterMethods (extract/from-src package (str className ".Builder"))
-;        setters  (g/coerce [:seqable :string] (sort (map name (keys setterMethods))))
-;        getterMethods (cond-> getterMethods
-;                              (abstract-variant? package className)
-;                              (merge (abstract-getters (get-in package [:types/variants className]))))
-;        getters  (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
-;        zipped (align/align-accessor-methods package getters setters)
-;        ;_ (clojure.pprint/pprint zipped)
-;        min-param-names (when-let [ms (not-empty (get staticMethods :newBuilder))]
-;                          (let [n (apply min (map count ms))]
-;                            (into #{} (comp
-;                                        (filter #(= n (count %)))
-;                                        (map :name))
-;                                  (get staticMethods :newBuilder))))
-;        fields (into (sorted-map)
-;                     (map
-;                       (fn [[setter-key getter-key]]
-;                         (let [{:as setterMethod} (get setterMethods setter-key)
-;                               {:as getterMethod} (get getterMethods getter-key)
-;                               _ (when (nil? getterMethod)
-;                                   (throw (ex-info (str "expected getter method for getter " getter-key)
-;                                                   {:className className
-;                                                    :setter-key setter-key
-;                                                    :getter-key getter-key
-;                                                    :zipped zipped
-;                                                    :getterMethods getterMethods})))
-;                               _ (assert (nil? (:parameters getterMethod)))
-;                               _ (when (nil? setterMethod)
-;                                   (throw (ex-info (str "expected setter method for setter " setter-key)
-;                                                   {:setter-key         setter-key
-;                                                    :getter-key         getter-key
-;                                                    :setter-method-keys (sort (keys setterMethods))
-;                                                    :zipped             zipped})))
-;                               optional (if (string/includes? (get setterMethod :doc "") "ptional")
-;                                          true
-;                                          (if (string/includes? (get setterMethod :doc "") "equired")
-;                                            false
-;                                            ;; as a best guess, the smallest builder params are required
-;                                            (not (contains? min-param-names (:name setterMethod)))))
-;                               setter-argument-type (if (= 1 (count (get setterMethod :type)))
-;                                                      (first (get setterMethod :type))
-;                                                      (if-let [[native :as natives] (not-empty (filter native-type (get setterMethod :type)))]
-;                                                        (do
-;                                                          (when-not (= 1 (count natives))
-;                                                            (throw (ex-info "polymorphic builder method has weird native types" {:setterMethod setterMethod})))
-;                                                          native)
-;                                                        (let [ts (get setterMethod :type)]
-;                                                          (if (and (= 2 (count ts))
-;                                                                   (or (and (list-like? (nth ts 0))
-;                                                                            (array-like? (nth ts 1)))
-;                                                                       (and (list-like? (nth ts 1))
-;                                                                            (array-like? (nth ts 0)))))
-;                                                            (or (and (list-like? (nth ts 0)) (nth ts 0))
-;                                                                (and (list-like? (nth ts 1)) (nth ts 1)))
-;                                                            (throw (ex-info "polymorphic builder method has weird non-native types" {:setterMethod setterMethod}))))))
-;                               field-key (g/coerce keyword? (keyword (:name setterMethod)))
-;                               field-map (cond-> {:setterMethod       (symbol setter-key)
-;                                                  :getterMethod       (symbol getter-key)
-;                                                  :optional           optional
-;                                                  :getterReturnType   (get getterMethod :returnType)
-;                                                  :setterArgumentType setter-argument-type}
-;
-;                                                 ;; TODO move doc cleaning upstream, remove newlines & normalize spacing
-;                                                 (and (some? (get setterMethod :doc))
-;                                                      (not (string/blank? (get setterMethod :doc))))
-;                                                 (assoc :setterDoc (get setterMethod :doc))
-;
-;                                                 (and (some? (get setterMethod :doc))
-;                                                      (not (string/blank? (get setterMethod :doc))))
-;                                                 (assoc :getterDoc (get getterMethod :doc)))]
-;                           [field-key field-map])))
-;                     zipped)
-;        new-builder (select-builder (:newBuilder staticMethods) fields)
-;        _ (println "selected builder:  ")
-;        _ (pprint new-builder)
-;        setter-fields (apply disj (into (sorted-set) (keys fields)) (map :field new-builder))
-;        static-method-types (reduce
-;                              (fn [acc [_ arg-lists]]
-;                                (reduce #(into %1 (map :type) %2) acc arg-lists))
-;                              #{}
-;                              staticMethods)
-;        fields-types (reduce
-;                       (fn [acc [_ {:keys [setterArgumentType getterReturnType]}]]
-;                         (conj acc setterArgumentType getterReturnType))
-;                       #{}
-;                       fields)
-;        all-types (reduce (fn [acc item]
-;                            (into acc (comp
-;                                        (map parse-type)
-;                                        (remove native-type))
-;                                  (if (string? item) [item] item)))
-;                          #{}
-;                          (concat static-method-types fields-types))]
-;    ;;
-;    ;; TODO still getting nil getter return types
-;    ;; TODO newBuilder is wrong!
-;    ;;
-;    ;; getType returning nil for returnType?????
-;    ;; typeDependencies OFF
-;    ;; :type {:setterMethod setType,
-;    ;;        :getterMethod getType,
-;    ;;        :optional true,
-;    ;;        :getterReturnType nil,
-;    ;;        :setterArgumentType "com.google.cloud.bigquery.TableDefinition.Type"}}
-;    {::type               :accessor
-;     :gcp/key             (package-key package className)
-;     :className           className
-;     :doc                 classDoc
-;     :fields              fields
-;     :newBuilder          new-builder
-;     :builderSetterFields setter-fields
-;     :typeDependencies    all-types}))
+(defn- abstract? [member]
+  (:abstract? member))
 
-#!--------------------------------------------------------------------------------------------------------
-#!
-#! :types/static-factories
-#!
+(defn- method-name [m] (:name m))
 
-(defn analyze-static-factory
-  [package className]
-  (assert (contains? (:types/static-factories package) className))
-  (let [{classDoc :doc :keys [getterMethods staticMethods] :as readonly} (extract/from-src package className)
-        min-param-names (let [n (apply min (map count (get staticMethods :of)))]
-                          (reduce
-                            (fn [acc arg-list]
-                              (if-not (= n (count arg-list))
-                                acc
-                                (into acc (map :name) arg-list)))
-                            #{}
-                            (get staticMethods :of)))
-        all-static-params (reduce
-                            (fn [acc [_ arg-lists]]
-                              (reduce #(into %1 (map :name) %2) acc arg-lists))
-                            #{}
-                            staticMethods)
-        zipped (align/align-static-params-to-getters package all-static-params getterMethods)
-        fields (into (sorted-map)
-                     (map
-                       (fn [[param getter-key]]
-                         (let [{:as getterMethod} (get getterMethods getter-key)
-                               field (cond-> {:getterMethod (symbol getter-key)
-                                              :getterReturnType   (get getterMethod :returnType)
-                                              :optional     (not (contains? min-param-names (name param)))}
-                                             ;; TODO move doc cleaning upstream, remove newlines & normalize spacing
-                                             (and (some? (get getterMethod :doc))
-                                                  (not (string/blank? (get getterMethod :doc)))) (assoc :getterDoc (get getterMethod :doc)))]
-                           [param field])))
-                     zipped)
-        static-method-types (reduce
-                              (fn [acc [_ arg-lists]]
-                                (reduce #(into %1 (map :type) %2) acc arg-lists))
-                              #{}
-                              staticMethods)
-        all-types (into #{} (comp
-                              (map parse-type)
-                              (remove native-type))
-                        (into static-method-types (map :returnType) (vals getterMethods)))]
-    {::type             :static-factory
-     :gcp/key           (package-key package className)
-     :className         className
-     :doc               classDoc
-     :fields            fields
-     :typeDependencies  all-types
-     :staticMethods     staticMethods}))
+(defn- param-names [m]
+  (map :name (:parameters m)))
 
-#!--------------------------------------------------------------------------------------------------------
-#!
-#! :types/enums
-#!
+(defn- getters [node]
+  (filter (fn [m]
+            (and (not (static? m))
+                 (public? m)
+                 (empty? (:parameters m))
+                 (or (string/starts-with? (:name m) "get")
+                     (string/starts-with? (:name m) "is"))
+                 (not (#{"getClass"} (:name m)))))
+          (:methods node)))
 
-(defn analyze-enum [package className]
-  (let [{:as detail} (extract/from-src package className)]
-    (merge {::type :enum
-            :gcp/key (package-key package className)
-            :className className}
-           detail)))
+(defn- setters [node builder-name]
+  (let [fqcn (str (:package node) "." (:name node))]
+    (filter (fn [m]
+              (and (not (static? m))
+                   (public? m)
+                   (= 1 (count (:parameters m)))
+                   (let [rt (str (:returnType m))]
+                     (or (= rt builder-name)
+                         (= rt fqcn)
+                         (string/ends-with? rt (str "." builder-name))))))
+            (:methods node))))
 
-#!--------------------------------------------------------------------------------------------------------
-#!
-#! :types/concrete-unions
-#!
-
-(defn- variant-tags [class-like]
-  (let [reflection (reflect (as-class class-like))]
-    (reduce (fn [acc {:keys [flags] :as m}]
-              (if (and (contains? flags :final)
-                       (= (name (:name m))
-                          (string/upper-case (name (:name m)))))
-                (let [fld (.getDeclaredField (as-class class-like) (name (:name m)))]
-                  (.setAccessible fld true)
-                  (conj acc (.get fld nil)))
-                acc))
-            #{}
-            (:members reflection))))
-
-(defn- analyze-concrete-union
-  "concrete unions have static methods for variants that do no have their own subclass"
-  [package className]
-  (let [{:keys [doc getterMethods]} (extract/from-src package className)
-        variant-classes (g/coerce [:seqable :string] (get-in package [:types/concrete-unions className]))
-        tags (variant-tags className)
-        zipped (align/align-variant-class-to-variant-tags package variant-classes tags)
-        classless-tags (apply disj tags (vals zipped))
-        static-method-names (map (comp name :name) (public-instantiators className))
-        classless-methods (align/align-variant-tags-to-static-methods package classless-tags static-method-names)]
-    {::type            :concrete-union
-     :gcp/key          (package-key package className)
-     :className        className
-     :doc              doc
-     :typeDependencies variant-classes
-     :variantTags      tags
-     :class->tag       zipped
-     :tag->class       (clojure.set/map-invert zipped)
-     :tag->method classless-methods
-     :classlessTags    classless-tags
-     :getType (g/coerce some? (get getterMethods :getType))}))
-
-#!--------------------------------------------------------------------------------------------------------
-#!
-#! :types/abstract-unions
-#!
-
-(defn- analyze-abstract-union
-  "abstract unions have subclasses for all variants"
-  [package className]
-  (let [{:keys [getterMethods doc]} (extract/from-src package className)
-        variant-classes (g/coerce [:seqable :string] (get-in package [:types/abstract-unions className]))
-        {:keys [returnType] :as getType} (g/coerce some? (get getterMethods :getType))
-        _               (assert (contains? (:types/enums package) returnType) "expected enum type as returnType for abstract union .getType()")
-        tags            (set (enum-values returnType))
-        zipped          (align/align-variant-class-to-variant-tags package variant-classes tags)]
-    {::type          :abstract-union
-     :gcp/key        (package-key package className)
-     :className      className
-     :doc            (clean-doc doc)
-     :variantClasses variant-classes
-     :typeDependencies variant-classes
-     :variantTags    tags
-     :class->tag     zipped
-     :tag->class     (clojure.set/map-invert zipped)
-     :getType        getType}))
-
-#!--------------------------------------------------------------------------------------------------------
-
-
-#!--------------------------------------------------------------------------------------------------------
-
-(defn analyze [package className]
-  {:post [(contains? % :gcp/key)
-          (contains? % ::type)
-          (contains? % :className)
-          (string? (get % :className))]}
+(defn- property-name [method-name]
   (cond
-    (contains? (:types/abstract-unions package) className)
-    (analyze-abstract-union package className)
+    (string/starts-with? method-name "get")
+    (let [s (subs method-name 3)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    (string/starts-with? method-name "is")
+    (let [s (subs method-name 2)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    (string/starts-with? method-name "set")
+    (let [s (subs method-name 3)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    :else method-name))
 
-    (contains? (:types/concrete-unions package) className)
-    (analyze-concrete-union package className)
+(defn- package-key [node]
+  (keyword "gcp" (str (:package node) "." (:name node))))
 
-    (contains? (:types/enums package) className)
-    (analyze-enum package className)
+(defn- basic-info [node]
+  {:gcp/key (package-key node)
+   :className (:name node)
+   :package (:package node)
+   :doc (:doc node)
+   :nested (:nested node)})
 
-    (contains? (:types/static-factories package) className)
-    (analyze-static-factory package className)
+(defn- extract-type-symbols [type-ast]
+  (cond
+    (symbol? type-ast) (if (#{'? 'void} type-ast) #{} #{type-ast})
+    (sequential? type-ast) (reduce into #{} (map extract-type-symbols type-ast))
+    :else #{}))
 
-    ;(contains? (:types/accessors package) className)
-    ;(analyze-accessor package className)
+;; -----------------------------------------------------------------------------
+;; Analyzer
+;; -----------------------------------------------------------------------------
 
-    true
-    (throw (Exception. (str "cannot analyze unknown type! " className)))))
+(defmulti analyze-class-node (fn [{:keys [category]}] category))
 
-;; -------------------------------------------------------------------------
-;; Dependency Graph Logic
-;; -------------------------------------------------------------------------
+;; --- Enums ---
 
-(defn- collect-types
-  "Walks an arbitrary data structure (AST type representation) and collects all Symbols.
-   Excludes common java.lang types if desired, but here we collect everything that looks like a class."
-  [x]
-  (let [types (atom #{})]
-    (clojure.walk/postwalk
-      (fn [form]
-        (when (symbol? form)
-          (let [s (name form)]
-            ;; Heuristic: starts with uppercase or contains dot, likely a class
-            (when (or (string/includes? s ".")
-                      (re-matches #"^[A-Z].*" s))
-              (swap! types conj (name form)))))
-        form)
-      x)
-    @types))
+(defmethod analyze-class-node :enum [node]
+  (merge (basic-info node)
+         {:type :enum
+          :values (map :name (:values node))}))
 
-(defn- extract-deps-from-node
-  "Extracts all dependencies (as FQCN strings) from a class AST node."
-  [node]
-  (let [
-        ;; 1. Extends
-        extends-deps (mapcat collect-types (:extends node))
-        ;; 2. Implements
-        implements-deps (mapcat collect-types (:implements node))
-        ;; 3. Fields (types)
-        field-deps (mapcat #(collect-types (:type %)) (:fields node))
-        ;; 4. Methods (return types + parameter types)
-        method-deps (mapcat (fn [m]
-                              (concat (collect-types (:returnType m))
-                                      (mapcat #(collect-types (:type %)) (:parameters m))))
-                            (:methods node))
-        ;; 5. Constructors
-        ctor-deps (mapcat (fn [c]
-                            (mapcat #(collect-types (:type %)) (:parameters c)))
-                          (:constructors node))
-        ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
-        ;;    But we might want to depend on inner classes.
-        ]
-    (into #{} (concat extends-deps implements-deps field-deps method-deps ctor-deps))))
+(defmethod analyze-class-node :string-enum [node]
+  ;; String enums usually have static fields of the class type
+  (let [type-name (:name node)
+        values (->> (:fields node)
+                    (filter (fn [f]
+                              (and (static? f)
+                                   (public? f)
+                                   (= (str (:type f)) type-name))))
+                    (map :name))]
+    (merge (basic-info node)
+           {:type :string-enum
+            :values values})))
 
-(defn build-dependency-graph
-  "Builds a dependency graph from the package analysis result.
-   Returns a map: {FQCN #{DependencyFQCN ...}}"
-  [package-ast]
-  (let [children (:children package-ast)
-        ;; Create a map of FQCN -> Node for easy lookup and to know what's 'internal'
-        fqcn-map (reduce (fn [acc [simple-name node]]
-                           (let [fqcn (str (:package node) "." (:name node))]
-                             (assoc acc fqcn node)))
-                         {}
-                         children)
-        internal-classes (set (keys fqcn-map))]
-    
-    (reduce (fn [graph [fqcn node]]
-              (let [raw-deps (extract-deps-from-node node)
-                    ;; Filter dependencies to only those within the analyzed package (optional, 
-                    ;; usually we want to see internal structure)
-                    ;; For now, let's keep only edges that point to classes WE know about (internal).
-                    internal-deps (s/intersection (set raw-deps) internal-classes)]
-                (assoc graph fqcn internal-deps)))
-            {}
-            fqcn-map)))
+;; --- Unions ---
 
-(defn dependency-tree
-  "Generates a dependency tree (nested map) starting from a root class.
-   'package-path' is the file path to the package source (for analysis).
-   'root-class-name' is the simple name or FQCN of the root class (e.g. 'Storage').
-   
-   Returns a map where keys are class names and values are sub-dependencies.
-   Uses a 'seen' set to break cycles."
-  [package-path root-class-name]
-  (let [pkg-ast (javaparser/analyze-package package-path {})
-        graph   (build-dependency-graph pkg-ast)
-        ;; Find FQCN for root-class-name if it's simple
-        root-fqcn (or (when (contains? graph root-class-name) root-class-name)
-                      (first (filter #(string/ends-with? % (str "." root-class-name)) (keys graph))))]
-    
-    (when-not root-fqcn
-      (throw (ex-info (str "Root class not found: " root-class-name) {:available (take 10 (keys graph))})))
+(defmethod analyze-class-node :abstract-union [node]
+  (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
+        return-type (:returnType get-type)]
+    (merge (basic-info node)
+           {:type :abstract-union
+            :getType return-type})))
 
-    (letfn [(build-tree [node seen]
-              (if (contains? seen node)
-                {node :cycle}
-                (let [deps (get graph node)
-                      new-seen (conj seen node)]
-                  {node (into {} (map #(build-tree % new-seen) deps))})))]
-      
-      (build-tree root-fqcn #{}))))
+(defmethod analyze-class-node :concrete-union [node]
+  (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
+        return-type (:returnType get-type)]
+    (merge (basic-info node)
+           {:type :concrete-union
+            :getType return-type})))
 
-;; -------------------------------------------------------------------------
-;; Batch Analysis
-;; -------------------------------------------------------------------------
+(defmethod analyze-class-node :union-variant [node]
+  (merge (basic-info node)
+         {:type :union-variant}))
 
-(defn- get-googleapis-repos-path []
-  (let [root (System/getenv "GOOGLEAPIS_REPOS_PATH")]
-    (cond
-      (string/blank? root)
-      (throw (ex-info "GOOGLEAPIS_REPOS_PATH environment variable is not set." {}))
+;; --- Builders & Accessors ---
 
-      (not (.isAbsolute (io/file root)))
-      (throw (ex-info "GOOGLEAPIS_REPOS_PATH must be an absolute path." {:path root}))
-
-      :else root)))
-
-(def package-repos
-  (delay
-    (let [root (get-googleapis-repos-path)]
-      {:bigquery (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
-       :storage  (str root "/java-storage/google-cloud-storage/src/main/java")
-       :pubsub   (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
-       :vertexai (str root "/google-cloud-java/java-vertexai")})))
-
-(defn- flatten-types
-  "Recursively collects all types (top-level and nested) from the package AST."
-  [pkg-ast]
-  (let [top-level (vals (:children pkg-ast))]
-    (mapcat (fn [root]
-              (tree-seq (comp seq :nested) :nested root))
-            top-level)))
-
-(defn- ensure-pkg-ast [pkg-or-ast]
-  (if (keyword? pkg-or-ast)
-    (if-let [path (get @package-repos pkg-or-ast)]
-      (javaparser/analyze-package path {})
-      (throw (ex-info "Unknown package keyword" {:package pkg-or-ast :available (keys @package-repos)})))
-    pkg-or-ast))
-
-(defn- collect-nested-types
-  "Recursively collects all nested types (excluding top-level)."
-  [nodes]
-  (mapcat (fn [node]
-            (tree-seq (comp seq :nested) :nested node))
-          (mapcat :nested nodes)))
-
-(defn- collect-nested-outliers
-  "Recursively collects all nested classes categorized as :other, returning absolute path strings (Parent$Child)."
-  [nodes]
-  (letfn [(traverse [node parent-path]
-            (let [current-name (:name node)
-                  current-path (if parent-path
-                                 (str parent-path "$" current-name)
-                                 current-name)
-                  outliers (if (and parent-path (= (:category node) :other))
-                             [current-path]
-                             [])]
-              (reduce (fn [acc child] (into acc (traverse child current-path)))
-                      outliers
-                      (:nested node))))]
-    (mapcat #(traverse % nil) nodes)))
-
-(defn summarize-package
-  "Returns a concise summary of the package analysis result.
-   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
-  [pkg-or-ast]
-  (let [pkg-ast     (ensure-pkg-ast pkg-or-ast)
-        top-level   (vals (:children pkg-ast))
-        class-count (count top-level)
-        git-tag     (:git-tag pkg-ast)
-        git-sha     (:git-sha pkg-ast)
-        clients     (:service-clients pkg-ast)
-        categories  (frequencies (map :category top-level))
+(defmethod analyze-class-node :accessor-with-builder [node]
+  (let [builder-node (get-nested node "Builder")
+        node-getters (getters node)
+        builder-setters (if builder-node 
+                          (setters builder-node (:name builder-node)) 
+                          [])
         
-        nested-types (collect-nested-types top-level)
-        nested-categories (frequencies (map :category nested-types))
-        nested-outliers (collect-nested-outliers top-level)]
-    (cond-> {:git-tag    git-tag
-             :git-sha    git-sha
-             :class-count class-count
-             :clients    clients
-             :categories categories
-             :nested-categories nested-categories}
-      (seq nested-outliers) (assoc :nested-outliers (sort nested-outliers)))))
+        ;; Map getters to properties
+        props-by-getter (reduce (fn [acc m]
+                                  (let [pname (property-name (:name m))]
+                                    (assoc acc pname {:getter m})))
+                                {}
+                                node-getters)
+        
+        ;; Map setters to properties
+        props (reduce (fn [acc m]
+                        (let [pname (property-name (:name m))]
+                          (if (contains? acc pname)
+                            (assoc-in acc [pname :setter] m)
+                            ;; Handle pluralization/list mapping (e.g. setContents vs getContentsList)
+                            (let [plural-pname (str pname "List")]
+                               (if (contains? acc plural-pname)
+                                 (assoc-in acc [plural-pname :setter] m)
+                                 acc)))))
+                      props-by-getter
+                      builder-setters)
+        
+        fields (into (sorted-map)
+                     (keep (fn [[k v]]
+                             (when (and (:getter v) (:setter v))
+                               [k {:getterMethod (symbol (:name (:getter v)))
+                                   :setterMethod (symbol (:name (:setter v)))
+                                   :type (:returnType (:getter v))
+                                   :doc (:doc (:getter v))}]))
+                           props))
+        
+        type-deps (into #{} (mapcat (fn [[_ f]] (extract-type-symbols (:type f)))) fields)
+        newBuilder (first (filter #(= (:name %) "newBuilder") (:methods node)))]
 
-(defn classes-by-type
-  "Returns a sequence of AST nodes for classes of the given category (e.g., :client, :readonly, :builder).
-   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
-  [pkg-or-ast class-type]
-  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)]
-    (filter #(= (:category %) class-type) (vals (:children pkg-ast)))))
+    (merge (basic-info node)
+           {:type :accessor
+            :fields fields
+            :typeDependencies type-deps
+            :newBuilder (when newBuilder {:name "newBuilder" :parameters (:parameters newBuilder)})})))
 
-(defn class-by-name
-  "Returns the AST node for a class by its simple name (symbol or string).
-   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
-  [pkg-or-ast class-name]
-  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)]
-    (get (:children pkg-ast) (symbol class-name))))
+(defmethod analyze-class-node :builder [node]
+  (merge (basic-info node)
+         {:type :builder}))
 
-(defn top-level-classes
-  "Returns a sorted sequence of the simple names of all top-level classes in the package."
-  [pkg-or-ast]
-  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)]
-    (->> (keys (:children pkg-ast))
-         (map name)
-         sort)))
+;; --- Factories ---
 
-(defn- collect-enums-with-path [node parent-path]
-  (let [current-name (:name node)
-        current-path (if parent-path
-                       (str parent-path "." current-name)
-                       current-name)
-        enums (if (= (:category node) :enum)
-                [current-path]
-                [])]
-    (concat enums
-            (mapcat #(collect-enums-with-path % current-path) (:nested node)))))
+(defmethod analyze-class-node :static-factory [node]
+  ;; Look for static 'of' methods
+  (let [of-methods (filter #(and (static? %) (= (:name %) "of")) (:methods node))
+        fields (reduce (fn [acc m]
+                         (let [params (:parameters m)]
+                           ;; Heuristic: params map to fields
+                           ;; This is tricky without more info, but let's just list the factory methods
+                           (assoc acc (keyword (string/join "-" (map :name params)))
+                                  {:parameters params
+                                   :doc (:doc m)})))
+                       {}
+                       of-methods)]
+    (merge (basic-info node)
+           {:type :static-factory
+            :factoryMethods of-methods})))
 
-(defn enums-in-package
-  "Returns a sorted sequence of qualified names of all enums in the package (e.g. 'Outer.Inner.Enum')."
-  [pkg-or-ast]
-  (let [pkg-ast (ensure-pkg-ast pkg-or-ast)
-        top-level (vals (:children pkg-ast))]
-    (->> top-level
-         (mapcat #(collect-enums-with-path % nil))
-         sort)))
+(defmethod analyze-class-node :factory [node]
+  (merge (basic-info node)
+         {:type :factory}))
 
-(defn clear-cache []
-  (javaparser/clear-cache))
+;; --- Interfaces ---
 
-(defn gc-cache 
-  ([] (javaparser/gc-cache))
-  ([days] (javaparser/gc-cache days)))
+(defmethod analyze-class-node :functional-interface [node]
+  (merge (basic-info node)
+         {:type :functional-interface}))
 
-(defn analyze-package
-  "Analyzes a package specified by keyword (e.g. :bigquery) or path string.
-   Returns the package AST."
-  [pkg-or-path]
-  (if (keyword? pkg-or-path)
-    (if-let [path (get @package-repos pkg-or-path)]
-      (javaparser/analyze-package path {})
-      (throw (ex-info "Unknown package keyword" {:package pkg-or-path :available (keys @package-repos)})))
-    (javaparser/analyze-package pkg-or-path {})))
+(defmethod analyze-class-node :interface [node]
+  (merge (basic-info node)
+         {:type :interface}))
 
-(defn run-package-analysis []
-  (reduce
-    (fn [acc [k path]]
-      (println "Analyzing" k "...")
-      (assoc acc k (javaparser/analyze-package path {})))
-    {}
-    @package-repos))
+;; --- Clients ---
 
-(defn summarize-all []
-  (reduce
-    (fn [acc k]
-      (println "Summarizing" k "...")
-      (assoc acc k (summarize-package k)))
-    (sorted-map)
-    (keys @package-repos)))
+(defmethod analyze-class-node :client [node]
+  (merge (basic-info node)
+         {:type :client}))
 
+;; --- Others ---
+
+(defmethod analyze-class-node :stub [node]
+  (merge (basic-info node)
+         {:type :stub}))
+
+(defmethod analyze-class-node :exception [node]
+  (merge (basic-info node)
+         {:type :exception}))
+
+(defmethod analyze-class-node :error [node]
+  (merge (basic-info node)
+         {:type :error}))
+
+(defmethod analyze-class-node :resource-extended-class [node]
+  (merge (basic-info node)
+         {:type :resource-extended-class}))
+
+(defmethod analyze-class-node :sentinel [node]
+  (merge (basic-info node)
+         {:type :sentinel}))
+
+(defmethod analyze-class-node :statics [node]
+  (merge (basic-info node)
+         {:type :statics}))
+
+(defmethod analyze-class-node :abstract [node]
+  (merge (basic-info node)
+         {:type :abstract}))
+
+(defmethod analyze-class-node :pojo [node]
+  (merge (basic-info node)
+         {:type :pojo}))
+
+(defmethod analyze-class-node :read-only [node]
+  (merge (basic-info node)
+         {:type :read-only}))
+
+#! << IT IS FORBIDDEN TO CHANGE THIS BRANCH >>
+(defmethod analyze-class-node :other [node] (throw (ex-info "illegal state" node))) #! IT IS FORBIDDEN TO CHANGE THIS LINE
+
+(defn analyze-class
+  [pkg-like class-like]
+  (let [class-node (packages/lookup-class pkg-like class-like)]
+    (analyze-class-node class-node)))
+
+(defn analyze-dependencies
+  "Analyzes the dependencies of a node and returns a map separating them into
+   :internal (same package/service) and :foreign (external, e.g. java.*, protobuf)."
+  [node]
+  (let [analyzed (analyze-class-node node)
+        deps (:typeDependencies analyzed)
+        package (:package node)
+        ;; Heuristic: Internal if starts with same package prefix (up to service level)
+        ;; e.g. com.google.cloud.vertexai
+        service-pkg (if (string/starts-with? package "com.google.cloud.")
+                      (let [parts (string/split package #"\.")]
+                        (string/join "." (take 5 parts))) ;; com.google.cloud.service.vX
+                      package)]
+    (reduce (fn [acc dep]
+              (let [dep-str (str dep)]
+                (if (string/starts-with? dep-str service-pkg)
+                  (update acc :internal conj dep)
+                  (update acc :foreign conj dep))))
+            {:internal #{} :foreign #{}}
+            deps)))

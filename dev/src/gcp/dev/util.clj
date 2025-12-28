@@ -147,6 +147,37 @@
 
     :else t))
 
+(defn extract-version [doc]
+  (when doc
+    (when-let [m (re-find #"google\.cloud\.[^.]+\.([^.]+)\.[^.]+" doc)]
+      (let [v (second m)]
+        (when (re-matches #"v\d+.*" v)
+          v)))))
+
+(defn package-to-ns [package-name version]
+  (let [base (string/replace (str package-name) #"^com\.google\.cloud\." "")]
+    (if version ;; TODO this is brittle
+      (let [parts (string/split base #"\.")
+            ;; Insert version after the first part (e.g. vertexai.v1.api)
+            new-parts (into [(first parts) version] (rest parts))]
+        (symbol (str "gcp." (string/join "." new-parts))))
+      (symbol (str "gcp." base)))))
+
+(defn split-fqcn [fqcn]
+  (let [fqcn (str fqcn)
+        parts (string/split fqcn #"\.")
+        ;; Find index of first part that starts with Uppercase
+        idx (first (keep-indexed (fn [i p] (when (re-find #"^[A-Z]" p) i)) parts))]
+    (if idx
+      {:package (string/join "." (take idx parts))
+       :class (string/join "." (drop idx parts))}
+      {:package (string/join "." (butlast parts))
+       :class (last parts)})))
+
+(defn schema-key [package-name class-name version]
+  (let [ns-sym (package-to-ns package-name version)]
+    (keyword (name ns-sym) class-name)))
+
 (declare class-parts)
 
 (defn package-key [package t]

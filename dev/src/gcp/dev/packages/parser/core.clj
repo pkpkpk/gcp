@@ -1,4 +1,4 @@
-(ns gcp.dev.analyzer.javaparser.core
+(ns gcp.dev.packages.parser.core
   "Core analysis logic for Java projects.
    Orchestrates the parsing process, including file discovery, caching, and Git integration."
   (:require [clojure.java.io :as io]
@@ -7,13 +7,16 @@
             [clojure.string :as string]
             [clojure.walk :as walk]
             [clojure.edn :as edn]
-            [gcp.dev.analyzer.javaparser.ast :as ast])
+            [gcp.dev.packages.parser.ast :as ast]
+            [taoensso.telemere :as tel])
   (:import (com.github.javaparser StaticJavaParser)
+           (com.github.javaparser.ast.comments JavadocComment)
            (java.io FileInputStream File)
            (java.security MessageDigest)))
 
-(def output-file-path "output.edn")
-(def cache-dir (or (System/getenv "GCP_CACHE_PATH") ".cache"))
+(def cache-dir (or (System/getenv "GCP_CACHE_PATH") ".gcp_cache"))
+
+(tel/add-handler! :default/console (tel/handler:console {:stream :err}))
 
 (defn clear-cache 
   "Deletes the entire cache directory."
@@ -21,7 +24,7 @@
   (let [dir (io/file cache-dir)]
     (when (.exists dir)
       (run! io/delete-file (reverse (file-seq dir)))
-      (println "Cache cleared."))))
+      (tel/log! "Cache cleared."))))
 
 (defn gc-cache 
   "Deletes cache files older than 'days' (default 7)."
@@ -34,7 +37,7 @@
                                   :when (and (.isFile f)
                                              (< (.lastModified f) cutoff))]
                               (do (io/delete-file f) 1)))]
-         (println "GC complete. Deleted" deleted "files."))))))
+         (tel/log! ["GC complete. Deleted" deleted "files."]))))))
 
 (defn sha256 
   "Computes the SHA-256 hash of a string."
@@ -45,7 +48,7 @@
 
 (def parser-source-hash
   (try
-    (let [res (io/resource "gcp/dev/analyzer/javaparser/ast.clj")]
+    (let [res (io/resource "gcp/dev/packages/parser/ast.clj")]
       (if res
         (sha256 (slurp res))
         "unknown"))
@@ -56,7 +59,7 @@
          res# (do ~@body)
          end# (System/nanoTime)
          ms# (/ (double (- end# start#)) 1000000.0)]
-     (println (format "Stage '%s' took %.2f ms" ~name ms#))
+     (tel/log! (format "Stage '%s' took %.2f ms" ~name ms#))
      res#))
 
 (defn get-file-git-sha 
@@ -84,7 +87,7 @@
       (try
         (read-string (slurp cache-file))
         (catch Exception e
-          (println "Error reading cache for" file-path "at" (.getAbsolutePath cache-file) ":" (.getMessage e))
+          (tel/log! :error ["Error reading cache for" file-path "at" (.getAbsolutePath cache-file) ":" (.getMessage e)])
           (let [ast (ast/parse file-path options file-git-sha)]
             (io/make-parents cache-file)
             (binding [*print-length* nil
@@ -109,7 +112,7 @@
       ;; Fallback for nodes that don't have getJavadoc (like PackageDeclaration in some versions)
       (let [comment (.getComment node)]
         (if (and (.isPresent comment)
-                 (instance? com.github.javaparser.ast.comments.JavadocComment (.get comment)))
+                 (instance? JavadocComment (.get comment)))
           (.toText (.parse (.asJavadocComment (.get comment))))
           nil)))))
 
@@ -172,55 +175,87 @@
         repo-sha (get-git-sha sdk-root)
         package-cache-key (sha256 (str parser-source-hash repo-sha (.getAbsolutePath (io/file path))))
         package-cache-file (io/file cache-dir (str "pkg-" package-cache-key ".edn"))]
-    (println (str "Analyzing package path: " path))
+    (tel/log! (str "Analyzing package path: " path))
     (if (.exists package-cache-file)
       (do
-        (println (str "Package cache hit: " (.getName package-cache-file)))
+        (tel/log! (str "Package cache hit: " (.getName package-cache-file)))
         (try
           (read-string (slurp package-cache-file))
           (catch Exception e
-            (println "Error reading package cache:" (.getMessage e))
+            (tel/log! :error ["Error reading package cache:" (.getMessage e)])
             ;; If read fails, delete and recurse to re-generate (safe fallback)
             (io/delete-file package-cache-file)
             (analyze-package path files options))))
       
       (do
-        (println "Package cache miss. Analyzing package...")
-        (let [class-asts (time-stage "Parsing Classes (Cached)"
-                           (reduce (fn [acc f]
-                                     (let [res (parse-file-cached (.getPath f) options)]
-                                       (if (seq res)
-                                         (reduce (fn [inner-acc type-node]
-                                                   (assoc inner-acc (symbol (:name type-node)) type-node))
-                                                 acc
-                                                 res)
-                                         acc)))
-                                   {}
-                                   files))
+        (tel/log! "Package cache miss. Analyzing package...")
+        (let [;; To find the "root" package of the artifact, we look for the file with the shortest path.
+              ;; This assumes that the top-level package has files at the shallowest directory level.
+              shortest-file (first (sort-by #(count (.getPath %)) files))
+              package-name (when shortest-file
+                             (let [nodes (parse-file-cached (.getPath shortest-file) options)]
+                               (:package (first nodes))))
+              
+              ;; We still look for package-info.java for documentation, preferentially the one at the root
+              root-package-info (->> files
+                                     (filter #(string/ends-with? (.getName %) "package-info.java"))
+                                     (sort-by #(count (.getPath %)))
+                                     first)
+
+              class-name-map (time-stage "Parsing Classes (Cached)"
+                               (reduce (fn [acc f]
+                                         (let [res (parse-file-cached (.getPath f) options)]
+                                           (if (seq res)
+                                             (reduce (fn [inner-acc type-node]
+                                                       (let [p (:package type-node)
+                                                             n (:name type-node)
+                                                             key-str (if (and package-name p
+                                                                              (string/starts-with? p package-name))
+                                                                       (let [suffix (subs p (count package-name))]
+                                                                         (if (string/blank? suffix)
+                                                                           n
+                                                                           (str (subs suffix 1) "." n)))
+                                                                       n)]
+                                                         (assoc inner-acc key-str type-node)))
+                                                     acc
+                                                     res)
+                                             acc)))
+                                       {}
+                                       files))
+              by-fqcn (reduce-kv (fn [m _ node]
+                                   (let [fqcn (str (:package node) "." (:name node))]
+                                     (assoc m fqcn node)))
+                                 {}
+                                 class-name-map)
+              name->fqcn (reduce-kv (fn [m name node]
+                                      (let [fqcn (str (:package node) "." (:name node))]
+                                        (assoc m name fqcn)))
+                                    {}
+                                    class-name-map)
               git-sha (time-stage "Getting Repo SHA" repo-sha) ;; Use pre-calculated
               git-tag (time-stage "Getting Repo Tag" (or (get-git-tag sdk-root)
                                                          (get-pom-version sdk-root)))
               package-doc (time-stage "Extracting Package Doc"
-                            (when-let [info (->> files
-                                               (filter #(string/ends-with? (.getName %) "package-info.java"))
-                                               (sort-by #(.getPath %))
-                                               first)]
-                              (let [cu (StaticJavaParser/parse (FileInputStream. info))]
+                            (when root-package-info
+                              (let [cu (StaticJavaParser/parse (FileInputStream. root-package-info))]
                                 (when-let [pkg (.getPackageDeclaration cu)]
                                   (if (.isPresent pkg)
                                     (extract-javadoc (.get pkg))
                                     nil)))))
-              service-clients (->> (vals class-asts)
+              
+              service-clients (->> (vals class-name-map)
                                    (filter #(= (:category %) :client))
                                    (mapv (fn [node]
                                            (symbol (str (:package node) "." (:name node))))))
               pkg-ast {:sdk-name (get-sdk-name path)
                        :path path
+                       :package-name package-name
                        :git-sha git-sha
                        :git-tag git-tag
                        :doc package-doc
                        :service-clients service-clients
-                       :children class-asts}]
+                       :class/by-fqcn by-fqcn
+                       :class/name->fqcn name->fqcn}]
           
           (io/make-parents package-cache-file)
           (time-stage "Writing Package Cache"
@@ -238,17 +273,17 @@
         input-args (remove #(= % "--pretty") args)]
     
     (when (< (count input-args) 2)
-      (println "Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]")
-      (println "Error: Missing required arguments.")
+      (tel/log! :error "Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]")
+      (tel/log! :error "Error: Missing required arguments.")
       (System/exit 1))
 
     (let [path (first input-args)
           output-path (second input-args)
           options {:include-private? false
                    :include-package-private? false}]
-      (println "Processing:" path "with options:" options)
-      (println "Output will be written to:" output-path)
-      (println "Pretty printing:" pretty?)
+      (tel/log! ["Processing:" path "with options:" options])
+      (tel/log! (str "Output will be written to: " output-path))
+      (tel/log! (str "Pretty printing: " pretty?))
       (io/make-parents (io/file cache-dir "dummy"))
       
       (time-stage "Total Execution"
@@ -259,8 +294,8 @@
                         [file]))
               file-count (count files)]
           
-          (println "Found" file-count "Java files to parse.")
-          (println "Parser source hash:" parser-source-hash)
+          (tel/log! ["Found" file-count "Java files to parse."])
+          (tel/log! (str "Parser source hash: " parser-source-hash))
           
           (let [package-ast (analyze-package path files options)]
             (time-stage "Writing Output"
@@ -270,4 +305,4 @@
                   (binding [*print-length* nil
                             *print-level* nil]
                     (.write writer (pr-str package-ast))))))
-            (println (str "Processed package. Output written to " output-path))))))))
+            (tel/log! (str "Processed package. Output written to " output-path))))))))
