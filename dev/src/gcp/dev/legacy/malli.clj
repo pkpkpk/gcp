@@ -1,9 +1,10 @@
-(ns ^{:doc "convert ast nodes into malli schemas"}
-  gcp.dev.legacy.malli
-  (:require [clojure.string :as string]
-            [gcp.dev.legacy.analyzer :as ana :refer [analyze]]
-            [gcp.dev.util :refer :all]
-            [gcp.global :as g]))
+(ns gcp.dev.legacy.malli
+  {:doc "convert ast nodes into malli schemas"}
+  (:require
+   [clojure.string :as string]
+   [gcp.dev.legacy.analyzer :as ana :refer [analyze]]
+   [gcp.dev.util :refer :all]
+   [gcp.global :as g]))
 
 (defn- malli-accessor
   [package {:keys [className doc fields] :as node}]

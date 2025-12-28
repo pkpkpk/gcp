@@ -1,10 +1,10 @@
 (ns gcp.dev.analyzer
   (:require
-    [clojure.set :as s]
-    [clojure.string :as string]
-    [gcp.dev.packages :as packages]
-    [gcp.dev.util :as u]
-    [taoensso.telemere :as tel]))
+   [clojure.set :as s]
+   [clojure.string :as string]
+   [gcp.dev.packages :as packages]
+   [gcp.dev.util :as u]
+   [taoensso.telemere :as tel]))
 
 ;; -----------------------------------------------------------------------------
 ;; Helpers
@@ -135,17 +135,15 @@
 (defmethod analyze-class-node :accessor-with-builder [node]
   (let [builder-node (get-nested node "Builder")
         node-getters (getters node)
-        builder-setters (if builder-node 
-                          (setters builder-node (:name builder-node)) 
+        builder-setters (if builder-node
+                          (setters builder-node (:name builder-node))
                           [])
-        
         ;; Map getters to properties
         props-by-getter (reduce (fn [acc m]
                                   (let [pname (property-name (:name m))]
                                     (assoc acc pname {:getter m})))
                                 {}
                                 node-getters)
-        
         ;; Map setters to properties
         props (reduce (fn [acc m]
                         (let [pname (property-name (:name m))]
@@ -153,12 +151,11 @@
                             (assoc-in acc [pname :setter] m)
                             ;; Handle pluralization/list mapping (e.g. setContents vs getContentsList)
                             (let [plural-pname (str pname "List")]
-                               (if (contains? acc plural-pname)
-                                 (assoc-in acc [plural-pname :setter] m)
-                                 acc)))))
+                              (if (contains? acc plural-pname)
+                                (assoc-in acc [plural-pname :setter] m)
+                                acc)))))
                       props-by-getter
                       builder-setters)
-        
         fields (into (sorted-map)
                      (keep (fn [[k v]]
                              (when (and (:getter v) (:setter v))
@@ -167,7 +164,6 @@
                                    :type (:returnType (:getter v))
                                    :doc (:doc (:getter v))}]))
                            props))
-        
         type-deps (into #{} (mapcat (fn [[_ f]] (extract-type-symbols (:type f)))) fields)
         newBuilder (first (filter #(= (:name %) "newBuilder") (:methods node)))]
 

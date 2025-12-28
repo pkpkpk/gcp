@@ -1,24 +1,26 @@
 (ns gcp.dev.packages.parser.core
   "Core analysis logic for Java projects.
    Orchestrates the parsing process, including file discovery, caching, and Git integration."
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
-            [clojure.pprint :as pp]
-            [clojure.string :as string]
-            [clojure.walk :as walk]
-            [clojure.edn :as edn]
-            [gcp.dev.packages.parser.ast :as ast]
-            [taoensso.telemere :as tel])
-  (:import (com.github.javaparser StaticJavaParser)
-           (com.github.javaparser.ast.comments JavadocComment)
-           (java.io FileInputStream File)
-           (java.security MessageDigest)))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]
+   [clojure.java.shell :as shell]
+   [clojure.pprint :as pp]
+   [clojure.string :as string]
+   [clojure.walk :as walk]
+   [gcp.dev.packages.parser.ast :as ast]
+   [taoensso.telemere :as tel])
+  (:import
+   (com.github.javaparser StaticJavaParser)
+   (com.github.javaparser.ast.comments JavadocComment)
+   (java.io File FileInputStream)
+   (java.security MessageDigest)))
 
 (def cache-dir (or (System/getenv "GCP_CACHE_PATH") ".gcp_cache"))
 
 (tel/add-handler! :default/console (tel/handler:console {:stream :err}))
 
-(defn clear-cache 
+(defn clear-cache
   "Deletes the entire cache directory."
   []
   (let [dir (io/file cache-dir)]
@@ -26,7 +28,7 @@
       (run! io/delete-file (reverse (file-seq dir)))
       (tel/log! "Cache cleared."))))
 
-(defn gc-cache 
+(defn gc-cache
   "Deletes cache files older than 'days' (default 7)."
   ([] (gc-cache 7))
   ([days]
@@ -39,7 +41,7 @@
                               (do (io/delete-file f) 1)))]
          (tel/log! ["GC complete. Deleted" deleted "files."]))))))
 
-(defn sha256 
+(defn sha256
   "Computes the SHA-256 hash of a string."
   [s]
   (let [digest (MessageDigest/getInstance "SHA-256")
@@ -62,7 +64,7 @@
      (tel/log! (format "Stage '%s' took %.2f ms" ~name ms#))
      res#))
 
-(defn get-file-git-sha 
+(defn get-file-git-sha
   "Gets the latest git commit SHA for a specific file."
   [file-path]
   (try
@@ -71,13 +73,13 @@
       (when (zero? exit) (string/trim out)))
     (catch Exception _ nil)))
 
-(defn get-cache-path 
+(defn get-cache-path
   "Determines the cache file path for a given file based on its content hash and parser version."
   [file-git-sha file-path]
   (let [hash-key (sha256 (str parser-source-hash file-git-sha (.getAbsolutePath (io/file file-path))))]
     (io/file cache-dir (str hash-key ".edn"))))
 
-(defn parse-file-cached 
+(defn parse-file-cached
   "Parses a single Java file, using a persistent cache if the file hasn't changed.
    Returns a vector of AST nodes."
   [file-path options]
@@ -101,7 +103,7 @@
           (spit cache-file (pr-str ast)))
         ast))))
 
-(defn extract-javadoc 
+(defn extract-javadoc
   "Extracts Javadoc from a node, if available."
   [node]
   (try
@@ -116,7 +118,7 @@
           (.toText (.parse (.asJavadocComment (.get comment))))
           nil)))))
 
-(defn get-git-sha 
+(defn get-git-sha
   "Gets the current HEAD SHA for a git directory."
   [dir]
   (try
@@ -124,7 +126,7 @@
       (when (zero? exit) (string/trim out)))
     (catch Exception _ nil)))
 
-(defn get-git-tag 
+(defn get-git-tag
   "Gets the latest tag for a git directory."
   [dir]
   (try
@@ -146,7 +148,7 @@
             (second (re-groups matcher))))
         (catch Exception _ nil)))))
 
-(defn get-sdk-name 
+(defn get-sdk-name
   "Infers the SDK name from the directory path."
   [path]
   (let [parts (string/split path #"/")
@@ -165,12 +167,12 @@
         (.getAbsolutePath d)
         (recur (.getParent d))))))
 
-(defn analyze-package 
+(defn analyze-package
   "Analyzes a package (directory of Java files).
    Orchestrates parsing of individual files (cached), and aggregates the results into a package AST.
    Also manages a package-level cache to skip re-aggregation if nothing has changed."
   [path files options]
-  (let [sdk-root (or (find-pom-root path) 
+  (let [sdk-root (or (find-pom-root path)
                      (if (.isDirectory (io/file path)) path (.getParent (io/file path))))
         repo-sha (get-git-sha sdk-root)
         package-cache-key (sha256 (str parser-source-hash repo-sha (.getAbsolutePath (io/file path))))
@@ -186,7 +188,6 @@
             ;; If read fails, delete and recurse to re-generate (safe fallback)
             (io/delete-file package-cache-file)
             (analyze-package path files options))))
-      
       (do
         (tel/log! "Package cache miss. Analyzing package...")
         (let [;; To find the "root" package of the artifact, we look for the file with the shortest path.
@@ -195,7 +196,6 @@
               package-name (when shortest-file
                              (let [nodes (parse-file-cached (.getPath shortest-file) options)]
                                (:package (first nodes))))
-              
               ;; We still look for package-info.java for documentation, preferentially the one at the root
               root-package-info (->> files
                                      (filter #(string/ends-with? (.getName %) "package-info.java"))
@@ -242,7 +242,6 @@
                                   (if (.isPresent pkg)
                                     (extract-javadoc (.get pkg))
                                     nil)))))
-              
               service-clients (->> (vals class-name-map)
                                    (filter #(= (:category %) :client))
                                    (mapv (fn [node]
@@ -256,7 +255,6 @@
                        :service-clients service-clients
                        :class/by-fqcn by-fqcn
                        :class/name->fqcn name->fqcn}]
-          
           (io/make-parents package-cache-file)
           (time-stage "Writing Package Cache"
             (binding [*print-length* nil
@@ -264,14 +262,13 @@
               (spit package-cache-file (pr-str pkg-ast))))
           pkg-ast)))))
 
-(defn -main 
+(defn -main
   "Entry point for command-line usage.
    Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]"
   [& args]
   (let [args-set (set args)
         pretty? (contains? args-set "--pretty")
         input-args (remove #(= % "--pretty") args)]
-    
     (when (< (count input-args) 2)
       (tel/log! :error "Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]")
       (tel/log! :error "Error: Missing required arguments.")
@@ -285,7 +282,6 @@
       (tel/log! (str "Output will be written to: " output-path))
       (tel/log! (str "Pretty printing: " pretty?))
       (io/make-parents (io/file cache-dir "dummy"))
-      
       (time-stage "Total Execution"
         (let [file (io/file path)
               files (time-stage "File Discovery"
@@ -293,10 +289,8 @@
                         (filter #(string/ends-with? (.getName %) ".java") (file-seq file))
                         [file]))
               file-count (count files)]
-          
           (tel/log! ["Found" file-count "Java files to parse."])
           (tel/log! (str "Parser source hash: " parser-source-hash))
-          
           (let [package-ast (analyze-package path files options)]
             (time-stage "Writing Output"
               (with-open [writer (io/writer output-path)]

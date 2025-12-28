@@ -1,21 +1,22 @@
 (ns gcp.examples.vertexai.generativeai-examples
-  (:require [clojure.java.io :as io]
-            [gcp.global :as g]
-            [gcp.vertexai.v1.VertexAI :as VertexAI]
-            [gcp.vertexai.generativeai :as genai]
-            [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
-            [clojure.repl :refer :all]
-            [malli.core :as m]
-            [jsonista.core :as j]
-            malli.dev
-            [malli.error :as me])
-  (:import (java.io ByteArrayOutputStream)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.repl :refer :all]
+   [gcp.global :as g]
+   [gcp.vertexai.generativeai :as genai]
+   [gcp.vertexai.v1.VertexAI :as VertexAI]
+   [gcp.vertexai.v1.api.GenerateContentResponse :as GenerateContentResponse]
+   [jsonista.core :as j]
+   [malli.core :as m]
+   [malli.dev]
+   [malli.error :as me])
+  (:import
+   (java.io ByteArrayOutputStream)))
 
 (comment
   (do
     (require :reload 'gcp.vertexai.v1.generativeai.examples)
-    (in-ns 'gcp.vertexai.v1.generativeai.examples))
-  )
+    (in-ns 'gcp.vertexai.v1.generativeai.examples)))
 
 (defonce get-url-bytes
   (let [f (fn [^String url]
@@ -55,8 +56,7 @@
 
   (genai/generate-content flash ["what's in this photo?"
                                  {:parts [{:mimeType "image/png"
-                                           :partData "gs://generativeai-downloads/images/scones.jpg"}]}])
-  )
+                                           :partData "gs://generativeai-downloads/images/scones.jpg"}]}]))
 
 #!-----------------------------------------------------------------------------
 
@@ -66,8 +66,7 @@
                :tools     [{:googleSearchRetrieval {}}]})
 
 (comment
-  (genai/generate-content grounded "what are the current secondary market price for tickets to Oasis at wembley?")
-  )
+  (genai/generate-content grounded "what are the current secondary market price for tickets to Oasis at wembley?"))
 
 #!-----------------------------------------------------------------------------
 
@@ -83,11 +82,10 @@
                     :generationConfig  {:maxOutputTokens 2048
                                         :temperature     0.4
                                         :topK            32
-                                        :topP            1.0}}) ;TODO 0-1 inclusive
+                                        :topP            1.0}}) ; TODO 0-1 inclusive
 
 (comment
-  (genai/generate-content clean-spanish "what are some bad words in spanish")
-  )
+  (genai/generate-content clean-spanish "what are some bad words in spanish"))
 
 #!-----------------------------------------------------------------------------
 
@@ -105,11 +103,9 @@
                                                                                                :description "location"}}
                                                                       :required   ["location"]}}]}]})
 
-
 (comment
   (def weather-chat (genai/chat-session weather-model))
-  (genai/send-msg (genai/chat-session weather-model) "what's the weather in paris")
-  )
+  (genai/send-msg (genai/chat-session weather-model) "what's the weather in paris"))
 
 #!-----------------------------------------------------------------------------
 #! controlling response via mimeType
@@ -117,8 +113,7 @@
 (def jsonMimeType (assoc flash :generationConfig {:responseMimeType "application/json"}))
 
 (comment
-  (genai/generate-content jsonMimeType "List a few popular cookie recipes using this JSON schema: Recipe = {\"recipe_name\": str} Return: list[Recipe]")
-  )
+  (genai/generate-content jsonMimeType "List a few popular cookie recipes using this JSON schema: Recipe = {\"recipe_name\": str} Return: list[Recipe]"))
 
 #!-----------------------------------------------------------------------------
 #! controlling response w/  mimeType & schema
@@ -129,10 +124,8 @@
                                                                              :properties {"recipe_name" {:type "STRING"}}
                                                                              :required   ["recipe_name"]}}}))
 
-
 (comment
-  (genai/generate-content json-recipes "list some cookie recipes")
-  )
+  (genai/generate-content json-recipes "list some cookie recipes"))
 
 #!-----------------------------------------------------------------------------
 #! use output schema for semantic parsing to JSON
@@ -149,8 +142,7 @@
                                              "\"Absolutely loved it! Best ice cream I've ever had.\" "
                                              "Rating: 4, Flavor: Strawberry Cheesecake\n"
                                              "\"Quite good, but a bit too sweet for my taste.\" "
-                                             "Rating: 1, Flavor: Mango Tango"))
-  )
+                                             "Rating: 1, Flavor: Mango Tango")))
 
 #!-----------------------------------------------------------------------------
 #! larger semantic parsing to JSON
@@ -184,8 +176,7 @@
                  "and a humidity level of 40%. Winds will be gentle at 8 km/h."))
 
 (comment
-  (genai/generate-content forecaster prompt)
-  )
+  (genai/generate-content forecaster prompt))
 
 #!-----------------------------------------------------------------------------
 
@@ -195,7 +186,7 @@
                 "subcategory" {:type "STRING"}
                 "safe_handling" {:type "INTEGER"}
                 "item_category" {:type "STRING"
-                                 :enum ["clothing", "winter apparel", "specialized apparel", "furniture",
+                                 :enum ["clothing", "winter apparel", "specialized apparel", "furniture"
                                         "decor", "tableware", "cookware", "toys"]}
                 "for_resale" {:type "INTEGER"}
                 "condition" {:type "STRING"
@@ -212,8 +203,7 @@
     (str "Item description:\n"
          "The item is a long winter coat that has many tears all around the seams "
          "and is falling apart.\n"
-         "It has large questionable stains on it."))
-  )
+         "It has large questionable stains on it.")))
 
 #!-----------------------------------------------------------------------------
 #! image input, json output
@@ -229,8 +219,7 @@
   (genai/generate-content image-object-classifier
                           ["generate a list of objects in the images"
                            {:parts [{:mimeType "image/jpeg"
-                                     :partData "gs://cloud-samples-data/generative-ai/image/gardening-tools.jpeg"}]}])
-  )
+                                     :partData "gs://cloud-samples-data/generative-ai/image/gardening-tools.jpeg"}]}]))
 
 #!-----------------------------------------------------------------------------
 #! count (multimodal) tokens
@@ -240,8 +229,7 @@
 
   (genai/count-tokens flash ["provide a description of the video"
                              [{:mimeType "video/mp4"
-                               :partData "gs://cloud-samples-data/generative-ai/video/pixel8.mp4"}]])
-  )
+                               :partData "gs://cloud-samples-data/generative-ai/video/pixel8.mp4"}]]))
 
 #!-----------------------------------------------------------------------------
 #! multimodal input
@@ -263,10 +251,10 @@
 
   (def stream
     (genai/generate-content-seq flash ["is this video and image correlated?"
-                                          [{:mimeType "video/mp4"
-                                            :partData "gs://cloud-samples-data/video/animals.mp4"}]
-                                          [{:mimeType "image/jpeg"
-                                            :partData "gs://cloud-samples-data/generative-ai/image/character.jpg"}]]))
+                                       [{:mimeType "video/mp4"
+                                         :partData "gs://cloud-samples-data/video/animals.mp4"}]
+                                       [{:mimeType "image/jpeg"
+                                         :partData "gs://cloud-samples-data/generative-ai/image/character.jpg"}]]))
 
   (doseq [text (map GenerateContentResponse/extract-text stream)]
     (println text))
@@ -274,7 +262,6 @@
   (genai/generate-content flash ["Provide a description of the video. The description should also contain anything important which people say in the video."
                                  [{:mimeType "video/mp4"
                                    :partData "gs://cloud-samples-data/generative-ai/video/pixel8.mp4"}]])
-
 
   (genai/generate-content flash
                           ["Watch each frame in the video carefully and answer the questions.
@@ -297,8 +284,7 @@
                              :partData (get-url-bytes "https://storage.googleapis.com/cloud-samples-data/vertex-ai/llm/prompts/landmark2.png")}]
                            "city: Beijing, Landmark: Forbidden City"
                            [{:mimeType "image/png"
-                             :partData (get-url-bytes "https://storage.googleapis.com/cloud-samples-data/vertex-ai/llm/prompts/landmark3.png")}]])
-  )
+                             :partData (get-url-bytes "https://storage.googleapis.com/cloud-samples-data/vertex-ai/llm/prompts/landmark3.png")}]]))
 
 #!-----------------------------------------------------------------------------
 #! multi-turn
@@ -314,8 +300,4 @@
                        [{:mimeType "image/jpeg"
                          :partData "gs://generativeai-downloads/images/scones.jpg"}])
 
-  (genai/send-msg chat "what did i just show you?")
-
-  )
-
-
+  (genai/send-msg chat "what did i just show you?"))

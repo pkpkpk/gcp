@@ -1,4 +1,3 @@
-```clojure
 (ns gcp.global
   (:require clojure.string
             [sci.core :as sci]
@@ -237,8 +236,6 @@
    (if-let [?schema (and (keyword? ?schema) (get-schema ?schema))]
      (m/schema (get *registry* ?schema) (mopts))
      (m/schema ?schema (merge (mopts) opts)))))
-
-;(defn match [value]) ;=> schema
 
 #!-----------------------------------------------------------------------------
 

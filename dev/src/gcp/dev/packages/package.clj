@@ -1,7 +1,8 @@
 (ns gcp.dev.packages.package
-  (:require [clojure.set :as s]
-            [clojure.string :as string]
-            [malli.core :as m]))
+  (:require
+   [clojure.set :as s]
+   [clojure.string :as string]
+   [malli.core :as m]))
 
 (def pkg-node-schema :map)
 (def class-node-schema :map)
@@ -23,7 +24,7 @@
 
 (defn- extract-type-symbols [type-ast]
   (cond
-    (symbol? type-ast) (if (#{ '? 'void } type-ast) #{} #{type-ast})
+    (symbol? type-ast) (if (#{'? 'void} type-ast) #{} #{type-ast})
     (sequential? type-ast) (reduce into #{} (map extract-type-symbols type-ast))
     :else #{}))
 
@@ -95,8 +96,7 @@
 (defn- extract-deps-from-node
   "Extracts all dependencies (as FQCN strings) from a class AST node."
   [node]
-  (let [
-        ;; 1. Extends
+  (let [;; 1. Extends
         extends-deps (mapcat collect-types (:extends node))
         ;; 2. Implements
         implements-deps (mapcat collect-types (:implements node))
@@ -110,10 +110,9 @@
         ;; 5. Constructors
         ctor-deps (mapcat (fn [c]
                             (mapcat #(collect-types (:type %)) (:parameters c)))
-                          (:constructors node))
-        ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
-        ;;    But we might want to depend on inner classes.
-        ]
+                          (:constructors node))]
+    ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
+    ;;    But we might want to depend on inner classes.
     (into #{} (concat extends-deps implements-deps field-deps method-deps ctor-deps))))
 
 (defn build-dependency-graph

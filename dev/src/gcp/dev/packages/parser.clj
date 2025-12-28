@@ -1,10 +1,11 @@
 (ns gcp.dev.packages.parser
-  (:require [gcp.dev.packages.parser.ast :as ast]
-            [gcp.dev.packages.parser.core :as core]
-            [clojure.java.io :as io]
-            [clojure.string :as string]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as string]
+   [gcp.dev.packages.parser.ast :as ast]
+   [gcp.dev.packages.parser.core :as core]))
 
-(defn parse-file 
+(defn parse-file
   "Parses a single Java file and returns a sequence of AST nodes.
    options defaults to {:include-private? false :include-package-private? false}"
   ([file-path] (parse-file file-path nil))
@@ -53,6 +54,6 @@
 (defn clear-cache []
   (core/clear-cache))
 
-(defn gc-cache 
+(defn gc-cache
   ([] (core/gc-cache))
   ([days] (core/gc-cache days)))

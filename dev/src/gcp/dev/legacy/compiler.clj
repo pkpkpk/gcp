@@ -1,11 +1,12 @@
-(ns ^{:doc "emit clojure code for roundtripping edn <-> sdk instances"}
-  gcp.dev.legacy.compiler
-  (:require [clojure.java.io :as io]
-            [clojure.string :as string]
-            [gcp.dev.legacy.analyzer :as ana :refer [analyze]]
-            [gcp.dev.util :refer :all]
-            [gcp.global :as g]
-            [zprint.core :as zp]))
+(ns gcp.dev.legacy.compiler
+  {:doc "emit clojure code for roundtripping edn <-> sdk instances"}
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as string]
+   [gcp.dev.legacy.analyzer :as ana :refer [analyze]]
+   [gcp.dev.util :refer :all]
+   [gcp.global :as g]
+   [zprint.core :as zp]))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #!
@@ -316,4 +317,3 @@
        (throw (ex-info "already exists" {:file target-file}))
        (let [src (emit-binding package target-class)]
          (spit target-file src))))))
-

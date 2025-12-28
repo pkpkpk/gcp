@@ -1,30 +1,31 @@
 (ns gcp.dev.compiler
-  (:require [clojure.string :as string]
-            [gcp.dev.analyzer :as ana]
-            [gcp.dev.malli :as m]
-            [gcp.dev.util :as u]
-            [zprint.core :as zp]))
+  (:require
+   [clojure.string :as string]
+   [gcp.dev.analyzer :as ana]
+   [gcp.dev.malli :as m]
+   [gcp.dev.util :as u]
+   [zprint.core :as zp]))
 
 (defn- get-deps [node version]
   (let [current-class (:className node)
         all-nested-names (letfn [(collect [n] (cons (:name n) (mapcat collect (:nested n))))]
                            (set (mapcat collect (:nested node))))]
     (->> (:typeDependencies node)
-       (filter #(string/starts-with? (str %) "com.google.cloud"))
-       (map (fn [dep]
-              (let [{:keys [package class]} (u/split-fqcn (str dep))
-                    class-parts (string/split class #"\.")
-                    top-class (first class-parts)
-                    is-self (= top-class current-class)
-                    is-nested (contains? all-nested-names top-class)
-                    ns-sym (symbol (str (u/package-to-ns package version) "." top-class))]
-                {:fqcn (str dep)
-                 :ns ns-sym
-                 :alias (symbol top-class)
-                 :cls top-class
-                 :full-class class
-                 :local? (or is-self is-nested)})))
-       (into #{}))))
+      (filter #(string/starts-with? (str %) "com.google.cloud"))
+      (map (fn [dep]
+             (let [{:keys [package class]} (u/split-fqcn (str dep))
+                   class-parts (string/split class #"\.")
+                   top-class (first class-parts)
+                   is-self (= top-class current-class)
+                   is-nested (contains? all-nested-names top-class)
+                   ns-sym (symbol (str (u/package-to-ns package version) "." top-class))]
+               {:fqcn (str dep)
+                :ns ns-sym
+                :alias (symbol top-class)
+                :cls top-class
+                :full-class class
+                :local? (or is-self is-nested)})))
+      (into #{}))))
 
 (defn- emit-ns-form [node deps version]
   (let [ns-name (symbol (str (u/package-to-ns (:package node) version) "." (:className node)))
@@ -74,21 +75,20 @@
       dep
       (let [func (if (:local? dep)
                    (if (string/includes? (:full-class dep) ".")
-                      (symbol (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
-                      (symbol (name direction)))
+                     (symbol (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
+                     (symbol (name direction)))
                    (if (string/includes? (:full-class dep) ".")
-                      (symbol (str (:alias dep)) (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
-                      (symbol (str (:alias dep)) (name direction))))]
+                     (symbol (str (:alias dep)) (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
+                     (symbol (str (:alias dep)) (name direction))))]
         (if is-list
           `(~'map ~func)
           func))
-      
       :else
       (if is-list
         (if (or (= inner-type-str "java.lang.String")
                 (= inner-type-str "String"))
-           `(~'into []) 
-           `identity)
+          `(~'into [])
+          `identity)
         `identity))))
 
 (defn- emit-accessor-from-edn [node deps version prefix class-sym-name func-name-base]
@@ -102,15 +102,15 @@
                               conversion (resolve-conversion type deps :from-edn)
                               val-sym (gensym "v")]
                           `(~'when-some [~val-sym (~'get ~'arg ~(keyword field-name))]
-                             (~setter ~'builder 
-                               ~(if (list? conversion) 
-                                   `(~conversion ~val-sym)
-                                   `(~conversion ~val-sym))))))]
+                             (~setter ~'builder
+                               ~(if (list? conversion)
+                                  `(~conversion ~val-sym)
+                                  `(~conversion ~val-sym))))))]
     `(~'defn ~(with-meta func-name {:tag class-sym}) [~'arg]
        ~@(when-not prefix [`(~'global/strict! ~(u/schema-key (:package node) (:className node) version) ~'arg)])
        (~'let [~'builder (~builder-method)]
-          ~@builder-calls
-          (.build ~'builder)))))
+         ~@builder-calls
+         (.build ~'builder)))))
 
 (defn- emit-accessor-to-edn [node deps version prefix class-sym-name func-name-base]
   (let [class-name (:className node)
@@ -121,13 +121,13 @@
                       (let [getter (symbol (str "." getterMethod))
                             k (keyword field-name)
                             conversion (resolve-conversion type deps :to-edn)]
-                        `(~'true 
-                          (~'assoc ~k 
-                                   ~(if (= conversion `identity)
-                                      `(~getter ~'arg)
-                                      (if (list? conversion)
-                                        `(~(first conversion) ~(second conversion) (~getter ~'arg))
-                                        `(~conversion (~getter ~'arg))))))))]
+                        `(~'true
+                           (~'assoc ~k
+                                    ~(if (= conversion `identity)
+                                       `(~getter ~'arg)
+                                       (if (list? conversion)
+                                         `(~(first conversion) ~(second conversion) (~getter ~'arg))
+                                         `(~conversion (~getter ~'arg))))))))]
     `(~'defn ~func-name [~(with-meta 'arg {:tag class-sym})]
        ~@(when-not prefix [`{:post [(~'global/strict! ~(u/schema-key (:package node) (:className node) version) ~'%)]}])
        (cond-> {}
@@ -162,11 +162,11 @@
         schema-def `[:and
                      {:ns (quote ~ns-sym)
                       :from-edn (quote ~(if (= class-name top-class)
-                                         (symbol (str ns-sym) "from-edn")
-                                         (symbol (str ns-sym) (str (string/replace class-name "." "_") ":from-edn"))))
+                                          (symbol (str ns-sym) "from-edn")
+                                          (symbol (str ns-sym) (str (string/replace class-name "." "_") ":from-edn"))))
                       :to-edn (quote ~(if (= class-name top-class)
-                                       (symbol (str ns-sym) "to-edn")
-                                       (symbol (str ns-sym) (str (string/replace class-name "." "_") ":to-edn"))))
+                                        (symbol (str ns-sym) "to-edn")
+                                        (symbol (str ns-sym) (str (string/replace class-name "." "_") ":to-edn"))))
                       :doc ~(u/clean-doc (:doc node))
                       :class (quote ~(symbol (str (:package node) "." class-name)))}
                      ~malli-schema]]

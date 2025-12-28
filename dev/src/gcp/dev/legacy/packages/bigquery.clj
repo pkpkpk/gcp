@@ -1,20 +1,22 @@
 (ns gcp.dev.packages.legacy.bigquery
-  (:require [clojure.java.io :as io]
-            [clojure.set :as s]
-            [clojure.string :as string]
-            [gcp.dev.store :as store]
-            [gcp.dev.util :refer :all]
-            [gcp.dev.packages.legacy.packages :refer [$package-summary-memo packages-root googleapis-root]]
-            [jsonista.core :as j])
-  (:import (com.google.cloud.bigquery BigQueryOptions)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.set :as s]
+   [clojure.string :as string]
+   [gcp.dev.packages.legacy.packages :refer [$package-summary-memo googleapis-root packages-root]]
+   [gcp.dev.store :as store]
+   [gcp.dev.util :refer :all]
+   [jsonista.core :as j])
+  (:import
+   (com.google.cloud.bigquery BigQueryOptions)))
 
-;:~/googleapis/java-bigquery$ git worktree add ../bigquery-2.48.0 v2.48.0
+; :~/googleapis/java-bigquery$ git worktree add ../bigquery-2.48.0 v2.48.0
 
 (defn _bigquery []
   (let [{:keys [version classes] :as latest} ($package-summary-memo "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery")]
     (if (not= version (.getLibraryVersion (BigQueryOptions/getDefaultInstance)))
       (throw (ex-info   "new bigquery version!" {:current (.getLibraryVersion (BigQueryOptions/getDefaultInstance))
-                                               :extracted version}))
+                                                 :extracted version}))
       (let [bigquery-repo (io/file googleapis-root (str "bigquery-" version))
             repo-root     (io/file bigquery-repo "google-cloud-bigquery" "src" "main" "java" "com" "google" "cloud" "bigquery")
             target-root   (io/file packages-root "bigquery" "src" "gcp" "bigquery" "v2")
@@ -162,9 +164,9 @@
     (assert (map? (:lookup/by-base bq)))
     (assert (map? (:lookup/union->variant bq)))
     (assert (map? (:lookup/variant->union bq)))
-    (assert (set? (:types/static-factories bq) ))
+    (assert (set? (:types/static-factories bq)))
     (assert (set? (:types/nested-static-factories bq)))
-    (assert (set? (:types/simple-accessors bq) ))
+    (assert (set? (:types/simple-accessors bq)))
     (assert (set? (:types/complex-accessors bq)))
     (when (seq (s/intersection (:types/static-factories bq) (:types/nested-static-factories bq)))
       (throw (ex-info "nested static factories should be disjoint"

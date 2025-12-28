@@ -1,10 +1,12 @@
 (ns gcp.dev.util
-  (:require [clj-http.client :as http]
-            [clojure.java.io :as io]
-            clojure.reflect
-            [clojure.string :as string])
-  (:import (java.io ByteArrayOutputStream)
-           [org.objectweb.asm ClassReader ClassVisitor Opcodes]))
+  (:require
+   [clj-http.client :as http]
+   [clojure.java.io :as io]
+   [clojure.reflect]
+   [clojure.string :as string])
+  (:import
+   (java.io ByteArrayOutputStream)
+   (org.objectweb.asm ClassReader ClassVisitor Opcodes)))
 
 (defn class-bytes [^Class cls]
   (with-open [is (.getResourceAsStream cls (str (.getSimpleName cls) ".class"))]
@@ -46,7 +48,7 @@
 (defn get-url-bytes [^String url]
   (println (str "fetching url -> " url))
   (let [{:keys [status body] :as response} (http/get url {:redirect-strategy :none :as :byte-array})]
-    (if (= 200 status) ;google docs will 301 on missing doc
+    (if (= 200 status) ; google docs will 301 on missing doc
       body
       (throw (ex-info "expected 200 response" {:url url :response response})))))
 
@@ -104,9 +106,9 @@
     "java.time.Instant"
     "byte<>"
     "double"
-    ;java.util.Map
-    ;java.util.List
-    ;java.lang.Iterable
+    ; java.util.Map
+    ; java.util.List
+    ; java.lang.Iterable
     "void"})
 
 (def known-types
@@ -186,7 +188,7 @@
 (defn ->malli-type [package t]
   (assert (string? t))
   (case t
-    ;"java.lang.Object"
+    ; "java.lang.Object"
     "void" :nil
     "java.lang.String" :string
     ("boolean" "java.lang.Boolean") :boolean
@@ -321,7 +323,6 @@
                 (instance? clojure.reflect.Constructor m)))))
         (sort-by :name (:members (reflect class-like)))))
 
-
 (defn clean-method
   [{:keys [parameter-types exception-types return-type] :as m}]
   (cond-> (dissoc m :return-type :parameter-types)
@@ -436,7 +437,6 @@
                 [key m'])))
           (instance-methods classlike))))
 
-
 (comment
 
   (instance-methods' "com.google.cloud.bigquery.QueryJobConfiguration")
@@ -453,6 +453,4 @@
                       (map #(map :signature %))
                       (map #(filter some? %)))
                     (clojure.set/union (:types/static-factories bigquery)
-                                       (:types/accessors bigquery))))))
-
-  )
+                                       (:types/accessors bigquery)))))))

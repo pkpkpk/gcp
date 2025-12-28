@@ -2,7 +2,6 @@
 
 (comment
 
-
   #!--------------------------------------------------------------------------------------------------------
   #!
   #! :types/accessors
@@ -29,11 +28,11 @@
 
   (defn desugar-builders [builders fields]
     (let [field-names (into #{} (map name) (keys fields))]
-      ;(println " field-names--> " field-names)
+      ; (println " field-names--> " field-names)
       (reduce
         (fn [acc params]
           (let [param-names (set (map :name params))]
-            ;(println " param-names--> " param-names)
+            ; (println " param-names--> " param-names)
             (if (clojure.set/subset? param-names field-names)
               (conj acc params)
               acc)))
@@ -56,11 +55,10 @@
                   builders)))
       ;; if desugaring fails, invert and select-by-type?
       (let []
-        (println "failed!")
-        )))
+        (println "failed!"))))
 
   (defn analyze-accessor
-     "a readonly class with builder, together as a complete binding unit. no associated types"
+    "a readonly class with builder, together as a complete binding unit. no associated types"
     [package className]
     (assert (contains? (:types/accessors package) className))
     (assert (not (builder-like? className)))
@@ -72,7 +70,7 @@
                                 (merge (abstract-getters (get-in package [:types/variants className]))))
           getters  (g/coerce [:seqable :string] (sort (map name (keys getterMethods))))
           zipped (align/align-accessor-methods package getters setters)
-          ;_ (clojure.pprint/pprint zipped)
+          ; _ (clojure.pprint/pprint zipped)
           min-param-names (when-let [ms (not-empty (get staticMethods :newBuilder))]
                             (let [n (apply min (map count ms))]
                               (into #{} (comp
@@ -327,10 +325,8 @@
       (contains? (:types/static-factories package) className)
       (analyze-static-factory package className)
 
-      ;(contains? (:types/accessors package) className)
-      ;(analyze-accessor package className)
+      ; (contains? (:types/accessors package) className)
+      ; (analyze-accessor package className)
 
       true
-      (throw (Exception. (str "cannot analyze unknown type! " className)))))
-  
-  )
+      (throw (Exception. (str "cannot analyze unknown type! " className))))))

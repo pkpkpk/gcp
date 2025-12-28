@@ -1,9 +1,11 @@
 (ns gcp.dev.fuzz.generators
-  (:require [clojure.test.check.generators :as gen])
-  (:import (com.google.protobuf ByteString)))
+  (:require
+   [clojure.test.check.generators :as gen])
+  (:import
+   (com.google.protobuf ByteString)))
 
 (def byte-string
-  (gen/fmap #(ByteString/copyFrom (byte-array %)) 
+  (gen/fmap #(ByteString/copyFrom (byte-array %))
             (gen/vector gen/byte 0 5)))
 
 (def string

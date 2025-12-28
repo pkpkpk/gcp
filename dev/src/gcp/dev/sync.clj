@@ -1,11 +1,12 @@
 (ns gcp.dev.sync
-  (:require [clojure.java.io :as io]
-            [clojure.set :as s]
-            [clojure.string :as string]
-            [gcp.dev.packages :as pkg]
-            [gcp.dev.analyzer :as ana]
-            [gcp.dev.compiler :as compiler]
-            [gcp.dev.util :as u]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.set :as s]
+   [clojure.string :as string]
+   [gcp.dev.analyzer :as ana]
+   [gcp.dev.compiler :as compiler]
+   [gcp.dev.packages :as pkg]
+   [gcp.dev.util :as u]))
 
 ;; We need to expose package-to-ns from compiler or re-implement it.
 ;; Since compiler is internal, I will reimplement helper here or just rely on the fact that
@@ -51,20 +52,15 @@
         relevant-nodes (->> (vals (:class/by-fqcn pkg-ast))
                             (map ana/analyze-class-node)
                             (filter #(#{:accessor :enum :client :static-factory :string-enum :concrete-union :abstract-union} (:type %))))
-        
         expected-files (reduce (fn [acc node]
                                  (assoc acc (expected-file-path node output-dir) node))
                                {}
                                relevant-nodes)
-        
         actual-files (list-clj-files output-dir)
-        
         expected-paths (set (keys expected-files))
-        
         missing (s/difference expected-paths actual-files)
         extra (s/difference actual-files expected-paths)
         matching (s/intersection expected-paths actual-files)]
-    
     {:missing (sort missing)
      :extra (sort extra)
      :matching (count matching)

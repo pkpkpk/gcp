@@ -1,10 +1,11 @@
-(ns ^{:doc "match getters/setters/parameters together semantically.
+(ns gcp.dev.analyzer.align
+  {:doc "match getters/setters/parameters together semantically.
             naming conventions are sometimes inconsistent ie easier to ask a gemini model than to parse"}
-  gcp.dev.analyzer.align
-  (:require [clojure.data :refer [diff]]
-            [gcp.dev.models :as models]
-            [gcp.dev.store :as store]
-            [gcp.global :as g]))
+  (:require
+   [clojure.data :refer [diff]]
+   [gcp.dev.models :as models]
+   [gcp.dev.store :as store]
+   [gcp.global :as g]))
 
 (defn- validate-alignment!
   "expected-keys must be exact.
@@ -106,4 +107,3 @@
                                               :generationConfig generationConfig)
         edn (store/generate-content-aside (:store package) cfg (vec variant-tags) (validate-alignment! variant-tags static-methods))]
     (into (sorted-map) (map (fn [[k v]] [(name k) (symbol v)])) edn)))
-

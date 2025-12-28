@@ -1,20 +1,22 @@
 (ns gcp.dev.fuzz
-  (:require [clojure.test.check :as tc]
-            [clojure.test.check.properties :as prop]
-            [gcp.dev.packages :as pkg]
-            [gcp.dev.analyzer :as ana]
-            [gcp.dev.compiler :as compiler]
-            [gcp.dev.malli :as malli]
-            [gcp.dev.fuzz.generators :as fg]
-            [gcp.dev.util :as u]
-            [gcp.gen :as gen]
-            [gcp.global :as global]
-            [gcp.protobuf] 
-            [taoensso.telemere :as tel])
-  (:import (java.util.concurrent CancellationException)))
+  (:require
+   [clojure.test.check :as tc]
+   [clojure.test.check.properties :as prop]
+   [gcp.dev.analyzer :as ana]
+   [gcp.dev.compiler :as compiler]
+   [gcp.dev.fuzz.generators :as fg]
+   [gcp.dev.malli :as malli]
+   [gcp.dev.packages :as pkg]
+   [gcp.dev.util :as u]
+   [gcp.gen :as gen]
+   [gcp.global :as global]
+   [gcp.protobuf]
+   [taoensso.telemere :as tel])
+  (:import
+   (java.util.concurrent CancellationException)))
 
 (defn- run-with-timeout [timeout-ms thunk]
-  (let [f (future 
+  (let [f (future
             (try
               (thunk)
               (catch Exception e
@@ -47,7 +49,7 @@
     (tel/log! :info ["Starting fuzz test" tc-opts])
     (let [result (run-with-timeout timeout-ms
                    (fn []
-                     (tc/quick-check num-tests property 
+                     (tc/quick-check num-tests property
                                      :seed (or seed (System/currentTimeMillis))
                                      :max-size max-size)))]
       (if (:pass? result)
@@ -100,10 +102,8 @@
   (let [node (ana/analyze-class-node (pkg/lookup-class pkg-key fqcn))
         version (u/extract-version (:doc node))
         sk (u/schema-key (:package node) (:className node) version)
-        
         ;; Use gcp.gen which handles global mopts automatically
         generator (gen/generator sk)]
-    
     (check-schema generator
       (fn [edn]
         (let [ns-sym (symbol (str (u/package-to-ns (:package node) version) "." (:className node)))

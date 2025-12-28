@@ -1,12 +1,13 @@
 (ns gcp.dev.analyzer.extract
-  (:require [clojure.data :refer [diff]]
-            [clojure.string :as string]
-            [gcp.dev.models :as models]
-            [gcp.dev.packages :as packages]
-            [gcp.dev.store :as store]
-            [gcp.dev.util :refer :all]
-            [gcp.global :as g]
-            [gcp.vertexai.generativeai :as genai]))
+  (:require
+   [clojure.data :refer [diff]]
+   [clojure.string :as string]
+   [gcp.dev.models :as models]
+   [gcp.dev.packages :as packages]
+   [gcp.dev.store :as store]
+   [gcp.dev.util :refer :all]
+   [gcp.global :as g]
+   [gcp.vertexai.generativeai :as genai]))
 
 (defn- extract-from-class [package validate! cfg classlike]
   (let [src (packages/slurp-class package classlike)
@@ -116,7 +117,7 @@
   (let [expected (into {} (map #(vector (keyword (:name %)) %)) expected-methods)
         expected-keys (g/coerce [:set :keyword] (set (keys expected)))]
     (fn [edn]
-      (when-not (= expected-keys (set (keys edn)) )
+      (when-not (= expected-keys (set (keys edn)))
         (throw (ex-info "returned keys did not match"
                         {:expected (set (keys expected))
                          :actual   (set (keys edn))})))

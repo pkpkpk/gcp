@@ -1,12 +1,12 @@
 (ns gcp.dev.packages.legacy.packages
   (:require
-    [clojure.java.io :as io]
-    [clojure.string :as string]
-    [gcp.dev.models :as models]
-    [gcp.dev.store :as store]
-    [gcp.dev.util :refer :all]
-    [gcp.vertexai.generativeai :as genai]
-    [jsonista.core :as j]))
+   [clojure.java.io :as io]
+   [clojure.string :as string]
+   [gcp.dev.models :as models]
+   [gcp.dev.store :as store]
+   [gcp.dev.util :refer :all]
+   [gcp.vertexai.generativeai :as genai]
+   [jsonista.core :as j]))
 
 (def home            (io/file (System/getProperty "user.home")))
 (def project-root    (io/file home "pkpkpk" "gcp"))
@@ -34,7 +34,7 @@
         header-open-end (string/index-of s "</h1>")
         header (string/trim (subs s (inc header-open-close) header-open-end))
         _ (println "retrieved reference doc for " (pr-str header))
-        ;article-start (string/index-of s "<article>")
+        ; article-start (string/index-of s "<article>")
         article-end (string/index-of s "</article>")
         article (string/trim (subs s (+ header-open-end 5) article-end))]
     (str header article)))
@@ -98,7 +98,6 @@
      (extract-from-url cfg package-url))))
 
 (defonce $package-summary-memo (memoize $package-summary))
-
 
 (defn slurp-class
   [{:keys [repoRoot]} class-like]

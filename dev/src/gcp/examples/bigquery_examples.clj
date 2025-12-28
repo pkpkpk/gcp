@@ -1,14 +1,18 @@
 (ns gcp.examples.bigquery-examples
-  (:require [gcp.bigquery :as bq]))
+  (:require
+   [clojure.java.io :as io]
+   [gcp.bigquery :as bq])
+  (:import
+   (java.nio.channels Channels)))
 
 #_ (do (require :reload 'gcp.bigquery.bigquery-examples) (in-ns 'gcp.bigquery.bigquery-examples))
 
 ;; TODO
-;;--  Page<Routine> routines = bigquery.listRoutines(datasetName, BigQuery.RoutineListOption.pageSize(100));
+;; --  Page<Routine> routines = bigquery.listRoutines(datasetName, BigQuery.RoutineListOption.pageSize(100));
 
 (comment
   (bq/create-dataset "gcp_samples")
-  ;;--  Routines ---------------------------------------------------------
+  ;; --  Routines ---------------------------------------------------------
   (def routine {:routineId   {:dataset "gcp_samples"
                               :routine "sample0"}
                 :routineType "SCALAR_FUNCTION"
@@ -25,33 +29,8 @@
   (bq/update-routine (assoc routine :body "x * 42"))
   (bq/get-routine "gcp_samples" "sample0")
   (bq/delete-routine "gcp_samples" "sample0")
-  ;;-- Load Data ---------------------------------------------------------
+  ;; -- Load Data ---------------------------------------------------------
 
-  (def csv-autodetect-job {:configuration {
-                                           :type "LOAD"
+  (def csv-autodetect-job {:configuration {:type "LOAD"
                                            :tableId {:dataset "gcp_samples" :table "csv_table"}
-                                           :formatOptions {}
-
-                                           }})
-
-  )
-
-#_
-(defn load-local-file [file]
-  (let [cfg {:destinationTable {:dataset "gcp_samples" :table "sample_csv"}
-             :formatOptions {:type "CSV"}
-             :autodetect true}
-        jobId {:location "us"
-               :job (str "sample_csv_" (random-uuid))}]
-    (try
-      (let [writer (bq/writer jobId cfg)
-            stream (Channels/newOutputStream writer)
-            _(io/copy (slurp file) stream)
-            _(.close stream)
-            ;completed (.waitFor Job)
-            ]
-        ;(if (nil? completed)
-        ;  (println "Job DNE")
-        ;  completed)
-        ;(bq/get-job jobId)
-        ))))
+                                           :formatOptions {}}}))

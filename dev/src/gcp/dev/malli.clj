@@ -1,8 +1,9 @@
 (ns gcp.dev.malli
   "Convert analyzer AST nodes into malli schemas"
-  (:require [clojure.string :as string]
-            [gcp.dev.analyzer :as ana]
-            [gcp.dev.util :as u]))
+  (:require
+   [clojure.string :as string]
+   [gcp.dev.analyzer :as ana]
+   [gcp.dev.util :as u]))
 
 (defn- coerce [pred x] (when (pred x) x))
 
@@ -22,19 +23,16 @@
     (= t "com.google.protobuf.Timestamp") :gcp.protobuf/Timestamp
     (= t "com.google.protobuf.Struct") :gcp.protobuf/Struct
     (= t "com.google.protobuf.Value") :gcp.protobuf/Value
-    
     (or (= t "java.util.Map") (string/starts-with? t "java.util.Map<"))
-    [:map-of :string :any] 
-    
+    [:map-of :string :any]
     (or (= t "java.util.List") (string/starts-with? t "java.util.List<"))
-    [:sequential :any] 
+    [:sequential :any]
 
     (and (string/starts-with? (str t) "com.google.cloud")
          (> (count (string/split (str t) #"\.")) 4))
     (let [clean-t (string/replace (str t) #"^(class|interface) " "")
           {:keys [package class]} (u/split-fqcn clean-t)]
       (u/schema-key package class version))
-    
     :else :any))
 
 (defn- malli-accessor
@@ -96,7 +94,7 @@
          :doc (u/clean-doc doc)
          :class className}])
 
-(defn ->schema 
+(defn ->schema
   "Converts an analyzed node into a malli schema."
   ([node] (->schema node (u/extract-version (:doc node))))
   ([node version]
