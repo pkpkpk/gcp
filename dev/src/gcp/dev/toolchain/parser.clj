@@ -1,9 +1,9 @@
-(ns gcp.dev.packages.parser
+(ns gcp.dev.toolchain.parser
   (:require
    [clojure.java.io :as io]
    [clojure.string :as string]
-   [gcp.dev.packages.parser.ast :as ast]
-   [gcp.dev.packages.parser.core :as core]))
+   [gcp.dev.toolchain.parser.ast :as ast]
+   [gcp.dev.toolchain.parser.core :as core]))
 
 (defn parse-file
   "Parses a single Java file and returns a sequence of AST nodes.

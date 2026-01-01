@@ -1,7 +1,8 @@
 (ns gcp.gax.retrying.RetrySettings
-  (:import [com.google.api.gax.retrying RetrySettings RetrySettings$Builder]))
+  (:import
+   (com.google.api.gax.retrying RetrySettings RetrySettings$Builder)))
 
-;https://cloud.google.com/java/docs/reference/gax/latest/com.google.api.gax.retrying.RetrySettings
+; https://cloud.google.com/java/docs/reference/gax/latest/com.google.api.gax.retrying.RetrySettings
 #_ (do (require :reload 'gcp.gax.retrying.RetrySettings) (in-ns 'gcp.gax.retrying.RetrySettings))
 
 (defn to-edn [^RetrySettings arg]

@@ -156,6 +156,12 @@
         (when (re-matches #"v\d+.*" v)
           v)))))
 
+(defn to-vec [v]
+  (cond
+    (nil? v) []
+    (sequential? v) (vec v)
+    :else [v]))
+
 (defn package-to-ns [package-name version]
   (let [base (string/replace (str package-name) #"^com\.google\.cloud\." "")]
     (if version ;; TODO this is brittle

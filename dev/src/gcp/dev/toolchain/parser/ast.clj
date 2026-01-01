@@ -1,4 +1,4 @@
-(ns gcp.dev.packages.parser.ast
+(ns gcp.dev.toolchain.parser.ast
   "Core AST extraction logic using JavaParser.
    Responsible for traversing Java source files and extracting structural information
    into Clojure data structures."
@@ -105,17 +105,18 @@
   (let [res (cond
               (instance? ClassOrInterfaceType t)
               (let [name (.getNameAsString t)
-                    scope (.getScope t)]
-                (if (.isPresent scope)
-                  (let [scope-ast (parse-type-ast (.get scope) solver)
-                        scope-sym (if (sequential? scope-ast) (first scope-ast) scope-ast)]
-                    (symbol (str scope-sym "." name)))
-                  (if-let [args (.getTypeArguments t)]
-                    (if (.isPresent args)
-                      (let [arg-types (mapv #(parse-type-ast % solver) (.get args))]
-                        (into [(resolve-type name solver)] arg-types))
-                      (resolve-type name solver))
-                    (resolve-type name solver))))
+                    scope (.getScope t)
+                    base (if (.isPresent scope)
+                           (let [scope-ast (parse-type-ast (.get scope) solver)
+                                 scope-sym (if (sequential? scope-ast) (first scope-ast) scope-ast)]
+                             (symbol (str scope-sym "." name)))
+                           (resolve-type name solver))]
+                (if-let [args (.getTypeArguments t)]
+                  (if (.isPresent args)
+                    (let [arg-types (mapv #(parse-type-ast % solver) (.get args))]
+                      (into [base] arg-types))
+                    base)
+                  base))
 
               (instance? PrimitiveType t)
               (symbol (.asString t))

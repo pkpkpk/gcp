@@ -1,13 +1,14 @@
 (ns gcp.protobuf
-  (:require [gcp.global :as g]
-            [malli.core :as m])
-  (:import (com.google.protobuf ByteString ListValue NullValue ProtocolStringList Struct Value Duration Timestamp)
-           (java.nio ByteBuffer)))
+  (:require
+   [gcp.global :as g]
+   [malli.core :as m])
+  (:import
+   (com.google.protobuf ByteString Duration ListValue NullValue ProtocolStringList Struct Timestamp Value)
+   (java.nio ByteBuffer)))
 
 (def registry
   ^{::g/name ::registry}
-  {
-   ::Timestamp  [:map
+  {::Timestamp  [:map
                  [:seconds :int]
                  [:nanos [:int {:min 0 :max 999999999}]]]
    ::Duration   [:or
@@ -32,7 +33,8 @@
                  [:ref ::Value]]
 
    ::ByteString [:or {:class 'com.google.protobuf.ByteString
-                       :doc "schema for com.google.protobuf.ByteString"}
+                      :doc "schema for com.google.protobuf.ByteString"
+                      :gen/schema :string}
                  :string
                  'bytes?
                  (g/instance-schema java.nio.ByteBuffer)]})
@@ -101,7 +103,7 @@
   (let [builder (Value/newBuilder)]
     (cond
       (nil? arg)
-      (.setNullValue builder NullValue)
+      (.setNullValue builder NullValue/NULL_VALUE)
 
       (number? arg)
       (.setNumberValue builder arg)
@@ -109,10 +111,13 @@
       (string? arg)
       (.setStringValue builder arg)
 
-      (m/validate [:schema {:registry registry} ::Struct] arg)
+      (boolean? arg)
+      (.setBoolValue builder arg)
+
+      (g/valid? ::Struct arg)
       (.setStructValue builder (struct-from-edn arg))
 
-      (m/validate [:sequential [:schema {:registry registry} ::Value]] arg)
+      (g/valid? [:sequential ::Value] arg)
       (.setListValue builder (list-value-from-edn arg))
 
       true
@@ -123,13 +128,11 @@
   (if (instance? Value val)
     (cond
       (.hasBoolValue val) (.getBoolValue val)
-      (.hasListValue val) (map value-to-edn (.getListValue val))
+      (.hasListValue val) (map value-to-edn (.getValuesList (.getListValue val)))
       (.hasNullValue val) nil
       (.hasNumberValue val) (.getNumberValue val)
       (.hasStringValue val) (.getStringValue val)
-      (.hasStructValue val) (into {}
-                                  (map (fn [[k v]] [(name k) (value-to-edn v)]))
-                                  (.getStructValue val))
+      (.hasStructValue val) (struct-to-edn (.getStructValue val))
       true (throw (ex-info "unexpected protobuf value type" {:val val})))
     val))
 

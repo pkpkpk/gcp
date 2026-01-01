@@ -1,4 +1,4 @@
-(ns gcp.dev.analyzer
+(ns gcp.dev.toolchain.analyzer
   (:require
    [clojure.set :as s]
    [clojure.string :as string]
@@ -66,6 +66,11 @@
       (if (seq s)
         (str (string/lower-case (subs s 0 1)) (subs s 1))
         ""))
+    (string/starts-with? method-name "addAll")
+    (let [s (subs method-name 6)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
     :else method-name))
 
 (defn- package-key [node]
@@ -76,7 +81,8 @@
    :className (:name node)
    :package (:package node)
    :doc (:doc node)
-   :nested (:nested node)})
+   :nested (:nested node)
+   :git-sha (:file-git-sha node)})
 
 (defn- extract-type-symbols [type-ast]
   (cond
@@ -164,6 +170,15 @@
                                    :type (:returnType (:getter v))
                                    :doc (:doc (:getter v))}]))
                            props))
+        fields (reduce-kv (fn [acc k v]
+                            (if (or (and (string/ends-with? k "Bytes")
+                                         (contains? fields (subs k 0 (- (count k) 5))))
+                                    (and (string/ends-with? k "Value")
+                                         (contains? fields (subs k 0 (- (count k) 5)))))
+                              acc
+                              (assoc acc k v)))
+                          (sorted-map)
+                          fields)
         type-deps (into #{} (mapcat (fn [[_ f]] (extract-type-symbols (:type f)))) fields)
         newBuilder (first (filter #(= (:name %) "newBuilder") (:methods node)))]
 

@@ -1,234 +1,86 @@
 (ns gcp.dev.compiler
+  "Top-level orchestration for compiling Java ASTs into Clojure code.
+   Handles generation provenance and signature injection."
   (:require
-   [clojure.string :as string]
-   [gcp.dev.analyzer :as ana]
-   [gcp.dev.malli :as m]
+   [clojure.java.io :as io]
+   [gcp.dev.digest :as digest]
+   [gcp.dev.fuzz :as fuzz]
+   [gcp.dev.packages :as pkg]
+   [gcp.dev.toolchain.analyzer :as ana]
+   [gcp.dev.toolchain.emitter :as emitter]
    [gcp.dev.util :as u]
    [zprint.core :as zp]))
 
-(defn- get-deps [node version]
-  (let [current-class (:className node)
-        all-nested-names (letfn [(collect [n] (cons (:name n) (mapcat collect (:nested n))))]
-                           (set (mapcat collect (:nested node))))]
-    (->> (:typeDependencies node)
-      (filter #(string/starts-with? (str %) "com.google.cloud"))
-      (map (fn [dep]
-             (let [{:keys [package class]} (u/split-fqcn (str dep))
-                   class-parts (string/split class #"\.")
-                   top-class (first class-parts)
-                   is-self (= top-class current-class)
-                   is-nested (contains? all-nested-names top-class)
-                   ns-sym (symbol (str (u/package-to-ns package version) "." top-class))]
-               {:fqcn (str dep)
-                :ns ns-sym
-                :alias (symbol top-class)
-                :cls top-class
-                :full-class class
-                :local? (or is-self is-nested)})))
-      (into #{}))))
+(def CERTIFICATION_PROTOCOL
+  {:version "v1"
+   :stages [{:name :smoke    :tests 10  :max-size 10}
+            {:name :standard :tests 50  :max-size 30}
+            {:name :stress   :tests 100 :max-size 50}]})
 
-(defn- emit-ns-form [node deps version]
-  (let [ns-name (symbol (str (u/package-to-ns (:package node) version) "." (:className node)))
-        main-fqcn (str (:package node) "." (:className node))
-        all-nested-fqcns (letfn [(collect [prefix n]
-                                   (let [full (str prefix "$" (:name n))]
-                                     (cons full (mapcat #(collect full %) (:nested n)))))]
-                           (mapcat #(collect main-fqcn %) (:nested node)))
-        imports (map symbol (cons main-fqcn all-nested-fqcns))
-        requires (->> deps
-                      (remove :local?)
-                      (map (fn [{:keys [ns alias]}]
-                             [ns :as alias]))
-                      (into #{})
-                      (sort-by first))]
-    `(~'ns ~ns-name
-       (:require [gcp.global :as ~'global]
-                 [gcp.protobuf :as ~'protobuf]
-                 ~@requires)
-       (:import ~@(sort imports)))))
+(def CERTIFICATION_HASH
+  (digest/sha256 (pr-str CERTIFICATION_PROTOCOL)))
 
-(defn- resolve-conversion [type deps direction]
-  (let [type-str (str type)
-        is-list (or (string/starts-with? type-str "java.util.List")
-                    (string/starts-with? type-str "com.google.common.collect.ImmutableList"))
-        inner-type-str (if is-list
-                         (let [m (re-find #"<(.+)>" type-str)]
-                           (if m (second m) "Object"))
-                         type-str)
-        dep (first (filter #(= (:fqcn %) inner-type-str) deps))]
-    (cond
-      (= type-str "com.google.protobuf.ByteString")
-      (if (= direction :from-edn) 'protobuf/bytestring-from-edn 'protobuf/bytestring-to-edn)
+(defn compute-provenance
+  "Computes the provenance map for a class node."
+  [node version]
+  (let [source-identity {:package (:package node)
+                         :version version
+                         :class (:className node)
+                         :git-sha (:git-sha node)}
+        toolchain (digest/compute-toolchain-hash)
+        ast-hash (digest/compute-ast-hash node)
+        signature (digest/compute-generation-signature source-identity toolchain ast-hash)]
+    {:signature signature
+     :source source-identity
+     :toolchain-hash (:hash toolchain)
+     :generation-time (str (java.time.Instant/now))}))
 
-      (= type-str "com.google.protobuf.Duration")
-      (if (= direction :from-edn) 'protobuf/Duration-from-edn 'protobuf/Duration-to-edn)
+(defn compile-class
+  "Compiles a class node into a formatted string string with provenance."
+  ([node] (compile-class node nil))
+  ([node extra-metadata]
+   (let [version (u/extract-version (:doc node))
+         provenance (compute-provenance node version)
+         metadata (merge {:gcp.dev/provenance provenance} extra-metadata)]
+     (emitter/compile-class node metadata))))
 
-      (= type-str "com.google.protobuf.Timestamp")
-      (if (= direction :from-edn) 'protobuf/Timestamp-from-edn 'protobuf/Timestamp-to-edn)
+(defn compile-to-file
+  "Compiles a class node and writes the result to the specified output path."
+  [node output-path]
+  (let [code (compile-class node)]
+    (io/make-parents (io/file output-path))
+    (spit output-path code)
+    output-path))
 
-      (= type-str "com.google.protobuf.Struct")
-      (if (= direction :from-edn) 'protobuf/struct-from-edn 'protobuf/struct-to-edn)
-
-      (= type-str "com.google.protobuf.Value")
-      (if (= direction :from-edn) 'protobuf/value-from-edn 'protobuf/value-to-edn)
-
-      dep
-      (let [func (if (:local? dep)
-                   (if (string/includes? (:full-class dep) ".")
-                     (symbol (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
-                     (symbol (name direction)))
-                   (if (string/includes? (:full-class dep) ".")
-                     (symbol (str (:alias dep)) (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
-                     (symbol (str (:alias dep)) (name direction))))]
-        (if is-list
-          `(~'map ~func)
-          func))
-      :else
-      (if is-list
-        (if (or (= inner-type-str "java.lang.String")
-                (= inner-type-str "String"))
-          `(~'into [])
-          `identity)
-        `identity))))
-
-(defn- emit-accessor-from-edn [node deps version prefix class-sym-name func-name-base]
-  (let [class-name (:className node)
-        func-name (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'from-edn)
-        class-sym (symbol class-sym-name)
-        builder-method (symbol (str class-sym "/newBuilder"))
-        fields (:fields node)
-        builder-calls (for [[field-name {:keys [setterMethod type]}] fields]
-                        (let [setter (symbol (str "." setterMethod))
-                              conversion (resolve-conversion type deps :from-edn)
-                              val-sym (gensym "v")]
-                          `(~'when-some [~val-sym (~'get ~'arg ~(keyword field-name))]
-                             (~setter ~'builder
-                               ~(if (list? conversion)
-                                  `(~conversion ~val-sym)
-                                  `(~conversion ~val-sym))))))]
-    `(~'defn ~(with-meta func-name {:tag class-sym}) [~'arg]
-       ~@(when-not prefix [`(~'global/strict! ~(u/schema-key (:package node) (:className node) version) ~'arg)])
-       (~'let [~'builder (~builder-method)]
-         ~@builder-calls
-         (.build ~'builder)))))
-
-(defn- emit-accessor-to-edn [node deps version prefix class-sym-name func-name-base]
-  (let [class-name (:className node)
-        func-name (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'to-edn)
-        class-sym (symbol class-sym-name)
-        fields (:fields node)
-        assoc-steps (for [[field-name {:keys [getterMethod type]}] fields]
-                      (let [getter (symbol (str "." getterMethod))
-                            k (keyword field-name)
-                            conversion (resolve-conversion type deps :to-edn)]
-                        `(~'true
-                           (~'assoc ~k
-                                    ~(if (= conversion `identity)
-                                       `(~getter ~'arg)
-                                       (if (list? conversion)
-                                         `(~(first conversion) ~(second conversion) (~getter ~'arg))
-                                         `(~conversion (~getter ~'arg))))))))]
-    `(~'defn ~func-name [~(with-meta 'arg {:tag class-sym})]
-       ~@(when-not prefix [`{:post [(~'global/strict! ~(u/schema-key (:package node) (:className node) version) ~'%)]}])
-       (cond-> {}
-         ~@(mapcat identity assoc-steps)))))
-
-(defn- emit-enum-from-edn [node version prefix class-sym-name func-name-base]
-  (let [class-name (:className node)
-        func-name (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'from-edn)
-        class-sym (symbol class-sym-name)]
-    `(~'defn ~(with-meta func-name {:tag class-sym}) [~'arg]
-       (~'when ~'arg
-         (~(symbol (str class-sym "/valueOf")) (clojure.core/name ~'arg))))))
-
-(defn- emit-enum-to-edn [node version prefix class-sym-name func-name-base]
-  (let [class-name (:className node)
-        func-name (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'to-edn)
-        class-sym (symbol class-sym-name)]
-    `(~'defn ~func-name [~(with-meta 'arg {:tag class-sym})]
-       (~'when ~'arg
-         (.name ~'arg)))))
-
-(defn- schema-var-name [class-name]
-  (symbol (str (string/replace class-name "." "_") "-schema")))
-
-(defn- emit-schema [node version]
-  (let [class-name (:className node)
-        key (u/schema-key (:package node) class-name version)
-        malli-schema (m/->schema node version)
-        {:keys [package]} (u/split-fqcn (str (:package node) "." class-name))
-        top-class (first (string/split class-name #"\."))
-        ns-sym (symbol (str (u/package-to-ns package version) "." top-class))
-        schema-def `[:and
-                     {:ns (quote ~ns-sym)
-                      :from-edn (quote ~(if (= class-name top-class)
-                                          (symbol (str ns-sym) "from-edn")
-                                          (symbol (str ns-sym) (str (string/replace class-name "." "_") ":from-edn"))))
-                      :to-edn (quote ~(if (= class-name top-class)
-                                        (symbol (str ns-sym) "to-edn")
-                                        (symbol (str ns-sym) (str (string/replace class-name "." "_") ":to-edn"))))
-                      :doc ~(u/clean-doc (:doc node))
-                      :class (quote ~(symbol (str (:package node) "." class-name)))}
-                     ~malli-schema]]
-    `(~'def ~(schema-var-name class-name) ~schema-def)))
-
-(defn- emit-register [node version]
-  (let [class-name (:className node)
-        key (u/schema-key (:package node) class-name version)]
-    `(~'global/register-schema! ~key ~(schema-var-name class-name))))
-
-(defn- emit-all-nested-forms [parent-node deps version main-class-name]
-  (mapcat (fn [n]
-            (let [ana-n (ana/analyze-class-node n)
-                  nested-name (:name n)
-                  current-full-name (str (:className parent-node) "." nested-name)
-                  ana-n (assoc ana-n :className current-full-name)
-                  nested-class-sym (string/replace current-full-name "." "$")]
-              (remove nil?
-                (concat
-                  (emit-all-nested-forms ana-n deps version main-class-name)
-                  (case (:type ana-n)
-                    :accessor [(emit-accessor-from-edn ana-n deps version ":from-edn" nested-class-sym current-full-name)
-                               (emit-accessor-to-edn ana-n deps version ":to-edn" nested-class-sym current-full-name)]
-                    :enum [(emit-enum-from-edn ana-n version ":from-edn" nested-class-sym current-full-name)
-                           (emit-enum-to-edn ana-n version ":to-edn" nested-class-sym current-full-name)]
-                    :concrete-union [(emit-accessor-from-edn ana-n deps version ":from-edn" nested-class-sym current-full-name)
-                                     (emit-accessor-to-edn ana-n deps version ":to-edn" nested-class-sym current-full-name)]
-                    nil)
-                  [(emit-schema ana-n version)
-                   (emit-register ana-n version)]))))
-          (:nested parent-node)))
-
-(defn compile-class-forms [node]
-  (let [version (u/extract-version (:doc node))
-        deps (get-deps node version)
-        ns-form (emit-ns-form node deps version)
-        type (:type node)
-        main-class-name (:className node)
-        nested-fnames (letfn [(collect [prefix n]
-                                (let [full (str prefix "_" (:name n))]
-                                  (concat [(symbol (str full ":from-edn"))
-                                           (symbol (str full ":to-edn"))]
-                                          (mapcat #(collect (str prefix "_" (:name n)) %) (:nested n)))))]
-                        (mapcat #(collect main-class-name %) (:nested node)))
-        declare-form (when (seq nested-fnames) `(~'declare ~@nested-fnames))
-        nested-forms (emit-all-nested-forms node deps version main-class-name)
-        from-edn (case type
-                   :accessor (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                   :enum (emit-enum-from-edn node version nil main-class-name main-class-name)
-                   :concrete-union (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                   :abstract-union (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                   nil)
-        to-edn (case type
-                 :accessor (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                 :enum (emit-enum-to-edn node version nil main-class-name main-class-name)
-                 :concrete-union (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                 :abstract-union (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                 nil)
-        schema (emit-schema node version)
-        register (emit-register node version)]
-    (remove nil? (concat [ns-form declare-form] nested-forms [from-edn to-edn schema register]))))
-
-(defn compile-class [node]
-  (zp/zprint-str
-    (list* 'do (compile-class-forms node))))
+(defn compile-and-certify
+  "Compiles, certifies (fuzzes), and writes a class to disk.
+   
+   Args:
+     pkg-key: Package keyword (e.g., :vertexai).
+     fqcn: Fully qualified class name.
+     output-path: Target file path.
+     options: Map containing :seed (optional)."
+  [pkg-key fqcn output-path options]
+  (let [base-seed (or (:seed options) (System/currentTimeMillis))
+        ;; Run 3-Stage Certification
+        history (loop [stages (:stages CERTIFICATION_PROTOCOL)
+                       results []]
+                  (if-let [stage (first stages)]
+                    (let [stage-seed (+ base-seed (count results))
+                          res (fuzz/fuzz-class pkg-key fqcn (assoc stage :seed stage-seed :timeout-ms 60000))]
+                      (if (:pass? res)
+                        (recur (rest stages) (conj results (merge stage {:seed stage-seed :result :pass})))
+                        (throw (ex-info "Certification Failed" {:stage stage :result res}))))
+                    results))
+        cert-metadata {:gcp.dev/certification
+                       {:protocol-hash CERTIFICATION_HASH
+                        :base-seed base-seed
+                        :timestamp (str (java.time.Instant/now))
+                        :passed-stages (into {} (map (juxt :name :seed) history))}}
+        ;; Analyze and Emit
+        node (pkg/lookup-class pkg-key fqcn)
+        ana-node (ana/analyze-class-node node)
+        code (compile-class ana-node cert-metadata)]
+    (io/make-parents (io/file output-path))
+    (spit output-path code)
+    output-path))

@@ -2,11 +2,11 @@
   (:require
    [clojure.test.check :as tc]
    [clojure.test.check.properties :as prop]
-   [gcp.dev.analyzer :as ana]
    [gcp.dev.compiler :as compiler]
    [gcp.dev.fuzz.generators :as fg]
-   [gcp.dev.malli :as malli]
    [gcp.dev.packages :as pkg]
+   [gcp.dev.toolchain.analyzer :as ana]
+   [gcp.dev.toolchain.malli :as malli]
    [gcp.dev.util :as u]
    [gcp.gen :as gen]
    [gcp.global :as global]

@@ -1,7 +1,8 @@
 (ns gcp.core.RetryOption
-  (:require [gcp.global :as global]))
+  (:require
+   [gcp.global :as global]))
 
-;https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.RetryOption
+; https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.RetryOption
 
 (defn from-edn [arg]
   (throw (Exception. "unimplemented")))

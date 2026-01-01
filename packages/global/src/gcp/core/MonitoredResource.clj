@@ -1,7 +1,8 @@
 (ns gcp.core.MonitoredResource
-  (:import (com.google.cloud MonitoredResource)))
+  (:import
+   (com.google.cloud MonitoredResource)))
 
-;https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.MonitoredResource
+; https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.MonitoredResource
 
 (def schema any?)
 

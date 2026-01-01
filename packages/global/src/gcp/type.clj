@@ -1,13 +1,18 @@
 (ns gcp.type
-  (:require [gcp.global :as g])
-  (:import (com.google.type Date)))
+  (:require
+   [gcp.global :as g])
+  (:import
+   (com.google.type Date LatLng)))
 
 (def registry
   ^{::g/name ::registry}
   {::Date [:map {:closed true}
            [:year [:and :int]]
            [:month [:and :int [:enum 1 2 3 4 5 6 7 8 9 10 11 12]]]
-           [:day [:and :int [:enum 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]]]]})
+           [:day [:and :int [:enum 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]]]]
+   ::LatLng [:map {:closed true}
+             [:latitude :double]
+             [:longitude :double]]})
 
 (g/include-schema-registry! registry)
 
@@ -23,3 +28,14 @@
   {:year  (.getYear d)
    :month (.getMonth d)
    :day   (.getDay d)})
+
+(defn LatLng-from-edn
+  [{:keys [latitude longitude]}]
+  (let [builder (LatLng/newBuilder)]
+    (.setLatitude builder latitude)
+    (.setLongitude builder longitude)
+    (.build builder)))
+
+(defn LatLng-to-edn [^LatLng l]
+  {:latitude  (.getLatitude l)
+   :longitude (.getLongitude l)})

@@ -1,4 +1,4 @@
-(ns gcp.dev.packages.parser.core
+(ns gcp.dev.toolchain.parser.core
   "Core analysis logic for Java projects.
    Orchestrates the parsing process, including file discovery, caching, and Git integration."
   (:require
@@ -8,7 +8,7 @@
    [clojure.pprint :as pp]
    [clojure.string :as string]
    [clojure.walk :as walk]
-   [gcp.dev.packages.parser.ast :as ast]
+   [gcp.dev.toolchain.parser.ast :as ast]
    [taoensso.telemere :as tel])
   (:import
    (com.github.javaparser StaticJavaParser)
@@ -50,7 +50,7 @@
 
 (def parser-source-hash
   (try
-    (let [res (io/resource "gcp/dev/packages/parser/ast.clj")]
+    (let [res (io/resource "gcp/dev/toolchain/parser/ast.clj")]
       (if res
         (sha256 (slurp res))
         "unknown"))
@@ -68,8 +68,10 @@
   "Gets the latest git commit SHA for a specific file."
   [file-path]
   (try
-    (let [abs-path (.getAbsolutePath (io/file file-path))
-          {:keys [exit out]} (clojure.java.shell/sh "git" "log" "-n" "1" "--format=%H" abs-path)]
+    (let [file (io/file file-path)
+          dir (.getParent file)
+          name (.getName file)
+          {:keys [exit out]} (clojure.java.shell/sh "git" "log" "-n" "1" "--format=%H" name :dir dir)]
       (when (zero? exit) (string/trim out)))
     (catch Exception _ nil)))
 

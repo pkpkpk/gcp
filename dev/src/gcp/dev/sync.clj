@@ -3,9 +3,8 @@
    [clojure.java.io :as io]
    [clojure.set :as s]
    [clojure.string :as string]
-   [gcp.dev.analyzer :as ana]
-   [gcp.dev.compiler :as compiler]
    [gcp.dev.packages :as pkg]
+   [gcp.dev.toolchain.analyzer :as ana]
    [gcp.dev.util :as u]))
 
 ;; We need to expose package-to-ns from compiler or re-implement it.

@@ -3,7 +3,7 @@
    [clojure.java.io :as io]
    [clojure.string :as string]
    [gcp.dev.packages.package :as pkg]
-   [gcp.dev.packages.parser :as parser]))
+   [gcp.dev.toolchain.parser :as parser]))
 
 (defn- get-googleapis-repos-path []
   (let [root (System/getenv "GOOGLEAPIS_REPOS_PATH")]

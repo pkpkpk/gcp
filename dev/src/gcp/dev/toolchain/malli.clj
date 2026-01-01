@@ -1,8 +1,8 @@
-(ns gcp.dev.malli
+(ns gcp.dev.toolchain.malli
   "Convert analyzer AST nodes into malli schemas"
   (:require
    [clojure.string :as string]
-   [gcp.dev.analyzer :as ana]
+   [gcp.dev.toolchain.analyzer :as ana]
    [gcp.dev.util :as u]))
 
 (defn- coerce [pred x] (when (pred x) x))
@@ -12,28 +12,53 @@
     (keyword short-pkg class-name)))
 
 (defn ->malli-type [package-name t version]
-  (cond
-    (nil? t) :nil
-    (= t "void") :nil
-    (= t "java.lang.String") :string
-    (#{"boolean" "java.lang.Boolean"} t) :boolean
-    (#{"int" "java.lang.Integer" "long" "java.lang.Long"} t) :int
-    (= t "com.google.protobuf.ByteString") :gcp.protobuf/ByteString
-    (= t "com.google.protobuf.Duration") :gcp.protobuf/Duration
-    (= t "com.google.protobuf.Timestamp") :gcp.protobuf/Timestamp
-    (= t "com.google.protobuf.Struct") :gcp.protobuf/Struct
-    (= t "com.google.protobuf.Value") :gcp.protobuf/Value
-    (or (= t "java.util.Map") (string/starts-with? t "java.util.Map<"))
-    [:map-of :string :any]
-    (or (= t "java.util.List") (string/starts-with? t "java.util.List<"))
-    [:sequential :any]
+  (let [t-str (str t)]
+    (cond
+      (nil? t) :nil
+      (= t-str "void") :nil
+      (= t-str "java.lang.String") :string
+      (#{"boolean" "java.lang.Boolean"} t-str) :boolean
+      (#{"int" "java.lang.Integer"} t-str) [:int {:min -2147483648 :max 2147483647}]
+      (#{"long" "java.lang.Long"} t-str) :int
+      (#{"float" "java.lang.Float"} t-str) [:double {:min -3.4028235E38 :max 3.4028235E38}]
+      (#{"double" "java.lang.Double"} t-str) :double
+      (= t-str "com.google.protobuf.ByteString") :gcp.protobuf/ByteString      (= t-str "com.google.protobuf.Duration") :gcp.protobuf/Duration
+      (= t-str "com.google.protobuf.Timestamp") :gcp.protobuf/Timestamp
+      (= t-str "com.google.protobuf.Struct") :gcp.protobuf/Struct
+      (= t-str "com.google.protobuf.Value") :gcp.protobuf/Value
+      (= t-str "com.google.protobuf.ProtocolStringList") [:sequential :string]
 
-    (and (string/starts-with? (str t) "com.google.cloud")
-         (> (count (string/split (str t) #"\.")) 4))
-    (let [clean-t (string/replace (str t) #"^(class|interface) " "")
-          {:keys [package class]} (u/split-fqcn clean-t)]
-      (u/schema-key package class version))
-    :else :any))
+      (sequential? t)
+      (let [[base & args] t
+            base-str (str base)]
+        (cond
+          (or (= base-str "java.util.List")
+              (= base-str "com.google.common.collect.ImmutableList")
+              (= base-str "java.lang.Iterable"))
+          [:sequential (->malli-type package-name (first args) version)]
+
+          (or (= base-str "java.util.Map")
+              (= base-str "com.google.common.collect.ImmutableMap"))
+          [:map-of (->malli-type package-name (first args) version) (->malli-type package-name (second args) version)]
+
+          :else
+          (let [{:keys [package class]} (u/split-fqcn base-str)]
+            (u/schema-key package class version))))
+
+      (or (= t-str "java.util.Map") (string/starts-with? t-str "java.util.Map<"))
+      [:map-of :string :any]
+      (or (= t-str "java.util.List") (string/starts-with? t-str "java.util.List<"))
+      [:sequential :any]
+
+      (string/starts-with? t-str "com.google.type")
+      (let [class-name (last (string/split t-str #"\."))]
+        (keyword "gcp.type" class-name))
+
+      (string/starts-with? t-str "com.google.cloud")
+      (let [clean-t (string/replace t-str #"^(class|interface) " "")
+            {:keys [package class]} (u/split-fqcn clean-t)]
+        (u/schema-key package class version))
+      :else :any)))
 
 (defn- malli-accessor
   [{:keys [type doc fields className package] :as node} version]
@@ -53,7 +78,7 @@
                  (cond-> (assoc opts :optional true)
                          getterDoc (assoc :getterDoc getterDoc)
                          setterDoc (assoc :setterDoc setterDoc))
-                 (->malli-type package (str type) version)]))
+                 (->malli-type package type version)]))
             fields))))
 
 (defn- malli-static-factory
@@ -71,7 +96,9 @@
                       :gcp/type type
                       :gcp/key (u/schema-key package className version)}
                      doc (assoc :doc doc))
-        enum-values (map (fn [v] (if (map? v) (:name v) v)) values)]
+        enum-values (->> values
+                         (map (fn [v] (if (map? v) (:name v) v)))
+                         (remove #{"UNRECOGNIZED"}))]
     (into [:enum opts] enum-values)))
 
 (defn- malli-string-enum

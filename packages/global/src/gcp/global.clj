@@ -1,39 +1,54 @@
 (ns gcp.global
-  (:require clojure.string
-            [sci.core :as sci]
-            [sci.core]
-            [malli.core :as m]
-            malli.edn
-            [malli.error :as me]
-            [malli.registry :as mr]
-            [malli.util :as mu]
-            [clojure.string :as string])
-  (:import (clojure.lang ExceptionInfo)))
+  (:require
+   [clojure.string :as string]
+   [malli.core :as m]
+   [malli.edn]
+   [malli.error :as me]
+   [malli.registry :as mr]
+   [malli.util :as mu]
+   [sci.core :as sci])
+  (:import
+   (clojure.lang ExceptionInfo)))
 
 (defonce ^:dynamic *strict-mode* true)
 (defonce ^:dynamic *dbg* false)
+(defonce ^:dynamic *registry* (mr/composite-registry (m/default-schemas) (mu/schemas)))
 
-(defonce *classes (atom { 'java.lang.reflect.Modifier java.lang.reflect.Modifier
-                           'java.lang.reflect.Method   java.lang.reflect.Method}))
+(def *classes (atom {'java.lang.reflect.Modifier java.lang.reflect.Modifier
+                     'java.lang.reflect.Method   java.lang.reflect.Method
+                     'java.nio.ByteBuffer        java.nio.ByteBuffer
+                     'java.util.List             java.util.List}))
+
+(def sci-namespaces {'clojure.string      (sci/copy-ns clojure.string (sci/create-ns 'clojure.string {}))
+                     'clojure.core        (sci/copy-ns clojure.core (sci/create-ns 'clojure.core {}))})
+
+(defn mopts []
+  {:registry       *registry*
+   ::m/sci-options {:classes    @*classes
+                    :namespaces sci-namespaces
+                    :imports    {'ByteBuffer 'java.nio.ByteBuffer
+                                 'List       'java.util.List}}})
 
 (defmacro instance-schema
   [class-symbol]
   (assert (symbol? class-symbol))
-  `(do
-     (let [sym# (quote ~class-symbol)]
-       (swap! gcp.global/*classes assoc sym# (import ~class-symbol)))
-     [:fn
-      {:error/message (str "not an instance of " (quote ~class-symbol))}
-      '(fn [v#] (instance? ~class-symbol v#))]))
+  (let [fqcn (if (clojure.string/includes? (str class-symbol) ".")
+               class-symbol
+               (symbol (str "java.lang." class-symbol)))]
+    `(do
+       (let [sym# (quote ~class-symbol)]
+         (swap! gcp.global/*classes assoc sym# (import ~class-symbol)))
+       [:fn
+        {:error/message (str "not an instance of " (quote ~class-symbol))}
+        (list 'fn ['v] (list 'instance? (quote ~class-symbol) 'v))])))
 
-(defonce ^:dynamic *registry* (mr/composite-registry (m/default-schemas) (mu/schemas)))
-
-(defn mopts [] {:registry *registry* ::m/sci-options {:classes @*classes}})
+(defn to-vec [v]
+  (cond
+    (nil? v) []
+    (sequential? v) (vec v)
+    :else [v]))
 
 (defn get-schema [key] (get (mr/schemas *registry*) key))
-
-(def sci-namespaces {'clojure.string      (sci/copy-ns clojure.string (sci/create-ns 'clojure.string {}))
-                     'clojure.core        (sci/copy-ns clojure.core (sci/create-ns 'clojure.core {}))})
 
 (defn schema-key?
   "Returns true if k is a keyword shaped like :gcp.vertexai.v1.api/Schema.
@@ -42,8 +57,6 @@
   (and (keyword? k)
        (some? (namespace k))
        (some? (name k))
-       (not (string/blank? (namespace k)))
-       (not (string/blank? (name k)))
        (pos? (count (re-seq #"\." (namespace k))))))
 
 (defn assert-schema-key!
@@ -87,9 +100,7 @@
       (let [candidate (merge (mr/schemas *registry*) registry)]
         (when-let [bad-pairs (not-empty
                                (reduce (fn [acc [k schema]]
-                                         (let [opts {:registry candidate
-                                                     ::m/sci-options {:classes @*classes
-                                                                      :namespaces sci-namespaces}}
+                                         (let [opts      (assoc (mopts) :registry candidate)
                                                written   (try
                                                            (malli.edn/write-string schema opts)
                                                            (catch Exception e
@@ -100,8 +111,8 @@
                                                                       (get-in error-data [:data :schema]))
                                                                  (let [bad-schema (get-in error-data [:data :schema])]
                                                                    (if-let [body (get candidate bad-schema)]
-                                                                     (throw (ex-info (str "invalid schema for key "  bad-schema) {:key bad-schema
-                                                                                                                                  :body body}))
+                                                                     (throw (ex-info (str "invalid schema for key " bad-schema) {:key  bad-schema
+                                                                                                                                 :body body}))
                                                                      (throw (ex-info (str "missing schema for key " bad-schema) {:key bad-schema}))))
 
                                                                  (= ::m/invalid-ref error-type)

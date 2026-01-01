@@ -1,6 +1,7 @@
 (ns gcp.gen
-  (:require [gcp.global :as g]
-            [malli.generator :as mg]))
+  (:require
+   [gcp.global :as g]
+   [malli.generator :as mg]))
 
 (defn generate
   ([?gen-or-schema]
@@ -84,7 +85,6 @@
        (mg/check schema f (merge (g/mopts) opts))
        (throw (Exception. (str "could not find schema '" ?schema "'"))))
      (mg/check ?schema f (merge (g/mopts) opts)))))
-
 
 (comment
 
@@ -171,7 +171,5 @@
   ;; gen/gen (note, not serializable)
   (gg/generate
     [:sequential {:gen/gen (gen/list gen/neg-int)} :int]
-    {:size 42, :seed 42})
+    {:size 42, :seed 42}))
   ; => (-37 -13 -13 -24 -20 -11 -34 -40 -22 0 -10)
-
-  )
