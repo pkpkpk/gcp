@@ -1,6 +1,6 @@
 (ns gcp.logging.LogEntry
   (:require [gcp.global :as g]
-            [gcp.core.MonitoredResource :as MonitoredResource]
+            [gcp.foreign.com.google.api :as api]
             [gcp.logging.HttpRequest :as HttpRequest]
             [gcp.logging.LogDestinationName :as LogDestinationName]
             [gcp.logging.Operation :as Operation]
@@ -20,7 +20,7 @@
      [:logName {:optional true} :string]
      [:operation {:optional true} Operation/schema]
      [:receiveTimestamp {:optional true} [:or inst? :int]]
-     [:resource {:optional true} MonitoredResource/schema]
+     [:resource {:optional true} :gcp.foreign.com.google.api/MonitoredResource]
      [:severity {:optional true} Severity/schema]
      [:sourceLocation {:optional true} SourceLocation/schema]
      [:spanId {:optional true} any?]
@@ -41,7 +41,7 @@
     (some->> logName (.setLogName builder))
     (some->> operation Operation/from-edn (.setOperation builder))
     (some->> receiveTimestamp (.setReceiveTimestamp builder))
-    (some->> resource MonitoredResource/from-edn (.setResource builder))
+    (some->> resource api/MonitoredResource-from-edn (.setResource builder))
     (some->> severity Severity/from-edn (.setSeverity builder))
     (some->> sourceLocation SourceLocation/from-edn (.setSourceLocation builder))
     (some->> spanId (.setSpanId builder))
@@ -75,7 +75,7 @@
           (assoc :receiveTimestamp (.getInstantReceiveTimestamp arg))
 
           (.getResource arg)
-          (assoc :resource (MonitoredResource/to-edn (.getResource arg)))
+          (assoc :resource (api/MonitoredResource-to-edn (.getResource arg)))
 
           (some? (.getSeverity arg))
           (assoc :severity (.name (.getSeverity arg)))

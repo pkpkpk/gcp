@@ -1,6 +1,6 @@
 (ns gcp.pubsub.v1.RetryPolicy
   (:require [gcp.global :as global]
-            [gcp.protobuf :as p])
+            [gcp.foreign.com.google.protobuf :as p])
   (:import (com.google.pubsub.v1 RetryPolicy)))
 
 ;https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/com.google.pubsub.v1.RetryPolicy.Builder

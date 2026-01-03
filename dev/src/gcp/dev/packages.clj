@@ -3,6 +3,7 @@
    [clojure.java.io :as io]
    [clojure.string :as string]
    [gcp.dev.packages.package :as pkg]
+   [gcp.dev.toolchain.analyzer :as analyzer]
    [gcp.dev.toolchain.parser :as parser]))
 
 (defn- get-googleapis-repos-path []
@@ -19,10 +20,19 @@
 (def package-repos
   (delay
     (let [root (get-googleapis-repos-path)]
-      {:bigquery (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
-       :storage  (str root "/java-storage/google-cloud-storage/src/main/java")
-       :pubsub   (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
-       :vertexai (str root "/google-cloud-java/java-vertexai")})))
+      {:bigquery   (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
+       :storage    (str root "/java-storage/google-cloud-storage/src/main/java")
+       :pubsub     (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
+       :vertexai   (str root "/google-cloud-java/java-vertexai")
+       :monitoring (str root "/google-cloud-java/java-monitoring/google-cloud-monitoring/src/main/java")
+       :logging    (str root "/java-logging/google-cloud-logging/src/main/java")
+       :genai      (str root "/java-genai/src/main/java")})))
+
+(def package-native-prefixes
+  {:pubsub     #{"com.google.cloud.pubsub" "com.google.pubsub"}
+   :logging    #{"com.google.cloud.logging" "com.google.logging"}
+   :monitoring #{"com.google.cloud.monitoring" "com.google.monitoring"}
+   :genai      #{"com.google.genai"}})
 
 (defn parse
   "Analyzes a package specified by keyword (e.g. :bigquery) or path string.
@@ -30,7 +40,10 @@
   [key-or-path]
   (if (keyword? key-or-path)
     (if-let [path (get @package-repos key-or-path)]
-      (parser/parse-package path {})
+      (let [pkg-ast (parser/parse-package path {})]
+        (if-let [prefixes (get package-native-prefixes key-or-path)]
+          (assoc pkg-ast :native-prefixes prefixes)
+          pkg-ast))
       (throw (ex-info "Unknown package keyword" {:package key-or-path :available (keys @package-repos)})))
     (parser/parse-package key-or-path {})))
 
@@ -92,11 +105,23 @@
               (parse pkg-like))]
     (pkg/user-types pkg)))
 
+(defn package-user-types [pkg-like]
+  (let [pkg (if (map? pkg-like)
+              pkg-like
+              (parse pkg-like))]
+    (pkg/package-user-types pkg)))
+
 (defn foreign-user-types [pkg-like]
   (let [pkg (if (map? pkg-like)
               pkg-like
               (parse pkg-like))]
     (pkg/foreign-user-types pkg)))
+
+(defn foreign-user-types-by-package [pkg-like]
+  (let [pkg (if (map? pkg-like)
+              pkg-like
+              (parse pkg-like))]
+    (pkg/foreign-user-types-by-package pkg)))
 
 (defn class-user-types
   ([class-node]
@@ -124,3 +149,60 @@
 (defn dependency-post-order [pkg-like class-like]
   (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
     (pkg/dependency-post-order pkg class-like)))
+
+(defn analyze-class
+  [pkg-like class-like]
+  (let [class-node (lookup-class pkg-like class-like)]
+    (analyzer/analyze-class-node class-node)))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn class-deps
+  "Analyzes the dependencies of a node and returns a map separating them into
+   :internal (same package/service) and :foreign (external, e.g. java.*, protobuf)."
+  ([pkg-like class-like]
+   (class-deps (lookup-class pkg-like class-like)))
+  ([node]
+   (let [analyzed    (analyzer/analyze-class-node node)
+         deps        (:typeDependencies analyzed)
+         package     (:package node)
+         ;; Heuristic: Internal if starts with same package prefix (up to service level)
+         ;; e.g. com.google.cloud.vertexai
+         service-pkg (if (string/starts-with? package "com.google.cloud.")
+                       (let [parts (string/split package #"\.")]
+                         (string/join "." (take 5 parts)))  ;; com.google.cloud.service.vX
+                       package)]
+     (reduce (fn [acc dep]
+               (let [dep-str (str dep)]
+                 (if (string/starts-with? dep-str service-pkg)
+                   (update acc :internal conj dep)
+                   (update acc :foreign conj dep))))
+             {:internal (sorted-set) :foreign (sorted-set)}
+             deps))))
+
+(defn class-foreign-deps
+  ([pkg-like class-like]
+   (class-foreign-deps (lookup-class pkg-like class-like)))
+  ([node]
+   (:foreign (class-deps node))))
+
+(defn package-foreign-deps
+  [pkg-like]
+  ;; for all package-user-types, analyze the type dependents relevant to bindings, and collect and merge the foreign types
+  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))
+        ;; We iterate over all defined classes in the package that are considered user types
+        ;; (i.e. part of the API surface we care about).
+        types (package-user-types pkg)
+        ;; Use native prefixes to filter out internal types
+        native-prefixes (or (:native-prefixes pkg) #{(:package-name pkg)})
+        is-native? (fn [t] (some #(string/starts-with? (str t) %) native-prefixes))]
+    (->> types
+         (map #(lookup-class pkg %))
+         (filter some?)
+         (map class-deps)
+         (mapcat :foreign)
+         (remove is-native?)
+         (into (sorted-set)))))
+
+(defn global-foreign-deps []
+  (reduce into (map package-foreign-deps (keys @package-repos))))

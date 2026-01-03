@@ -45,6 +45,16 @@
         (string/replace #"\\\\" "\\")
         (string/replace #"\s+" " "))))
 
+(defn excluded-type-name? [type-name]
+  (or (string/ends-with? type-name "Impl")
+      (string/ends-with? type-name "Helper")
+      (string/ends-with? type-name "RetryAlgorithm")
+      (string/ends-with? type-name "OrBuilder")
+      (string/ends-with? type-name "Callable")
+      (string/ends-with? type-name "Serializer")
+      (string/ends-with? type-name "UnusedPrivateParameter")
+      (= type-name "BigQueryErrorMessages")))
+
 (defn get-url-bytes [^String url]
   (println (str "fetching url -> " url))
   (let [{:keys [status body] :as response} (http/get url {:redirect-strategy :none :as :byte-array})]
@@ -181,6 +191,13 @@
        :class (string/join "." (drop idx parts))}
       {:package (string/join "." (butlast parts))
        :class (last parts)})))
+
+(defn infer-foreign-ns [fqcn]
+  (let [{:keys [package]} (split-fqcn fqcn)]
+    (symbol (str "gcp.foreign." package))))
+
+(defn foreign-binding-exists? [ns-sym]
+  (boolean (io/resource (str (string/replace (name ns-sym) #"\." "/") ".clj"))))
 
 (defn schema-key [package-name class-name version]
   (let [ns-sym (package-to-ns package-name version)]

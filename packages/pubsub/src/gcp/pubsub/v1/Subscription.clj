@@ -1,7 +1,7 @@
 (ns gcp.pubsub.v1.Subscription
   (:require [clojure.string :as string]
             [gcp.global :as global]
-            [gcp.protobuf :as p]
+            [gcp.foreign.com.google.protobuf :as p]
             [gcp.pubsub.v1.BigQueryConfig :as BigQueryConfig]
             [gcp.pubsub.v1.CloudStorageConfig :as CloudStorageConfig]
             [gcp.pubsub.v1.DeadLetterPolicy :as DeadLetterPolicy]

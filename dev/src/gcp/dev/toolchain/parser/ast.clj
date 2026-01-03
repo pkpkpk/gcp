@@ -4,6 +4,7 @@
    into Clojure data structures."
   (:require
    [clojure.string :as string]
+   [gcp.dev.util :as u]
    [taoensso.telemere :as tel])
   (:import
    (com.github.javaparser StaticJavaParser)
@@ -159,13 +160,7 @@
                             (= (.getNameAsString a) "Deprecated"))
                           annotations)
         is-impl-type? (and (instance? TypeDeclaration node)
-                           (let [n (.getNameAsString node)]
-                             (or (string/ends-with? n "Impl")
-                                 (string/ends-with? n "Helper")
-                                 (string/ends-with? n "RetryAlgorithm")
-                                 (string/ends-with? n "OrBuilder")
-                                 (string/ends-with? n "Callable")
-                                 (= n "BigQueryErrorMessages"))))
+                           (u/excluded-type-name? (.getNameAsString node)))
         is-private? (has-mod? Modifier$Keyword/PRIVATE)
         is-public? (has-mod? Modifier$Keyword/PUBLIC)
         is-protected? (has-mod? Modifier$Keyword/PROTECTED)
@@ -517,7 +512,7 @@
   (if (or (not (visible? type-decl options))
           (instance? AnnotationDeclaration type-decl)
           (and package (string/includes? package ".spi."))
-          (string/ends-with? (.getNameAsString type-decl) "Serializer"))
+          (u/excluded-type-name? (.getNameAsString type-decl)))
     nil
     (let [local-types (extract-local-types type-decl)
           solver (build-type-solver package imports local-types)
@@ -539,9 +534,8 @@
          :methods (extract-methods type-decl solver options)
          :fields (extract-fields type-decl solver options)}
         (when (instance? ClassOrInterfaceDeclaration type-decl)
-          {:extends (extract-extends type-decl solver)
-           :implements (extract-implements type-decl solver)})
-
+          {:extends (filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
+           :implements (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))})
         (when (= kind :class)
           {:constructors (extract-constructors type-decl solver options)})
         (when (= kind :enum)

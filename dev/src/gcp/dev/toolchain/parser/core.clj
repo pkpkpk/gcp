@@ -179,10 +179,10 @@
         repo-sha (get-git-sha sdk-root)
         package-cache-key (sha256 (str parser-source-hash repo-sha (.getAbsolutePath (io/file path))))
         package-cache-file (io/file cache-dir (str "pkg-" package-cache-key ".edn"))]
-    (tel/log! (str "Analyzing package path: " path))
+    (tel/log! :debug (str "Analyzing package path: " path))
     (if (.exists package-cache-file)
       (do
-        (tel/log! (str "Package cache hit: " (.getName package-cache-file)))
+        (tel/log! :debug (str "Package cache hit: " (.getName package-cache-file)))
         (try
           (read-string (slurp package-cache-file))
           (catch Exception e
@@ -191,13 +191,18 @@
             (io/delete-file package-cache-file)
             (analyze-package path files options))))
       (do
-        (tel/log! "Package cache miss. Analyzing package...")
-        (let [;; To find the "root" package of the artifact, we look for the file with the shortest path.
-              ;; This assumes that the top-level package has files at the shallowest directory level.
-              shortest-file (first (sort-by #(count (.getPath %)) files))
-              package-name (when shortest-file
-                             (let [nodes (parse-file-cached (.getPath shortest-file) options)]
-                               (:package (first nodes))))
+        (tel/log! :debug "Package cache miss. Analyzing package...")
+        (let [;; To find the "root" package of the artifact, we look for files with the shortest path.
+              ;; We scan until we find one that yields a valid package declaration.
+              sorted-files (->> files
+                                (remove #(let [n (.getName %)]
+                                           (or (string/ends-with? n "module-info.java")
+                                               (string/ends-with? n "package-info.java"))))
+                                (sort-by #(count (.getPath %))))
+              package-name (some (fn [f]
+                                   (let [nodes (parse-file-cached (.getPath f) options)]
+                                     (:package (first nodes))))
+                                 sorted-files)
               ;; We still look for package-info.java for documentation, preferentially the one at the root
               root-package-info (->> files
                                      (filter #(string/ends-with? (.getName %) "package-info.java"))
@@ -280,9 +285,9 @@
           output-path (second input-args)
           options {:include-private? false
                    :include-package-private? false}]
-      (tel/log! ["Processing:" path "with options:" options])
-      (tel/log! (str "Output will be written to: " output-path))
-      (tel/log! (str "Pretty printing: " pretty?))
+      (tel/log! :debug ["Processing:" path "with options:" options])
+      (tel/log! :debug (str "Output will be written to: " output-path))
+      (tel/log! :debug (str "Pretty printing: " pretty?))
       (io/make-parents (io/file cache-dir "dummy"))
       (time-stage "Total Execution"
         (let [file (io/file path)
@@ -291,8 +296,8 @@
                         (filter #(string/ends-with? (.getName %) ".java") (file-seq file))
                         [file]))
               file-count (count files)]
-          (tel/log! ["Found" file-count "Java files to parse."])
-          (tel/log! (str "Parser source hash: " parser-source-hash))
+          (tel/log! :debug ["Found" file-count "Java files to parse."])
+          (tel/log! :debug (str "Parser source hash: " parser-source-hash))
           (let [package-ast (analyze-package path files options)]
             (time-stage "Writing Output"
               (with-open [writer (io/writer output-path)]
@@ -301,4 +306,4 @@
                   (binding [*print-length* nil
                             *print-level* nil]
                     (.write writer (pr-str package-ast))))))
-            (tel/log! (str "Processed package. Output written to " output-path))))))))
+            (tel/log! :debug (str "Processed package. Output written to " output-path))))))))

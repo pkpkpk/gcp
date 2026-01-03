@@ -10,24 +10,33 @@
   (let [current-class (:className node)
         top-level-class (first (string/split current-class #"\."))]
     (->> (:typeDependencies node)
-      (filter #(or (string/starts-with? (str %) "com.google.cloud")
-                   (string/starts-with? (str %) "com.google.type")))
+      (remove #(u/native-type (str %)))
       (map (fn [dep]
              (let [dep-str (str dep)
                    {:keys [package class]} (u/split-fqcn dep-str)
                    class-parts (string/split class #"\.")
-                   top-class (first class-parts)
+                   top-class (first (string/split (first class-parts) #"\$"))
                    is-local (and (string/starts-with? dep-str "com.google.cloud")
-                                 (= top-class top-level-class))
-                   ns-sym (if (string/starts-with? dep-str "com.google.type")
-                            'gcp.type
-                            (symbol (str (u/package-to-ns package version) "." top-class)))]
-               {:fqcn dep-str
-                :ns ns-sym
-                :alias (if (= ns-sym 'gcp.type) 'gcp.type (symbol top-class))
-                :cls top-class
-                :full-class class
-                :local? is-local})))
+                                 (= top-class top-level-class))]
+               (if is-local
+                 {:fqcn dep-str
+                  :local? true
+                  :full-class class}
+                 (let [is-cloud (string/starts-with? dep-str "com.google.cloud")
+                       ns-sym (if is-cloud
+                                (symbol (str (u/package-to-ns package version) "." top-class))
+                                (u/infer-foreign-ns dep-str))
+                       alias (if is-cloud
+                               (symbol top-class)
+                               (symbol (last (string/split (name ns-sym) #"\."))))
+                       exists? (if is-cloud true (u/foreign-binding-exists? ns-sym))]
+                   {:fqcn dep-str
+                    :ns ns-sym
+                    :alias alias
+                    :cls top-class
+                    :full-class class
+                    :local? false
+                    :exists? exists?})))))
       (into #{}))))
 
 (defn- needs-protobuf? [node]
@@ -41,21 +50,30 @@
                         "com.google.protobuf.Value"}]
       (boolean (some #(contains? proto-types (str %)) field-types)))))
 
+(defn- collect-all-nested-fqcns [node]
+  (let [pkg (:package node)
+        main-class (:className node)]
+    (letfn [(traverse [n parent-name]
+              (let [current-name (str parent-name "$" (:name n))]
+                (cons (str pkg "." current-name)
+                      (mapcat #(traverse % current-name) (:nested n)))))]
+      (mapcat #(traverse % main-class) (:nested node)))))
+
 (defn- emit-ns-form [node deps version metadata]
   (let [ns-name (symbol (str (u/package-to-ns (:package node) version) "." (:className node)))
         main-fqcn (str (:package node) "." (:className node))
-        imports [(symbol main-fqcn)]
+        nested-fqcns (collect-all-nested-fqcns node)
+        imports (map symbol (cons main-fqcn nested-fqcns))
         requires (->> deps
                       (remove :local?)
+                      (filter :exists?)
                       (map (fn [{:keys [ns alias]}]
                              [ns :as alias]))
                       (into #{})
-                      (sort-by first))
-        proto? (needs-protobuf? node)]
+                      (sort-by first))]
     `(~'ns ~ns-name
        ~@(when metadata [metadata])
        (:require [gcp.global :as ~'global]
-                 ~@(when proto? [`[gcp.protobuf :as ~'protobuf]])
                  ~@requires)
        (:import ~@imports))))
 
@@ -77,38 +95,18 @@
         inner-type-str (str inner-type)
         dep (first (filter #(= (:fqcn %) inner-type-str) deps))]
     (cond
-      (= inner-type-str "com.google.protobuf.ByteString")
-      (let [func (if (= direction :from-edn) 'protobuf/bytestring-from-edn 'protobuf/bytestring-to-edn)]
-        (if is-list `(~'map ~func) func))
-
-      (= inner-type-str "com.google.protobuf.Duration")
-      (let [func (if (= direction :from-edn) 'protobuf/Duration-from-edn 'protobuf/Duration-to-edn)]
-        (if is-list `(~'map ~func) func))
-
-      (= inner-type-str "com.google.protobuf.Timestamp")
-      (let [func (if (= direction :from-edn) 'protobuf/Timestamp-from-edn 'protobuf/Timestamp-to-edn)]
-        (if is-list `(~'map ~func) func))
-
-      (= inner-type-str "com.google.protobuf.Struct")
-      (let [func (if (= direction :from-edn) 'protobuf/struct-from-edn 'protobuf/struct-to-edn)]
-        (if is-list `(~'map ~func) func))
-
-      (= inner-type-str "com.google.protobuf.Value")
-      (let [func (if (= direction :from-edn) 'protobuf/value-from-edn 'protobuf/value-to-edn)]
-        (if is-list `(~'map ~func) func))
-
       (= (str type) "com.google.protobuf.ProtocolStringList")
       (if (= direction :from-edn) `(~'mapv ~'clojure.core/str) `(~'into []))
 
-      dep
+      (and dep (:exists? dep))
       (let [func (cond
                    (:local? dep)
                    (if (string/includes? (:full-class dep) ".")
                      (symbol (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
                      (symbol (name direction)))
 
-                   (= (:ns dep) 'gcp.type)
-                   (symbol "gcp.type" (str (:cls dep) "-" (name direction)))
+                   (not (string/starts-with? (:fqcn dep) "com.google.cloud"))
+                   (symbol (str (:alias dep)) (str (:cls dep) "-" (name direction)))
 
                    :else
                    (if (string/includes? (:full-class dep) ".")
@@ -274,7 +272,7 @@
    Accepts optional metadata map."
   ([node] (compile-class node nil))
   ([node metadata]
-   (let [preamble ";; THIS FILE IS GENERATED; DO NOT EDIT\n\n"
+   (let [preamble ";; THIS FILE IS GENERATED; DO NOT EDIT\n"
          forms (compile-class-forms node metadata)
          class-name (:className node)
          fix-hints (fn [src]

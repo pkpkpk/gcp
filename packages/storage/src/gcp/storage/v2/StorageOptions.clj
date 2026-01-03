@@ -1,6 +1,6 @@
 (ns gcp.storage.v2.StorageOptions
   (:require [gcp.global :as global]
-            [gcp.gax.retrying.RetrySettings :as RetrySettings]
+            [gcp.foreign.com.google.api.gax.retrying :as retrying]
             [gcp.storage.v2.BlobWriteSessionConfig :as BlobWriteSessionConfig])
   (:import (com.google.cloud.storage Storage StorageOptions StorageRetryStrategy)))
 
@@ -31,7 +31,7 @@
     ;com.google.cloud.ServiceOptions.Builder.setRetrySettings(com.google.api.gax.retrying.RetrySettings)
     (when (contains? arg :retrySettings)
       (let [default-builder (.toBuilder (StorageOptions/getDefaultRetrySettings))
-            retry-settings  (RetrySettings/from-edn default-builder (:retrySettings arg))]
+            retry-settings  (retrying/RetrySettings-from-edn default-builder (:retrySettings arg))]
         (.setRetrySettings builder retry-settings)))
     ;com.google.cloud.ServiceOptions.Builder.setServiceFactory(com.google.cloud.ServiceFactory<ServiceT,OptionsT>)
     ;com.google.cloud.ServiceOptions.Builder.setServiceRpcFactory(com.google.cloud.spi.ServiceRpcFactory<OptionsT>)
@@ -58,4 +58,3 @@
    :gcp.storage.v2/StorageRetryStrategy :any})
 
 (global/include-schema-registry! (with-meta schemas {:gcp.global/name (str *ns*)}))
-

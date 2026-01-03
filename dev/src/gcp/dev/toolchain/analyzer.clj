@@ -2,9 +2,7 @@
   (:require
    [clojure.set :as s]
    [clojure.string :as string]
-   [gcp.dev.packages :as packages]
-   [gcp.dev.util :as u]
-   [taoensso.telemere :as tel]))
+   [gcp.dev.util :as u]))
 
 ;; -----------------------------------------------------------------------------
 ;; Helpers
@@ -73,22 +71,50 @@
         ""))
     :else method-name))
 
-(defn- package-key [node]
-  (keyword "gcp" (str (:package node) "." (:name node))))
-
-(defn- basic-info [node]
-  {:gcp/key (package-key node)
-   :className (:name node)
-   :package (:package node)
-   :doc (:doc node)
-   :nested (:nested node)
-   :git-sha (:file-git-sha node)})
-
 (defn- extract-type-symbols [type-ast]
   (cond
     (symbol? type-ast) (if (#{'? 'void} type-ast) #{} #{type-ast})
     (sequential? type-ast) (reduce into #{} (map extract-type-symbols type-ast))
     :else #{}))
+
+(defn- extract-all-dependencies [node]
+  (let [fields (:fields node)
+        methods (:methods node)
+        ctors (:constructors node)
+        extends (:extends node)
+        implements (:implements node)
+        field-deps (mapcat (fn [f] (extract-type-symbols (:type f))) fields)
+        method-deps (mapcat (fn [m]
+                              (concat (extract-type-symbols (:returnType m))
+                                      (mapcat #(extract-type-symbols (:type %)) (:parameters m))))
+                            methods)
+        ctor-deps (mapcat (fn [c] (mapcat #(extract-type-symbols (:type %)) (:parameters c))) ctors)
+        extends-deps (mapcat extract-type-symbols extends)
+        implements-deps (mapcat extract-type-symbols implements)]
+    (into #{}
+          (remove #(u/excluded-type-name? (str %)))
+          (concat field-deps method-deps ctor-deps extends-deps implements-deps))))
+
+(defn- package-key [node]
+  (keyword "gcp" (str (:package node) "." (:name node))))
+
+(defn- basic-info [node]
+  (let [deps (extract-all-dependencies node)
+        unresolved (into #{}
+                         (filter (fn [dep]
+                                   (let [s (str dep)]
+                                     (and (not (u/native-type s))
+                                          (not (string/starts-with? s "com.google.cloud"))
+                                          (not (u/foreign-binding-exists? (u/infer-foreign-ns s)))))))
+                         deps)]
+    {:gcp/key (package-key node)
+     :className (:name node)
+     :package (:package node)
+     :doc (:doc node)
+     :nested (:nested node)
+     :git-sha (:file-git-sha node)
+     :typeDependencies deps
+     :unresolved-deps unresolved}))
 
 ;; -----------------------------------------------------------------------------
 ;; Analyzer
@@ -270,29 +296,3 @@
 
 #! << IT IS FORBIDDEN TO CHANGE THIS BRANCH >>
 (defmethod analyze-class-node :other [node] (throw (ex-info "illegal state" node))) #! IT IS FORBIDDEN TO CHANGE THIS LINE
-
-(defn analyze-class
-  [pkg-like class-like]
-  (let [class-node (packages/lookup-class pkg-like class-like)]
-    (analyze-class-node class-node)))
-
-(defn analyze-dependencies
-  "Analyzes the dependencies of a node and returns a map separating them into
-   :internal (same package/service) and :foreign (external, e.g. java.*, protobuf)."
-  [node]
-  (let [analyzed (analyze-class-node node)
-        deps (:typeDependencies analyzed)
-        package (:package node)
-        ;; Heuristic: Internal if starts with same package prefix (up to service level)
-        ;; e.g. com.google.cloud.vertexai
-        service-pkg (if (string/starts-with? package "com.google.cloud.")
-                      (let [parts (string/split package #"\.")]
-                        (string/join "." (take 5 parts))) ;; com.google.cloud.service.vX
-                      package)]
-    (reduce (fn [acc dep]
-              (let [dep-str (str dep)]
-                (if (string/starts-with? dep-str service-pkg)
-                  (update acc :internal conj dep)
-                  (update acc :foreign conj dep))))
-            {:internal #{} :foreign #{}}
-            deps)))

@@ -22,11 +22,18 @@
         (get-in pkg [:class/by-fqcn fqcn])))
     (throw (Exception. "bad class-like"))))
 
+(def default-ignored-prefixes
+  #{"com.google.api.services."})
+
+(defn- ignored-type? [type-sym]
+  (let [t-str (str type-sym)]
+    (some #(string/starts-with? t-str %) default-ignored-prefixes)))
+
 (defn- extract-type-symbols [type-ast]
   (cond
-    (symbol? type-ast) (if (#{'? 'void} type-ast) #{} #{type-ast})
-    (sequential? type-ast) (reduce into #{} (map extract-type-symbols type-ast))
-    :else #{}))
+    (symbol? type-ast) (if (or (#{'? 'void} type-ast) (ignored-type? type-ast)) (sorted-set) (conj (sorted-set) type-ast))
+    (sequential? type-ast) (reduce into (sorted-set) (map extract-type-symbols type-ast))
+    :else (sorted-set)))
 
 (defn class-user-types
   ([pkg class-like]
@@ -39,21 +46,27 @@
          param-types  (mapcat :parameters members)
          return-types (keep :returnType members)
          all-types    (concat (map :type param-types) return-types)]
-     (into (reduce into #{} (map extract-type-symbols all-types))
+     (into (reduce into (sorted-set) (map extract-type-symbols all-types))
            (mapcat class-user-types nested)))))
 
 (defn user-types [{:keys [class/by-fqcn] :as _pkg}]
-  (transduce (map class-user-types) (completing into) #{} (vals by-fqcn)))
+  (transduce (map class-user-types) (completing into) (sorted-set) (vals by-fqcn)))
+
+(defn- native-type? [pkg type-sym]
+  (let [t-str (str type-sym)
+        pkg-name (:package-name pkg)
+        _ (assert (some? pkg-name))
+        native-prefixes (or (:native-prefixes pkg) #{pkg-name})]
+    (some #(string/starts-with? t-str %) native-prefixes)))
 
 (defn class-foreign-user-types [pkg class-like]
   (let [class-node (if (map? class-like)
                      class-like
                      (lookup-class pkg class-like))]
     (if class-node
-      (let [all-types (class-user-types class-node)
-            pkg-name  (:package-name pkg)]
-        (into #{}
-              (remove (fn [t] (string/starts-with? (str t) pkg-name)))
+      (let [all-types (class-user-types class-node)]
+        (into (sorted-set)
+              (remove (fn [t] (native-type? pkg t)))
               all-types))
       (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
 
@@ -62,15 +75,32 @@
                      class-like
                      (lookup-class pkg class-like))]
     (if class-node
-      (let [all-types (class-user-types class-node)
-            pkg-name  (:package-name pkg)]
-        (into #{}
-              (filter (fn [t] (string/starts-with? (str t) pkg-name)))
+      (let [all-types (class-user-types class-node)]
+        (into (sorted-set)
+              (filter (fn [t] (native-type? pkg t)))
               all-types))
       (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
 
+(defn package-user-types [pkg]
+  (transduce (map #(class-package-user-types pkg %)) (completing into) (sorted-set) (vals (:class/by-fqcn pkg))))
+
 (defn foreign-user-types [pkg]
-  (transduce (map #(class-foreign-user-types pkg %)) (completing into) #{} (vals (:class/by-fqcn pkg))))
+  (transduce (map #(class-foreign-user-types pkg %)) (completing into) (sorted-set) (vals (:class/by-fqcn pkg))))
+
+(defn foreign-user-types-by-package
+  "Returns a map of package name to a set of foreign types used in the package.
+   Primitives are grouped under the :primitive key."
+  [pkg]
+  (let [foreign-types (foreign-user-types pkg)]
+    (reduce (fn [acc type-sym]
+              (let [t-str (str type-sym)
+                    last-dot (.lastIndexOf t-str ".")
+                    pkg-key (if (neg? last-dot)
+                              :primitive
+                              (subs t-str 0 last-dot))]
+                (update acc pkg-key (fnil conj (sorted-set)) type-sym)))
+            (sorted-map-by (fn [a b] (compare (str a) (str b))))
+            foreign-types)))
 
 ;; -------------------------------------------------------------------------
 ;; Dependency Graph Logic
@@ -80,7 +110,7 @@
   "Walks an arbitrary data structure (AST type representation) and collects all Symbols.
    Excludes common java.lang types if desired, but here we collect everything that looks like a class."
   [x]
-  (let [types (atom #{})]
+  (let [types (atom (sorted-set))]
     (clojure.walk/postwalk
       (fn [form]
         (when (symbol? form)
@@ -113,7 +143,7 @@
                           (:constructors node))]
     ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
     ;;    But we might want to depend on inner classes.
-    (into #{} (concat extends-deps implements-deps field-deps method-deps ctor-deps))))
+    (into (sorted-set) (concat extends-deps implements-deps field-deps method-deps ctor-deps))))
 
 (defn build-dependency-graph
   "Builds a dependency graph from the package analysis result.
@@ -159,7 +189,7 @@
 
 (defn dependency-seq
   "Returns a sequence of FQCNs representing the dependency closure of `class-like`
-   in depth-first order. Restricted to package-local user types.
+   in depth-first order. Restricted to package-local (native) user types.
    Handles cycles by tracking visited nodes."
   [pkg class-like]
   (let [root-node (if (map? class-like)

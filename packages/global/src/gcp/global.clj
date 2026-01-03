@@ -1,6 +1,6 @@
 (ns gcp.global
   (:require
-   [clojure.string :as string]
+   clojure.string
    [malli.core :as m]
    [malli.edn]
    [malli.error :as me]
@@ -25,9 +25,7 @@
 (defn mopts []
   {:registry       *registry*
    ::m/sci-options {:classes    @*classes
-                    :namespaces sci-namespaces
-                    :imports    {'ByteBuffer 'java.nio.ByteBuffer
-                                 'List       'java.util.List}}})
+                    :namespaces sci-namespaces}})
 
 (defmacro instance-schema
   [class-symbol]

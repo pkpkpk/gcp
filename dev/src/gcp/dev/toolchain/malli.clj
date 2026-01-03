@@ -12,52 +12,97 @@
     (keyword short-pkg class-name)))
 
 (defn ->malli-type [package-name t version]
+
   (let [t-str (str t)]
+
     (cond
+
       (nil? t) :nil
+
       (= t-str "void") :nil
+
       (= t-str "java.lang.String") :string
+
       (#{"boolean" "java.lang.Boolean"} t-str) :boolean
+
       (#{"int" "java.lang.Integer"} t-str) [:int {:min -2147483648 :max 2147483647}]
+
       (#{"long" "java.lang.Long"} t-str) :int
+
       (#{"float" "java.lang.Float"} t-str) [:double {:min -3.4028235E38 :max 3.4028235E38}]
+
       (#{"double" "java.lang.Double"} t-str) :double
-      (= t-str "com.google.protobuf.ByteString") :gcp.protobuf/ByteString      (= t-str "com.google.protobuf.Duration") :gcp.protobuf/Duration
-      (= t-str "com.google.protobuf.Timestamp") :gcp.protobuf/Timestamp
-      (= t-str "com.google.protobuf.Struct") :gcp.protobuf/Struct
-      (= t-str "com.google.protobuf.Value") :gcp.protobuf/Value
+
+
+
       (= t-str "com.google.protobuf.ProtocolStringList") [:sequential :string]
 
+
+
       (sequential? t)
+
       (let [[base & args] t
+
             base-str (str base)]
+
         (cond
+
           (or (= base-str "java.util.List")
+
               (= base-str "com.google.common.collect.ImmutableList")
+
               (= base-str "java.lang.Iterable"))
+
           [:sequential (->malli-type package-name (first args) version)]
 
+
+
           (or (= base-str "java.util.Map")
+
               (= base-str "com.google.common.collect.ImmutableMap"))
+
           [:map-of (->malli-type package-name (first args) version) (->malli-type package-name (second args) version)]
 
+
+
           :else
+
           (let [{:keys [package class]} (u/split-fqcn base-str)]
+
             (u/schema-key package class version))))
 
+
+
       (or (= t-str "java.util.Map") (string/starts-with? t-str "java.util.Map<"))
+
       [:map-of :string :any]
+
       (or (= t-str "java.util.List") (string/starts-with? t-str "java.util.List<"))
+
       [:sequential :any]
 
-      (string/starts-with? t-str "com.google.type")
-      (let [class-name (last (string/split t-str #"\."))]
-        (keyword "gcp.type" class-name))
+
+
+      (and (not (string/starts-with? t-str "com.google.cloud"))
+
+           (not (u/native-type t-str)))
+
+      (let [ns-sym (u/infer-foreign-ns t-str)
+
+            {:keys [class]} (u/split-fqcn t-str)]
+
+        (keyword (name ns-sym) class))
+
+
 
       (string/starts-with? t-str "com.google.cloud")
+
       (let [clean-t (string/replace t-str #"^(class|interface) " "")
+
             {:keys [package class]} (u/split-fqcn clean-t)]
+
         (u/schema-key package class version))
+
       :else :any)))
 
 (defn- malli-accessor

@@ -1,7 +1,7 @@
 (ns ^{:url "https://cloud.google.com/java/docs/reference/google-cloud-logging/latest/com.google.cloud.logging.Logging"}
   gcp.logging
   (:refer-clojure :exclude [flush])
-  (:require [gcp.core.MonitoredResource :as MonitoredResource]
+  (:require [gcp.foreign.com.google.api :as api]
             [gcp.global :as g]
             [gcp.logging.Exclusion :as Exclusion]
             [gcp.logging.LogDestinationName :as LogDestinationName]
@@ -214,7 +214,7 @@
   ([clientable logEntries customResource exclusionPaths]
    (.populateMetadata (client clientable)
                       (map LogEntry/from-edn logEntries)
-                      (MonitoredResource/from-edn customResource)
+                      (api/MonitoredResource-from-edn customResource)
                       (into-array String exclusionPaths))))
 
 (defn set-flush-severity

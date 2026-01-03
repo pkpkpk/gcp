@@ -1,5 +1,6 @@
 (ns gcp.dev.packages-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as string]
             [gcp.dev.packages :as p])
   (:import (clojure.lang ExceptionInfo)))
 
@@ -36,4 +37,33 @@
   (testing "Class foreign user types extraction"
     (let [bq (p/class-foreign-user-types :bigquery "BigQuery")]
       (is (not (contains? bq 'com.google.cloud.bigquery.TableId)) "Should NOT contain local TableId")
-      (is (contains? bq 'java.lang.String) "Should contain foreign String"))))
+      (is (contains? bq 'java.lang.String) "Should contain foreign String")))
+
+  (testing "Foreign user types by package"
+    (let [types-by-pkg (p/foreign-user-types-by-package :bigquery)]
+      (is (contains? types-by-pkg "java.lang") "Should contain java.lang package")
+      (is (contains? (get types-by-pkg "java.lang") 'java.lang.String) "Should contain String in java.lang")
+      (is (contains? types-by-pkg :primitive) "Should contain primitives")
+      (is (contains? (get types-by-pkg :primitive) 'boolean) "Should contain boolean primitive"))))
+
+(deftest package-foreign-dependencies-test
+  (doseq [pkg-kw [:bigquery :storage :pubsub :logging :monitoring :vertexai :genai]]
+    (testing (str "Foreign dependencies for " pkg-kw)
+      (let [pkg (p/parse pkg-kw)
+            pkg-name (:package-name pkg)
+            foreign-deps (p/package-foreign-dependencies pkg)]
+        
+        (testing "Should not be empty"
+          (is (seq foreign-deps) (str pkg-kw " foreign deps should not be empty")))
+        
+        (testing "Should not contain local types"
+          (let [local-leaks (filter #(string/starts-with? (str %) pkg-name) foreign-deps)]
+            (is (empty? local-leaks) 
+                (str pkg-kw " foreign deps should not contain local types: " (vec local-leaks)))))
+        
+        (testing "Should contain primitives or common types (sanity check)"
+           (is (or (contains? foreign-deps 'int)
+                   (contains? foreign-deps 'boolean)
+                   (contains? foreign-deps 'java.lang.String)
+                   (contains? foreign-deps 'java.util.List))
+               (str pkg-kw " should contain some common types")))))))

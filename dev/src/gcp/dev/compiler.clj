@@ -4,21 +4,12 @@
   (:require
    [clojure.java.io :as io]
    [gcp.dev.digest :as digest]
-   [gcp.dev.fuzz :as fuzz]
    [gcp.dev.packages :as pkg]
    [gcp.dev.toolchain.analyzer :as ana]
    [gcp.dev.toolchain.emitter :as emitter]
+   [gcp.dev.toolchain.fuzz :as fuzz]
    [gcp.dev.util :as u]
    [zprint.core :as zp]))
-
-(def CERTIFICATION_PROTOCOL
-  {:version "v1"
-   :stages [{:name :smoke    :tests 10  :max-size 10}
-            {:name :standard :tests 50  :max-size 30}
-            {:name :stress   :tests 100 :max-size 50}]})
-
-(def CERTIFICATION_HASH
-  (digest/sha256 (pr-str CERTIFICATION_PROTOCOL)))
 
 (defn compute-provenance
   "Computes the provenance map for a class node."
@@ -61,22 +52,8 @@
      output-path: Target file path.
      options: Map containing :seed (optional)."
   [pkg-key fqcn output-path options]
-  (let [base-seed (or (:seed options) (System/currentTimeMillis))
-        ;; Run 3-Stage Certification
-        history (loop [stages (:stages CERTIFICATION_PROTOCOL)
-                       results []]
-                  (if-let [stage (first stages)]
-                    (let [stage-seed (+ base-seed (count results))
-                          res (fuzz/fuzz-class pkg-key fqcn (assoc stage :seed stage-seed :timeout-ms 60000))]
-                      (if (:pass? res)
-                        (recur (rest stages) (conj results (merge stage {:seed stage-seed :result :pass})))
-                        (throw (ex-info "Certification Failed" {:stage stage :result res}))))
-                    results))
-        cert-metadata {:gcp.dev/certification
-                       {:protocol-hash CERTIFICATION_HASH
-                        :base-seed base-seed
-                        :timestamp (str (java.time.Instant/now))
-                        :passed-stages (into {} (map (juxt :name :seed) history))}}
+  (let [cert-result (fuzz/certify-class pkg-key fqcn (merge options {:timeout-ms 60000}))
+        cert-metadata {:gcp.dev/certification cert-result}
         ;; Analyze and Emit
         node (pkg/lookup-class pkg-key fqcn)
         ana-node (ana/analyze-class-node node)

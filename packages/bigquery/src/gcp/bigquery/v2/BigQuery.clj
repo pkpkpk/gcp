@@ -2,7 +2,7 @@
   (:require [gcp.global :as global]
             [gcp.bigquery.v2.BigQueryOptions]
             [gcp.bigquery.v2.BigQueryRetryConfig :as BigQueryRetryConfig]
-            [gcp.core.RetryOption :as RO])
+            [gcp.foreign.com.google.cloud :as cloud])
   (:import (com.google.cloud RetryOption)
            (com.google.cloud.bigquery BigQuery$DatasetDeleteOption BigQuery$DatasetField BigQuery$DatasetListOption BigQuery$DatasetOption BigQuery$IAMOption BigQuery$JobField BigQuery$JobListOption BigQuery$JobOption BigQuery$ModelListOption BigQuery$ModelOption BigQuery$QueryOption BigQuery$QueryResultsOption BigQuery$RoutineListOption BigQuery$RoutineOption BigQuery$TableDataListOption BigQuery$TableField BigQuery$TableMetadataView BigQuery$TableListOption BigQuery$TableOption JobStatus$State)))
 
@@ -64,7 +64,7 @@
     (BigQuery$JobOption/fields (into-array BigQuery$JobField (map #(BigQuery$JobField/valueOf %) (:fields arg))))
     (if (contains? arg :gcp.bigquery.v2/BigQueryRetryConfig)
       (BigQuery$JobOption/bigQueryRetryConfig (BigQueryRetryConfig/from-edn (:gcp.bigquery.v2/BigQueryRetryConfig arg)))
-      (BigQuery$JobOption/retryOptions (into-array RetryOption (map RO/from-edn (:options arg)))))))
+      (BigQuery$JobOption/retryOptions (into-array RetryOption (map cloud/RetryOption-from-edn (:options arg)))))))
 
 (defn ^BigQuery$ModelListOption ModelListOption:from-edn [arg]
   (throw (Exception. "unimplemented")))
@@ -144,7 +144,7 @@
                                                {:doc "union-map :gcp.bigquery.v2/BigQueryRetryConfig|:fields|:retryOptions"}
                                                [:map [:BigQueryRetryConfig :gcp.bigquery.v2/BigQueryRetryConfig]]
                                                [:map [:fields [:sequential :gcp.bigquery.v2/BigQuery.JobField]]]
-                                               [:map [:options [:sequential :gcp.core/RetryOption]]]]
+                                               [:map [:options [:sequential :gcp.foreign.com.google.cloud/RetryOption]]]]
 
    :gcp.bigquery.v2/BigQuery.ModelListOption     :any
    :gcp.bigquery.v2/BigQuery.ModelOption         :any

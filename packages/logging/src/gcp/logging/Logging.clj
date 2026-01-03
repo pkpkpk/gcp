@@ -1,5 +1,5 @@
 (ns gcp.logging.Logging
-  (:require [gcp.core.MonitoredResource :as MonitoredResource]
+  (:require [gcp.foreign.com.google.api :as api]
             [gcp.global :as g]
             [gcp.logging.LogDestinationName :as LogDestinationName])
   (:import (com.google.cloud.logging
@@ -99,7 +99,7 @@
    [:labels [:map-of :string :string]]
    [:logName :string]
    [:partialSuccess :boolean]
-   [:resource MonitoredResource/schema]])
+   [:resource :gcp.foreign.com.google.api/MonitoredResource]])
 
 (defn- ^Logging$WriteOption entry->WriteOption [[k v]]
   (condp = k
@@ -110,7 +110,7 @@
     (Logging$WriteOption/destination v)
 
     :resource
-    (Logging$WriteOption/resource v)
+    (Logging$WriteOption/resource (api/MonitoredResource-from-edn v))
 
     :labels
     (Logging$WriteOption/labels v)
