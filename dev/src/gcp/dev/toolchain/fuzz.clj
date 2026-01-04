@@ -2,6 +2,7 @@
   "Toolchain component for certifying generated bindings via property-based fuzzing.
    Implements a multi-stage fuzz protocol to verify correctness before emission."
   (:require
+   [clojure.java.io :as io]
    [clojure.test.check :as tc]
    [clojure.test.check.properties :as prop]
    [gcp.dev.digest :as digest]
@@ -12,7 +13,6 @@
    [gcp.dev.util :as u]
    [gcp.gen :as gen]
    [gcp.global :as global]
-   [gcp.protobuf]
    [taoensso.telemere :as tel])
   (:import
    (java.util.concurrent CancellationException)))
@@ -24,7 +24,8 @@
             {:name :stress   :tests 100 :max-size 50}]})
 
 (def CERTIFICATION_HASH
-  (digest/sha256 (pr-str CERTIFICATION_PROTOCOL)))
+  (digest/sha256 (str (pr-str CERTIFICATION_PROTOCOL)
+                      (slurp (io/resource "gcp/dev/toolchain/fuzz.clj")))))
 
 (defn- run-with-timeout [timeout-ms thunk]
   (let [f (future
@@ -69,67 +70,114 @@
             forms (emitter/compile-class-forms ana-node)]
         (load-class-forms! dep forms)))))
 
+(defn- run-certification-protocol
+  [sk generator verify-fn options]
+  (let [base-seed (or (:seed options) (System/currentTimeMillis))
+        timeout-ms (or (:timeout-ms options) 60000)
+        property (prop/for-all [v generator] (verify-fn v))]
+    (tel/log! :info ["Starting fuzz stages for" sk])
+    (loop [stages (:stages CERTIFICATION_PROTOCOL)
+           history []]
+      (if-let [stage (first stages)]
+        (let [stage-seed (+ base-seed (count history))
+              res (check property (assoc stage :seed stage-seed :timeout-ms timeout-ms))]
+          (if (:pass? res)
+            (do
+              (tel/log! :info ["Stage passed" (:name stage) "for" sk])
+              (recur (rest stages) (conj history (merge stage {:seed stage-seed :result :pass}))))
+            (do
+              (tel/log! :error ["Certification Stage Failed" stage res "for" sk])
+              (throw (ex-info "Certification Failed" {:stage stage :result res :schema sk})))))
+        {:protocol-hash CERTIFICATION_HASH
+         :base-seed base-seed
+         :timestamp (str (java.time.Instant/now))
+         :passed-stages (into {} (map (juxt :name :seed) history))}))))
+
 (defn certify-class
   "Runs the certification protocol on a class.
-   Returns the certification metadata map if successful, throws otherwise.
-   
-   Protocol:
-   1. Compiles and loads dependencies.
-   2. Compiles and loads the target class (in-memory).
-   3. Runs defined fuzz stages sequentially.
-   4. Accumulates results."
-  [pkg-key fqcn {:keys [seed timeout-ms] :or {timeout-ms 60000}}]
+   Returns the certification metadata map if successful, throws otherwise."
+  [pkg-key fqcn options]
   (let [original-ns *ns*]
     (try
-      (tel/log! :info ["Certifying" fqcn "with seed" seed])
+      (tel/log! :info ["Certifying" fqcn "with options" options])
       ;; 1. Load Dependencies
       (load-dependencies! pkg-key fqcn)
       ;; 2. Load Target (fresh compilation)
       (let [node (pkg/lookup-class pkg-key fqcn)
             ana-node (ana/analyze-class-node node)
-            forms (emitter/compile-class-forms ana-node)]
-        (load-class-forms! fqcn forms)
-        ;; 3. Run Protocol
-        (let [version (u/extract-version (:doc ana-node))
-              sk (u/schema-key (:package ana-node) (:className ana-node) version)
-              generator (gen/generator sk)
-              ;; Verification Function
-              verify-fn (fn [edn]
-                          (let [ns-sym (symbol (str (u/package-to-ns (:package ana-node) version) "." (:className ana-node)))
-                                from-edn (resolve (symbol (str ns-sym) "from-edn"))
-                                to-edn (resolve (symbol (str ns-sym) "to-edn"))]
-                            (if (and from-edn to-edn)
-                              (let [obj (from-edn edn)
-                                    rt-edn (to-edn obj)]
-                                (if (global/valid? sk rt-edn)
-                                  true
-                                  (do
-                                    (tel/log! :error ["Validation Failed" (global/humanize (global/geminize (global/explain sk rt-edn) sk))])
-                                    false)))
-                              (throw (ex-info "Missing functions" {:ns ns-sym})))))
-              ;; Property
-              property (prop/for-all [v generator] (verify-fn v))
-              ;; Base Seed (if not provided, generate one)
-              base-seed (or seed (System/currentTimeMillis))]
-          (Thread/sleep 1)
-          (tel/log! :info ["Starting fuzz stages"])
-          (loop [stages (:stages CERTIFICATION_PROTOCOL)
-                 history []]
-            (if-let [stage (first stages)]              (let [stage-seed (+ base-seed (count history)) ;; Deterministic seed offset per stage
-                                                              res (check property (assoc stage :seed stage-seed :timeout-ms timeout-ms))]
-                                                          (if (:pass? res)
-                                                            (do
-                                                              (tel/log! :info ["Stage passed" (:name stage)])
-                                                              (recur (rest stages) (conj history (merge stage {:seed stage-seed :result :pass}))))
-                                                            (do
-                                                              (tel/log! :error ["Certification Stage Failed" stage res])
-                                                              (throw (ex-info "Certification Failed" {:stage stage :result res})))))
-              ;; All Passed
-              (do
-                (tel/log! :info ["Certification passed for binding" fqcn])
-                {:protocol-hash CERTIFICATION_HASH
-                 :base-seed base-seed
-                 :timestamp (str (java.time.Instant/now))
-                 :passed-stages (into {} (map (juxt :name :seed) history))})))))
+            forms (emitter/compile-class-forms ana-node)
+            _ (load-class-forms! fqcn forms)
+            version (u/extract-version (:doc ana-node))
+            sk (u/schema-key (:package ana-node) (:className ana-node) version)
+            generator (gen/generator sk)
+            verify-fn (fn [edn]
+                        (let [ns-sym (symbol (str (u/package-to-ns (:package ana-node) version) "." (:className ana-node)))
+                              from-edn (resolve (symbol (str ns-sym) "from-edn"))
+                              to-edn (resolve (symbol (str ns-sym) "to-edn"))]
+                          (if (and from-edn to-edn)
+                            (let [obj (from-edn edn)
+                                  rt-edn (to-edn obj)]
+                              (if (global/valid? sk rt-edn)
+                                true
+                                (do
+                                  (tel/log! :error ["Validation Failed" (global/humanize (global/geminize (global/explain sk rt-edn) sk))])
+                                  false)))
+                            (throw (ex-info "Missing functions" {:ns ns-sym})))))]
+        (run-certification-protocol sk generator verify-fn options))
       (finally
         (in-ns (ns-name original-ns))))))
+
+(defn certify-foreign-namespace
+  "Certifies all bindings in a foreign namespace.
+   A foreign namespace is considered certified if all its exported Type-from/to-edn
+   pairs pass the fuzzing protocol.
+   
+   Returns a map of Type -> CertificationMetadata."
+  [ns-sym options]
+  (tel/log! :info ["Certifying foreign namespace" ns-sym])
+  (require ns-sym :reload)
+  (let [source-hash (digest/compute-foreign-source-hash ns-sym)
+        vars (u/foreign-vars ns-sym)
+        registry (try (ns-resolve ns-sym 'registry) (catch Exception _ nil))
+        registry-map (when registry @registry)
+        types (->> vars
+                   (keep #(second (re-find #"^(.+)-from-edn$" (name %))))
+                   (filter #(contains? vars (symbol (str % "-to-edn"))))
+                   (sort))]
+    (if (empty? types)
+      (tel/log! :warn ["No bindings found to certify in" ns-sym])
+      (let [results (reduce
+                      (fn [acc type-name]
+                        (let [sk (keyword (name ns-sym) type-name)
+                              _ (tel/log! :info ["Certifying foreign type" type-name "in" ns-sym])
+                              ;; Check if schema exists, or try to register it from the registry map
+                              _ (when-not (gen/generator sk)
+                                  (if (and registry-map (contains? registry-map sk))
+                                    (global/register-schema! sk (get registry-map sk))
+                                    (tel/log! :warn ["Schema not found for" sk "and not in registry"])))
+                              
+                              generator (try (gen/generator sk)
+                                             (catch Exception e
+                                               (tel/log! :error ["Failed to get generator for" sk (.getMessage e)])
+                                               nil))
+                              
+                              from-edn (ns-resolve ns-sym (symbol (str type-name "-from-edn")))
+                              to-edn (ns-resolve ns-sym (symbol (str type-name "-to-edn")))
+                              
+                              verify-fn (fn [edn]
+                                          (let [obj (from-edn edn)
+                                                rt-edn (to-edn obj)]
+                                            (if (global/valid? sk rt-edn)
+                                              true
+                                              (do
+                                                (tel/log! :error ["Validation Failed for foreign type" type-name (global/humanize (global/geminize (global/explain sk rt-edn) sk))])
+                                                false))))]
+                          
+                          (if generator
+                            (let [cert-res (run-certification-protocol sk generator verify-fn options)]
+                              (assoc acc (keyword type-name) (assoc cert-res :source-hash source-hash)))
+                            (assoc acc (keyword type-name) {:pass? false :reason :missing-schema}))))
+                      {}
+                      types)]
+        (tel/log! :info ["Foreign namespace" ns-sym "certified" (keys results)])
+        results))))

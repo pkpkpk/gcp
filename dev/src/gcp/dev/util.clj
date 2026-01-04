@@ -3,10 +3,36 @@
    [clj-http.client :as http]
    [clojure.java.io :as io]
    [clojure.reflect]
-   [clojure.string :as string])
+   [clojure.string :as string]
+   [edamame.core :as edamame])
   (:import
    (java.io ByteArrayOutputStream)
    (org.objectweb.asm ClassReader ClassVisitor Opcodes)))
+
+(defn get-googleapis-repos-path []
+  (let [root (System/getenv "GOOGLEAPIS_REPOS_PATH")]
+    (cond
+      (string/blank? root)
+      (throw (ex-info "GOOGLEAPIS_REPOS_PATH environment variable is not set." {}))
+
+      (not (.isAbsolute (io/file root)))
+      (throw (ex-info "GOOGLEAPIS_REPOS_PATH must be an absolute path." {:path root}))
+
+      :else root)))
+
+(defn get-gcp-repo-root []
+  (let [root (System/getenv "GCP_REPO_ROOT")]
+    (cond
+      (string/blank? root)
+      (throw (ex-info "GCP_REPO_ROOT environment variable is not set." {}))
+
+      (not (.isAbsolute (io/file root)))
+      (throw (ex-info "GCP_REPO_ROOT must be an absolute path." {:path root}))
+
+      (not (.exists (io/file root)))
+      (throw (ex-info "GCP_REPO_ROOT path does not exist." {:path root}))
+
+      :else root)))
 
 (defn class-bytes [^Class cls]
   (with-open [is (.getResourceAsStream cls (str (.getSimpleName cls) ".class"))]
@@ -198,6 +224,61 @@
 
 (defn foreign-binding-exists? [ns-sym]
   (boolean (io/resource (str (string/replace (name ns-sym) #"\." "/") ".clj"))))
+
+(defn foreign-vars [ns-sym]
+  (let [path (str (string/replace (name ns-sym) #"\." "/") ".clj")]
+    (when-let [res (io/resource path)]
+      (let [forms (edamame/parse-string-all (slurp res) {:all true :auto-resolve-ns true})]
+        (into #{}
+              (comp (filter seq?)
+                    (filter #(contains? #{'defn 'def} (first %)))
+                    (map second))
+              forms)))))
+
+(defn source-ns-meta [source]
+  (let [form (edamame/parse-string source {:all true})]
+    (when (and (seq? form) (= 'ns (first form)))
+      (let [name-sym (second form)
+            args (nnext form)
+            maybe-map (first args)]
+        (merge (meta name-sym)
+               (when (map? maybe-map) maybe-map))))))
+
+(require '[rewrite-clj.zip :as z]
+         '[rewrite-clj.parser :as p]
+         '[rewrite-clj.node :as n]
+         '[zprint.core :as zp])
+
+(defn update-ns-metadata [source metadata-key metadata-val]
+  (let [zloc (z/of-string source)
+        ;; find (ns ...)
+        ns-loc (z/find-value zloc z/next 'ns)
+        ;; name is next
+        name-loc (z/next ns-loc)
+        ;; check if next is a map or if the name has metadata
+        next-loc (z/next name-loc)]
+    (if (z/map? next-loc)
+      ;; Update existing metadata map
+      (let [existing-map (z/sexpr next-loc)
+            updated-map-data (assoc existing-map metadata-key metadata-val)
+            formatted-map-str (zp/zprint-str updated-map-data {:map {:comma? false}})
+            formatted-map-node (p/parse-string formatted-map-str)
+            updated-zip (z/replace next-loc formatted-map-node)]
+        (z/root-string (if (z/linebreak? (z/left updated-zip))
+                         updated-zip
+                         (z/insert-left updated-zip (n/newline-node "\n")))))
+      ;; Insert new metadata map after name
+      (let [new-map-str (zp/zprint-str {metadata-key metadata-val} {:map {:comma? false}})
+            new-map-node (p/parse-string new-map-str)
+            updated-ns (-> name-loc
+                           (z/insert-right new-map-node)
+                           (z/insert-newline-right))]
+        (z/root-string updated-ns)))))
+
+(defn ns-meta [ns-sym]
+  (let [path (str (string/replace (name ns-sym) #"\." "/") ".clj")]
+    (when-let [res (io/resource path)]
+      (source-ns-meta (slurp res)))))
 
 (defn schema-key [package-name class-name version]
   (let [ns-sym (package-to-ns package-name version)]

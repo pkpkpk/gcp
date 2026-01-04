@@ -4,7 +4,9 @@
   (:require
    [clojure.java.io :as io]
    [clojure.string :as string]
-   [clojure.walk :as walk])
+   [clojure.walk :as walk]
+   [edamame.core :as edamame]
+   [gcp.dev.util :as u])
   (:import
    (java.security MessageDigest)))
 
@@ -27,6 +29,36 @@
     (if (string/starts-with? f-path base-path)
       (subs f-path (inc (count base-path)))
       f-path)))
+
+(defn compute-foreign-source-hash
+  "Computes a hash of a foreign namespace source file, excluding the certification metadata.
+   This allows the certification to be embedded in the file without invalidating the hash."
+  [ns-sym]
+  (let [root (u/get-gcp-repo-root)
+        path (str root "/packages/global/src/" (string/replace (name ns-sym) #"\." "/") ".clj")
+        source (slurp path)
+        forms (edamame/parse-string-all source {:all true :auto-resolve-ns true})]
+    (if (and (seq forms) (= 'ns (first (first forms))))
+      (let [[ns-form & rest-forms] forms
+            ;; ns-form is (ns name ?doc ?attr-map & args)
+            ;; We want to find the attr-map and dissoc :gcp.dev/certification
+            sanitized-ns-form
+            (let [name-sym (second ns-form)
+                  after-name (drop 2 ns-form)
+                  maybe-doc (first after-name)
+                  [doc rest-after-name] (if (string? maybe-doc)
+                                          [maybe-doc (rest after-name)]
+                                          [nil after-name])
+                  maybe-attr (first rest-after-name)
+                  [attr rest-final] (if (map? maybe-attr)
+                                      [(dissoc maybe-attr :gcp.dev/certification) (rest rest-after-name)]
+                                      [nil rest-after-name])]
+              (cond-> (list 'ns name-sym)
+                doc (concat [doc])
+                (seq attr) (concat [attr])
+                true (concat rest-final)))]
+        (sha256 (pr-str (cons sanitized-ns-form rest-forms))))
+      (sha256 source)))) ;; Fallback if no ns form found (shouldn't happen for valid clj)
 
 (defn compute-toolchain-hash
   "Calculates a signature for the current toolchain state.

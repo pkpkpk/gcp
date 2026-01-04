@@ -59,6 +59,12 @@
                       (mapcat #(traverse % current-name) (:nested n)))))]
       (mapcat #(traverse % main-class) (:nested node)))))
 
+(defn- check-certification [ns-sym fqcn]
+  (let [ns-meta (u/ns-meta ns-sym)]
+    (when-not (:gcp.dev/certification ns-meta)
+      (throw (ex-info (str "Foreign namespace NOT CERTIFIED: " ns-sym)
+                      {:ns ns-sym :fqcn fqcn})))))
+
 (defn- emit-ns-form [node deps version metadata]
   (let [ns-name (symbol (str (u/package-to-ns (:package node) version) "." (:className node)))
         main-fqcn (str (:package node) "." (:className node))
@@ -67,8 +73,11 @@
         requires (->> deps
                       (remove :local?)
                       (filter :exists?)
-                      (map (fn [{:keys [ns alias]}]
-                             [ns :as alias]))
+                      (map (fn [{:keys [ns alias fqcn]}]
+                             (let [is-cloud (string/starts-with? fqcn "com.google.cloud")]
+                               (when-not is-cloud
+                                 (check-certification ns fqcn))
+                               [ns :as alias])))
                       (into #{})
                       (sort-by first))]
     `(~'ns ~ns-name
@@ -98,25 +107,42 @@
       (= (str type) "com.google.protobuf.ProtocolStringList")
       (if (= direction :from-edn) `(~'mapv ~'clojure.core/str) `(~'into []))
 
-      (and dep (:exists? dep))
-      (let [func (cond
-                   (:local? dep)
-                   (if (string/includes? (:full-class dep) ".")
-                     (symbol (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
-                     (symbol (name direction)))
+      dep
+      (let [is-cloud (string/starts-with? (:fqcn dep) "com.google.cloud")
+            is-foreign (not is-cloud)]
+        (when (and is-foreign (not (:exists? dep)))
+          (throw (ex-info (str "Foreign namespace missing: " (:ns dep))
+                          {:type type :dep dep})))
 
-                   (not (string/starts-with? (:fqcn dep) "com.google.cloud"))
-                   (symbol (str (:alias dep)) (str (:cls dep) "-" (name direction)))
+        (let [func-name-str (cond
+                              (:local? dep)
+                              (if (string/includes? (:full-class dep) ".")
+                                (str (string/replace (:full-class dep) "." "_") ":" (name direction))
+                                (name direction))
 
-                   :else
-                   (if (string/includes? (:full-class dep) ".")
-                     (symbol (str (:alias dep)) (str (string/replace (:full-class dep) "." "_") ":" (name direction)))
-                     (symbol (str (:alias dep)) (name direction))))]
-        (if is-list
-          (if (= direction :from-edn)
-            `(~'mapv ~func)
-            `(~'map ~func))
-          func))
+                              is-foreign
+                              (str (:cls dep) "-" (name direction))
+
+                              :else
+                              (if (string/includes? (:full-class dep) ".")
+                                (str (string/replace (:full-class dep) "." "_") ":" (name direction))
+                                (name direction)))
+              func-sym (if (:local? dep)
+                         (symbol func-name-str)
+                         (symbol (str (:alias dep)) func-name-str))]
+
+          (when is-foreign
+            (let [vars (u/foreign-vars (:ns dep))
+                  bare-sym (symbol func-name-str)]
+              (when-not (contains? vars bare-sym)
+                (throw (ex-info (str "Foreign function missing: " bare-sym " in " (:ns dep))
+                                {:type type :dep dep :fn bare-sym})))))
+
+          (if is-list
+            (if (= direction :from-edn)
+              `(~'mapv ~func-sym)
+              `(~'map ~func-sym))
+            func-sym)))
 
       (or (= inner-type-str "float") (= inner-type-str "Float"))
       (if (= direction :to-edn) `double `identity)

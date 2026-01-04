@@ -4,35 +4,29 @@
    [clojure.string :as string]
    [gcp.dev.packages.package :as pkg]
    [gcp.dev.toolchain.analyzer :as analyzer]
-   [gcp.dev.toolchain.parser :as parser]))
-
-(defn- get-googleapis-repos-path []
-  (let [root (System/getenv "GOOGLEAPIS_REPOS_PATH")]
-    (cond
-      (string/blank? root)
-      (throw (ex-info "GOOGLEAPIS_REPOS_PATH environment variable is not set." {}))
-
-      (not (.isAbsolute (io/file root)))
-      (throw (ex-info "GOOGLEAPIS_REPOS_PATH must be an absolute path." {:path root}))
-
-      :else root)))
+   [gcp.dev.toolchain.parser :as parser]
+   [gcp.dev.util :as u]))
 
 (def package-repos
   (delay
-    (let [root (get-googleapis-repos-path)]
-      {:bigquery   (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
-       :storage    (str root "/java-storage/google-cloud-storage/src/main/java")
-       :pubsub     (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
-       :vertexai   (str root "/google-cloud-java/java-vertexai")
-       :monitoring (str root "/google-cloud-java/java-monitoring/google-cloud-monitoring/src/main/java")
-       :logging    (str root "/java-logging/google-cloud-logging/src/main/java")
-       :genai      (str root "/java-genai/src/main/java")})))
+    (let [root (u/get-googleapis-repos-path)]
+      {:bigquery         (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
+       :storage          (str root "/java-storage/google-cloud-storage/src/main/java")
+       :pubsub           (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
+       :vertexai         (str root "/google-cloud-java/java-vertexai")
+       :monitoring       (str root "/google-cloud-java/java-monitoring/google-cloud-monitoring/src/main/java")
+       :logging          (str root "/java-logging/google-cloud-logging/src/main/java")
+       :genai            (str root "/java-genai/src/main/java")
+       :iam              (str root "/google-cloud-java/java-iam/google-iam-policy/src/main/java")
+       :artifactregistry (str root "/google-cloud-java/java-artifact-registry/google-cloud-artifact-registry/src/main/java")})))
 
 (def package-native-prefixes
-  {:pubsub     #{"com.google.cloud.pubsub" "com.google.pubsub"}
-   :logging    #{"com.google.cloud.logging" "com.google.logging"}
-   :monitoring #{"com.google.cloud.monitoring" "com.google.monitoring"}
-   :genai      #{"com.google.genai"}})
+  {:pubsub           #{"com.google.cloud.pubsub" "com.google.pubsub"}
+   :logging          #{"com.google.cloud.logging" "com.google.logging"}
+   :monitoring       #{"com.google.cloud.monitoring" "com.google.monitoring"}
+   :genai            #{"com.google.genai"}
+   :iam              #{"com.google.cloud.iam" "com.google.iam"}
+   :artifactregistry #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
 
 (defn parse
   "Analyzes a package specified by keyword (e.g. :bigquery) or path string.

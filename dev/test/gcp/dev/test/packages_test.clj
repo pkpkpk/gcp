@@ -1,4 +1,4 @@
-(ns gcp.dev.packages-test
+(ns gcp.dev.test.packages-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as string]
             [gcp.dev.packages :as p])
@@ -51,7 +51,7 @@
     (testing (str "Foreign dependencies for " pkg-kw)
       (let [pkg (p/parse pkg-kw)
             pkg-name (:package-name pkg)
-            foreign-deps (p/package-foreign-dependencies pkg)]
+            foreign-deps (p/package-foreign-deps pkg)]
         
         (testing "Should not be empty"
           (is (seq foreign-deps) (str pkg-kw " foreign deps should not be empty")))

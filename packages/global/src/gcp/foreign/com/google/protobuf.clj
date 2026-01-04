@@ -1,4 +1,59 @@
 (ns gcp.foreign.com.google.protobuf
+  {:gcp.dev/certification
+   {:ByteString
+      {:base-seed 1767492449760
+       :passed-stages
+         {:smoke 1767492449760 :standard 1767492449761 :stress 1767492449762}
+       :protocol-hash
+         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+       :source-hash
+         "586d6eb4a37111696f6d9ca79a276686cc3b53b304ff8da611f42f1c16fcc117"
+       :timestamp "2026-01-04T02:07:29.816738229Z"}
+    :Duration
+      {:base-seed 1767492449817
+       :passed-stages
+         {:smoke 1767492449817 :standard 1767492449818 :stress 1767492449819}
+       :protocol-hash
+         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+       :source-hash
+         "586d6eb4a37111696f6d9ca79a276686cc3b53b304ff8da611f42f1c16fcc117"
+       :timestamp "2026-01-04T02:07:29.823248947Z"}
+    :ProtocolStringList
+      {:base-seed 1767492449824
+       :passed-stages
+         {:smoke 1767492449824 :standard 1767492449825 :stress 1767492449826}
+       :protocol-hash
+         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+       :source-hash
+         "586d6eb4a37111696f6d9ca79a276686cc3b53b304ff8da611f42f1c16fcc117"
+       :timestamp "2026-01-04T02:07:29.919645188Z"}
+    :Struct
+      {:base-seed 1767492449921
+       :passed-stages
+         {:smoke 1767492449921 :standard 1767492449922 :stress 1767492449923}
+       :protocol-hash
+         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+       :source-hash
+         "586d6eb4a37111696f6d9ca79a276686cc3b53b304ff8da611f42f1c16fcc117"
+       :timestamp "2026-01-04T02:07:30.046181412Z"}
+    :Timestamp
+      {:base-seed 1767492450046
+       :passed-stages
+         {:smoke 1767492450046 :standard 1767492450047 :stress 1767492450048}
+       :protocol-hash
+         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+       :source-hash
+         "586d6eb4a37111696f6d9ca79a276686cc3b53b304ff8da611f42f1c16fcc117"
+       :timestamp "2026-01-04T02:07:30.050516676Z"}
+    :Value {:base-seed 1767492450050
+            :passed-stages {:smoke 1767492450050
+                            :standard 1767492450051
+                            :stress 1767492450052}
+            :protocol-hash
+              "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+            :source-hash
+              "586d6eb4a37111696f6d9ca79a276686cc3b53b304ff8da611f42f1c16fcc117"
+            :timestamp "2026-01-04T02:07:30.088162460Z"}}}
   (:require
     [gcp.global :as g]
     [malli.core :as m])
@@ -37,9 +92,15 @@
                       :gen/schema :string}
                  :string
                  'bytes?
-                 (g/instance-schema java.nio.ByteBuffer)]})
+                 (g/instance-schema java.nio.ByteBuffer)]
+
+   ::ProtocolStringList [:sequential {:class 'com.google.protobuf.ProtocolStringList
+                                      :doc "schema for com.google.protobuf.ProtocolStringList"}
+                         [:ref ::ByteString]]})
 
 (g/include-schema-registry! registry)
+
+(import (com.google.protobuf LazyStringArrayList))
 
 #!-----------------------------------------------------------------------------
 
@@ -144,7 +205,10 @@
   (mapv ByteString-to-edn (.asByteStringList lst)))
 
 (defn ProtocolStringList-from-edn [arg]
-  (throw (Exception. "TODO")))
+  (let [l (LazyStringArrayList.)]
+    (doseq [v arg]
+      (.add l (ByteString-from-edn v)))
+    l))
 
 #!-----------------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-(ns gcp.dev.toolchain.analyzer-test
+(ns gcp.dev.test.toolchain.analyzer-test
   (:require
    [clojure.test :refer [deftest is testing]]
    [gcp.dev.packages :as p]
