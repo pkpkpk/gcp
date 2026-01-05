@@ -37,7 +37,7 @@
   (let [root (u/get-gcp-repo-root)
         path (str root "/packages/global/src/" (string/replace (name ns-sym) #"\." "/") ".clj")
         source (slurp path)
-        forms (edamame/parse-string-all source {:all true :auto-resolve-ns true})]
+        forms (edamame/parse-string-all source {:all true :auto-resolve {:current ns-sym}})]
     (if (and (seq forms) (= 'ns (first (first forms))))
       (let [[ns-form & rest-forms] forms
             ;; ns-form is (ns name ?doc ?attr-map & args)
@@ -53,12 +53,13 @@
                   [attr rest-final] (if (map? maybe-attr)
                                       [(dissoc maybe-attr :gcp.dev/certification) (rest rest-after-name)]
                                       [nil rest-after-name])]
-              (cond-> (list 'ns name-sym)
-                doc (concat [doc])
-                (seq attr) (concat [attr])
-                true (concat rest-final)))]
+              (apply list
+                     (cond-> [(symbol "ns") name-sym]
+                       doc (conj doc)
+                       (seq attr) (conj attr)
+                       true (concat rest-final))))]
         (sha256 (pr-str (cons sanitized-ns-form rest-forms))))
-      (sha256 source)))) ;; Fallback if no ns form found (shouldn't happen for valid clj)
+      (sha256 source))))
 
 (defn compute-toolchain-hash
   "Calculates a signature for the current toolchain state.

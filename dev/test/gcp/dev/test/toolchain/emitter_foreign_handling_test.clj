@@ -30,13 +30,22 @@
               (str "Unexpected message: " (.getMessage e)))))))
 
   (testing "Namespace exists but NOT certified"
-    (let [node (make-node "gcp.test.Test" "com.google.api.core.ApiService")]
-      (try
-        (e/compile-class-forms node)
-        (is false "Should have thrown exception for uncertified namespace")
-        (catch Exception e
-          (is (re-find #"Foreign namespace NOT CERTIFIED" (.getMessage e))
-              (str "Unexpected message: " (.getMessage e)))))))
+    (let [node (make-node "gcp.test.Test" "dev.test.fixtures.foreign_uncertified.Uncertified")]
+      ;; Mock infer-foreign-ns to return our test fixture namespace
+      (with-redefs [u/infer-foreign-ns (fn [fqcn]
+                                        (if (string/includes? fqcn "foreign_uncertified")
+                                          'gcp.dev.test.fixtures.foreign-uncertified
+                                          (#'u/infer-foreign-ns fqcn)))
+                    u/foreign-binding-exists? (fn [ns-sym]
+                                                (if (= ns-sym 'gcp.dev.test.fixtures.foreign-uncertified)
+                                                  true
+                                                  (#'u/foreign-binding-exists? ns-sym)))]
+        (try
+          (e/compile-class-forms node)
+          (is false "Should have thrown exception for uncertified namespace")
+          (catch Exception e
+            (is (re-find #"Foreign namespace NOT CERTIFIED" (.getMessage e))
+                (str "Unexpected message: " (.getMessage e))))))))
 
   (testing "Function missing in existing certified namespace"
     (let [node (make-node "gcp.test.Test" "com.google.protobuf.NonExistent")]

@@ -226,14 +226,15 @@
   (boolean (io/resource (str (string/replace (name ns-sym) #"\." "/") ".clj"))))
 
 (defn foreign-vars [ns-sym]
-  (let [path (str (string/replace (name ns-sym) #"\." "/") ".clj")]
-    (when-let [res (io/resource path)]
-      (let [forms (edamame/parse-string-all (slurp res) {:all true :auto-resolve-ns true})]
-        (into #{}
-              (comp (filter seq?)
-                    (filter #(contains? #{'defn 'def} (first %)))
-                    (map second))
-              forms)))))
+  (let [root (get-gcp-repo-root)
+        path (str root "/packages/global/src/" (string/replace (name ns-sym) #"\." "/") ".clj")
+        source (slurp path)
+        forms (edamame/parse-string-all source {:all true :auto-resolve {:current ns-sym}})]
+    (into #{}
+          (comp (filter seq?)
+                (filter #(contains? #{'defn 'def} (first %)))
+                (map second))
+          forms)))
 
 (defn source-ns-meta [source]
   (let [form (edamame/parse-string source {:all true})]

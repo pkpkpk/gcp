@@ -1,6 +1,15 @@
 (ns gcp.foreign.com.google.protobuf
   {:gcp.dev/certification
-   {:ByteString
+   {:Any
+      {:base-seed 1767573730461
+       :passed-stages
+         {:smoke 1767573730461 :standard 1767573730462 :stress 1767573730463}
+       :protocol-hash
+         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
+       :source-hash
+         "59e1fb4acda440d42586700cd273eedfa3bf96109b939fa474c0658b75543282"
+       :timestamp "2026-01-05T00:42:10.538800401Z"}
+    :ByteString
       {:base-seed 1767492449760
        :passed-stages
          {:smoke 1767492449760 :standard 1767492449761 :stress 1767492449762}
@@ -58,49 +67,67 @@
     [gcp.global :as g]
     [malli.core :as m])
   (:import
-    (com.google.protobuf ByteString Duration ListValue NullValue ProtocolStringList Struct Timestamp Value)
+    (com.google.protobuf Any ByteString Duration ListValue NullValue ProtocolStringList Struct Timestamp Value)
     (java.nio ByteBuffer)))
 
 (def registry
-  ^{::g/name ::registry}
-  {::Timestamp  [:map
-                 [:seconds :int]
-                 [:nanos [:int {:min 0 :max 999999999}]]]
-   ::Duration   [:or
-                 :int
-                 [:map
-                  [:seconds :int]
-                  [:nanos [:int {:min 0 :max 999999999}]]]]
-   ::Value      [:or
-                 {:class 'com.google.protobuf.Value
-                  :doc "schema for com.google.protobuf.Value"}
-                 :boolean
-                 :nil
-                 :int
-                 :float
-                 :string
-                 [:ref ::Struct]
-                 [:sequential [:ref ::Value]]]
+  ^{:gcp.global/name :gcp.foreign.com.google.protobuf/registry}
+  {:gcp.foreign.com.google.protobuf/Timestamp  [:map
+                                                [:seconds :int]
+                                                [:nanos [:int {:min 0 :max 999999999}]]]
+   :gcp.foreign.com.google.protobuf/Duration   [:or
+                                                :int
+                                                [:map
+                                                 [:seconds :int]
+                                                 [:nanos [:int {:min 0 :max 999999999}]]]]
+   :gcp.foreign.com.google.protobuf/Value      [:or
+                                                {:class 'com.google.protobuf.Value
+                                                 :doc "schema for com.google.protobuf.Value"}
+                                                :boolean
+                                                :nil
+                                                :int
+                                                :float
+                                                :string
+                                                [:ref :gcp.foreign.com.google.protobuf/Struct]
+                                                [:sequential [:ref :gcp.foreign.com.google.protobuf/Value]]]
 
-   ::Struct     [:map-of {:class 'com.google.protobuf.Struct
-                          :doc "schema for com.google.protobuf.Struct"}
-                 [:or :string :keyword]
-                 [:ref ::Value]]
+   :gcp.foreign.com.google.protobuf/Any        [:map
+                                                {:class 'com.google.protobuf.Any
+                                                 :doc "schema for com.google.protobuf.Any"}
+                                                [:type-url :string]
+                                                [:value [:ref :gcp.foreign.com.google.protobuf/ByteString]]]
 
-   ::ByteString [:or {:class 'com.google.protobuf.ByteString
-                      :doc "schema for com.google.protobuf.ByteString"
-                      :gen/schema :string}
-                 :string
-                 'bytes?
-                 (g/instance-schema java.nio.ByteBuffer)]
+   :gcp.foreign.com.google.protobuf/Struct     [:map-of {:class 'com.google.protobuf.Struct
+                                                         :doc "schema for com.google.protobuf.Struct"}
+                                                [:or :string :keyword]
+                                                [:ref :gcp.foreign.com.google.protobuf/Value]]
 
-   ::ProtocolStringList [:sequential {:class 'com.google.protobuf.ProtocolStringList
-                                      :doc "schema for com.google.protobuf.ProtocolStringList"}
-                         [:ref ::ByteString]]})
+   :gcp.foreign.com.google.protobuf/ByteString [:or {:class 'com.google.protobuf.ByteString
+                                                     :doc "schema for com.google.protobuf.ByteString"
+                                                     :gen/schema :string}
+                                                :string
+                                                'bytes?
+                                                (g/instance-schema java.nio.ByteBuffer)]
+
+   :gcp.foreign.com.google.protobuf/ProtocolStringList [:sequential {:class 'com.google.protobuf.ProtocolStringList
+                                                                     :doc "schema for com.google.protobuf.ProtocolStringList"}
+                                                        [:ref :gcp.foreign.com.google.protobuf/ByteString]]})
 
 (g/include-schema-registry! registry)
 
 (import (com.google.protobuf LazyStringArrayList))
+
+#!-----------------------------------------------------------------------------
+
+(defn ^Any Any-from-edn [arg]
+  (let [builder (Any/newBuilder)]
+    (when (:type-url arg) (.setTypeUrl builder (:type-url arg)))
+    (when (:value arg) (.setValue builder (ByteString-from-edn (:value arg))))
+    (.build builder)))
+
+(defn Any-to-edn [^Any arg]
+  {:type-url (.getTypeUrl arg)
+   :value    (ByteString-to-edn (.getValue arg))})
 
 #!-----------------------------------------------------------------------------
 
