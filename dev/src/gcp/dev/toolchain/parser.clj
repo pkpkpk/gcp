@@ -40,6 +40,12 @@
         opts (merge {:include-private? false :include-package-private? false} options)]
     (core/analyze-package source-path files opts)))
 
+(defn analyze-package
+  "Analyzes a package given a root path and a list of specific files.
+   This bypasses internal file discovery to allow for custom inclusion/exclusion logic."
+  [source-path files options]
+  (core/analyze-package source-path files options))
+
 (defn parse-to-file
   "Analyzes a source directory and spits the result to an output file.
    Leverages parser.core's caching mechanism."

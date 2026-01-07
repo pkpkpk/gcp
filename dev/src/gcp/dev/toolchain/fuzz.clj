@@ -3,6 +3,7 @@
    Implements a multi-stage fuzz protocol to verify correctness before emission."
   (:require
    [clojure.java.io :as io]
+   [clojure.string :as string]
    [clojure.test.check :as tc]
    [clojure.test.check.properties :as prop]
    [gcp.dev.digest :as digest]
@@ -145,7 +146,9 @@
                    (filter #(contains? vars (symbol (str % "-to-edn"))))
                    (sort))]
     (if (empty? types)
-      (tel/log! :warn ["No bindings found to certify in" ns-sym])
+      (do
+        (tel/log! :warn ["No bindings found to certify in" ns-sym])
+        {})
       (let [results (reduce
                       (fn [acc type-name]
                         (let [sk (keyword (name ns-sym) type-name)
@@ -176,8 +179,25 @@
                           (if generator
                             (let [cert-res (run-certification-protocol sk generator verify-fn options)]
                               (assoc acc (keyword type-name) (assoc cert-res :source-hash source-hash)))
-                            (assoc acc (keyword type-name) {:pass? false :reason :missing-schema}))))
+                            (do
+                              (tel/log! :error ["Missing schema/generator for" type-name])
+                              (assoc acc (keyword type-name) {:pass? false :reason :missing-schema})))))
                       {}
                       types)]
         (tel/log! :info ["Foreign namespace" ns-sym "certified" (keys results)])
         results))))
+
+(defn update-foreign-namespace-certification
+  "Updates the source file of a foreign namespace with certification metadata.
+   Takes the namespace symbol and the certification results map."
+  [ns-sym results]
+  (if (every? #(not (false? (:pass? %))) (vals results))
+    (let [path (str (u/get-gcp-repo-root) "/packages/global/src/" (string/replace (name ns-sym) #"\." "/") ".clj")
+          source (slurp path)
+          updated-source (u/update-ns-metadata source :gcp.dev/certification results)]
+      (spit path updated-source)
+      (tel/log! :info ["Updated source file" path "with certification metadata"])
+      results)
+    (do
+      (tel/log! :error ["Certification failed for some types" (filter (comp false? :pass? val) results)])
+      (throw (ex-info "Certification Failed" {:results results})))))

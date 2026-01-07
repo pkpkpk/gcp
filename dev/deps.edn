@@ -1,21 +1,24 @@
 {:paths ["src" "test"]
- :deps  {org.clojure/test.check  {:mvn/version "1.1.2"}
+ :deps  {org.clojure/test.check                {:mvn/version "1.1.2"}
+         org.clojure/tools.deps                {:mvn/version "0.28.1569"}
+         org.clojure/tools.gitlibs             {:mvn/version "2.6.206"}
+         io.github.clojure/tools.build         {:mvn/version "0.10.12"}
+         slipset/deps-deploy                   {:mvn/version "0.2.2"}
          com.github.javaparser/javaparser-core {:mvn/version "3.25.10"}
-         gcp/bigquery            {:local/root "../packages/bigquery"}
-         gcp/artifactregistry    {:local/root "../packages/artifactregistry"}
-         gcp/genai               {:local/root "../packages/genai"}
-         gcp/global              {:local/root "../packages/global"}
-         gcp/iam                 {:local/root "../packages/iam"}
-         gcp/logging             {:local/root "../packages/logging"}
-         gcp/monitoring          {:local/root "../packages/monitoring"}
-         gcp/pubsub              {:local/root "../packages/pubsub"}
-         gcp/storage             {:local/root "../packages/storage"}
-         gcp/vertexai            {:local/root "../packages/vertexai"}
-         clj-http/clj-http       {:mvn/version "3.13.0"}
-         rewrite-clj/rewrite-clj {:mvn/version "1.1.49"}
-         metosin/malli           {:mvn/version "0.11.0"}
-         borkdude/edamame {:mvn/version "1.5.37"}
-         com.taoensso/telemere   {:mvn/version "1.1.0"}
-         io.replikativ/konserve  {:mvn/version "0.8.320"}
-         org.ow2.asm/asm         {:mvn/version "9.7.1"}
-         zprint/zprint           {:mvn/version "1.2.9"}}}
+         gcp/artifactregistry                  {:local/root "../packages/artifactregistry"}
+         gcp/bigquery                          {:local/root "../packages/bigquery"}
+         gcp/genai                             {:local/root "../packages/genai"}
+         gcp/global                            {:local/root "../packages/global"}
+         gcp/logging                           {:local/root "../packages/logging"}
+         gcp/monitoring                        {:local/root "../packages/monitoring"}
+         gcp/pubsub                            {:local/root "../packages/pubsub"}
+         gcp/storage                           {:local/root "../packages/storage"}
+         gcp/vertexai                          {:local/root "../packages/vertexai"}
+         clj-http/clj-http                     {:mvn/version "3.13.0"}
+         rewrite-clj/rewrite-clj               {:mvn/version "1.1.49"}
+         metosin/malli                         {:mvn/version "0.11.0"}
+         borkdude/edamame                      {:mvn/version "1.5.37"}
+         com.taoensso/telemere                 {:mvn/version "1.1.0"}
+         io.replikativ/konserve                {:mvn/version "0.8.320"}
+         org.ow2.asm/asm                       {:mvn/version "9.7.1"}
+         zprint/zprint                         {:mvn/version "1.2.9"}}}

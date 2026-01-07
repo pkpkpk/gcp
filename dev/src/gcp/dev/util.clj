@@ -79,6 +79,7 @@
       (string/ends-with? type-name "Callable")
       (string/ends-with? type-name "Serializer")
       (string/ends-with? type-name "UnusedPrivateParameter")
+      (string/ends-with? type-name "Proto")
       (= type-name "BigQueryErrorMessages")))
 
 (defn get-url-bytes [^String url]
@@ -141,10 +142,16 @@
     "java.sql.ResultSet"
     "java.time.Instant"
     "byte<>"
+    "byte"
     "double"
-    ; java.util.Map
-    ; java.util.List
-    ; java.lang.Iterable
+    "float"
+    "java.util.Map"
+    "java.util.List"
+    "java.util.Set"
+    "java.util.Iterator"
+    "java.util.Optional"
+    "java.util.AbstractList"
+    "java.lang.Iterable"
     "void"})
 
 (def known-types
@@ -298,6 +305,10 @@
     "java.lang.String" :string
     ("boolean" "java.lang.Boolean") :boolean
     ("int" "java.lang.Integer" "long" "java.lang.Long") :int
+    ("java.util.List" "java.util.AbstractList" "java.lang.Iterable" "java.util.Set") [:sequential :any]
+    "java.util.Map" [:map-of :any :any]
+    "java.util.Iterator" [:sequential :any]
+    "java.util.Optional" [:maybe :any]
     ("Map<java.lang.String, java.lang.String>"
       "Map<java.lang.String,java.lang.String>"
       "Map<String,String>"

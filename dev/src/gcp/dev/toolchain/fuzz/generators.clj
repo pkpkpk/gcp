@@ -1,4 +1,5 @@
 (ns gcp.dev.toolchain.fuzz.generators
+  (:refer-clojure :exclude [int long boolean])
   (:require
    [clojure.test.check.generators :as gen])
   (:import
@@ -12,7 +13,7 @@
   gen/string-alphanumeric)
 
 (def int
-  gen/int)
+  gen/small-integer)
 
 (def long
   gen/large-integer)

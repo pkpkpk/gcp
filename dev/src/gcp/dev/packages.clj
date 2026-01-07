@@ -7,39 +7,150 @@
    [gcp.dev.toolchain.parser :as parser]
    [gcp.dev.util :as u]))
 
-(def package-repos
-  (delay
-    (let [root (u/get-googleapis-repos-path)]
-      {:bigquery         (str root "/java-bigquery/google-cloud-bigquery/src/main/java")
-       :storage          (str root "/java-storage/google-cloud-storage/src/main/java")
-       :pubsub           (str root "/java-pubsub/google-cloud-pubsub/src/main/java")
-       :vertexai         (str root "/google-cloud-java/java-vertexai")
-       :monitoring       (str root "/google-cloud-java/java-monitoring/google-cloud-monitoring/src/main/java")
-       :logging          (str root "/java-logging/google-cloud-logging/src/main/java")
-       :genai            (str root "/java-genai/src/main/java")
-       :iam              (str root "/google-cloud-java/java-iam/google-iam-policy/src/main/java")
-       :artifactregistry (str root "/google-cloud-java/java-artifact-registry/google-cloud-artifact-registry/src/main/java")})))
+(defonce googleapis (u/get-googleapis-repos-path))
 
-(def package-native-prefixes
-  {:pubsub           #{"com.google.cloud.pubsub" "com.google.pubsub"}
-   :logging          #{"com.google.cloud.logging" "com.google.logging"}
-   :monitoring       #{"com.google.cloud.monitoring" "com.google.monitoring"}
-   :genai            #{"com.google.genai"}
-   :iam              #{"com.google.cloud.iam" "com.google.iam"}
-   :artifactregistry #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
+#!----------------------------------------------------------------------------------------------------------------------
+
+(def artifact-registry
+  {:name 'gcp.artifact-registry
+   :type :static
+   :root (str googleapis "/google-cloud-java/java-artifact-registry")
+   :include ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1"
+             "/proto-google-cloud-artifact-registry-v1/src/main/java/com/google/devtools/artifactregistry/v1"]
+   :exclude ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1/stub"]
+   :native-prefixes #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
+
+(def monitoring
+  {:name 'gcp.monitoring
+   :type :static
+   :root (str googleapis "/google-cloud-java/java-monitoring")
+   :include ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3"
+             "/proto-google-cloud-monitoring-v3/src/main/java/com/google/monitoring/v3"]
+   :exclude ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3/stub"]
+   :native-prefixes #{"com.google.cloud.monitoring" "com.google.monitoring"}})
+
+(def vertexai
+  {:name 'gcp.vertexai
+   :type :static
+   :root (str googleapis "/google-cloud-java/java-vertexai")
+   :include ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/VertexAI.java"
+             "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api"
+             "/proto-google-cloud-vertexai-v1/src/main/java/com/google/cloud/vertexai/api"]
+   :exclude ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api/stub"]
+   :native-prefixes #{"com.google.cloud.vertexai" "com.google.vertexai"}})
+
+(def bigquery
+  {:name 'gcp.bigquery
+   :type :static
+   :root (str googleapis "/java-bigquery")
+   :include ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
+   :exclude ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
+             "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
+   :native-prefixes #{"com.google.cloud.bigquery"}})
+
+(def genai
+  {:name 'gcp.genai
+   :type :static
+   :root (str googleapis "/java-genai")
+   :native-prefixes #{"com.google.genai"}
+   :include ["/src/main/java/com/google/genai"]})
+
+(def logging
+  {:name 'gcp.logging
+   :type :static
+   :root (str googleapis "/java-logging")
+   :native-prefixes #{"com.google.cloud.logging" "com.google.logging"}
+   :include ["/google-cloud-logging/src/main/java/com/google/cloud/logging"
+             "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2"
+             "/proto-google-cloud-logging-v2/src/main/java/com/google/logging/v2"]
+   :exclude ["/google-cloud-logging/src/main/java/com/google/cloud/logging/spi"
+             "/google-cloud-logging/src/main/java/com/google/cloud/logging/testing"
+             "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2/stub"]})
+
+(def pubsub
+  {:name 'gcp.pubsub
+   :type :static
+   :root (str googleapis "/java-pubsub")
+   :native-prefixes #{"com.google.cloud.pubsub" "com.google.pubsub"}
+   :include ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1"]
+   :exclude ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1/stub"]})
+
+(def storage
+  {:name 'gcp.storage
+   :type :static
+   :root (str googleapis "/java-storage")
+   :include ["/google-cloud-storage/src/main/java/com/google/cloud/storage"
+             "/google-cloud-storage/src/main/java/com/google/cloud/storage/multipartupload/model"
+             "/google-cloud-storage/src/main/java/com/google/cloud/storage/transfermanager"]
+   :exclude ["/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
+             "/google-cloud-storage/src/main/java/com/google/cloud/storage/testing"]
+   :native-prefixes #{"com.google.cloud.storage"}})
+
+(def storage-control
+  {:name 'gcp.storage-control
+   :type :static
+   :root (str googleapis "/java-storage")
+   :include ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2"
+             "/proto-google-cloud-storage-control-v2/src/main/java/com/google/storage/control/v2"]
+   :exclude ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2/stub"]
+   :native-prefixes #{"com.google.storage.control"}})
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(def packages
+  {:vertexai vertexai
+   :bigquery bigquery
+   :pubsub pubsub
+   :storage storage
+   :storage-control storage-control
+   :logging logging
+   :genai genai
+   :monitoring monitoring
+   :artifact-registry artifact-registry})
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn- resolve-files [{:keys [root include exclude]}]
+  (let [excludes (map #(io/file root (subs % 1)) exclude)
+        includes (map #(io/file root (subs % 1)) include)
+        all-files (mapcat (fn [f]
+                            (if (.isDirectory f)
+                              (filter #(string/ends-with? (.getName %) ".java") (file-seq f))
+                              (if (and (.isFile f) (string/ends-with? (.getName f) ".java"))
+                                [f]
+                                [])))
+                          includes)]
+    (filter (fn [f]
+              (let [abs-path (.getAbsolutePath f)]
+                (not-any? (fn [ex]
+                            (string/starts-with? abs-path (.getAbsolutePath ex)))
+                          excludes)))
+            all-files)))
 
 (defn parse
-  "Analyzes a package specified by keyword (e.g. :bigquery) or path string.
-   Returns the package AST."
-  [key-or-path]
-  (if (keyword? key-or-path)
-    (if-let [path (get @package-repos key-or-path)]
-      (let [pkg-ast (parser/parse-package path {})]
-        (if-let [prefixes (get package-native-prefixes key-or-path)]
-          (assoc pkg-ast :native-prefixes prefixes)
-          pkg-ast))
-      (throw (ex-info "Unknown package keyword" {:package key-or-path :available (keys @package-repos)})))
-    (parser/parse-package key-or-path {})))
+  "Analyzes a package specified by keyword (e.g. :bigquery), static definition map, or path string.
+   Returns the parsed package AST with :type :parsed."
+  [pkg-like]
+  (cond
+    (keyword? pkg-like)
+    (if-let [pkg-def (get packages pkg-like)]
+      (parse pkg-def)
+      (throw (ex-info "Unknown package keyword" {:package pkg-like :available (keys packages)})))
+
+    (map? pkg-like)
+    (if (= (:type pkg-like) :parsed)
+      pkg-like
+      (let [files   (resolve-files pkg-like)
+            pkg-ast (parser/analyze-package (:root pkg-like) files {})]
+        (merge pkg-ast
+               (select-keys pkg-like [:name :native-prefixes])
+               {:type :parsed})))
+
+    (string? pkg-like)
+    (assoc (parser/parse-package pkg-like {}) :type :parsed)
+
+    :else
+    (throw (ex-info "Invalid argument to parse" {:arg pkg-like}))))
 
 (defn- collect-nested-types
   "Recursively collects all nested types (excluding top-level)."
@@ -67,8 +178,8 @@
 (defn summarize
   "Returns a concise summary of the package analysis result.
    Accepts either a package AST map or a package keyword (e.g. :bigquery)."
-  [key-or-path]
-  (let [pkg-ast           (parse key-or-path)
+  [pkg-like]
+  (let [pkg-ast           (parse pkg-like)
         all-classes       (vals (:class/by-fqcn pkg-ast))
         class-count       (count all-classes)
         git-tag           (:git-tag pkg-ast)
@@ -88,60 +199,60 @@
 
 (defn lookup-class
   [pkg-like class-like]
-  (let [pkg (if (map? pkg-like)
-              pkg-like
-              (parse pkg-like))]
+  (let [pkg (parse pkg-like)]
     (pkg/lookup-class pkg class-like)))
 
-(defn user-types [pkg-like]
-  (let [pkg (if (map? pkg-like)
-              pkg-like
-              (parse pkg-like))]
+(defn user-types
+  [pkg-like]
+  (let [pkg (parse pkg-like)]
     (pkg/user-types pkg)))
 
-(defn package-user-types [pkg-like]
-  (let [pkg (if (map? pkg-like)
-              pkg-like
-              (parse pkg-like))]
+(defn package-user-types
+  [pkg-like]
+  (let [pkg (parse pkg-like)]
     (pkg/package-user-types pkg)))
 
-(defn foreign-user-types [pkg-like]
-  (let [pkg (if (map? pkg-like)
-              pkg-like
-              (parse pkg-like))]
+(defn package-api-types
+  "returns sorted list of all binding targets for the given package"
+  [pkg-like]
+  (let [pkg (parse pkg-like)]
+    (sort (keys (:class/by-fqcn pkg)))))
+
+(defn foreign-user-types
+  [pkg-like]
+  (let [pkg (parse pkg-like)]
     (pkg/foreign-user-types pkg)))
 
-(defn foreign-user-types-by-package [pkg-like]
-  (let [pkg (if (map? pkg-like)
-              pkg-like
-              (parse pkg-like))]
+(defn foreign-user-types-by-package
+  [pkg-like]
+  (let [pkg (parse pkg-like)]
     (pkg/foreign-user-types-by-package pkg)))
 
 (defn class-user-types
   ([class-node]
    (pkg/class-user-types class-node))
   ([pkg-like class-like]
-   (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
+   (let [pkg (parse pkg-like)]
      (pkg/class-user-types pkg class-like))))
 
 (defn class-foreign-user-types [pkg-like class-like]
-  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
+  (let [pkg (parse pkg-like)]
     (pkg/class-foreign-user-types pkg class-like)))
 
 (defn class-package-user-types [pkg-like class-like]
-  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
+  (let [pkg (parse pkg-like)]
     (pkg/class-package-user-types pkg class-like)))
 
 (defn dependency-seq [pkg-like class-like]
-  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
+  (let [pkg (parse pkg-like)]
     (pkg/dependency-seq pkg class-like)))
 
 (defn dependency-tree [pkg-like class-like]
-  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
+  (let [pkg (parse pkg-like)]
     (pkg/dependency-tree pkg class-like)))
 
 (defn dependency-post-order [pkg-like class-like]
-  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))]
+  (let [pkg (parse pkg-like)]
     (pkg/dependency-post-order pkg class-like)))
 
 (defn analyze-class
@@ -183,15 +294,15 @@
 (defn package-foreign-deps
   [pkg-like]
   ;; for all package-user-types, analyze the type dependents relevant to bindings, and collect and merge the foreign types
-  (let [pkg (if (map? pkg-like) pkg-like (parse pkg-like))
+  (let [pkg (parse pkg-like)
         ;; We iterate over all defined classes in the package that are considered user types
         ;; (i.e. part of the API surface we care about).
-        types (package-user-types pkg)
+        types (pkg/package-user-types pkg)
         ;; Use native prefixes to filter out internal types
         native-prefixes (or (:native-prefixes pkg) #{(:package-name pkg)})
         is-native? (fn [t] (some #(string/starts-with? (str t) %) native-prefixes))]
     (->> types
-         (map #(lookup-class pkg %))
+         (map #(pkg/lookup-class pkg %))
          (filter some?)
          (map class-deps)
          (mapcat :foreign)
@@ -199,4 +310,4 @@
          (into (sorted-set)))))
 
 (defn global-foreign-deps []
-  (reduce into (map package-foreign-deps (keys @package-repos))))
+  (reduce into (map package-foreign-deps (keys packages))))

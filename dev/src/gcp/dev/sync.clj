@@ -84,3 +84,28 @@
       (println "Extra Files (or manually created/renamed):")
       (doseq [f (:extra result)]
         (println " - " f)))))
+
+(defn check-foreign []
+  (let [foreign-deps (pkg/global-foreign-deps)
+        uncertified (reduce (fn [acc fqcn]
+                              (let [s (str fqcn)]
+                                (if (or (contains? u/native-type s)
+                                        (string/starts-with? s "java.lang."))
+                                  acc
+                                  (let [ns-sym (u/infer-foreign-ns fqcn)]
+                                    (if (u/foreign-binding-exists? ns-sym)
+                                      (if (:gcp.dev/certification (u/ns-meta ns-sym))
+                                        acc
+                                        (conj acc {:fqcn fqcn :reason :uncertified :ns ns-sym}))
+                                      (conj acc {:fqcn fqcn :reason :missing :ns ns-sym}))))))
+                            []
+                            foreign-deps)]
+    (if (seq uncertified)
+      (do
+        (println "Found" (count uncertified) "uncertified foreign dependencies:")
+        (doseq [{:keys [fqcn reason ns]} uncertified]
+          (println (format " - %s (%s) [%s]" fqcn reason ns)))
+        uncertified)
+      (do
+        (println "All foreign dependencies are certified.")
+        []))))

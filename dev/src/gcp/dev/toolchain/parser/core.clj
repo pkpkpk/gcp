@@ -177,7 +177,8 @@
   (let [sdk-root (or (find-pom-root path)
                      (if (.isDirectory (io/file path)) path (.getParent (io/file path))))
         repo-sha (get-git-sha sdk-root)
-        package-cache-key (sha256 (str parser-source-hash repo-sha (.getAbsolutePath (io/file path))))
+        files-hash (sha256 (string/join "," (sort (map #(.getAbsolutePath %) files))))
+        package-cache-key (sha256 (str parser-source-hash repo-sha (.getAbsolutePath (io/file path)) files-hash))
         package-cache-file (io/file cache-dir (str "pkg-" package-cache-key ".edn"))]
     (tel/log! :debug (str "Analyzing package path: " path))
     (if (.exists package-cache-file)
@@ -208,6 +209,10 @@
                                      (filter #(string/ends-with? (.getName %) "package-info.java"))
                                      (sort-by #(count (.getPath %)))
                                      first)
+
+              ;; Create a hash of the file paths to ensure cache invalidation if the file set changes
+              ;; files-hash (sha256 (string/join "," (sort (map #(.getAbsolutePath %) files))))
+              ;; ALREADY CALCULATED ABOVE
 
               class-name-map (time-stage "Parsing Classes (Cached)"
                                (reduce (fn [acc f]

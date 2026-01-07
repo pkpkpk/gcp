@@ -19,3 +19,9 @@
   (let [pom ((requiring-resolve 'gcp.build.vertexai/pom))]
     (util/jar pom)
     (util/deploy pom)))
+
+(comment
+  (global)
+  (bigquery)
+  (vertexai)
+  )
