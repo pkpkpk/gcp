@@ -67,7 +67,7 @@
     [gcp.global :as g]
     [malli.core :as m])
   (:import
-    (com.google.protobuf Any ByteString Duration ListValue NullValue ProtocolStringList Struct Timestamp Value)
+    (com.google.protobuf Any ByteString Duration ListValue NullValue ProtocolStringList Struct Timestamp Value LazyStringArrayList)
     (java.nio ByteBuffer)))
 
 (def registry
@@ -115,20 +115,6 @@
 
 (g/include-schema-registry! registry)
 
-(import (com.google.protobuf LazyStringArrayList))
-
-#!-----------------------------------------------------------------------------
-
-(defn ^Any Any-from-edn [arg]
-  (let [builder (Any/newBuilder)]
-    (when (:type-url arg) (.setTypeUrl builder (:type-url arg)))
-    (when (:value arg) (.setValue builder (ByteString-from-edn (:value arg))))
-    (.build builder)))
-
-(defn Any-to-edn [^Any arg]
-  {:type-url (.getTypeUrl arg)
-   :value    (ByteString-to-edn (.getValue arg))})
-
 #!-----------------------------------------------------------------------------
 
 (defn ^Timestamp Timestamp-from-edn [arg]
@@ -162,6 +148,18 @@
 #!-----------------------------------------------------------------------------
 
 (declare Value-from-edn Value-to-edn)
+
+#!-----------------------------------------------------------------------------
+
+(defn ^Any Any-from-edn [arg]
+  (let [builder (Any/newBuilder)]
+    (when (:type-url arg) (.setTypeUrl builder (:type-url arg)))
+    (when (:value arg) (.setValue builder (ByteString-from-edn (:value arg))))
+    (.build builder)))
+
+(defn Any-to-edn [^Any arg]
+  {:type-url (.getTypeUrl arg)
+   :value    (ByteString-to-edn (.getValue arg))})
 
 #!-----------------------------------------------------------------------------
 

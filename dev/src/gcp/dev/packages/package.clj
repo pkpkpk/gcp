@@ -123,11 +123,17 @@
       x)
     @types))
 
+(def ignore-extends-categories
+  #{:enum :string-enum :abstract-union :concrete-union :union-variant
+    :accessor-with-builder :builder :static-factory :factory :pojo :read-only
+    :client})
 (defn- extract-deps-from-node
   "Extracts all dependencies (as FQCN strings) from a class AST node."
   [node]
-  (let [;; 1. Extends
-        extends-deps (mapcat collect-types (:extends node))
+  (let [;; 1. Extends (conditional)
+        extends-deps (if (contains? ignore-extends-categories (:category node))
+                       []
+                       (mapcat collect-types (:extends node)))
         ;; 2. Implements
         implements-deps (mapcat collect-types (:implements node))
         ;; 3. Fields (types)
@@ -140,27 +146,49 @@
         ;; 5. Constructors
         ctor-deps (mapcat (fn [c]
                             (mapcat #(collect-types (:type %)) (:parameters c)))
-                          (:constructors node))]
+                          (:constructors node))
+        all-deps (concat extends-deps implements-deps field-deps method-deps ctor-deps)
+        pruned (or (:prune-dependencies node) #{})]
     ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
     ;;    But we might want to depend on inner classes.
-    (into (sorted-set) (concat extends-deps implements-deps field-deps method-deps ctor-deps))))
+    (into (sorted-set)
+          (remove pruned)
+          all-deps)))
 
 (defn build-dependency-graph
   "Builds a dependency graph from the package analysis result.
    Returns a map: {FQCN #{DependencyFQCN ...}}"
   [package-ast]
   (let [fqcn-map (:class/by-fqcn package-ast)
-        internal-classes (set (keys fqcn-map))]
+        internal-classes (set (keys fqcn-map))
+        base-resolve (fn [dep]
+                       (if (contains? internal-classes dep)
+                         dep
+                         (let [parts (string/split dep #".")]
+                           (loop [p parts]
+                             (if (empty? p)
+                               nil
+                               (let [parent (string/join "." p)]
+                                 (if (contains? internal-classes parent)
+                                   parent
+                                   (recur (pop p)))))))))]
 
-    (reduce (fn [graph [fqcn node]]
-              (let [raw-deps (extract-deps-from-node node)
-                    ;; Filter dependencies to only those within the analyzed package (optional,
-                    ;; usually we want to see internal structure)
-                    ;; For now, let's keep only edges that point to classes WE know about (internal).
-                    internal-deps (s/intersection (set raw-deps) internal-classes)]
-                (assoc graph fqcn internal-deps)))
-            {}
-            fqcn-map)))
+    (reduce-kv (fn [graph fqcn node]
+                 (let [raw-deps (extract-deps-from-node node)
+                       current-pkg (:package node)
+
+                       resolve-dep (fn [dep]
+                                     (or (base-resolve dep)
+                                         (when current-pkg
+                                           (base-resolve (str current-pkg "." dep)))))
+
+                       internal-deps (into #{}
+                                           (comp (keep resolve-dep)
+                                                 (remove #(= % fqcn)))
+                                           raw-deps)]
+                   (assoc graph fqcn internal-deps)))
+               {}
+               fqcn-map)))
 
 (defn dependency-tree
   "Generates a dependency tree (nested map) starting from a root class.
@@ -186,6 +214,58 @@
                   {node (into {} (map #(build-tree % new-seen) deps))})))]
 
       (build-tree root-fqcn #{}))))
+
+(defn transitive-closure
+  "Returns the set of all internal classes reachable from the given roots.
+   'roots' is a collection of FQCN strings."
+  [pkg roots]
+  (let [graph (build-dependency-graph pkg)
+        roots (set roots)]
+    (loop [queue (into clojure.lang.PersistentQueue/EMPTY roots)
+           visited roots]
+      (if (empty? queue)
+        visited
+        (let [current (peek queue)
+              queue   (pop queue)
+              deps    (get graph current)
+              new-deps (remove visited deps)]
+          (recur (into queue new-deps)
+                 (into visited new-deps)))))))
+
+(defn topological-sort
+  "Returns a sequence of FQCNs sorted topologically (dependencies first).
+   'nodes' is a collection of FQCN strings to sort.
+   Throws an exception if a circular dependency is detected."
+  [pkg nodes]
+  (let [graph (build-dependency-graph pkg)
+        ;; We only care about the subgraph defined by 'nodes'
+        relevant-graph (select-keys graph nodes)
+        nodes-set (set nodes)]
+    (letfn [(dfs [node visited visiting path stack]
+              (cond
+                (contains? visiting node)
+                (let [cycle-path (conj (vec (drop-while #(not= % node) path)) node)]
+                  (throw (ex-info (str "Circular dependency detected: " (string/join " -> " cycle-path))
+                                  {:cycle-node node
+                                   :path path
+                                   :cycle cycle-path})))
+
+                (contains? visited node)
+                [visited stack]
+
+                :else
+                (let [new-visiting (conj visiting node)
+                      new-path     (conj path node)
+                      deps (filter nodes-set (get relevant-graph node))
+                      [visited stack] (reduce (fn [[v s] dep]
+                                                (dfs dep v new-visiting new-path s))
+                                              [visited stack]
+                                              deps)]
+                  [(conj visited node) (conj stack node)])))]
+      (second (reduce (fn [[visited stack] node]
+                        (dfs node visited #{} [] stack))
+                      [#{} []]
+                      nodes)))))
 
 (defn dependency-seq
   "Returns a sequence of FQCNs representing the dependency closure of `class-like`

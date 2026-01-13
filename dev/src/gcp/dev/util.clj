@@ -9,6 +9,15 @@
    (java.io ByteArrayOutputStream)
    (org.objectweb.asm ClassReader ClassVisitor Opcodes)))
 
+(set! *print-namespace-maps* false)
+
+(defn relative-path [base f]
+  (let [base-path (.getAbsolutePath (io/file base))
+        f-path (.getAbsolutePath (io/file f))]
+    (if (string/starts-with? f-path base-path)
+      (subs f-path (inc (count base-path)))
+      f-path)))
+
 (defn get-googleapis-repos-path []
   (let [root (System/getenv "GOOGLEAPIS_REPOS_PATH")]
     (cond
@@ -80,6 +89,9 @@
       (string/ends-with? type-name "Serializer")
       (string/ends-with? type-name "UnusedPrivateParameter")
       (string/ends-with? type-name "Proto")
+      (string/ends-with? type-name "AutoCloseable")
+      (string/ends-with? type-name "Closeable")
+      (string/ends-with? type-name "Serializable")
       (= type-name "BigQueryErrorMessages")))
 
 (defn get-url-bytes [^String url]
@@ -116,6 +128,15 @@
   #{"java.util.Map"
     "java.util.List"})
 
+;; STRICTNESS WARNING:
+;; This set defines types that are treated as opaque primitives (no conversion, no bindings).
+;; It MUST ONLY contain foundational Java types (java.lang.*, java.util.*) and primitives.
+;; DO NOT add Google Cloud types (com.google.cloud.*) to this set to silence "Broken dependency"
+;; errors. If a GCP dependency is missing, you must either:
+;;   1. Generate the missing package.
+;;   2. Add a certified manual binding to gcp.foreign.*.
+;;   3. Add a custom mapping in packages.clj.
+;; Bypassing architectural gaps by 'fudging' native-type is strictly forbidden.
 (def native-type
   #{"java.lang.Boolean"
     "boolean"
@@ -152,21 +173,12 @@
     "java.util.Optional"
     "java.util.AbstractList"
     "java.lang.Iterable"
+    "java.lang.Exception"
+    "java.lang.Throwable"
+    "java.lang.Error"
+    "java.lang.AutoCloseable"
+    "com.google.cloud.StringEnumValue"
     "void"})
-
-(def known-types
-  (clojure.set/union native-type
-                     #{"com.google.api.gax.paging.Page"
-                       "com.google.api.gax.retrying.TimedAttemptSettings"
-                       "com.google.cloud.RetryOption"
-                       "com.google.cloud.Service"
-                       "com.google.cloud.ServiceOptions"
-                       "com.google.cloud.ServiceOptions$Builder"
-                       "com.google.cloud.ServiceRpc"
-                       "com.google.cloud.http.HttpTransportOptions"
-                       "org.threeten.extra.PeriodDuration"
-                       "com.google.common.collect.ImmutableMap"
-                       "com.google.common.collect.ImmutableSet"}))
 
 (defn parse-type [t]
   (assert (string? t))
@@ -205,14 +217,52 @@
     (sequential? v) (vec v)
     :else [v]))
 
-(defn package-to-ns [package-name version]
-  (let [base (string/replace (str package-name) #"^com\.google\.cloud\." "")]
-    (if version ;; TODO this is brittle
-      (let [parts (string/split base #"\.")
-            ;; Insert version after the first part (e.g. vertexai.v1.api)
-            new-parts (into [(first parts) version] (rest parts))]
-        (symbol (str "gcp." (string/join "." new-parts))))
-      (symbol (str "gcp." base)))))
+(defn property-name [method-name]
+  (cond
+    (string/starts-with? method-name "get")
+    (let [s (subs method-name 3)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    (string/starts-with? method-name "is")
+    (let [s (subs method-name 2)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    (string/starts-with? method-name "set")
+    (let [s (subs method-name 3)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    (string/starts-with? method-name "addAll")
+    (let [s (subs method-name 6)]
+      (if (seq s)
+        (str (string/lower-case (subs s 0 1)) (subs s 1))
+        ""))
+    :else method-name))
+
+(def ^:private ns-mapping
+  {"artifactregistry" "artifact-registry"})
+
+(defn package-to-ns [package-name]
+  (let [pkg-str (str package-name)
+        ;; Strip common prefixes: com.google.cloud, com.google.devtools, etc.
+        base (if (string/starts-with? pkg-str "com.google.")
+               (let [parts (string/split pkg-str #"\.")]
+                 (if (> (count parts) 3)
+                   (string/join "." (drop 3 parts))
+                   pkg-str))
+               pkg-str)
+        ;; Apply mappings to the first segment of the base
+        base-parts (string/split base #"\.")
+        mapped-first (get ns-mapping (first base-parts) (first base-parts))
+        ;; Construct strict hierarchy: gcp.<service>.bindings.<rest>
+        ;; e.g. com.google.cloud.bigquery -> gcp.bigquery.bindings
+        ;; e.g. com.google.cloud.bigquery.storage.v1 -> gcp.bigquery.bindings.storage.v1
+        ns-str (str "gcp." mapped-first ".bindings"
+                    (when (next base-parts)
+                      (str "." (string/join "." (rest base-parts)))))]
+    (symbol ns-str)))
 
 (defn split-fqcn [fqcn]
   (let [fqcn (str fqcn)
@@ -233,15 +283,16 @@
   (boolean (io/resource (str (string/replace (name ns-sym) #"\." "/") ".clj"))))
 
 (defn foreign-vars [ns-sym]
-  (let [root (get-gcp-repo-root)
-        path (str root "/packages/global/src/" (string/replace (name ns-sym) #"\." "/") ".clj")
-        source (slurp path)
-        forms (edamame/parse-string-all source {:all true :auto-resolve {:current ns-sym}})]
-    (into #{}
-          (comp (filter seq?)
-                (filter #(contains? #{'defn 'def} (first %)))
-                (map second))
-          forms)))
+  (let [path (str (string/replace (name ns-sym) #"\." "/") ".clj")]
+    (if-let [res (io/resource path)]
+      (let [source (slurp res)
+            forms (edamame/parse-string-all source {:all true :auto-resolve {:current ns-sym}})]
+        (into #{}
+              (comp (filter seq?)
+                    (filter #(contains? #{'defn 'def} (first %)))
+                    (map second))
+              forms))
+      (throw (ex-info (str "Foreign source missing: " path) {:ns ns-sym})))))
 
 (defn source-ns-meta [source]
   (let [form (edamame/parse-string source {:all true})]
@@ -261,11 +312,11 @@
   (let [zloc (z/of-string source)
         ;; find (ns ...)
         ns-loc (z/find-value zloc z/next 'ns)
-        ;; name is next
-        name-loc (z/next ns-loc)
-        ;; check if next is a map or if the name has metadata
-        next-loc (z/next name-loc)]
-    (if (z/map? next-loc)
+        ;; name is next sibling
+        name-loc (z/right ns-loc)
+        ;; check if next sibling is a map
+        next-loc (z/right name-loc)]
+    (if (and next-loc (z/map? next-loc))
       ;; Update existing metadata map
       (let [existing-map (z/sexpr next-loc)
             updated-map-data (assoc existing-map metadata-key metadata-val)
@@ -288,8 +339,8 @@
     (when-let [res (io/resource path)]
       (source-ns-meta (slurp res)))))
 
-(defn schema-key [package-name class-name version]
-  (let [ns-sym (package-to-ns package-name version)]
+(defn schema-key [package-name class-name]
+  (let [ns-sym (package-to-ns package-name)]
     (keyword (name ns-sym) class-name)))
 
 (declare class-parts)
@@ -309,6 +360,7 @@
     "java.util.Map" [:map-of :any :any]
     "java.util.Iterator" [:sequential :any]
     "java.util.Optional" [:maybe :any]
+    ("java.lang.Exception" "java.lang.Throwable" "java.lang.Error" "java.lang.AutoCloseable") :any
     ("Map<java.lang.String, java.lang.String>"
       "Map<java.lang.String,java.lang.String>"
       "Map<String,String>"

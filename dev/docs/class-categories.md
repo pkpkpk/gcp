@@ -53,6 +53,13 @@ This document lists the categories used by the GCP library analyzer to classify 
 - **Union Check:** Has a `getType()` method that returns a `Type` enum (same logic as `:abstract-union`).
 - Represents a concrete class that behaves like a union but doesn't have subclasses for variants (less common).
 
+### `:union-factory`
+**Criteria:**
+- **Union Check:** Must be a `union-type?` (has `getType()` returning a `Type` enum).
+- **No Builder:** Must NOT have a nested Builder class.
+- **Static Factories:** Must have public static factory methods returning the class itself (e.g., `fromUri`, `inline`).
+- Represents a union type that is instantiated via static factories rather than a builder (e.g., `UserDefinedFunction`).
+
 ### `:exception`
 **Criteria:**
 - Name ends with "Exception".

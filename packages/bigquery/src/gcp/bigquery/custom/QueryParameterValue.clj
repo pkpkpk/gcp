@@ -1,4 +1,4 @@
-(ns gcp.bigquery.v2.QueryParameterValue
+(ns gcp.bigquery.custom.QueryParameterValue
   (:require [gcp.global :as g]
             [gcp.global :as global]
             [jsonista.core :as j])

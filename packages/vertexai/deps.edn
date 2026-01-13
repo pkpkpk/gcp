@@ -1,3 +1,4 @@
-{:paths ["src"]
- :deps {com.google.cloud/google-cloud-vertexai {:mvn/version "1.40.0"}
-        gcp/global {:local/root "../global"}}}
+{:paths ["src"],
+ :deps
+ {com.google.cloud/google-cloud-vertexai {:mvn/version "1.41.0"},
+  gcp/global {:local/root "../global"}}}

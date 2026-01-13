@@ -1,5 +1,4 @@
 (ns gcp.foreign.java.sql
- 
  {:gcp.dev/certification
    {:SQLException
       {:base-seed 1767752774971

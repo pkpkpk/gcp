@@ -66,7 +66,7 @@
    Scans the gcp.dev source tree, hashes each file, and computes a composite hash.
    Returns a map with :hash and :components (map of file -> hash)."
   []
-  (let [root (io/file "pkpkpk/gcp/dev/src")
+  (let [root (io/file (u/get-gcp-repo-root) "dev/src")
         source-files (->> (file-seq root)
                           (filter #(and (.isFile %) (string/ends-with? (.getName %) ".clj")))
                           (sort-by #(.getAbsolutePath %)))

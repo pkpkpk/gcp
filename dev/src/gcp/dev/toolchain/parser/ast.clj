@@ -21,7 +21,11 @@
   [^Type t]
   (or (instance? TypeParameter t)
       (and (instance? ClassOrInterfaceType t)
-           (.isTypeParameter (.asClassOrInterfaceType t)))))
+           (or (.isTypeParameter (.asClassOrInterfaceType t))
+               ;; Heuristic: Single uppercase letter is likely a type parameter
+               (let [n (.getNameAsString t)]
+                 (and (= 1 (count n))
+                      (Character/isUpperCase (first n))))))))
 
 (defn extract-javadoc
   "Extracts the Javadoc text from a node, if present.
@@ -74,13 +78,16 @@
                                    simple (last parts)]
                                (assoc acc simple i)))
                            {}
-                           (map :name imports))]
+                           (map :name imports))
+        java-lang-types #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum" "AutoCloseable" "Iterable" "Runnable" "Throwable" "Error" "Exception" "Cloneable" "Comparable"}
+        known-prefixes #{"java" "javax" "com" "org" "net" "io"}
+        known-types (into java-lang-types known-prefixes)]
     (fn [simple-name]
       (or (get local-overrides simple-name)
           (get import-map simple-name)
-          (if (contains? #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum" "java" "javax" "com" "org" "net" "io"} simple-name)
-            (str (if (contains? #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum"} simple-name) "java.lang." "") simple-name)
-            (if package
+          (if (contains? known-types simple-name)
+            (str (if (contains? java-lang-types simple-name) "java.lang." "") simple-name)
+            (if (and package (not (contains? #{"T" "E" "K" "V" "?"} simple-name)))
               (str package "." simple-name)
               simple-name))))))
 
@@ -140,7 +147,7 @@
               :else
               (symbol (.asString t)))]
     (if (type-parameter? t)
-      (with-meta res {:type-parameter? true})
+      [:type-parameter res]
       res)))
 
 (defn visible?
@@ -332,6 +339,26 @@
                                  (string/ends-with? (.getNameAsString ret) ".Type"))))))
                methods))))
 
+(defn has-builder? [type-decl]
+  (some (fn [member]
+          (and (instance? TypeDeclaration member)
+               (string/ends-with? (.getNameAsString member) "Builder")))
+        (.getMembers type-decl)))
+
+(defn has-static-factories? [type-decl]
+  (let [self-name (.getNameAsString type-decl)]
+    (some (fn [^MethodDeclaration m]
+            (and (.isStatic m)
+                 (.isPublic m)
+                 (let [ret (.asString (.getType m))]
+                   (or (= ret self-name)
+                       (string/ends-with? ret (str "." self-name))))))
+          (.getMethods type-decl))))
+
+(defn union-factory? [type-decl]
+  (and (not (has-builder? type-decl))
+       (has-static-factories? type-decl)))
+
 (defn static-factory?
   "Detects if a class is a static factory (no public constructors, has static 'of' method returning self)."
   [^TypeDeclaration type-decl]
@@ -456,7 +483,9 @@
            (.isInterface type-decl)) :interface
       (string/ends-with? name "Builder") :builder
       (union-type? type-decl)
-      (if (.isAbstract type-decl) :abstract-union :concrete-union)
+      (if (union-factory? type-decl)
+        :union-factory
+        (if (.isAbstract type-decl) :abstract-union :concrete-union))
       (string/ends-with? name "Exception") :exception
       (string/ends-with? name "Error") :error
 
@@ -508,43 +537,46 @@
 
 (defn process-type
   "Processes a single TypeDeclaration into a map containing its structure, members, and metadata."
-  [^TypeDeclaration type-decl package imports options file-git-sha]
-  (if (or (not (visible? type-decl options))
-          (instance? AnnotationDeclaration type-decl)
-          (and package (string/includes? package ".spi."))
-          (u/excluded-type-name? (.getNameAsString type-decl)))
-    nil
-    (let [local-types (extract-local-types type-decl)
-          solver (build-type-solver package imports local-types)
-          name (.getNameAsString type-decl)
-          kind (cond
-                 (instance? ClassOrInterfaceDeclaration type-decl)
-                 (if (.isInterface type-decl) :interface :class)
-                 (instance? EnumDeclaration type-decl) :enum
-                 :else :unknown)]
-      (merge
-        {:name name
-         :package package
-         :kind kind
-         :category (categorize-class type-decl)
-         :file-git-sha file-git-sha
-         :doc (extract-javadoc type-decl)
-         :annotations (extract-annotations type-decl)
-         :modifiers (extract-modifiers type-decl)
-         :methods (extract-methods type-decl solver options)
-         :fields (extract-fields type-decl solver options)}
-        (when (instance? ClassOrInterfaceDeclaration type-decl)
-          {:extends (filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
-           :implements (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))})
-        (when (= kind :class)
-          {:constructors (extract-constructors type-decl solver options)})
-        (when (= kind :enum)
-          {:values (extract-enum-constants type-decl)})
-        {:nested (->> (.getMembers type-decl)
-                      (filter #(and (instance? TypeDeclaration %) (visible? % options)))
-                      (mapv #(process-type % package imports options file-git-sha))
-                      (remove nil?)
-                      vec)}))))
+  ([type-decl package imports options file-git-sha]
+   (process-type type-decl package imports options file-git-sha {}))
+  ([^TypeDeclaration type-decl package imports options file-git-sha parent-local-types]
+   (if (or (not (visible? type-decl options))
+           (instance? AnnotationDeclaration type-decl)
+           (and package (string/includes? package ".spi."))
+           (u/excluded-type-name? (.getNameAsString type-decl)))
+     nil
+     (let [current-local-types (extract-local-types type-decl)
+           local-types (merge parent-local-types current-local-types)
+           solver (build-type-solver package imports local-types)
+           name (.getNameAsString type-decl)
+           kind (cond
+                  (instance? ClassOrInterfaceDeclaration type-decl)
+                  (if (.isInterface type-decl) :interface :class)
+                  (instance? EnumDeclaration type-decl) :enum
+                  :else :unknown)]
+       (merge
+         {:name name
+          :package package
+          :kind kind
+          :category (categorize-class type-decl)
+          :file-git-sha file-git-sha
+          :doc (extract-javadoc type-decl)
+          :annotations (extract-annotations type-decl)
+          :modifiers (extract-modifiers type-decl)
+          :methods (extract-methods type-decl solver options)
+          :fields (extract-fields type-decl solver options)}
+         (when (instance? ClassOrInterfaceDeclaration type-decl)
+           {:extends (filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
+            :implements (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))})
+         (when (= kind :class)
+           {:constructors (extract-constructors type-decl solver options)})
+         (when (= kind :enum)
+           {:values (extract-enum-constants type-decl)})
+         {:nested (->> (.getMembers type-decl)
+                       (filter #(and (instance? TypeDeclaration %) (visible? % options)))
+                       (mapv #(process-type % package imports options file-git-sha local-types))
+                       (remove nil?)
+                       vec)})))))
 
 (defn parse
   "Parses a Java file at the given path and returns a vector of processed type maps.

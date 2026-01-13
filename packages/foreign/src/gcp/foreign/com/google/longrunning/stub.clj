@@ -1,22 +1,20 @@
 (ns gcp.foreign.com.google.longrunning.stub
   {:gcp.dev/certification
    {:GrpcOperationsStub
-    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-     :base-seed 1767573250061
-     :timestamp "2026-01-05T00:34:10.067781170Z"
-     :passed-stages {:smoke 1767573250061
-                     :standard 1767573250062
-                     :stress 1767573250063}
-     :source-hash "ec634f1f49c36f73d8ced054290b92220c2645e0cc7df6bd4054184038adb474"}
+    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c",
+     :base-seed 1767573250061,
+     :timestamp "2026-01-05T00:34:10.067781170Z",
+     :passed-stages
+       {:smoke 1767573250061, :standard 1767573250062, :stress 1767573250063},
+     :source-hash "ec634f1f49c36f73d8ced054290b92220c2645e0cc7df6bd4054184038adb474"},
     :OperationsStub
-    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-     :base-seed 1767573250068
-     :timestamp "2026-01-05T00:34:10.112311837Z"
-     :passed-stages {:smoke 1767573250068
-                     :standard 1767573250069
-                     :stress 1767573250070}
-     :source-hash "ec634f1f49c36f73d8ced054290b92220c2645e0cc7df6bd4054184038adb474"}}}
-  {:doc "Foreign bindings for com.google.longrunning.stub"}
+    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c",
+     :base-seed 1767573250068,
+     :timestamp "2026-01-05T00:34:10.112311837Z",
+     :passed-stages
+       {:smoke 1767573250068, :standard 1767573250069, :stress 1767573250070},
+     :source-hash "ec634f1f49c36f73d8ced054290b92220c2645e0cc7df6bd4054184038adb474"}},
+   :doc "Foreign bindings for com.google.longrunning.stub"}
   (:require [gcp.global :as global])
   (:import (com.google.longrunning.stub GrpcOperationsStub OperationsStub)))
 

@@ -33,11 +33,7 @@
 
       (#{"double" "java.lang.Double"} t-str) :double
 
-
-
       (= t-str "com.google.protobuf.ProtocolStringList") [:sequential :string]
-
-
 
       (sequential? t)
 
@@ -55,23 +51,17 @@
 
           [:sequential (->malli-type package-name (first args) version)]
 
-
-
           (or (= base-str "java.util.Map")
 
               (= base-str "com.google.common.collect.ImmutableMap"))
 
           [:map-of (->malli-type package-name (first args) version) (->malli-type package-name (second args) version)]
 
-
-
           :else
 
           (let [{:keys [package class]} (u/split-fqcn base-str)]
 
-            (u/schema-key package class version))))
-
-
+            (u/schema-key package class))))
 
       (or (= t-str "java.util.Map") (string/starts-with? t-str "java.util.Map<"))
 
@@ -80,8 +70,6 @@
       (or (= t-str "java.util.List") (string/starts-with? t-str "java.util.List<"))
 
       [:sequential :any]
-
-
 
       (and (not (string/starts-with? t-str "com.google.cloud"))
 
@@ -93,21 +81,19 @@
 
         (keyword (name ns-sym) class))
 
-
-
       (string/starts-with? t-str "com.google.cloud")
 
       (let [clean-t (string/replace t-str #"^(class|interface) " "")
 
             {:keys [package class]} (u/split-fqcn clean-t)]
 
-        (u/schema-key package class version))
+        (u/schema-key package class))
 
       :else :any)))
 
 (defn- malli-accessor
   [{:keys [type doc fields className package] :as node} version]
-  (let [head [:map {:gcp/key  (u/schema-key package className version)
+  (let [head [:map {:gcp/key  (u/schema-key package className)
                     :gcp/type type
                     :closed   true
                     :doc      (u/clean-doc doc)
@@ -128,7 +114,7 @@
 
 (defn- malli-static-factory
   [{:keys [type doc className package] :as node} version]
-  [:map {:gcp/key  (u/schema-key package className version)
+  [:map {:gcp/key  (u/schema-key package className)
          :gcp/type type
          :closed   true
          :doc      (u/clean-doc doc)
@@ -139,7 +125,7 @@
   (let [doc (u/clean-doc doc)
         opts (cond-> {:class className
                       :gcp/type type
-                      :gcp/key (u/schema-key package className version)}
+                      :gcp/key (u/schema-key package className)}
                      doc (assoc :doc doc))
         enum-values (->> values
                          (map (fn [v] (if (map? v) (:name v) v)))
@@ -151,7 +137,7 @@
   (let [doc (u/clean-doc doc)
         opts (cond-> {:class className
                       :gcp/type type
-                      :gcp/key (u/schema-key package className version)}
+                      :gcp/key (u/schema-key package className)}
                      doc (assoc :doc doc))]
     (into [:enum opts] values)))
 
@@ -161,10 +147,37 @@
 
 (defn- malli-abstract-union
   [{:keys [type doc className package] :as node} version]
-  [:map {:gcp/key (u/schema-key package className version)
+  [:map {:gcp/key (u/schema-key package className)
          :gcp/type type
          :doc (u/clean-doc doc)
          :class className}])
+
+(defn- malli-union-factory
+  [{:keys [type doc className package getType getters] :as node} version]
+  (let [head [:map {:gcp/key  (u/schema-key package className)
+                    :gcp/type type
+                    :closed   true
+                    :doc      (u/clean-doc doc)
+                    :class    className}]
+        ;; Prop derived from getType
+        type-schema (->malli-type package getType version)
+        type-doc (u/clean-doc (:doc getType))
+        type-prop (if type-doc
+                    [:type {:doc type-doc} type-schema]
+                    [:type type-schema])
+
+        ;; Props derived from getters
+        other-props (->> getters
+                         (remove #(= (:name %) "getType"))
+                         (map (fn [m]
+                                (let [pname (u/property-name (:name m))
+                                      ptype (:returnType m)
+                                      pdoc (u/clean-doc (:doc m))
+                                      pschema (->malli-type package ptype version)]
+                                  (if pdoc
+                                    [(keyword pname) {:doc pdoc} pschema]
+                                    [(keyword pname) pschema])))))]
+    (into head (cons type-prop other-props))))
 
 (defn ->schema
   "Converts an analyzed node into a malli schema."
@@ -178,7 +191,8 @@
        :static-factory (malli-static-factory node version)
        :abstract-union (malli-abstract-union node version)
        :concrete-union (malli-concrete-union node version)
-       [:map {:gcp/key (u/schema-key (:package node) (:className node) version)
+       :union-factory (malli-union-factory node version)
+       [:map {:gcp/key (u/schema-key (:package node) (:className node))
               :gcp/type category
               :doc (u/clean-doc (:doc node))
               :class (:className node)}]))))

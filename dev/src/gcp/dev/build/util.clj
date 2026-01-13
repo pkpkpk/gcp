@@ -1,13 +1,10 @@
-(ns gcp.build.util
-  (:require [clojure.java.io :as io]
-            [clojure.tools.build.api :as b]
-            [deps-deploy.deps-deploy :as dd]))
+(ns gcp.dev.build.util
+  (:require
+   [clojure.java.io :as io]
+   [clojure.tools.build.api :as b]
+   [deps-deploy.deps-deploy :as dd]))
 
 (set! *print-namespace-maps* false)
-
-(def home            (io/file (System/getProperty "user.home")))
-(def project-root    (io/file home "pkpkpk" "gcp"))
-(def package-root    (io/file project-root "gcp"))
 
 (defn pom-template
   [{:keys [version description url]}]
@@ -44,3 +41,24 @@
     (dd/deploy {:artifact  jar-file
                 :installer :remote
                 :pom-file  (b/pom-path (assoc pom :class-dir "target/classes"))})))
+
+(comment
+  (defn pom [{:keys [description lib sdk-version]}]
+    (let [version (str sdk-version "-"
+                       (.format (java.time.LocalDate/now)
+                                (java.time.format.DateTimeFormatter/ofPattern "yyyy-MM-dd"))
+                       "-SNAPSHOT")
+          project {:paths [(.getPath src-root)]
+                   :deps {global/lib {:mvn/version global/version}
+                          'com.google.cloud/google-cloud-bigquery {:mvn/version bigquery-version}}}
+          basis (b/create-basis {:project project})]
+      {:src-dirs [(.getPath src-root)]
+       :lib      lib
+       :version  version
+       :basis    basis
+       :pom-data (util/pom-template {:version     version
+                                     :description description
+                                     :url         "https://github.com/pkpkpk/gcp"})}))
+
+  (jar (pom))
+  (deploy (pom)))

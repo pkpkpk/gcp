@@ -1,8 +1,10 @@
 (ns gcp.dev.packages.maven
-  (:require [clojure.tools.deps.util.maven :as mvn]
-            [clojure.string :as string])
-  (:import [org.eclipse.aether.artifact DefaultArtifact]
-           [org.eclipse.aether.resolution VersionRangeRequest]))
+  (:require
+   [clojure.string :as string]
+   [clojure.tools.deps.util.maven :as mvn])
+  (:import
+   (org.eclipse.aether.artifact DefaultArtifact)
+   (org.eclipse.aether.resolution VersionRangeRequest)))
 
 (defn- version-range-request
   [group artifact]

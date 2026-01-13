@@ -1,8 +1,10 @@
 (ns gcp.dev.packages.git
-  (:require [clojure.java.io :as io]
-            [clojure.string :as string])
-  (:import [java.lang ProcessBuilder ProcessBuilder$Redirect]
-           [java.io File StringWriter InputStream]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as string])
+  (:import
+   (java.io File InputStream StringWriter)
+   (java.lang ProcessBuilder ProcessBuilder$Redirect)))
 
 (defn- capture
   "Reads from input-stream until EOF and returns a String (or nil if 0 length)."
@@ -82,3 +84,48 @@
   "Prunes stale worktree information."
   [repo-path]
   (run-git repo-path "worktree" "prune"))
+
+(defn rev-parse
+  "Returns the full SHA-1 for the given revision."
+  [repo-path rev]
+  (run-git repo-path "rev-parse" rev))
+
+(defn ls-remote-tags
+  "Lists tags from the remote matching a pattern."
+  [repo-path pattern]
+  (let [out (run-git repo-path "ls-remote" "--tags" "origin" pattern)]
+    (if (string/blank? out)
+      []
+      (->> (string/split-lines out)
+           (map #(second (string/split % #"\s+")))
+           (map #(string/replace % "refs/tags/" ""))))))
+
+(defn fetch-tag
+  "Fetches a specific tag from the remote."
+  [repo-path tag]
+  (run-git repo-path "fetch" "origin" (str "refs/tags/" tag ":refs/tags/" tag)))
+
+(defn find-tag-for-artifact
+  "Finds the git tag corresponding to the artifact version.
+   Tries local tags first, then queries remote and fetches if found."
+  [repo-path artifact-id version]
+  (let [simple-tag (str "v" version)
+        artifact-tag (str artifact-id "-v" version)
+        local-check (fn [t]
+                      (try
+                        (run-git repo-path "rev-parse" "--verify" (str t "^{tag}"))
+                        t
+                        (catch Exception _ nil)))]
+    (or (local-check simple-tag)
+        (local-check artifact-tag)
+        ;; Try remote
+        (let [remote-tags (into #{} (concat (ls-remote-tags repo-path simple-tag)
+                                            (ls-remote-tags repo-path artifact-tag)))]
+          (cond
+            (contains? remote-tags simple-tag)
+            (do (fetch-tag repo-path simple-tag) simple-tag)
+
+            (contains? remote-tags artifact-tag)
+            (do (fetch-tag repo-path artifact-tag) artifact-tag)
+
+            :else nil)))))

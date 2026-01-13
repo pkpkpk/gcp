@@ -2,17 +2,20 @@
  :deps  {org.clojure/test.check                {:mvn/version "1.1.2"}
          org.clojure/tools.deps                {:mvn/version "0.28.1569"}
          org.clojure/tools.gitlibs             {:mvn/version "2.6.206"}
+         org.clojure/tools.namespace           {:mvn/version "1.5.1"}
          io.github.clojure/tools.build         {:mvn/version "0.10.12"}
          slipset/deps-deploy                   {:mvn/version "0.2.2"}
          com.github.javaparser/javaparser-core {:mvn/version "3.25.10"}
-         gcp/artifactregistry                  {:local/root "../packages/artifactregistry"}
+         gcp/global                            {:local/root "../packages/global"}
+         gcp/foreign                           {:local/root "../packages/foreign"}
+         gcp/artifact-registry                 {:local/root "../packages/artifact-registry"}
          gcp/bigquery                          {:local/root "../packages/bigquery"}
          gcp/genai                             {:local/root "../packages/genai"}
-         gcp/global                            {:local/root "../packages/global"}
          gcp/logging                           {:local/root "../packages/logging"}
          gcp/monitoring                        {:local/root "../packages/monitoring"}
          gcp/pubsub                            {:local/root "../packages/pubsub"}
          gcp/storage                           {:local/root "../packages/storage"}
+         gcp/storage-control                   {:local/root "../packages/storage-control"}
          gcp/vertexai                          {:local/root "../packages/vertexai"}
          clj-http/clj-http                     {:mvn/version "3.13.0"}
          rewrite-clj/rewrite-clj               {:mvn/version "1.1.49"}

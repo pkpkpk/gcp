@@ -1,2 +1,4 @@
-{:paths ["src" "test"]
- :deps {gcp/global {:local/root "../global"}}}
+{:paths ["src" "test"],
+ :deps
+ {gcp/global {:local/root "../global"},
+  com.google.genai/google-genai {:mvn/version "1.34.0"}}}

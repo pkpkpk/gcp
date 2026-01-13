@@ -47,7 +47,7 @@ Every generated binding file includes a `:gcp.dev/provenance` map in its namespa
 ```
 
 ---
-### V1 Certification Protocol
+### Binding Certification Protocol
 Binding quality is enforced through a formalized 3-stage fuzzing protocol. The protocol configuration itself is hashed (`:protocol-hash`) to prevent silent changes in verification rigor.
 
 *   **Smoke (100 tests, size 10):** Rapid verification of basic construction and roundtripping.
@@ -57,24 +57,7 @@ Binding quality is enforced through a formalized 3-stage fuzzing protocol. The p
 Certification is **sticky**: files are only regenerated if the provenance (source code or toolchain) or the certification protocol changes.
 
 ---
-### Foreign Certification Protocol
-External Java dependencies (types in `gcp.foreign`) require manual binding implementation but are subject to the same rigorous fuzzing standards as generated bindings.
-
-*   **Systematic Discovery**: The `certify-foreign-namespace` tool scans a target namespace for `TypeName-from/to-edn` pairs and their corresponding Malli schemas (supporting recursive schemas defined in local `registry` maps).
-*   **Source-Aware Hashing**: The `:protocol-hash` for foreign bindings is a composite hash of the certification protocol version **and** the source code of the fuzzing toolchain (`gcp.dev.toolchain.fuzz`). This ensures that logic changes in the verification engine invalidate previous certifications.
-*   **Enforcement**: The toolchain emitter (`gcp.dev.toolchain.emitter`) performs a mandatory certification check for every foreign namespace reference. If a namespace lacks valid `:gcp.dev/certification` metadata, compilation is aborted.
-*   **Formatting**: Certification results are injected into the namespace metadata using structural editing (`rewrite-clj`) and formatted via `zprint` to maintain high readability in source control.
-*   **Idempotency**: To allow embedding certification results directly in the source file without invalidating its own source hash, the source hashing logic (`compute-foreign-source-hash`) specifically parses the file and excludes the `:gcp.dev/certification` metadata key before computing the checksum.
-
-**Certification Workflow:**
-1.  **Identify Missing Bindings**: Use `gcp.dev.sync/check-foreign` to discover uncertified dependencies used by the SDKs.
-2.  **Implement Bindings**: Create the corresponding `gcp.foreign.package.namespace` file. Define `Type-from-edn`, `Type-to-edn`, and register the schema.
-    *   *Standard Library Exception*: Raw container types (`java.util.List`, `java.util.Map`) and primitives are handled natively by the toolchain/host and do not require foreign bindings.
-3.  **Certify**: Run `gcp.dev.toolchain.fuzz/certify-foreign-namespace`. This validates the bindings using the fuzzing protocol and returns the certification result.
-4.  **Inject Metadata**: Pass the result to `gcp.dev.toolchain.fuzz/update-foreign-namespace-certification`. This updates the source file in-place with the cryptographic proof of certification.
-
----
-## gcp.global
+## `GCP_REPO_ROOT/packages/global` := `gcp.global`
 
 + packages/global manages a shared malli registry for all packages
   - its is ok to instrument global or modify it to improve error reporting or sensible defaults
@@ -103,7 +86,7 @@ External Java dependencies (types in `gcp.foreign`) require manual binding imple
 + `gcp.gen` wraps `malli.generator` put uses the gcp.global malli api
 
 ---
-## gcp.foreign
+## `GCP_REPO_ROOT/packages/foreign` := `gcp.foreign`
 
 The `gcp.foreign` system provides a **systematic** mechanism for handling external Java dependencies (types not within the generated SDK package itself). It acts as a "clean slate" replacement for ad-hoc mappings.
 
@@ -139,7 +122,25 @@ The toolchain (`gcp.dev`) automatically resolves foreign dependencies using this
     *   If the binding namespace is missing, the specific function DNE, or it lacks fuzz certification: **Throws an exception**
 
 ---
-## gcp.dev 
+### Foreign Certification Protocol
+External Java dependencies (types in `gcp.foreign`) require manual binding implementation but are subject to the same rigorous fuzzing standards as generated bindings.
+
+*   **Systematic Discovery**: The `certify-foreign-namespace` tool scans a target namespace for `TypeName-from/to-edn` pairs and their corresponding Malli schemas (supporting recursive schemas defined in local `registry` maps).
+*   **Source-Aware Hashing**: The `:protocol-hash` for foreign bindings is a composite hash of the certification protocol version **and** the source code of the fuzzing toolchain (`gcp.dev.toolchain.fuzz`). This ensures that logic changes in the verification engine invalidate previous certifications.
+*   **Enforcement**: The toolchain emitter (`gcp.dev.toolchain.emitter`) performs a mandatory certification check for every foreign namespace reference. If a namespace lacks valid `:gcp.dev/certification` metadata, compilation is aborted.
+*   **Formatting**: Certification results are injected into the namespace metadata using structural editing (`rewrite-clj`) and formatted via `zprint` to maintain high readability in source control.
+*   **Idempotency**: To allow embedding certification results directly in the source file without invalidating its own source hash, the source hashing logic (`compute-foreign-source-hash`) specifically parses the file and excludes the `:gcp.dev/certification` metadata key before computing the checksum.
+
+**Certification Workflow:**
+1.  **Identify Missing Bindings**: Use `gcp.dev.build/check-package-foreign` to discover uncertified dependencies used by the SDKs.
+2.  **Implement Bindings**: Create the corresponding `gcp.foreign.package.namespace` file. Define `Type-from-edn`, `Type-to-edn`, and register the schema.
+    *   *Standard Library Exception*: Raw container types (`java.util.List`, `java.util.Map`) and primitives are handled natively by the toolchain/host and do not require foreign bindings.
+3.  **Certify**: Run `gcp.dev.toolchain.fuzz/certify-foreign-namespace`. This validates the bindings using the fuzzing protocol and returns the certification result.
+4.  **Inject Metadata**: Pass the result to `gcp.dev.toolchain.fuzz/update-foreign-namespace-certification`. This updates the source file in-place with the cryptographic proof of certification.
+
+
+---
+## `GCP_REPO_ROOT/dev` := `gcp.dev`
 
 The generation pipeline in `gcp.dev.toolchain`, consists of:
 *   `gcp.dev.toolchain.parser`: Orchestrates Java source parsing with Git-aware caching.
@@ -234,13 +235,16 @@ Automated verification system.
 *   **`certify-foreign-namespace`**: Automates the discovery and fuzz-testing of manual bindings in `gcp.foreign` namespaces.
 *   **`update-foreign-namespace-certification`**: Injects certification proofs directly into the source file metadata, enabling idempotent and verifiable builds.
 
-#### `gcp.dev.sync`
-Compares the generated file system state against the expected state derived from the Java AST to track drift (missing files, extra files).
-*   **`report`**: Identifies discrepancies between the generated bindings and the latest SDK version.
-*   **`check-foreign`**: Scans the codebase for uncertified foreign dependencies, ensuring that all external types used in the bindings are covered by the Foreign Certification Protocol.
 
 ---
 ## COMMANDS
+
+
+### Development Workflow (Safe Reloading)
+```clojure
+(require 'gcp.dev.repl)
+(gcp.dev.repl/refresh)
+```
 
 ### Analyze a class
 
@@ -304,6 +308,13 @@ If definitions or categorization rules change:
 ```clojure
 (require :reload '[gcp.dev.toolchain.parser :as p])
 (p/clear-cache)
+```
+
+### Building a Package
+```clojure
+(do 
+  (require '[gcp.dev.build] :reload) 
+  (gcp.dev.build/build-package :bigquery))
 ```
 
 ---

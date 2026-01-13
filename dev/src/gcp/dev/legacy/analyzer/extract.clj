@@ -167,7 +167,7 @@
     (fn [res]
       (let [ts (reduce #(into %1 (map :type) (apply concat %2)) #{} (vals res))]
         (doseq [t ts]
-          (when-not (or (known-types t)
+          (when-not (or (native-type t)
                         (contains? (:types/all package) t))
             (throw (ex-info (str "bad static method param type '" t "'") {:extracted-types ts
                                                                           :extracted-methods res

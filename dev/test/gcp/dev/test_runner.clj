@@ -2,12 +2,14 @@
   (:require
    [clojure.test :as t]
    gcp.dev.test.packages-test
+   gcp.dev.test.recursive-deps-test
    gcp.dev.test.toolchain.analyzer-test
    gcp.dev.test.toolchain.emitter-test
    gcp.dev.test.toolchain.emitter-foreign-handling-test))
 
 (defn run-all-tests []
   (t/run-tests 'gcp.dev.test.packages-test
+               'gcp.dev.test.recursive-deps-test
                'gcp.dev.test.toolchain.analyzer-test
                'gcp.dev.test.toolchain.emitter-test
                'gcp.dev.test.toolchain.emitter-foreign-handling-test))

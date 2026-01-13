@@ -1,0 +1,5 @@
+{:paths ["src" "test"],
+ :deps
+ {gcp/global {:local/root "../global"},
+  com.google.cloud/google-cloud-artifact-registry
+  {:mvn/version "1.80.0"}}}

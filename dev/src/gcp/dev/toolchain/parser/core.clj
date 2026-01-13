@@ -153,7 +153,7 @@
 (defn get-sdk-name
   "Infers the SDK name from the directory path."
   [path]
-  (let [parts (string/split path #"/")
+  (let [parts (string/split (str path) #"/")
         src-index (.indexOf parts "src")]
     (if (and (pos? src-index) (< src-index (count parts)))
       (nth parts (dec src-index))
@@ -187,9 +187,9 @@
         (try
           (read-string (slurp package-cache-file))
           (catch Exception e
-            (tel/log! :error ["Error reading package cache:" (.getMessage e)])
-            ;; If read fails, delete and recurse to re-generate (safe fallback)
-            (io/delete-file package-cache-file)
+            (tel/log! :error (str "Error reading package cache file: " (.getAbsolutePath package-cache-file) " Error: " (.getMessage e)))
+            ;; If read fails, rename to .bad and recurse to re-generate (safe fallback)
+            (.renameTo package-cache-file (io/file (str (.getAbsolutePath package-cache-file) ".bad")))
             (analyze-package path files options))))
       (do
         (tel/log! :debug "Package cache miss. Analyzing package...")
@@ -259,7 +259,7 @@
                                    (mapv (fn [node]
                                            (symbol (str (:package node) "." (:name node))))))
               pkg-ast {:sdk-name (get-sdk-name path)
-                       :path path
+                       :path (.getAbsolutePath (io/file path))
                        :package-name package-name
                        :git-sha git-sha
                        :git-tag git-tag
@@ -271,44 +271,45 @@
           (time-stage "Writing Package Cache"
             (binding [*print-length* nil
                       *print-level* nil]
+              (tel/log! :info (str "Writing package cache to: " (.getAbsolutePath package-cache-file)))
               (spit package-cache-file (pr-str pkg-ast))))
           pkg-ast)))))
 
-(defn -main
-  "Entry point for command-line usage.
-   Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]"
-  [& args]
-  (let [args-set (set args)
-        pretty? (contains? args-set "--pretty")
-        input-args (remove #(= % "--pretty") args)]
-    (when (< (count input-args) 2)
-      (tel/log! :error "Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]")
-      (tel/log! :error "Error: Missing required arguments.")
-      (System/exit 1))
-
-    (let [path (first input-args)
-          output-path (second input-args)
-          options {:include-private? false
-                   :include-package-private? false}]
-      (tel/log! :debug ["Processing:" path "with options:" options])
-      (tel/log! :debug (str "Output will be written to: " output-path))
-      (tel/log! :debug (str "Pretty printing: " pretty?))
-      (io/make-parents (io/file cache-dir "dummy"))
-      (time-stage "Total Execution"
-        (let [file (io/file path)
-              files (time-stage "File Discovery"
-                      (if (.isDirectory file)
-                        (filter #(string/ends-with? (.getName %) ".java") (file-seq file))
-                        [file]))
-              file-count (count files)]
-          (tel/log! :debug ["Found" file-count "Java files to parse."])
-          (tel/log! :debug (str "Parser source hash: " parser-source-hash))
-          (let [package-ast (analyze-package path files options)]
-            (time-stage "Writing Output"
-              (with-open [writer (io/writer output-path)]
-                (if pretty?
-                  (pp/pprint package-ast writer)
-                  (binding [*print-length* nil
-                            *print-level* nil]
-                    (.write writer (pr-str package-ast))))))
-            (tel/log! :debug (str "Processed package. Output written to " output-path))))))))
+;(defn -main
+;  "Entry point for command-line usage.
+;   Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]"
+;  [& args]
+;  (let [args-set (set args)
+;        pretty? (contains? args-set "--pretty")
+;        input-args (remove #(= % "--pretty") args)]
+;    (when (< (count input-args) 2)
+;      (tel/log! :error "Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]")
+;      (tel/log! :error "Error: Missing required arguments.")
+;      (System/exit 1))
+;
+;    (let [path (first input-args)
+;          output-path (second input-args)
+;          options {:include-private? false
+;                   :include-package-private? false}]
+;      (tel/log! :debug ["Processing:" path "with options:" options])
+;      (tel/log! :debug (str "Output will be written to: " output-path))
+;      (tel/log! :debug (str "Pretty printing: " pretty?))
+;      (io/make-parents (io/file cache-dir "dummy"))
+;      (time-stage "Total Execution"
+;        (let [file (io/file path)
+;              files (time-stage "File Discovery"
+;                      (if (.isDirectory file)
+;                        (filter #(string/ends-with? (.getName %) ".java") (file-seq file))
+;                        [file]))
+;              file-count (count files)]
+;          (tel/log! :debug ["Found" file-count "Java files to parse."])
+;          (tel/log! :debug (str "Parser source hash: " parser-source-hash))
+;          (let [package-ast (analyze-package path files options)]
+;            (time-stage "Writing Output"
+;              (with-open [writer (io/writer output-path)]
+;                (if pretty?
+;                  (pp/pprint package-ast writer)
+;                  (binding [*print-length* nil
+;                            *print-level* nil]
+;                    (.write writer (pr-str package-ast))))))
+;            (tel/log! :debug (str "Processed package. Output written to " output-path))))))))

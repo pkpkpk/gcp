@@ -100,19 +100,24 @@
   [pkg-key fqcn options]
   (let [original-ns *ns*]
     (try
-      (tel/log! :info ["Certifying" fqcn "with options" options])
+      (println "Certifying..." fqcn)
       ;; 1. Load Dependencies
       (load-dependencies! pkg-key fqcn)
       ;; 2. Load Target (fresh compilation)
       (let [node (pkg/lookup-class pkg-key fqcn)
             ana-node (ana/analyze-class-node node)
-            forms (emitter/compile-class-forms ana-node)
+            forms (try
+                    (emitter/compile-class-forms ana-node)
+                    (catch Exception e
+                      (throw (ex-info (str "failed to emit class: " (ex-message e))
+                                      {:parser-node node
+                                       :ana-node ana-node
+                                       :cause e}))))
             _ (load-class-forms! fqcn forms)
-            version (u/extract-version (:doc ana-node))
-            sk (u/schema-key (:package ana-node) (:className ana-node) version)
+            sk (u/schema-key (:package ana-node) (:className ana-node))
             generator (gen/generator sk)
             verify-fn (fn [edn]
-                        (let [ns-sym (symbol (str (u/package-to-ns (:package ana-node) version) "." (:className ana-node)))
+                        (let [ns-sym (symbol (str (u/package-to-ns (:package ana-node)) "." (:className ana-node)))
                               from-edn (resolve (symbol (str ns-sym) "from-edn"))
                               to-edn (resolve (symbol (str ns-sym) "to-edn"))]
                           (if (and from-edn to-edn)
@@ -158,15 +163,12 @@
                                   (if (and registry-map (contains? registry-map sk))
                                     (global/register-schema! sk (get registry-map sk))
                                     (tel/log! :warn ["Schema not found for" sk "and not in registry"])))
-                              
                               generator (try (gen/generator sk)
                                              (catch Exception e
                                                (tel/log! :error ["Failed to get generator for" sk (.getMessage e)])
                                                nil))
-                              
                               from-edn (ns-resolve ns-sym (symbol (str type-name "-from-edn")))
                               to-edn (ns-resolve ns-sym (symbol (str type-name "-to-edn")))
-                              
                               verify-fn (fn [edn]
                                           (let [obj (from-edn edn)
                                                 rt-edn (to-edn obj)]
@@ -175,7 +177,6 @@
                                               (do
                                                 (tel/log! :error ["Validation Failed for foreign type" type-name (global/humanize (global/geminize (global/explain sk rt-edn) sk))])
                                                 false))))]
-                          
                           (if generator
                             (let [cert-res (run-certification-protocol sk generator verify-fn options)]
                               (assoc acc (keyword type-name) (assoc cert-res :source-hash source-hash)))

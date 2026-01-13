@@ -1,6 +1,5 @@
-{:paths ["src"]
- :deps {com.google.cloud/google-cloud-bigquery {:mvn/version "2.47.0"}
-        gcp/global {:local/root "../global"}}
- :aliases
- {:test
-  {:extra-paths ["test"]}}}
+{:paths ["src"],
+ :deps
+ {com.google.cloud/google-cloud-bigquery {:mvn/version "2.57.1"},
+  gcp/global {:local/root "../global"},
+  gcp/foreign {:local/root "../foreign"}}}

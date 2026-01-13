@@ -47,74 +47,86 @@
                          (string/ends-with? rt (str "." builder-name))))))
             (:methods node))))
 
-(defn- property-name [method-name]
-  (cond
-    (string/starts-with? method-name "get")
-    (let [s (subs method-name 3)]
-      (if (seq s)
-        (str (string/lower-case (subs s 0 1)) (subs s 1))
-        ""))
-    (string/starts-with? method-name "is")
-    (let [s (subs method-name 2)]
-      (if (seq s)
-        (str (string/lower-case (subs s 0 1)) (subs s 1))
-        ""))
-    (string/starts-with? method-name "set")
-    (let [s (subs method-name 3)]
-      (if (seq s)
-        (str (string/lower-case (subs s 0 1)) (subs s 1))
-        ""))
-    (string/starts-with? method-name "addAll")
-    (let [s (subs method-name 6)]
-      (if (seq s)
-        (str (string/lower-case (subs s 0 1)) (subs s 1))
-        ""))
-    :else method-name))
-
 (defn- extract-type-symbols [type-ast]
   (cond
+    (and (vector? type-ast) (= :type-parameter (first type-ast)))
+    #{}
+
     (symbol? type-ast) (if (#{'? 'void} type-ast) #{} #{type-ast})
     (sequential? type-ast) (reduce into #{} (map extract-type-symbols type-ast))
     :else #{}))
 
-(defn- extract-all-dependencies [node]
-  (let [fields (:fields node)
-        methods (:methods node)
-        ctors (:constructors node)
-        extends (:extends node)
-        implements (:implements node)
-        field-deps (mapcat (fn [f] (extract-type-symbols (:type f))) fields)
-        method-deps (mapcat (fn [m]
-                              (concat (extract-type-symbols (:returnType m))
-                                      (mapcat #(extract-type-symbols (:type %)) (:parameters m))))
-                            methods)
-        ctor-deps (mapcat (fn [c] (mapcat #(extract-type-symbols (:type %)) (:parameters c))) ctors)
-        extends-deps (mapcat extract-type-symbols extends)
-        implements-deps (mapcat extract-type-symbols implements)]
+(def ^:private ignore-extends-categories
+  #{:enum :string-enum :abstract-union :concrete-union :union-variant :union-factory
+    :accessor-with-builder :builder :static-factory :factory :pojo :read-only
+    :client})
+
+(defn- extract-specific-dependencies
+  [items prune-set]
+  (let [deps (mapcat (fn [x]
+                       (concat
+                         (when (:type x) (extract-type-symbols (:type x)))
+                         (when (:returnType x) (extract-type-symbols (:returnType x)))
+                         (when (:parameters x) (mapcat #(extract-type-symbols (:type %)) (:parameters x)))))
+                     items)
+        pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))]
     (into #{}
-          (remove #(u/excluded-type-name? (str %)))
-          (concat field-deps method-deps ctor-deps extends-deps implements-deps))))
+          (comp (remove #(u/excluded-type-name? (str %)))
+                (remove pruned?))
+          deps)))
+
+(defn- extract-all-dependencies
+  ([node] (extract-all-dependencies node nil))
+  ([node prune-set]
+   (let [fields (:fields node)
+         methods (:methods node)
+         ctors (:constructors node)
+         extends (:extends node)
+         implements (:implements node)
+         nested (:nested node)
+         field-deps (mapcat (fn [f] (extract-type-symbols (:type f))) fields)
+         method-deps (mapcat (fn [m]
+                               (concat (extract-type-symbols (:returnType m))
+                                       (mapcat #(extract-type-symbols (:type %)) (:parameters m))))
+                             methods)
+         ctor-deps (mapcat (fn [c] (mapcat #(extract-type-symbols (:type %)) (:parameters c))) ctors)
+         extends-deps (if (contains? ignore-extends-categories (:category node))
+                        []
+                        (mapcat extract-type-symbols extends))
+         implements-deps (mapcat extract-type-symbols implements)
+         nested-deps (mapcat #(extract-all-dependencies % prune-set) nested)
+
+         candidates (concat field-deps method-deps ctor-deps extends-deps implements-deps nested-deps)
+         pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))]
+     (into #{}
+           (comp (remove #(u/excluded-type-name? (str %)))
+                 (remove pruned?))
+           candidates))))
 
 (defn- package-key [node]
   (keyword "gcp" (str (:package node) "." (:name node))))
 
-(defn- basic-info [node]
-  (let [deps (extract-all-dependencies node)
-        unresolved (into #{}
-                         (filter (fn [dep]
-                                   (let [s (str dep)]
-                                     (and (not (u/native-type s))
-                                          (not (string/starts-with? s "com.google.cloud"))
-                                          (not (u/foreign-binding-exists? (u/infer-foreign-ns s)))))))
-                         deps)]
-    {:gcp/key (package-key node)
-     :className (:name node)
-     :package (:package node)
-     :doc (:doc node)
-     :nested (:nested node)
-     :git-sha (:file-git-sha node)
-     :typeDependencies deps
-     :unresolved-deps unresolved}))
+(defn- basic-info
+  ([node] (basic-info node nil))
+  ([node specific-deps]
+   (let [prune-set (:prune-dependencies node)
+         deps (or specific-deps (extract-all-dependencies node prune-set))
+         unresolved (into #{}
+                          (filter (fn [dep]
+                                    (let [s (str dep)]
+                                      (and (not (u/native-type s))
+                                           (not (string/starts-with? s "com.google.cloud"))
+                                           (not (u/foreign-binding-exists? (u/infer-foreign-ns s)))))))
+                          deps)]
+     {:gcp/key (package-key node)
+      :className (:name node)
+      :package (:package node)
+      :doc (:doc node)
+      :nested (:nested node)
+      :extends (:extends node)
+      :git-sha (:file-git-sha node)
+      :typeDependencies deps
+      :unresolved-deps unresolved})))
 
 ;; -----------------------------------------------------------------------------
 ;; Analyzer
@@ -162,6 +174,23 @@
   (merge (basic-info node)
          {:type :union-variant}))
 
+(defmethod analyze-class-node :union-factory [node]
+  (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
+        return-type (:returnType get-type)
+        self-type (:name node)
+        factories (filter #(and (static? %)
+                                (public? %)
+                                (or (= (str (:returnType %)) self-type)
+                                    (string/ends-with? (str (:returnType %)) (str "." self-type))))
+                          (:methods node))
+        relevant-items (concat [get-type] factories (getters node))
+        deps (extract-specific-dependencies relevant-items (:prune-dependencies node))]
+    (merge (basic-info node deps)
+           {:type :union-factory
+            :getType return-type
+            :factories factories
+            :getters (getters node)})))
+
 ;; --- Builders & Accessors ---
 
 (defmethod analyze-class-node :accessor-with-builder [node]
@@ -172,13 +201,13 @@
                           [])
         ;; Map getters to properties
         props-by-getter (reduce (fn [acc m]
-                                  (let [pname (property-name (:name m))]
+                                  (let [pname (u/property-name (:name m))]
                                     (assoc acc pname {:getter m})))
                                 {}
                                 node-getters)
         ;; Map setters to properties
         props (reduce (fn [acc m]
-                        (let [pname (property-name (:name m))]
+                        (let [pname (u/property-name (:name m))]
                           (if (contains? acc pname)
                             (assoc-in acc [pname :setter] m)
                             ;; Handle pluralization/list mapping (e.g. setContents vs getContentsList)
@@ -205,10 +234,27 @@
                               (assoc acc k v)))
                           (sorted-map)
                           fields)
-        type-deps (into #{} (mapcat (fn [[_ f]] (extract-type-symbols (:type f)))) fields)
-        newBuilder (first (filter #(= (:name %) "newBuilder") (:methods node)))]
+                prune-set (:prune-dependencies node)
+                pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))
+                ;; Calculate deps from properties (fields)
+                field-deps (into #{}
+                             (comp (mapcat (fn [[_ f]] (extract-type-symbols (:type f))))
+                                   (remove #(u/excluded-type-name? (str %)))
+                                   (remove pruned?))
+                             fields)        ;; Select simplest newBuilder (fewest params)
+        all-new-builders (filter #(= (:name %) "newBuilder") (:methods node))
+        newBuilder (first (sort-by #(count (:parameters %)) all-new-builders))
+        ;; Calculate deps from newBuilder params
+        builder-deps (if newBuilder
+                       (into #{}
+                             (comp (mapcat #(extract-type-symbols (:type %)))
+                                   (remove #(u/excluded-type-name? (str %)))
+                                   (remove pruned?))
+                             (:parameters newBuilder))
+                       #{})
+        type-deps (s/union field-deps builder-deps)]
 
-    (merge (basic-info node)
+    (merge (basic-info node type-deps)
            {:type :accessor
             :fields fields
             :typeDependencies type-deps
