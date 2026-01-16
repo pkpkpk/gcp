@@ -8,7 +8,6 @@
    [clojure.test.check.properties :as prop]
    [gcp.dev.digest :as digest]
    [gcp.dev.packages :as pkg]
-   [gcp.dev.toolchain.analyzer :as ana]
    [gcp.dev.toolchain.emitter :as emitter]
    [gcp.dev.toolchain.fuzz.generators :as fg]
    [gcp.dev.util :as u]
@@ -66,8 +65,7 @@
 (defn- load-dependencies! [pkg-key fqcn]
   (let [deps (pkg/dependency-post-order pkg-key fqcn)]
     (doseq [dep (butlast deps)]
-      (let [node (pkg/lookup-class pkg-key dep)
-            ana-node (ana/analyze-class-node node)
+      (let [ana-node (pkg/analyze-class pkg-key fqcn)
             forms (emitter/compile-class-forms ana-node)]
         (load-class-forms! dep forms)))))
 
@@ -105,7 +103,7 @@
       (load-dependencies! pkg-key fqcn)
       ;; 2. Load Target (fresh compilation)
       (let [node (pkg/lookup-class pkg-key fqcn)
-            ana-node (ana/analyze-class-node node)
+            ana-node (pkg/analyze-class pkg-key node)
             forms (try
                     (emitter/compile-class-forms ana-node)
                     (catch Exception e
@@ -126,7 +124,7 @@
                               (if (global/valid? sk rt-edn)
                                 true
                                 (do
-                                  (tel/log! :error ["Validation Failed" (global/humanize (global/geminize (global/explain sk rt-edn) sk))])
+                                  (tel/log! :error ["Validation Failed" (global/humanize (global/explain sk rt-edn))])
                                   false)))
                             (throw (ex-info "Missing functions" {:ns ns-sym})))))]
         (run-certification-protocol sk generator verify-fn options))
@@ -175,7 +173,7 @@
                                             (if (global/valid? sk rt-edn)
                                               true
                                               (do
-                                                (tel/log! :error ["Validation Failed for foreign type" type-name (global/humanize (global/geminize (global/explain sk rt-edn) sk))])
+                                                (tel/log! :error ["Validation Failed for foreign type" type-name (global/humanize (global/explain sk rt-edn))])
                                                 false))))]
                           (if generator
                             (let [cert-res (run-certification-protocol sk generator verify-fn options)]

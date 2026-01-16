@@ -1,7 +1,8 @@
 (ns gcp.dev.test.toolchain.emitter-test
-  (:require [clojure.test :refer :all]
-            [gcp.dev.toolchain.emitter :as emitter]
-            [gcp.dev.util :as u]))
+  (:require
+   [clojure.test :refer :all]
+   [gcp.dev.toolchain.emitter :as emitter]
+   [gcp.dev.util :as u]))
 
 ;; Mock u/ns-meta for testing
 (defn mock-ns-meta [certified?]

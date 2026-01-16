@@ -1,10 +1,11 @@
 (ns gcp.dev.test.toolchain.emitter-foreign-handling-test
-  (:require [gcp.dev.toolchain.emitter :as e]
-            [gcp.dev.digest :as digest]
-            [clojure.test :refer [deftest is run-tests testing]]
-            [clojure.string :as string]
-            [clojure.java.io :as io]
-            [gcp.dev.util :as u]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as string]
+   [clojure.test :refer [deftest is run-tests testing]]
+   [gcp.dev.digest :as digest]
+   [gcp.dev.toolchain.emitter :as e]
+   [gcp.dev.util :as u]))
 
 (defn make-node [fqcn type-fqcn]
   (let [pkg (or (first (string/split fqcn #"\.[^.]+$")) "gcp.test")
@@ -33,9 +34,9 @@
     (let [node (make-node "gcp.test.Test" "dev.test.fixtures.foreign_uncertified.Uncertified")]
       ;; Mock infer-foreign-ns to return our test fixture namespace
       (with-redefs [u/infer-foreign-ns (fn [fqcn]
-                                        (if (string/includes? fqcn "foreign_uncertified")
-                                          'gcp.dev.test.fixtures.foreign-uncertified
-                                          (#'u/infer-foreign-ns fqcn)))
+                                         (if (string/includes? fqcn "foreign_uncertified")
+                                           'gcp.dev.test.fixtures.foreign-uncertified
+                                           (#'u/infer-foreign-ns fqcn)))
                     u/foreign-binding-exists? (fn [ns-sym]
                                                 (if (= ns-sym 'gcp.dev.test.fixtures.foreign-uncertified)
                                                   true

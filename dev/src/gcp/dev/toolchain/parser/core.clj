@@ -2,12 +2,8 @@
   "Core analysis logic for Java projects.
    Orchestrates the parsing process, including file discovery, caching, and Git integration."
   (:require
-   [clojure.edn :as edn]
    [clojure.java.io :as io]
-   [clojure.java.shell :as shell]
-   [clojure.pprint :as pp]
    [clojure.string :as string]
-   [clojure.walk :as walk]
    [gcp.dev.toolchain.parser.ast :as ast]
    [taoensso.telemere :as tel])
   (:import
@@ -274,42 +270,3 @@
               (tel/log! :info (str "Writing package cache to: " (.getAbsolutePath package-cache-file)))
               (spit package-cache-file (pr-str pkg-ast))))
           pkg-ast)))))
-
-;(defn -main
-;  "Entry point for command-line usage.
-;   Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]"
-;  [& args]
-;  (let [args-set (set args)
-;        pretty? (contains? args-set "--pretty")
-;        input-args (remove #(= % "--pretty") args)]
-;    (when (< (count input-args) 2)
-;      (tel/log! :error "Usage: clj -M -m gcp.dev.analyzer.javaparser.core <source-path> <output-path> [--pretty]")
-;      (tel/log! :error "Error: Missing required arguments.")
-;      (System/exit 1))
-;
-;    (let [path (first input-args)
-;          output-path (second input-args)
-;          options {:include-private? false
-;                   :include-package-private? false}]
-;      (tel/log! :debug ["Processing:" path "with options:" options])
-;      (tel/log! :debug (str "Output will be written to: " output-path))
-;      (tel/log! :debug (str "Pretty printing: " pretty?))
-;      (io/make-parents (io/file cache-dir "dummy"))
-;      (time-stage "Total Execution"
-;        (let [file (io/file path)
-;              files (time-stage "File Discovery"
-;                      (if (.isDirectory file)
-;                        (filter #(string/ends-with? (.getName %) ".java") (file-seq file))
-;                        [file]))
-;              file-count (count files)]
-;          (tel/log! :debug ["Found" file-count "Java files to parse."])
-;          (tel/log! :debug (str "Parser source hash: " parser-source-hash))
-;          (let [package-ast (analyze-package path files options)]
-;            (time-stage "Writing Output"
-;              (with-open [writer (io/writer output-path)]
-;                (if pretty?
-;                  (pp/pprint package-ast writer)
-;                  (binding [*print-length* nil
-;                            *print-level* nil]
-;                    (.write writer (pr-str package-ast))))))
-;            (tel/log! :debug (str "Processed package. Output written to " output-path))))))))

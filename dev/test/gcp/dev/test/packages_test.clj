@@ -1,14 +1,16 @@
 (ns gcp.dev.test.packages-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as string]
-            [gcp.dev.packages :as p])
-  (:import (clojure.lang ExceptionInfo)))
+  (:require
+   [clojure.string :as string]
+   [clojure.test :refer [deftest is testing]]
+   [gcp.dev.packages :as p])
+  (:import
+   (clojure.lang ExceptionInfo)))
 
 (deftest lookup-class-test
   (testing "Lookup BigQuery class (flat package)"
     (let [bq (p/lookup-class :bigquery "BigQuery")]
       (is (some? bq) "BigQuery class should be found")
-      (is (= "com.google.cloud.bigquery.BigQuery" 
+      (is (= "com.google.cloud.bigquery.BigQuery"
              (str (:package bq) "." (:name bq)))
           "FQCN should match")))
 
@@ -52,18 +54,15 @@
       (let [pkg (p/parse pkg-kw)
             pkg-name (:package-name pkg)
             foreign-deps (p/package-foreign-deps pkg)]
-        
         (testing "Should not be empty"
           (is (seq foreign-deps) (str pkg-kw " foreign deps should not be empty")))
-        
         (testing "Should not contain local types"
           (let [local-leaks (filter #(string/starts-with? (str %) pkg-name) foreign-deps)]
-            (is (empty? local-leaks) 
+            (is (empty? local-leaks)
                 (str pkg-kw " foreign deps should not contain local types: " (vec local-leaks)))))
-        
         (testing "Should contain primitives or common types (sanity check)"
-           (is (or (contains? foreign-deps 'int)
-                   (contains? foreign-deps 'boolean)
-                   (contains? foreign-deps 'java.lang.String)
-                   (contains? foreign-deps 'java.util.List))
-               (str pkg-kw " should contain some common types")))))))
+          (is (or (contains? foreign-deps 'int)
+                  (contains? foreign-deps 'boolean)
+                  (contains? foreign-deps 'java.lang.String)
+                  (contains? foreign-deps 'java.util.List))
+              (str pkg-kw " should contain some common types")))))))

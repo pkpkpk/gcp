@@ -9,8 +9,8 @@
    [gcp.dev.packages.git :as git]
    [gcp.dev.packages.maven :as mvn]
    [gcp.dev.toolchain.analyzer :as ana]
-   [gcp.dev.toolchain.parser :as parser]
    [gcp.dev.toolchain.fuzz :as fuzz]
+   [gcp.dev.toolchain.parser :as parser]
    [gcp.dev.util :as u])
   (:import
    (java.nio.file Files)
@@ -307,7 +307,7 @@
                         version (u/extract-version (:doc node))
                         output-file (fqcn->file-path pkg-key node)
                         rel-path (str (u/relative-path (:package-root pkg-def) output-file))
-                        ;;================================================================
+                        ;; ================================================================
                         ;; Calculate source path relative to worktree root
                         included-roots (mapv #(io/file worktree-root (subs % 1)) (:include pkg-def))
                         candidates (map #(io/file % (str (:name node) ".java")) included-roots)

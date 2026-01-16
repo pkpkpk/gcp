@@ -7,15 +7,11 @@
    [gcp.dev.packages.package :as pkg]
    [gcp.dev.toolchain.analyzer :as analyzer]
    [gcp.dev.toolchain.parser :as parser]
+   [gcp.dev.toolchain.shared :as shared]
    [gcp.dev.util :as u]))
 
 (defonce googleapis (u/get-googleapis-repos-path))
 (defonce packages-root (io/file (u/get-gcp-repo-root) "packages"))
-
-#!----------------------------------------------------------------------------------------------------------------------
-
-;; TODO entry API class(es)
-;;  -- recursive API class deps? post-order traversal
 
 (def global
   {:name         'gcp.global
@@ -23,6 +19,13 @@
    :description  "global malli registry & utilities for gcp bindings"
    :package-root (io/file packages-root "global")
    :src-root     (io/file packages-root "global" "src")})
+
+(def foreign
+  {:name         'gcp.foreign
+   :lib          'com.github.pkpkpk/gcp.foreign
+   :description  "bindings for transitive foreign types using in gcp bindings"
+   :package-root (io/file packages-root "foreign")
+   :src-root     (io/file packages-root "foreign" "src")})
 
 (def artifact-registry
   {:name                     'gcp.artifact-registry
@@ -94,52 +97,53 @@
    :native-prefixes          #{"com.google.cloud.vertexai" "com.google.vertexai"}})
 
 (def bigquery
-  {:name                    'gcp.bigquery
-   :lib                     'com.github.pkpkpk/gcp.bigquery
-   :description             "edn bindings for the google-cloud-bigquery sdk"
-   :package-root            (io/file packages-root "bigquery")
-   :type                    :static
-   :googleapis/mvn-org      "com.google.cloud"
-   :googleapis/mvn-artifact "google-cloud-bigquery"
-   :googleapis/git-repo     "java-bigquery"
-   :api-roots               ["com.google.cloud.bigquery.BigQuery"
-                             "com.google.cloud.bigquery.BigQueryOptions"
-                             "com.google.cloud.bigquery.JobStatistics"]
-   :custom                  {"com.google.cloud.bigquery.QueryParameterValue"   'gcp.bigquery.custom.QueryParameterValue
-                             "com.google.cloud.bigquery.TableResult"           'gcp.bigquery.custom.TableResult
-                             "com.google.cloud.bigquery.FieldValue"            'gcp.bigquery.custom.TableResult
-                             "com.google.cloud.bigquery.FieldValueList"        'gcp.bigquery.custom.TableResult
-                             "com.google.cloud.bigquery.Range"                 'gcp.bigquery.custom.TableResult
-                             "com.google.cloud.bigquery.Dataset"               'gcp.bigquery.custom.Dataset
-                             "com.google.cloud.bigquery.Job"                   'gcp.bigquery.custom.Job
-                             "com.google.cloud.bigquery.Model"                 'gcp.bigquery.custom.Model
-                             "com.google.cloud.bigquery.Routine"               'gcp.bigquery.custom.Routine
-                             "com.google.cloud.bigquery.Table"                 'gcp.bigquery.custom.Table
-                             "com.google.cloud.bigquery.StandardSQLDataType"   'gcp.bigquery.custom.StandardSQL
-                             "com.google.cloud.bigquery.StandardSQLStructType" 'gcp.bigquery.custom.StandardSQL
-                             "com.google.cloud.bigquery.StandardSQLField"      'gcp.bigquery.custom.StandardSQL
-                             "com.google.cloud.bigquery.StandardSQLTypeName"   'gcp.bigquery.custom.StandardSQL}
-   :opaque                  #{"com.google.cloud.bigquery.Option"}
-   :prune-dependencies      {"com.google.cloud.bigquery.Field"                 #{"com.google.cloud.bigquery.FieldList"}
-                             "com.google.cloud.bigquery.FieldValue"            #{"com.google.cloud.bigquery.FieldValueList"}
-                             "com.google.cloud.bigquery.Range"                 #{"com.google.cloud.bigquery.FieldValueList"
-                                                                                 "com.google.cloud.bigquery.FieldValue"}
-                             "com.google.cloud.bigquery.Dataset"               #{"com.google.cloud.bigquery.BigQuery"}
-                             "com.google.cloud.bigquery.Job"                   #{"com.google.cloud.bigquery.BigQuery"}
-                             "com.google.cloud.bigquery.Model"                 #{"com.google.cloud.bigquery.BigQuery"}
-                             "com.google.cloud.bigquery.Routine"               #{"com.google.cloud.bigquery.BigQuery"}
-                             "com.google.cloud.bigquery.Table"                 #{"com.google.cloud.bigquery.BigQuery"}
-                             "com.google.cloud.bigquery.StandardSQLDataType"   #{"com.google.cloud.bigquery.StandardSQLStructType"
-                                                                                 "com.google.cloud.bigquery.StandardSQLField"}
-                             "com.google.cloud.bigquery.StandardSQLStructType" #{"com.google.cloud.bigquery.StandardSQLDataType"
-                                                                                 "com.google.cloud.bigquery.StandardSQLField"}
-                             "com.google.cloud.bigquery.StandardSQLField"      #{"com.google.cloud.bigquery.StandardSQLDataType"
-                                                                                 "com.google.cloud.bigquery.StandardSQLStructType"}
-                             "com.google.cloud.bigquery.UserDefinedFunction"   #{"com.google.api.services.bigquery.model.UserDefinedFunctionResource"}}
-   :include                 ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
-   :exclude                 ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
-                             "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
-   :native-prefixes         #{"com.google.cloud.bigquery"}})
+  {:name                      'gcp.bigquery
+   :lib                       'com.github.pkpkpk/gcp.bigquery
+   :description               "edn bindings for the google-cloud-bigquery sdk"
+   :package-root              (io/file packages-root "bigquery")
+   :type                      :static
+   :googleapis/mvn-org        "com.google.cloud"
+   :googleapis/mvn-artifact   "google-cloud-bigquery"
+   :googleapis/git-repo       "java-bigquery"
+   :api-roots                 ["com.google.cloud.bigquery.BigQuery"
+                               "com.google.cloud.bigquery.BigQueryOptions"
+                               "com.google.cloud.bigquery.JobStatistics"]
+   :custom-namespace-mappings {"com.google.cloud.bigquery.QueryParameterValue"   'gcp.bigquery.custom.QueryParameterValue
+                               "com.google.cloud.bigquery.TableResult"           'gcp.bigquery.custom.TableResult
+                               "com.google.cloud.bigquery.FieldValue"            'gcp.bigquery.custom.TableResult
+                               "com.google.cloud.bigquery.FieldValueList"        'gcp.bigquery.custom.TableResult
+                               "com.google.cloud.bigquery.Range"                 'gcp.bigquery.custom.TableResult
+                               "com.google.cloud.bigquery.Dataset"               'gcp.bigquery.custom.Dataset
+                               "com.google.cloud.bigquery.Job"                   'gcp.bigquery.custom.Job
+                               "com.google.cloud.bigquery.Model"                 'gcp.bigquery.custom.Model
+                               "com.google.cloud.bigquery.Routine"               'gcp.bigquery.custom.Routine
+                               "com.google.cloud.bigquery.Table"                 'gcp.bigquery.custom.Table
+                               "com.google.cloud.bigquery.StandardSQLDataType"   'gcp.bigquery.custom.StandardSQL
+                               "com.google.cloud.bigquery.StandardSQLStructType" 'gcp.bigquery.custom.StandardSQL
+                               "com.google.cloud.bigquery.StandardSQLField"      'gcp.bigquery.custom.StandardSQL
+                               "com.google.cloud.bigquery.StandardSQLTypeName"   'gcp.bigquery.custom.StandardSQL}
+   :opaque-types              #{"com.google.cloud.bigquery.Option"}
+   :exempt-types              #{"com.google.cloud.bigquery.TableDataWriteChannel"}
+   :prune-dependencies        {"com.google.cloud.bigquery.Field"                 #{"com.google.cloud.bigquery.FieldList"}
+                               "com.google.cloud.bigquery.FieldValue"            #{"com.google.cloud.bigquery.FieldValueList"}
+                               "com.google.cloud.bigquery.Range"                 #{"com.google.cloud.bigquery.FieldValueList"
+                                                                                   "com.google.cloud.bigquery.FieldValue"}
+                               "com.google.cloud.bigquery.Dataset"               #{"com.google.cloud.bigquery.BigQuery"}
+                               "com.google.cloud.bigquery.Job"                   #{"com.google.cloud.bigquery.BigQuery"}
+                               "com.google.cloud.bigquery.Model"                 #{"com.google.cloud.bigquery.BigQuery"}
+                               "com.google.cloud.bigquery.Routine"               #{"com.google.cloud.bigquery.BigQuery"}
+                               "com.google.cloud.bigquery.Table"                 #{"com.google.cloud.bigquery.BigQuery"}
+                               "com.google.cloud.bigquery.StandardSQLDataType"   #{"com.google.cloud.bigquery.StandardSQLStructType"
+                                                                                   "com.google.cloud.bigquery.StandardSQLField"}
+                               "com.google.cloud.bigquery.StandardSQLStructType" #{"com.google.cloud.bigquery.StandardSQLDataType"
+                                                                                   "com.google.cloud.bigquery.StandardSQLField"}
+                               "com.google.cloud.bigquery.StandardSQLField"      #{"com.google.cloud.bigquery.StandardSQLDataType"
+                                                                                   "com.google.cloud.bigquery.StandardSQLStructType"}
+                               "com.google.cloud.bigquery.UserDefinedFunction"   #{"com.google.api.services.bigquery.model.UserDefinedFunctionResource"}}
+   :include                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
+   :exclude                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
+                               "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
+   :native-prefixes           #{"com.google.cloud.bigquery"}})
 
 (def genai
   {:name                    'gcp.genai
@@ -273,6 +277,8 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
+(defn clear-cache [] (parser/clear-cache))
+
 (defn package-root [pkg-like]
   (let [{:keys [googleapis/git-repo googleapis/git-repo-root]} (if (keyword? pkg-like) (get packages pkg-like) pkg-like)]
     (if-let [override (:override-root pkg-like)]
@@ -285,7 +291,7 @@
           (io/file googleapis git-repo git-repo-root)
           (io/file googleapis git-repo))))))
 
-(defn resolve-package-files
+(defn- resolve-package-files
   [{:keys [include exclude] :as pkg}]
   (let [root      (package-root pkg)
         excludes  (map #(io/file root (subs % 1)) exclude)
@@ -321,7 +327,7 @@
       (let [files   (resolve-package-files pkg-like)
             pkg-ast (parser/analyze-package (package-root pkg-like) files {})
             prune-deps (:prune-dependencies pkg-like)
-            opaque-types (:opaque pkg-like)
+            opaque-types (:opaque-types pkg-like)
             ;; Inject configuration into class nodes
             updated-classes (reduce-kv (fn [acc fqcn node]
                                          (assoc acc fqcn
@@ -331,9 +337,15 @@
                                                   opaque-types
                                                   (assoc :opaque-types opaque-types))))
                                        (:class/by-fqcn pkg-ast)
-                                       (:class/by-fqcn pkg-ast))]
+                                       (:class/by-fqcn pkg-ast))
+            forwarded-keys [:name
+                            :native-prefixes
+                            :prune-dependencies
+                            :custom-namespace-mappings
+                            :exempt-types
+                            :opaque-types]]
         (merge pkg-ast
-               (select-keys pkg-like [:name :native-prefixes :prune-dependencies])
+               (select-keys pkg-like forwarded-keys)
                {:type :parsed
                 :class/by-fqcn updated-classes})))
 
@@ -342,51 +354,6 @@
 
     :else
     (throw (ex-info "Invalid argument to parse" {:arg pkg-like}))))
-
-(defn- collect-nested-types
-  "Recursively collects all nested types (excluding top-level)."
-  [nodes]
-  (mapcat (fn [node]
-            (tree-seq (comp seq :nested) :nested node))
-          (mapcat :nested nodes)))
-
-(defn- collect-nested-outliers
-  "Recursively collects all nested classes categorized as :other, returning absolute path strings (Parent$Child)."
-  [nodes]
-  (letfn [(traverse [node parent-path]
-            (let [current-name (:name node)
-                  current-path (if parent-path
-                                 (str parent-path "$" current-name)
-                                 current-name)
-                  outliers (if (and parent-path (= (:category node) :other))
-                             [current-path]
-                             [])]
-              (reduce (fn [acc child] (into acc (traverse child current-path)))
-                      outliers
-                      (:nested node))))]
-    (mapcat #(traverse % nil) nodes)))
-
-(defn summarize
-  "Returns a concise summary of the package analysis result.
-   Accepts either a package AST map or a package keyword (e.g. :bigquery)."
-  [pkg-like]
-  (let [pkg-ast           (parse pkg-like)
-        all-classes       (vals (:class/by-fqcn pkg-ast))
-        class-count       (count all-classes)
-        git-tag           (:git-tag pkg-ast)
-        git-sha           (:git-sha pkg-ast)
-        clients           (:service-clients pkg-ast)
-        categories        (frequencies (map :category all-classes))
-        nested-types      (collect-nested-types all-classes)
-        nested-categories (frequencies (map :category nested-types))
-        nested-outliers   (collect-nested-outliers all-classes)]
-    (cond-> {:git-tag           git-tag
-             :git-sha           git-sha
-             :class-count       class-count
-             :clients           clients
-             :categories        categories
-             :nested-categories nested-categories}
-            (seq nested-outliers) (assoc :nested-outliers (sort nested-outliers)))))
 
 (defn lookup-class
   [pkg-like class-like]
@@ -406,8 +373,9 @@
 (defn package-api-types
   "returns sorted list of all binding targets for the given package"
   [pkg-like]
-  (let [pkg (parse pkg-like)]
-    (sort (keys (:class/by-fqcn pkg)))))
+  (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)
+        pred (into exempt-types (keys custom-namespace-mappings))]
+    (sort (remove pred (keys (:class/by-fqcn pkg))))))
 
 (defn foreign-user-types
   [pkg-like]
@@ -444,29 +412,23 @@
 
 (defn analyze-class
   [pkg-like class-like]
-  (let [class-node (lookup-class pkg-like class-like)]
-    (analyzer/analyze-class-node class-node)))
+  (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)]
+    (if-let [{:keys [fqcn] :as class-node} (lookup-class pkg class-like)]
+      (if (contains? custom-namespace-mappings fqcn)
+        (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
+        (if (contains? exempt-types fqcn)
+          (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
+          (analyzer/analyze-class-node class-node)))
+      (throw (ex-info (str "failed to find node for class-like '" class-like "'")
+                      {:pkg-like pkg-like :class-like class-like})))))
 
-(defn transitive-closure [pkg-like roots]
-  (let [pkg (parse pkg-like)]
-    (pkg/transitive-closure pkg roots)))
+(defn transitive-closure
+  [pkg-like roots]
+  (pkg/transitive-closure (parse pkg-like) roots))
 
-(defn topological-sort [pkg-like nodes]
-  (let [pkg (parse pkg-like)]
-    (pkg/topological-sort pkg nodes)))
-
-#!----------------------------------------------------------------------------------------------------------------------
-
-(defn- normalize-type [type-name]
-  (let [s (str type-name)
-        parts (string/split s #"[.$]")]
-    (if-let [idx (first (keep-indexed (fn [i part]
-                                        (when (and (seq part)
-                                                   (^[char] Character/isUpperCase (first part)))
-                                          i))
-                                      parts))]
-      (string/join "." (subvec parts 0 (inc idx)))
-      s)))
+(defn topological-sort
+  [pkg-like nodes]
+  (pkg/topological-sort (parse pkg-like) nodes))
 
 (defn class-deps
   "Analyzes the dependencies of a node and returns a map separating them into
@@ -474,42 +436,7 @@
   ([pkg-like class-like]
    (class-deps pkg-like class-like false))
   ([pkg-like class-like recursive?]
-   (let [pkg             (parse pkg-like)
-         native-prefixes (or (:native-prefixes pkg)
-                             (let [package (:package-name pkg)]
-                               (if (and package (string/starts-with? package "com.google.cloud."))
-                                 #{(let [parts (string/split package #"\.")]
-                                     (string/join "." (take 5 parts)))}
-                                 (if package #{package} #{}))))
-         is-internal?    (fn [dep]
-                           (let [dep-str (str dep)]
-                             (some #(string/starts-with? dep-str %) native-prefixes)))
-         calc-deps       (fn [node-or-name]
-                           (let [node (if (map? node-or-name)
-                                        node-or-name
-                                        (lookup-class pkg node-or-name))]
-                             (if node
-                               (let [analyzed (analyzer/analyze-class-node node)
-                                     deps     (:typeDependencies analyzed)]
-                                 (reduce (fn [acc dep]
-                                           (let [norm-dep (normalize-type dep)
-                                                 sym (symbol norm-dep)]
-                                             (if (is-internal? norm-dep)
-                                               (update acc :internal conj sym)
-                                               (update acc :foreign conj sym))))
-                                         {:internal (sorted-set) :foreign (sorted-set)}
-                                         deps))
-                               {:internal (sorted-set) :foreign (sorted-set)})))]
-     (if-not recursive?
-       (calc-deps class-like)
-       (let [all-internal (dependency-seq pkg class-like)]
-         (reduce (fn [acc fqcn]
-                   (let [deps (calc-deps fqcn)]
-                     (-> acc
-                         (update :internal into (:internal deps))
-                         (update :foreign into (:foreign deps)))))
-                 {:internal (sorted-set) :foreign (sorted-set)}
-                 all-internal))))))
+   (pkg/class-deps (parse pkg-like) class-like recursive?)))
 
 (defn class-foreign-deps
   ([pkg-like class-like]
@@ -537,3 +464,32 @@
 
 (defn global-foreign-deps []
   (reduce into (map package-foreign-deps (keys packages))))
+
+(defn api-types-for-category
+  [pkg-like target-category]
+  (assert (contains? shared/categories target-category))
+  (let [pkg (parse pkg-like)]
+    (reduce
+      (fn [acc fqcn]
+        (let [{:keys [category]} (analyze-class pkg fqcn)]
+          (if (= target-category category)
+            (conj acc fqcn)
+            acc)))
+      (sorted-set)
+      (package-api-types pkg))))
+
+(defn api-types-by-category [pkg-like]
+  (let [pkg (parse pkg-like)]
+    (reduce
+      (fn [acc fqcn]
+        (let [{:keys [category]} (analyze-class pkg fqcn)]
+          (if (contains? acc category)
+            (update-in acc [category] conj fqcn)
+            (assoc acc category (sorted-set fqcn)))))
+      (sorted-map)
+      (package-api-types pkg))))
+
+(defn all-api-types-by-category []
+  (into (sorted-map)
+        (map (fn [k] [k (api-types-by-category k)]))
+        (keys packages)))

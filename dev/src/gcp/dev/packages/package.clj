@@ -2,6 +2,7 @@
   (:require
    [clojure.set :as s]
    [clojure.string :as string]
+   [gcp.dev.toolchain.analyzer :as analyzer]
    [malli.core :as m]))
 
 (def pkg-node-schema :map)
@@ -9,9 +10,13 @@
 
 (defn named? [class-like] (or (string? class-like) (ident? class-like)))
 
-(defn fqcn? [{:keys [package-name] :as pkg} class-like]
+(defn fqcn? [{:keys [native-prefixes] :as pkg} class-like]
   (and (named? class-like)
-       (string/starts-with? (name class-like) package-name)))
+       (reduce
+         (fn [_ prefix]
+           (when (string/starts-with? (name class-like) prefix)
+             (reduced true)))
+         nil native-prefixes)))
 
 (defn lookup-class [pkg class-like]
   (assert (m/validate pkg-node-schema pkg))
@@ -20,7 +25,10 @@
       (get-in pkg [:class/by-fqcn (name class-like)])
       (when-let [fqcn (get-in pkg [:class/name->fqcn (name class-like)])]
         (get-in pkg [:class/by-fqcn fqcn])))
-    (throw (Exception. "bad class-like"))))
+    (if (and (map? class-like)
+             (contains? (set (vals :class/by-fqcn)) class-like))
+      class-like ;; already a node
+      (throw (Exception. "bad class-like")))))
 
 (def default-ignored-prefixes
   #{"com.google.api.services."})
@@ -127,6 +135,7 @@
   #{:enum :string-enum :abstract-union :concrete-union :union-variant
     :accessor-with-builder :builder :static-factory :factory :pojo :read-only
     :client})
+
 (defn- extract-deps-from-node
   "Extracts all dependencies (as FQCN strings) from a class AST node."
   [node]
@@ -309,3 +318,47 @@
                   (let [child-seqs (map (fn [[k v]] (traverse {k v} (conj seen name))) children)]
                     (concat (apply concat child-seqs) [name])))))]
       (distinct (traverse tree #{})))))
+
+(defn- normalize-type [type-name]
+  (let [s (str type-name)
+        parts (string/split s #"[.$]")]
+    (if-let [idx (first (keep-indexed (fn [i part]
+                                        (when (and (seq part)
+                                                   (^[char] Character/isUpperCase (first part)))
+                                          i))
+                                      parts))]
+      (string/join "." (subvec parts 0 (inc idx)))
+      s)))
+
+(defn class-deps
+  [{:keys [native-prefixes] :as pkg} class-like recursive?]
+  (assert (not-empty native-prefixes))
+  (let [is-internal? (fn [dep]
+                       (let [dep-str (str dep)]
+                         (some #(string/starts-with? dep-str %) native-prefixes)))
+        calc-deps    (fn [node-or-name]
+                       (let [node (if (map? node-or-name)
+                                    node-or-name
+                                    (lookup-class pkg node-or-name))]
+                         (if node
+                           (let [analyzed (analyzer/analyze-class-node node)
+                                 deps     (:typeDependencies analyzed)]
+                             (reduce (fn [acc dep]
+                                       (let [norm-dep (normalize-type dep)
+                                             sym      (symbol norm-dep)]
+                                         (if (is-internal? norm-dep)
+                                           (update acc :internal conj sym)
+                                           (update acc :foreign conj sym))))
+                                     {:internal (sorted-set) :foreign (sorted-set)}
+                                     deps))
+                           {:internal (sorted-set) :foreign (sorted-set)})))]
+    (if-not recursive?
+      (calc-deps class-like)
+      (let [all-internal (dependency-seq pkg class-like)]
+        (reduce (fn [acc fqcn]
+                  (let [deps (calc-deps fqcn)]
+                    (-> acc
+                        (update :internal into (:internal deps))
+                        (update :foreign into (:foreign deps)))))
+                {:internal (sorted-set) :foreign (sorted-set)}
+                all-internal)))))

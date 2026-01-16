@@ -161,22 +161,10 @@
         (throw (ex-info (str "missing schema for " ?schema " in registry") {:schema ?schema :value value}))
         (throw ei)))))
 
-(defn properties [schema]
-  (some-> (get-schema schema) (m/properties (mopts))))
-
-(defn geminize
-  "Cleans up a Malli explanation object for better readability/usability.
-   - Replaces the full top-level schema definition with its registry key (if available).
-   - Removes opaque function/validator objects from errors.
-   - Ensures the output is data-preserving enough to be useful (keys, paths, values)
-     but concise enough to log."
-  [explanation ?schema]
-  (cond-> explanation
-          (keyword? ?schema) (assoc :schema ?schema)
-          true (update :errors (fn [errs]
-                                 (mapv (fn [err]
-                                         (dissoc err :fn :validator))
-                                       errs)))))
+(defn properties [schema-or-key]
+  (if (keyword? schema-or-key)
+    (some-> (get-schema schema-or-key) (m/properties (mopts)))
+    (m/properties schema-or-key (mopts))))
 
 (defn explain [?schema value]
   (try
@@ -209,8 +197,7 @@
   ([schema value]
    (human-ex-info schema (explain schema value) value))
   ([schema explanation value]
-   (let [gemini (geminize explanation schema)
-         human (humanize gemini)
+   (let [human (humanize explanation)
          human-str (pr-str human)
          human-str (if (< (count human-str) 60)
                      human-str
@@ -219,7 +206,7 @@
          msg   (if-let [clazz (:class props)]
                  (str "schema for class " clazz " failed: " human-str)
                  (str "schema failed: " human-str))]
-     (ex-info msg {:explain gemini
+     (ex-info msg {:explain explanation
                    :human   human
                    :props   props
                    :value   value}))))

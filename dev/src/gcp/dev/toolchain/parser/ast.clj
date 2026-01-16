@@ -11,7 +11,8 @@
    (com.github.javaparser.ast CompilationUnit ImportDeclaration Modifier$Keyword PackageDeclaration)
    (com.github.javaparser.ast.body AnnotationDeclaration BodyDeclaration ClassOrInterfaceDeclaration ConstructorDeclaration EnumConstantDeclaration EnumDeclaration FieldDeclaration MethodDeclaration Parameter TypeDeclaration VariableDeclarator)
    (com.github.javaparser.ast.comments JavadocComment)
-   (com.github.javaparser.ast.expr NormalAnnotationExpr SingleMemberAnnotationExpr)
+   (com.github.javaparser.ast.expr FieldAccessExpr MethodCallExpr NameExpr NormalAnnotationExpr SingleMemberAnnotationExpr)
+   (com.github.javaparser.ast.stmt ExplicitConstructorInvocationStmt)
    (com.github.javaparser.ast.type ArrayType ClassOrInterfaceType PrimitiveType Type TypeParameter VoidType WildcardType)
    (com.github.javaparser.javadoc Javadoc)
    (java.io File FileInputStream)))
@@ -325,8 +326,82 @@
     (and (not is-auxiliary?)
          (or has-lifecycle-methods? extends-service?))))
 
+(defn extract-discriminator
+  "Scans for a discriminator setting.
+   Strategy 1: Check 'newBuilder' for .setType(Type.X)
+   Strategy 2: Check constructors for super(Type.X) or super(FormatOptions.X)
+   Strategy 3: Check nested 'Builder' class constructors for super(Type.X)"
+  [^TypeDeclaration type-decl]
+  (let [methods (if (instance? ClassOrInterfaceDeclaration type-decl) (.getMethods type-decl) [])
+        constructors (if (instance? ClassOrInterfaceDeclaration type-decl) (.getConstructors type-decl) [])
+        valid-discriminator? (fn [s]
+                               (and (string? s)
+                                    (not (string/blank? s))
+                                    ;; Heuristic: Discriminators are usually enum constants (UPPER_CASE)
+                                    (re-matches #"^[A-Z0-9_]+$" s)))
+
+        ;; Strategy 1: newBuilder().setType(...)
+        from-builder-method
+        (some (fn [m]
+                (when (and (= (.getNameAsString m) "newBuilder")
+                           (.isStatic m)
+                           (empty? (.getParameters m)))
+                  (let [calls (.findAll m MethodCallExpr)]
+                    (some (fn [^MethodCallExpr call]
+                            (when (= (.getNameAsString call) "setType")
+                              (let [args (.getArguments call)]
+                                (when (= 1 (.size args))
+                                  (let [arg (.get args 0)]
+                                    (when (instance? FieldAccessExpr arg)
+                                      (let [res (.getIdentifier (.getName ^FieldAccessExpr arg))]
+                                        (when (valid-discriminator? res) res))))))))
+                          calls))))
+              methods)
+
+        check-constructor
+        (fn [ctors]
+          (some (fn [^ConstructorDeclaration c]
+                  (let [body (.getBody c)
+                        stmts (.getStatements body)]
+                    (if (and (not (.isEmpty stmts))
+                             (instance? ExplicitConstructorInvocationStmt (.get stmts 0)))
+                      (let [super-call ^ExplicitConstructorInvocationStmt (.get stmts 0)]
+                        (if (not (.isThis super-call)) ;; it is super(...)
+                          (let [args (.getArguments super-call)]
+                            (some (fn [arg]
+                                    (let [res (cond
+                                                (instance? FieldAccessExpr arg)
+                                                (.getIdentifier (.getName ^FieldAccessExpr arg))
+
+                                                (instance? NameExpr arg)
+                                                (let [n (.getNameAsString ^NameExpr arg)]
+                                                  (last (string/split n #"\.")))
+
+                                                :else nil)]
+                                      (when (valid-discriminator? res) res)))
+                                  args))
+                          nil))
+                      nil)))
+                ctors))
+
+        ;; Strategy 2: Constructor super(...) call
+        from-constructor (check-constructor constructors)
+
+        ;; Strategy 3: Nested Builder constructor super(...) call
+        from-nested-builder
+        (when (instance? ClassOrInterfaceDeclaration type-decl)
+          (let [members (.getMembers type-decl)
+                builder (some (fn [m]
+                                (when (and (instance? ClassOrInterfaceDeclaration m)
+                                           (= (.getNameAsString m) "Builder"))
+                                  m))
+                              members)]
+            (when builder
+              (check-constructor (.getConstructors builder)))))]
+    (or from-builder-method from-constructor from-nested-builder)))
+
 (defn union-type?
-  "Detects if a class is a union type (has a getType() method returning a Type enum)."
+  "Detects if a class is a union type (has a getType() method)."
   [^TypeDeclaration type-decl]
   (and (instance? ClassOrInterfaceDeclaration type-decl)
        (let [methods (.getMethods type-decl)]
@@ -336,6 +411,7 @@
                       (let [ret (.getType m)]
                         (and (instance? ClassOrInterfaceType ret)
                              (or (= (.getNameAsString ret) "Type")
+                                 (= (.getNameAsString ret) "String")
                                  (string/ends-with? (.getNameAsString ret) ".Type"))))))
                methods))))
 
@@ -358,6 +434,19 @@
 (defn union-factory? [type-decl]
   (and (not (has-builder? type-decl))
        (has-static-factories? type-decl)))
+
+(defn variant-accessor? [type-decl]
+  (and (has-builder? type-decl)
+       (if (instance? ClassOrInterfaceDeclaration type-decl)
+         (let [extended (.getExtendedTypes type-decl)]
+           (some (fn [^ClassOrInterfaceType t]
+                   (let [n (.getNameAsString t)]
+                     (and (not (= n "ServiceOptions"))
+                          (or (string/ends-with? n "Options")
+                              (string/ends-with? n "Definition")
+                              (string/ends-with? n "Configuration")))))
+                 extended))
+         false)))
 
 (defn static-factory?
   "Detects if a class is a static factory (no public constructors, has static 'of' method returning self)."
@@ -482,10 +571,14 @@
       (and (instance? ClassOrInterfaceDeclaration type-decl)
            (.isInterface type-decl)) :interface
       (string/ends-with? name "Builder") :builder
+
+      (variant-accessor? type-decl) :variant-accessor
+
       (union-type? type-decl)
-      (if (union-factory? type-decl)
-        :union-factory
-        (if (.isAbstract type-decl) :abstract-union :concrete-union))
+      (if (.isAbstract type-decl) :abstract-union :concrete-union)
+
+      (union-factory? type-decl) :union-factory
+
       (string/ends-with? name "Exception") :exception
       (string/ends-with? name "Error") :error
 
@@ -546,27 +639,36 @@
            (u/excluded-type-name? (.getNameAsString type-decl)))
      nil
      (let [current-local-types (extract-local-types type-decl)
-           local-types (merge parent-local-types current-local-types)
-           solver (build-type-solver package imports local-types)
-           name (.getNameAsString type-decl)
-           kind (cond
-                  (instance? ClassOrInterfaceDeclaration type-decl)
-                  (if (.isInterface type-decl) :interface :class)
-                  (instance? EnumDeclaration type-decl) :enum
-                  :else :unknown)]
+           local-types         (merge parent-local-types current-local-types)
+           solver              (build-type-solver package imports local-types)
+           name                (.getNameAsString type-decl)
+           kind                (cond
+                                 (instance? ClassOrInterfaceDeclaration type-decl)
+                                 (if (.isInterface type-decl) :interface :class)
+                                 (instance? EnumDeclaration type-decl) :enum
+                                 :else :unknown)
+           category            (categorize-class type-decl)
+           discriminator       (when (= category :variant-accessor)
+                                 (extract-discriminator type-decl))]
+       (when (and (= category :variant-accessor) (nil? discriminator))
+         (throw (ex-info (str "Missing discriminator for concrete variant: " name)
+                         {:class name :package package})))
        (merge
-         {:name name
-          :package package
-          :kind kind
-          :category (categorize-class type-decl)
-          :file-git-sha file-git-sha
-          :doc (extract-javadoc type-decl)
-          :annotations (extract-annotations type-decl)
-          :modifiers (extract-modifiers type-decl)
-          :methods (extract-methods type-decl solver options)
-          :fields (extract-fields type-decl solver options)}
+         (sorted-map
+           :name name
+           :package package
+           :gcp/key (u/schema-key package name)
+           :fqcn (.get (.getFullyQualifiedName type-decl))
+           :category category
+           :file-git-sha file-git-sha
+           :doc (extract-javadoc type-decl)
+           :annotations (extract-annotations type-decl)
+           :modifiers (extract-modifiers type-decl)
+           :methods (extract-methods type-decl solver options)
+           :fields (extract-fields type-decl solver options))
+         (when discriminator {:discriminator discriminator})
          (when (instance? ClassOrInterfaceDeclaration type-decl)
-           {:extends (filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
+           {:extends    (filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
             :implements (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))})
          (when (= kind :class)
            {:constructors (extract-constructors type-decl solver options)})

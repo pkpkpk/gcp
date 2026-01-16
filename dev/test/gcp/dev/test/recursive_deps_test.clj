@@ -1,6 +1,7 @@
 (ns gcp.dev.test.recursive-deps-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [gcp.dev.packages :as p]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [gcp.dev.packages :as p]))
 
 (deftest class-deps-recursive-test
   (testing "class-deps with recursive? true"
