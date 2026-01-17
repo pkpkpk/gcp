@@ -25,7 +25,88 @@
    :lib          'com.github.pkpkpk/gcp.foreign
    :description  "bindings for transitive foreign types using in gcp bindings"
    :package-root (io/file packages-root "foreign")
-   :src-root     (io/file packages-root "foreign" "src")})
+   :src-root     (io/file packages-root "foreign" "src")
+   :mappings     {"com.google.cloud.MonitoredResource" 'gcp.foreign.com.google.cloud
+                  "com.google.cloud.MonitoredResourceDescriptor" 'gcp.foreign.com.google.cloud
+                  "com.google.cloud.RetryOption" 'gcp.foreign.com.google.cloud
+                  "com.google.longrunning.Operation" 'gcp.foreign.com.google.longrunning
+                  "com.google.longrunning.stub.OperationsStub" 'gcp.foreign.com.google.longrunning.stub
+                  "com.google.longrunning.stub.GrpcOperationsStub" 'gcp.foreign.com.google.longrunning.stub
+                  "com.google.cloud.location.Location" 'gcp.foreign.com.google.cloud.location
+                  "com.google.cloud.location.GetLocationRequest" 'gcp.foreign.com.google.cloud.location
+                  "com.google.cloud.location.ListLocationsRequest" 'gcp.foreign.com.google.cloud.location
+                  "com.google.cloud.location.ListLocationsResponse" 'gcp.foreign.com.google.cloud.location
+                  "com.google.cloud.spi.ServiceRpcFactory" 'gcp.foreign.com.google.cloud.spi
+                  "com.google.type.Date" 'gcp.foreign.com.google.type
+                  "com.google.type.LatLng" 'gcp.foreign.com.google.type
+                  "com.google.common.util.concurrent.ListenableFuture" 'gcp.foreign.com.google.common.util.concurrent
+                  "com.google.common.collect.ImmutableList" 'gcp.foreign.com.google.common.collect
+                  "com.google.api.LabelDescriptor" 'gcp.foreign.com.google.api
+                  "com.google.api.MonitoredResource" 'gcp.foreign.com.google.api
+                  "com.google.api.MonitoredResourceDescriptor" 'gcp.foreign.com.google.api
+                  "com.google.api.HttpBody" 'gcp.foreign.com.google.api
+                  "com.google.api.resourcenames.ResourceName" 'gcp.foreign.com.google.api.resourcenames
+                  "com.google.api.services.bigquery.model.UserDefinedFunctionResource" 'gcp.foreign.com.google.api.services.bigquery.model
+                  "com.google.api.services.bigquery.model.QueryParameter" 'gcp.foreign.com.google.api.services.bigquery.model
+                  "com.google.api.core.ApiFuture" 'gcp.foreign.com.google.api.core
+                  "com.google.api.core.ApiService" 'gcp.foreign.com.google.api.core
+                  "com.google.api.core.AbstractApiService" 'gcp.foreign.com.google.api.core
+                  "com.google.api.gax.batching.FlowControlSettings" 'gcp.foreign.com.google.api.gax.batching
+                  "com.google.api.gax.batching.BatchingSettings" 'gcp.foreign.com.google.api.gax.batching
+                  "com.google.api.gax.paging.Page" 'gcp.foreign.com.google.api.gax.paging
+                  "com.google.api.gax.paging.AsyncPage" 'gcp.foreign.com.google.api.gax.paging
+                  "com.google.api.gax.longrunning.OperationFuture" 'gcp.foreign.com.google.api.gax.longrunning
+                  "com.google.api.gax.retrying.RetrySettings" 'gcp.foreign.com.google.api.gax.retrying
+                  "com.google.api.gax.retrying.ResultRetryAlgorithm" 'gcp.foreign.com.google.api.gax.retrying
+                  "com.google.api.gax.rpc.BidiStream" 'gcp.foreign.com.google.api.gax.rpc
+                  "com.google.api.gax.rpc.ClientContext" 'gcp.foreign.com.google.api.gax.rpc
+                  "com.google.api.gax.grpc.GrpcStubCallableFactory" 'gcp.foreign.com.google.api.gax.grpc
+                  "com.google.api.gax.httpjson.longrunning.OperationsClient" 'gcp.foreign.com.google.api.gax.httpjson.longrunning
+                  "com.google.api.gax.httpjson.longrunning.stub.OperationsStub" 'gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
+                  "com.google.api.gax.httpjson.longrunning.stub.HttpJsonOperationsStub" 'gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
+                  "com.google.api.gax.core.BackgroundResource" 'gcp.foreign.com.google.api.gax.core
+                  "com.google.api.gax.httpjson.HttpJsonStubCallableFactory" 'gcp.foreign.com.google.api.gax.httpjson
+                  "com.google.rpc.Status" 'gcp.foreign.com.google.rpc
+                  "com.google.iam.v1.Policy" 'gcp.foreign.com.google.iam.v1
+                  "com.google.iam.v1.GetIamPolicyRequest" 'gcp.foreign.com.google.iam.v1
+                  "com.google.iam.v1.SetIamPolicyRequest" 'gcp.foreign.com.google.iam.v1
+                  "com.google.iam.v1.TestIamPermissionsRequest" 'gcp.foreign.com.google.iam.v1
+                  "com.google.iam.v1.TestIamPermissionsResponse" 'gcp.foreign.com.google.iam.v1
+                  "com.google.auth.Credentials" 'gcp.foreign.com.google.auth
+                  "com.google.protobuf.Timestamp" 'gcp.foreign.com.google.protobuf
+                  "com.google.protobuf.ByteString" 'gcp.foreign.com.google.protobuf
+                  "com.google.protobuf.Any" 'gcp.foreign.com.google.protobuf
+                  "com.google.protobuf.Struct" 'gcp.foreign.com.google.protobuf
+                  "com.google.protobuf.Value" 'gcp.foreign.com.google.protobuf
+                  "com.google.protobuf.ProtocolStringList" 'gcp.foreign.com.google.protobuf
+                  "com.google.protobuf.Duration" 'gcp.foreign.com.google.protobuf
+                  "org.threeten.extra.PeriodDuration" 'gcp.foreign.org.threeten.extra
+                  "org.threeten.bp.Duration" 'gcp.foreign.org.threeten.bp
+                  "java.util.concurrent.CompletableFuture" 'gcp.foreign.java.util.concurrent
+                  "java.util.concurrent.TimeUnit" 'gcp.foreign.java.util.concurrent
+                  "java.util.logging.Logger" 'gcp.foreign.java.util.logging
+                  "java.util.logging.Level" 'gcp.foreign.java.util.logging
+                  "java.util.logging.Handler" 'gcp.foreign.java.util.logging
+                  "java.util.logging.LogRecord" 'gcp.foreign.java.util.logging
+                  "java.util.function.Consumer" 'gcp.foreign.java.util.function
+                  "java.util.OptionalLong" 'gcp.foreign.java.util
+                  "java.net.URL" 'gcp.foreign.java.net
+                  "java.io.InputStream" 'gcp.foreign.java.io
+                  "java.io.OutputStream" 'gcp.foreign.java.io
+                  "java.io.Closeable" 'gcp.foreign.java.io
+                  "java.io.Serializable" 'gcp.foreign.java.io
+                  "java.io.ObjectInputStream" 'gcp.foreign.java.io
+                  "java.sql.SQLException" 'gcp.foreign.java.sql
+                  "java.time.Duration" 'gcp.foreign.java.time
+                  "java.time.OffsetDateTime" 'gcp.foreign.java.time
+                  "java.nio.ByteBuffer" 'gcp.foreign.java.nio
+                  "java.nio.channels.ScatteringByteChannel" 'gcp.foreign.java.nio.channels
+                  "java.nio.channels.SeekableByteChannel" 'gcp.foreign.java.nio.channels
+                  "java.nio.channels.WritableByteChannel" 'gcp.foreign.java.nio.channels
+                  "java.nio.file.Path" 'gcp.foreign.java.nio.file
+                  "io.opentelemetry.api.OpenTelemetry" 'gcp.foreign.io.opentelemetry.api
+                  "io.opentelemetry.api.common.Attributes" 'gcp.foreign.io.opentelemetry.api.common
+                  "io.opentelemetry.api.trace.Tracer" 'gcp.foreign.io.opentelemetry.api.trace}})
 
 (def artifact-registry
   {:name                     'gcp.artifact-registry
@@ -115,6 +196,7 @@
                                "com.google.cloud.bigquery.Range"                 'gcp.bigquery.custom.TableResult
                                "com.google.cloud.bigquery.Dataset"               'gcp.bigquery.custom.Dataset
                                "com.google.cloud.bigquery.Job"                   'gcp.bigquery.custom.Job
+                               "com.google.cloud.bigquery.JobStatistics"         'gcp.bigquery.custom.JobStatistics
                                "com.google.cloud.bigquery.Model"                 'gcp.bigquery.custom.Model
                                "com.google.cloud.bigquery.Routine"               'gcp.bigquery.custom.Routine
                                "com.google.cloud.bigquery.Table"                 'gcp.bigquery.custom.Table
@@ -374,7 +456,7 @@
   "returns sorted list of all binding targets for the given package"
   [pkg-like]
   (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)
-        pred (into exempt-types (keys custom-namespace-mappings))]
+        pred (into (or exempt-types #{}) (keys custom-namespace-mappings))]
     (sort (remove pred (keys (:class/by-fqcn pkg))))))
 
 (defn foreign-user-types
@@ -418,7 +500,7 @@
         (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
         (if (contains? exempt-types fqcn)
           (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
-          (analyzer/analyze-class-node class-node)))
+          (analyzer/analyze-class-node (assoc class-node :foreign-mappings (get foreign :mappings)))))
       (throw (ex-info (str "failed to find node for class-like '" class-like "'")
                       {:pkg-like pkg-like :class-like class-like})))))
 
@@ -489,7 +571,7 @@
       (sorted-map)
       (package-api-types pkg))))
 
-(defn all-api-types-by-category []
-  (into (sorted-map)
-        (map (fn [k] [k (api-types-by-category k)]))
-        (keys packages)))
+(defn global-api-types-by-category []
+  (reduce
+    (partial merge-with into)
+    (map api-types-by-category (keys packages))))

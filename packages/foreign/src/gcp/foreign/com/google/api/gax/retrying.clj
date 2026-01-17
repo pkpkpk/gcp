@@ -10,7 +10,7 @@
      :source-hash "0343e1776970fb9bfc71c09e039362d5b86fb80cc6505baa561bff014bb02a49"}}}
   (:require [gcp.global :as global]
             [gcp.foreign.org.threeten.bp :as bp])
-  (:import (com.google.api.gax.retrying RetrySettings RetrySettings$Builder)))
+  (:import (com.google.api.gax.retrying RetrySettings RetrySettings$Builder ResultRetryAlgorithm)))
 
 (def registry
   (let [d-map (fn [min-s max-s]
@@ -27,7 +27,8 @@
         [:maxRpcTimeout (d-map 2 5)]
         [:retryDelayMultiplier [:double {:min 1.0 :max 2.0}]]
         [:rpcTimeoutMultiplier [:double {:min 1.0 :max 2.0}]]
-        [:totalTimeout (d-map 6 10)]]}
+        [:totalTimeout (d-map 6 10)]]
+       :gcp.foreign.com.google.api.gax.retrying/ResultRetryAlgorithm :any}
       {:gcp.global/name :gcp.foreign.com.google.api.gax.retrying/registry})))
 
 (global/include-schema-registry! registry)
@@ -66,3 +67,6 @@
    (when (contains? arg :totalTimeout)
      (.setTotalTimeout builder (bp/Duration-from-edn (:totalTimeout arg))))
    (.build builder)))
+
+(defn ResultRetryAlgorithm-to-edn [^ResultRetryAlgorithm arg] arg)
+(defn ^ResultRetryAlgorithm ResultRetryAlgorithm-from-edn [arg] arg)

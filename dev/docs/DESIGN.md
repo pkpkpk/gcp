@@ -167,8 +167,6 @@ Converts the raw Java AST nodes into a rich, structured Intermediate Representat
 
 **Categories:**
 *   Categories are used to select schema and binding emission strategies.
-*   See `@./class-categories.md` for a detailed breakdown.
-*   Common categories include: `:accessor-with-builder`, `:enum`, `:client`, `:static-factory`, `:concrete-union`.
 
 It also:
 *   Resolves type dependencies.

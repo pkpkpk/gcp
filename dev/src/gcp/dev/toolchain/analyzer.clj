@@ -38,17 +38,17 @@
                  (not (string/includes? (:name m) "$"))))
           (:methods node)))
 
-(defn- setters [node builder-name]
-  (let [fqcn (str (:package node) "." (:name node))]
-    (filter (fn [m]
-              (and (not (static? m))
-                   (public? m)
-                   (= 1 (count (:parameters m)))
-                   (let [rt (str (:returnType m))]
-                     (or (= rt builder-name)
-                         (= rt fqcn)
-                         (string/ends-with? rt (str "." builder-name))))))
-            (:methods node))))
+(defn- setters
+  [{:keys [fqcn] :as node} builder-name]
+  (filter (fn [m]
+            (and (not (static? m))
+                 (public? m)
+                 (= 1 (count (:parameters m)))
+                 (let [rt (str (:returnType m))]
+                   (or (= rt builder-name)
+                       (= rt fqcn)
+                       (string/ends-with? rt (str "." builder-name))))))
+          (:methods node)))
 
 (defn- extract-type-symbols [type-ast]
   (cond
@@ -118,16 +118,106 @@
                                            (not (string/starts-with? s "com.google.cloud"))
                                            (not (u/foreign-binding-exists? (u/infer-foreign-ns s)))))))
                           deps)]
-     {:gcp/key          (:gcp/key node)
-      :className        (:name node)
-      :package          (:package node)
-      :category         (:category node)
-      :doc              (:doc node)
-      :nested           (:nested node)
-      :extends          (:extends node)
-      :git-sha          (:file-git-sha node)
-      :typeDependencies deps
-      :unresolved-deps  unresolved})))
+     (sorted-map
+       :gcp/key          (:gcp/key node)
+       :fqcn             (:fqcn node)
+       :className        (:name node)
+       :package          (:package node)
+       :category         (:category node)
+       :doc              (:doc node)
+       :nested           (:nested node)
+       :extends          (:extends node)
+       :git-sha          (:file-git-sha node)
+       :typeDependencies deps
+       :unresolved-deps  unresolved))))
+
+(defn- analyze-accessor-with-builder [node]
+  (let [builder-node (get-nested node "Builder")
+        node-getters (getters node)
+        builder-setters (if builder-node
+                          (setters builder-node (:name builder-node))
+                          [])
+        ;; Map getters to properties
+        props-by-getter (reduce (fn [acc m]
+                                  (let [pname (u/property-name (:name m))]
+                                    (assoc acc pname {:getter m})))
+                                {}
+                                node-getters)
+        ;; Map setters to properties
+        props-with-setters (reduce (fn [acc m]
+                                     (let [pname (u/property-name (:name m))]
+                                       (if (contains? acc pname)
+                                         (assoc-in acc [pname :setter] m)
+                                         ;; Handle pluralization/list mapping (e.g. setContents vs getContentsList)
+                                         (let [plural-pname (str pname "List")]
+                                           (if (contains? acc plural-pname)
+                                             (assoc-in acc [plural-pname :setter] m)
+                                             acc)))))
+                                   props-by-getter
+                                   builder-setters)
+
+        ;; Select simplest newBuilder (fewest params)
+        all-new-builders (filter #(= (:name %) "newBuilder") (:methods node))
+        newBuilder (first (sort-by #(count (:parameters %)) all-new-builders))
+
+        ;; Identify required properties from newBuilder params
+        props (reduce (fn [acc param]
+                        (let [pname (:name param)]
+                          (if (contains? acc pname)
+                            (assoc-in acc [pname :required?] true)
+                            acc)))
+                      props-with-setters
+                      (:parameters newBuilder))
+
+        fields (into (sorted-map)
+                     (keep (fn [[k v]]
+                             (when (and (:getter v) (or (:setter v) (:required? v)))
+                               (let [getter-type (:returnType (:getter v))
+                                     setter-type (when (:setter v)
+                                                   (:type (first (:parameters (:setter v)))))
+                                     ;; Prefer setter type if getter returns a type parameter (e.g. <F extends FormatOptions> F get...)
+                                     final-type (if (and setter-type
+                                                         (vector? getter-type)
+                                                         (= :type-parameter (first getter-type)))
+                                                  setter-type
+                                                  getter-type)]
+                                 [k {:getterMethod (symbol (:name (:getter v)))
+                                     :setterMethod (when (:setter v) (symbol (:name (:setter v))))
+                                     :type final-type
+                                     :getterDoc (:doc (:getter v))
+                                     :setterDoc (when (:setter v) (:doc (:setter v)))
+                                     :required? (true? (:required? v))}])))
+                           props))
+        fields (reduce-kv (fn [acc k v]
+                            (if (or (and (string/ends-with? k "Bytes")
+                                         (contains? fields (subs k 0 (- (count k) 5))))
+                                    (and (string/ends-with? k "Value")
+                                         (contains? fields (subs k 0 (- (count k) 5)))))
+                              acc
+                              (assoc acc k v)))
+                          (sorted-map)
+                          fields)
+        prune-set (:prune-dependencies node)
+        pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))
+        ;; Calculate deps from properties (fields)
+        field-deps (into #{}
+                         (comp (mapcat (fn [[_ f]] (extract-type-symbols (:type f))))
+                               (remove #(u/excluded-type-name? (str %)))
+                               (remove pruned?))
+                         fields)
+        ;; Calculate deps from newBuilder params
+        builder-deps (if newBuilder
+                       (into #{}
+                             (comp (mapcat #(extract-type-symbols (:type %)))
+                                   (remove #(u/excluded-type-name? (str %)))
+                                   (remove pruned?))
+                             (:parameters newBuilder))
+                       #{})
+        type-deps (s/union field-deps builder-deps)]
+    (assoc (basic-info node type-deps)
+      :fields fields
+      :typeDependencies type-deps
+      :newBuilder (when newBuilder {:name "newBuilder" :parameters (:parameters newBuilder)}))))
 
 ;; -----------------------------------------------------------------------------
 ;; Analyzer
@@ -185,13 +275,13 @@
         variant-deps (into #{}
                            (map (fn [[_ v]] (symbol (:returnType v))))
                            variants)]
-    (merge (basic-info node variant-deps)
-           {:getType return-type
-            :factories factories
-            :variants variants
-            :typeDependencies variant-deps
-            ;; Auto-discover generated FQCNs from the variants we found
-            ::generated-fqcns (set (map :returnType (vals variants)))})))
+    (assoc (basic-info node variant-deps)
+      :getType return-type
+      :factories factories
+      :variants variants
+      :typeDependencies variant-deps
+      ;; Auto-discover generated FQCNs from the variants we found
+      ::generated-fqcns (set (map :returnType (vals variants))))))
 
 (defmethod _analyze-class-node :variant-accessor [node]
   (let [res (_analyze-class-node (assoc node :category :accessor-with-builder))]
@@ -216,108 +306,117 @@
     (if (and (not (abstract? node)) get-type)
       ;; It's actually a concrete-union if it has getType()
       (_analyze-class-node (assoc node :category :concrete-union)) #!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TODO THIS SHOULD BE DECIDED AT PARSER, NOT HERE!!
-      (merge (basic-info node deps)
-             {:getType return-type
-              :factories factories
-              :getters (getters node)}))))
-
-;; --- Builders & Accessors ---
+      (assoc (basic-info node deps)
+        :getType return-type
+        :factories factories
+        :getters (getters node)))))
 
 (defmethod _analyze-class-node :accessor-with-builder [node]
-  (let [builder-node (get-nested node "Builder")
-        node-getters (getters node)
-        builder-setters (if builder-node
-                          (setters builder-node (:name builder-node))
-                          [])
-        ;; Map getters to properties
-        props-by-getter (reduce (fn [acc m]
-                                  (let [pname (u/property-name (:name m))]
-                                    (assoc acc pname {:getter m})))
-                                {}
-                                node-getters)
-        ;; Map setters to properties
-        props-with-setters (reduce (fn [acc m]
-                                     (let [pname (u/property-name (:name m))]
-                                       (if (contains? acc pname)
-                                         (assoc-in acc [pname :setter] m)
-                                         ;; Handle pluralization/list mapping (e.g. setContents vs getContentsList)
-                                         (let [plural-pname (str pname "List")]
-                                           (if (contains? acc plural-pname)
-                                             (assoc-in acc [plural-pname :setter] m)
-                                             acc)))))
-                                   props-by-getter
-                                   builder-setters)
+  (analyze-accessor-with-builder node))
 
-        ;; Select simplest newBuilder (fewest params)
-        all-new-builders (filter #(= (:name %) "newBuilder") (:methods node))
-        newBuilder (first (sort-by #(count (:parameters %)) all-new-builders))
+(defmethod _analyze-class-node :nested/accessor-with-builder [node]
+  (assoc (analyze-accessor-with-builder node) :category :nested/accessor-with-builder))
 
-        ;; Identify required properties from newBuilder params
-        props (reduce (fn [acc param]
-                        (let [pname (:name param)]
-                          (if (contains? acc pname)
-                            (assoc-in acc [pname :required?] true)
-                            acc)))
-                      props-with-setters
-                      (:parameters newBuilder))
+(defmethod _analyze-class-node :nested/builder [node] {:category :nested/builder})
 
-        fields (into (sorted-map)
-                     (keep (fn [[k v]]
-                             (when (and (:getter v) (or (:setter v) (:required? v)))
-                               [k {:getterMethod (symbol (:name (:getter v)))
-                                   :setterMethod (when (:setter v) (symbol (:name (:setter v))))
-                                   :type (:returnType (:getter v))
-                                   :getterDoc (:doc (:getter v))
-                                   :setterDoc (when (:setter v) (:doc (:setter v)))
-                                   :required? (true? (:required? v))}]))
-                           props))
-        fields (reduce-kv (fn [acc k v]
-                            (if (or (and (string/ends-with? k "Bytes")
-                                         (contains? fields (subs k 0 (- (count k) 5))))
-                                    (and (string/ends-with? k "Value")
-                                         (contains? fields (subs k 0 (- (count k) 5)))))
-                              acc
-                              (assoc acc k v)))
-                          (sorted-map)
-                          fields)
-        prune-set (:prune-dependencies node)
-        pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))
-        ;; Calculate deps from properties (fields)
-        field-deps (into #{}
-                         (comp (mapcat (fn [[_ f]] (extract-type-symbols (:type f))))
-                               (remove #(u/excluded-type-name? (str %)))
-                               (remove pruned?))
-                         fields)
-        ;; Calculate deps from newBuilder params
-        builder-deps (if newBuilder
-                       (into #{}
-                             (comp (mapcat #(extract-type-symbols (:type %)))
-                                   (remove #(u/excluded-type-name? (str %)))
-                                   (remove pruned?))
-                             (:parameters newBuilder))
-                       #{})
-        type-deps (s/union field-deps builder-deps)]
+(defmethod _analyze-class-node :nested/client [node]
+  (assoc (basic-info node) :category :nested/client))
 
-    (merge (basic-info node type-deps)
-           {:fields fields
-            :typeDependencies type-deps
-            :newBuilder (when newBuilder {:name "newBuilder" :parameters (:parameters newBuilder)})})))
+(defmethod _analyze-class-node :nested/factory [node]
+  (assoc (basic-info node) :category :nested/factory))
 
-(defmethod _analyze-class-node :builder [node] {:category :builder})
+(defmethod _analyze-class-node :nested/union-factory [node]
+  (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
+        return-type (:returnType get-type)
+        self-type (:name node)
+        factories (filter #(and (static? %)
+                                (public? %)
+                                (let [rt (str (:returnType %))]
+                                  (or (= rt self-type)
+                                      (string/ends-with? rt (str "." self-type))
+                                      (string/ends-with? rt (str "$" self-type)))))
+                          (:methods node))
+        relevant-items (concat [get-type] factories (getters node))
+        deps (extract-specific-dependencies relevant-items (:prune-dependencies node))]
+    (if get-type
+      (assoc (basic-info node deps)
+             :category :nested/union-factory
+             :getType return-type
+             :factories factories
+             :getters (getters node))
+      (_analyze-class-node (assoc node :category :nested/factory)))))
+
+(defmethod _analyze-class-node :nested/enum [node]
+  (assoc (basic-info node) :values (map :name (:values node)) :category :nested/enum))
+
+(defmethod _analyze-class-node :nested/string-enum [node]
+  (let [type-name (:name node)
+        values (->> (:fields node)
+                    (filter (fn [f]
+                              (and (static? f)
+                                   (public? f)
+                                   (let [ft (str (:type f))]
+                                     (or (= ft type-name)
+                                         (string/ends-with? ft (str "." type-name))
+                                         (string/ends-with? ft (str "$" type-name)))))))
+                    (map :name))]
+    (assoc (basic-info node) :values values :category :nested/string-enum)))
+
+(defmethod _analyze-class-node :nested/static-factory [node]
+  (assoc (_analyze-class-node (assoc node :category :static-factory)) :category :nested/static-factory))
+
+(defmethod _analyze-class-node :nested/read-only [node]
+  (assoc (_analyze-class-node (assoc node :category :read-only)) :category :nested/read-only))
+
+(defmethod _analyze-class-node :nested/pojo [node]
+  (assoc (_analyze-class-node (assoc node :category :pojo)) :category :nested/pojo))
+
+(defmethod _analyze-class-node :nested/abstract-union [node]
+  (assoc (_analyze-class-node (assoc node :category :abstract-union)) :category :nested/abstract-union))
+
+#!----------------------------
 
 (defmethod _analyze-class-node :static-factory [node]
   ;; Look for static 'of' methods
   (let [of-methods (filter #(and (static? %) (= (:name %) "of")) (:methods node))
-        fields (reduce (fn [acc m]
-                         (let [params (:parameters m)]
-                           ;; Heuristic: params map to fields
-                           ;; This is tricky without more info, but let's just list the factory methods
-                           (assoc acc (keyword (string/join "-" (map :name params)))
-                                  {:parameters params
-                                   :doc (:doc m)})))
-                       {}
-                       of-methods)]
-    (assoc (basic-info node) :factoryMethods of-methods :fields fields)))
+        ;; Determine required parameters (intersection of all 'of' method parameters)
+        param-names-seq (map (fn [m] (set (map :name (:parameters m)))) of-methods)
+        required-params (if (seq param-names-seq)
+                          (apply clojure.set/intersection param-names-seq)
+                          #{})
+        factory-fields (reduce (fn [acc m]
+                                 (let [params (:parameters m)]
+                                   ;; Heuristic: params map to fields
+                                   (assoc acc (keyword (string/join "-" (map :name params)))
+                                          {:parameters params
+                                           :doc (:doc m)})))
+                               {}
+                               of-methods)
+        ;; Also extract properties from getters (like read-only)
+        node-getters (getters node)
+        prop-fields (reduce (fn [acc m]
+                              (let [pname (u/property-name (:name m))]
+                                (assoc acc pname {:getterMethod (symbol (:name m))
+                                                  :type (:returnType m)
+                                                  :getterDoc (:doc m)
+                                                  :required? (contains? required-params pname)})))
+                            (sorted-map)
+                            node-getters)
+        fields (merge factory-fields prop-fields)
+        ;; Calculate deps
+        prune-set (:prune-dependencies node)
+        pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))
+        ;; Deps from factory params
+        factory-deps (mapcat (fn [m] (mapcat #(extract-type-symbols (:type %)) (:parameters m))) of-methods)
+        ;; Deps from getters
+        prop-deps (mapcat (fn [[_ f]] (extract-type-symbols (:type f))) prop-fields)
+        type-deps (into #{}
+                        (comp (remove #(u/excluded-type-name? (str %)))
+                              (remove pruned?))
+                        (concat factory-deps prop-deps))]
+    (assoc (basic-info node type-deps) :factoryMethods of-methods :fields fields :typeDependencies type-deps)))
+
+(defmethod _analyze-class-node :builder [node] {:category :builder})
 
 (defmethod _analyze-class-node :factory [node] (basic-info node))
 
@@ -336,12 +435,9 @@
 (defmethod _analyze-class-node :resource-extended-class [node] (basic-info node))
 
 (defmethod _analyze-class-node :sentinel [node] (basic-info node))
-
-(defmethod _analyze-class-node :statics [node] (basic-info node))
-
+(defmethod _analyze-class-node :statics  [node] (basic-info node))
 (defmethod _analyze-class-node :abstract [node] (basic-info node))
-
-(defmethod _analyze-class-node :pojo [node] (basic-info node))
+(defmethod _analyze-class-node :pojo     [node] (basic-info node))
 
 (defmethod _analyze-class-node :read-only [node]
   (let [node-getters (getters node)
@@ -359,22 +455,21 @@
                                (remove #(u/excluded-type-name? (str %)))
                                (remove pruned?))
                          fields)]
-    (merge (basic-info node field-deps)
-           {:fields fields
-            :typeDependencies field-deps})))
+    (assoc (basic-info node field-deps)
+      :fields fields
+      :typeDependencies field-deps)))
 
 #! << IT IS FORBIDDEN TO CHANGE THIS BRANCH >>
-(defmethod _analyze-class-node :other [node] (throw (ex-info "illegal state" node))) #! IT IS FORBIDDEN TO CHANGE THIS LINE
-#! << IT IS FORBIDDEN TO CHANGE THIS BRANCH >>
-(defmethod _analyze-class-node :default [node] (throw (ex-info "illegal state" node))) #! IT IS FORBIDDEN TO CHANGE THIS LINE
+(defmethod _analyze-class-node :default [node] (throw (Exception. (str "illegal state: missing analysis handler for category " (:category node))))) #! IT IS FORBIDDEN TO CHANGE THIS LINE
 
 (defn analyze-class-node
   [class-node]
-  (when-not (contains? shared/categories (:category class-node))
-    (throw (Exception. (str "Unsupported category in analyzer input node: '" (pr-str (:category class-node)) "'"))))
+  (assert (contains? shared/categories (:category class-node)) (str "Unsupported category in analyzer input node: '" (pr-str (:category class-node)) "'")) #! IT IS FORBIDDEN TO CHANGE THIS LINE
+  (assert (contains? class-node :foreign-mappings) "class-nodes must come with :foreign-mappings entry") #! IT IS FORBIDDEN TO CHANGE THIS LINE
   (let [ana-node (_analyze-class-node class-node)]
     (when-not (contains? shared/categories (:category ana-node))
       (throw (Exception. (str "Unsupported category in analyzer output node '" (pr-str (:category ana-node)) "'"))))
     (cond-> ana-node
             (contains? class-node :opaque-types) (assoc :opaque-types (get class-node :opaque-types))
-            (contains? class-node :custom-namespace-mappings) (assoc :custom-namespace-mappings (get class-node :custom-namespace-mappings)))))
+            (contains? class-node :custom-namespace-mappings) (assoc :custom-namespace-mappings (get class-node :custom-namespace-mappings))
+            true (assoc :foreign-mappings (get class-node :foreign-mappings)))))

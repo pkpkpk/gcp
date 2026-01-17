@@ -4,7 +4,11 @@
    [clojure.java.io :as io]
    [clojure.reflect]
    [clojure.string :as string]
-   [edamame.core :as edamame])
+   [edamame.core :as edamame]
+   [rewrite-clj.node :as n]
+   [rewrite-clj.parser :as p]
+   [rewrite-clj.zip :as z]
+   [zprint.core :as zp])
   (:import
    (java.io ByteArrayOutputStream)
    (org.objectweb.asm ClassReader ClassVisitor Opcodes)))
@@ -83,7 +87,6 @@
 (defn excluded-type-name? [type-name]
   (or (string/ends-with? type-name "Impl")
       (string/ends-with? type-name "Helper")
-      (string/ends-with? type-name "RetryAlgorithm")
       (string/ends-with? type-name "OrBuilder")
       (string/ends-with? type-name "Callable")
       (string/ends-with? type-name "Serializer")
@@ -302,11 +305,6 @@
             maybe-map (first args)]
         (merge (meta name-sym)
                (when (map? maybe-map) maybe-map))))))
-
-(require '[rewrite-clj.zip :as z]
-         '[rewrite-clj.parser :as p]
-         '[rewrite-clj.node :as n]
-         '[zprint.core :as zp])
 
 (defn update-ns-metadata [source metadata-key metadata-val]
   (let [zloc (z/of-string source)

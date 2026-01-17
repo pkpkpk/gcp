@@ -15,7 +15,7 @@
    [gcp.dev.util :as u]
    [zprint.core :as zp]))
 
-(def ^:dynamic *strict-foreign-presence*
+(def ^:dynamic *strict-foreign-presence?*
   "If true, throws an exception when a foreign (external library) dependency is missing."
   true)
 
@@ -27,10 +27,11 @@
   [node custom-mappings opaque-types generated-fqcns]
   (let [current-class (:className node)
         current-pkg (:package node)
+        foreign-mappings (:foreign-mappings node)
         top-level-class (first (string/split current-class #"\."))
         nested-enums (into {}
                            (keep (fn [n]
-                                   (when (#{:enum :string-enum} (:category n))
+                                   (when (#{:nested/enum :nested/string-enum} (:category n))
                                      [(:fqcn n) n])))
                            (:nested node))]
     (->> (:typeDependencies node)
@@ -49,7 +50,8 @@
                   :cloud? false
                   :custom? true
                   :exists? (u/foreign-binding-exists? custom-ns)}
-                 (let [{:keys [package class]} (u/split-fqcn dep-str)
+                 (let [foreign-ns (get foreign-mappings dep-str)
+                       {:keys [package class]} (u/split-fqcn dep-str)
                        class-parts (string/split class #"\.")
                        top-class (first (string/split (first class-parts) #"\$"))
                        is-class-local (and (= package current-pkg)
@@ -62,10 +64,15 @@
                       :full-class class
                       :nested-enum? (contains? nested-enums dep-str)
                       :nested-enum-node (get nested-enums dep-str)}
-                     (let [ns-foreign (u/infer-foreign-ns dep-str)
+                     (let [ns-foreign (get foreign-mappings dep-str)
+                           _ (when (and (nil? ns-foreign)
+                                        (not (string/starts-with? dep-str "com.google.cloud")))
+                               (throw (ex-info (str "Foreign type not found in mappings: " dep-str)
+                                               {:type dep-str})))
+
                            ns-binding (symbol (str (u/package-to-ns package) "." top-class))
 
-                           foreign-exists? (u/foreign-binding-exists? ns-foreign)
+                           foreign-exists? (and ns-foreign (u/foreign-binding-exists? ns-foreign))
                            binding-exists? (u/foreign-binding-exists? ns-binding)
                            is-generated?   (contains? generated-fqcns dep-str)
 
@@ -89,17 +96,6 @@
                         :cloud? (and (not foreign-exists?) (or binding-exists? is-generated?))
                         :exists? exists?})))))))
       (into #{}))))
-
-(defn- needs-protobuf? [node]
-  (if-not (map? node)
-    false
-    (let [field-types (map :type (vals (:fields node)))
-          proto-types #{"com.google.protobuf.ByteString"
-                        "com.google.protobuf.Duration"
-                        "com.google.protobuf.Timestamp"
-                        "com.google.protobuf.Struct"
-                        "com.google.protobuf.Value"}]
-      (boolean (some #(contains? proto-types (str %)) field-types)))))
 
 (defn- collect-all-nested-fqcns [node]
   (let [pkg (:package node)
@@ -135,7 +131,7 @@
 
                                     (and (not cloud?) (not custom?))
                                     (do
-                                      (when (and *strict-foreign-presence* (not exists?))
+                                      (when (and *strict-foreign-presence?* (not exists?))
                                         (throw (ex-info (str "Foreign namespace missing: " ns)
                                                         {:type :require :dep dep})))
                                       (check-certification ns fqcn)))
@@ -200,7 +196,7 @@
                 (throw (ex-info (str "Peer namespace missing: " (:ns dep))
                                 {:type type :dep dep})))
               is-foreign
-              (when (and *strict-foreign-presence* (not (:exists? dep)))
+              (when (and *strict-foreign-presence?* (not (:exists? dep)))
                 (throw (ex-info (str "Foreign namespace missing: " (:ns dep))
                                 {:type type :dep dep}))))
             (when (and is-foreign (not (:custom? dep)))
@@ -225,7 +221,7 @@
                              (symbol func-name-str)
                              (symbol (str (:alias dep)) func-name-str))]
 
-              (when (and is-foreign *strict-foreign-presence*)
+              (when (and is-foreign *strict-foreign-presence?*)
                 (let [vars (u/foreign-vars (:ns dep))
                       bare-sym (symbol func-name-str)]
                   (when-not (contains? vars bare-sym)
@@ -312,7 +308,9 @@
                         val-form `(~'get ~'arg ~(keyword pname))]
                     (if (= conversion `identity)
                       val-form
-                      `(~@conversion ~val-form))))
+                      (if (sequential? conversion)
+                        `(~@conversion ~val-form)
+                        `(~conversion ~val-form)))))
         builder-method (symbol (str class-sym "/newBuilder"))
         ;; Setter calls for fields NOT in newBuilder params
         builder-calls (for [[field-name {:keys [setterMethod type]}] fields
@@ -365,7 +363,7 @@
 (defn- emit-concrete-union-from-edn
   [node deps version prefix class-sym-name func-name-base]
   (let [class-name       (:className node)
-        current-fqcn     (str (:package node) "." class-name)
+        current-fqcn     (:fqcn node)
         func-name        (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'from-edn)
         class-sym        (symbol class-sym-name)
         func-name-tagged (symbol (str func-name "__TAG__" class-sym))
@@ -385,8 +383,7 @@
 
 (defn- emit-concrete-union-to-edn
   [node deps version prefix class-sym-name func-name-base]
-  (let [class-name       (:className node)
-        current-fqcn     (str (:package node) "." class-name)
+  (let [current-fqcn     (:fqcn node)
         func-name        (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'to-edn)
         class-sym        (symbol class-sym-name)
         func-name-tagged (symbol (str func-name "__ARGTAG__" class-sym))
@@ -442,15 +439,14 @@
         branches (mapcat (fn [f]
                            (let [enum-val (camel-to-screaming-snake (:name f))
                                  method-sym (symbol (str class-sym "/" (:name f)))]
-                             `[(= ~enum-val (~'get ~'arg :type))
-                               (~method-sym (~'get ~'arg ~(keyword prop-name)))]))
+                             `[~enum-val (~method-sym (~'get ~'arg ~(keyword prop-name)))]))
                          factories)
         func-name-tagged (symbol (str func-name "__TAG__" class-sym))]
     `(~'defn ~func-name-tagged [~'arg]
        ~@(when-not prefix [`(~'global/strict! ~(u/schema-key (:package node) (:className node)) ~'arg)])
-       (cond
+       (case (~'get ~'arg :type)
          ~@branches
-         :else (throw (ex-info "Unknown type" {:arg ~'arg}))))))
+         (throw (ex-info "Unknown type" {:arg ~'arg}))))))
 
 (defn- emit-union-factory-to-edn
   [node deps version prefix class-sym-name func-name-base]
@@ -460,18 +456,127 @@
         getters          (:getters node)
         getType          (symbol ".getType")
         other-getters    (remove #(= (:name %) "getType") getters)
-        t-enum-sym       (gensym "t-enum")
-        t-str-sym        (gensym "t-str")]
+
+        nullable?        (fn [m] (some #(let [n (:name %)]
+                                          (or (= n "Nullable")
+                                              (string/ends-with? n ".Nullable")))
+                                       (:annotations m)))
+
+        [optional-getters required-getters]
+        (reduce (fn [[opt req] m]
+                  (if (nullable? m)
+                    [(conj opt m) req]
+                    [opt (conj req m)]))
+                [[] []]
+                other-getters)
+
+        base-map (assoc (into {}
+                              (map (fn [m]
+                                     [(keyword (u/property-name (:name m)))
+                                      `(~(symbol (str "." (:name m))) ~'arg)]))
+                              required-getters)
+                        :type `(.name (~getType ~'arg)))]
     `(~'defn ~func-name-tagged [~'arg]
        ~@(when-not prefix [`{:post [(~'global/strict! ~(u/schema-key (:package node) (:className node)) ~'%)]}])
-       (let [~t-enum-sym (~getType ~'arg)
-             ~t-str-sym (when ~t-enum-sym (.name ~t-enum-sym))]
-         (cond-> {:type ~t-str-sym}
-           ~@(mapcat (fn [m]
-                       (let [pname (u/property-name (:name m))
-                             msym (symbol (str "." (:name m)))]
-                         `[(~msym ~'arg) (~'assoc ~(keyword pname) (~msym ~'arg))]))
-                     other-getters))))))
+       ~(if (empty? optional-getters)
+          base-map
+          `(cond-> ~base-map
+             ~@(mapcat (fn [m]
+                         (let [pname (u/property-name (:name m))
+                               msym (symbol (str "." (:name m)))]
+                           `[(~msym ~'arg) (~'assoc ~(keyword pname) (~msym ~'arg))]))
+                       optional-getters))))))
+
+(defn- emit-static-factory-from-edn
+  [node deps version prefix class-sym-name func-name-base]
+  (let [func-name (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'from-edn)
+        class-sym (symbol class-sym-name)
+        func-name-tagged (symbol (str func-name "__TAG__" class-sym))
+
+        ;; Use factory methods identified by analyzer
+        factory-methods (:factoryMethods node)
+        ;; Prefer 'of' methods
+        of-methods (filter #(= (:name %) "of") factory-methods)
+        target-methods (if (seq of-methods) of-methods factory-methods)
+
+        ;; Determine required params (intersection)
+        param-names-seq (map (fn [m] (set (map :name (:parameters m)))) target-methods)
+        required-params (if (seq param-names-seq)
+                          (apply clojure.set/intersection param-names-seq)
+                          #{})
+
+        ;; Sort descending by param count to match most specific first
+        sorted-methods (sort-by #(count (:parameters %)) > target-methods)]
+
+    `(~'defn ~func-name-tagged [~'arg]
+       ~@(when-not prefix [`(~'global/strict! ~(u/schema-key (:package node) (:className node)) ~'arg)])
+       (cond
+         ~@(mapcat (fn [method]
+                     (let [params (:parameters method)
+                           ;; Identify params that are NOT required (the discriminators)
+                           discriminators (remove #(contains? required-params (:name %)) params)
+                           ;; Condition checks only discriminators
+                           condition (cond
+                                       (empty? discriminators) true
+                                       (= 1 (count discriminators)) `(~'get ~'arg ~(keyword (:name (first discriminators))))
+                                       :else `(and ~@(map (fn [p] `(~'get ~'arg ~(keyword (:name p)))) discriminators)))
+                           call `(~(symbol (str class-sym "/" (:name method)))
+                                   ~@(map (fn [p]
+                                            (let [pname (:name p)
+                                                  ptype (:type p)
+                                                  conversion (resolve-conversion ptype deps :from-edn)
+                                                  val-form `(~'get ~'arg ~(keyword pname))]
+                                              (if (= conversion `identity)
+                                                val-form
+                                                (if (sequential? conversion)
+                                                  `(~@conversion ~val-form)
+                                                  `(~conversion ~val-form)))))
+                                          params))]
+                       [condition call]))
+                   sorted-methods)))))
+
+(defn- emit-static-factory-to-edn
+  [node deps version prefix class-sym-name func-name-base]
+  (let [func-name (if prefix (symbol (str (string/replace func-name-base "." "_") prefix)) 'to-edn)
+        class-sym (symbol class-sym-name)
+        func-name-tagged (symbol (str func-name "__ARGTAG__" class-sym))
+        fields (:fields node)
+        ;; Split into required and optional fields
+        [required-fields optional-fields] (reduce (fn [[req opt] [k v]]
+                                                    (if (and (:getterMethod v) (:required? v))
+                                                      [(conj req [k v]) opt]
+                                                      (if (:getterMethod v)
+                                                        [req (conj opt [k v])]
+                                                        [req opt])))
+                                                  [[] []]
+                                                  fields)
+        base-map (into {}
+                       (for [[field-name {:keys [getterMethod type]}] required-fields]
+                         (let [getter (symbol (str "." getterMethod))
+                               k (keyword field-name)
+                               conversion (resolve-conversion type deps :to-edn)]
+                           [k (if (= conversion `identity)
+                                `(~getter ~'arg)
+                                (if (sequential? conversion)
+                                  `(~@conversion (~getter ~'arg))
+                                  `(~conversion (~getter ~'arg))))])))
+        opt-steps (for [[field-name {:keys [getterMethod type]}] optional-fields]
+                    (let [getter (symbol (str "." getterMethod))
+                          k (keyword field-name)
+                          conversion (resolve-conversion type deps :to-edn)]
+                      [`(~getter ~'arg)
+                       `(~'assoc ~k
+                          ~(if (= conversion `identity)
+                             `(~getter ~'arg)
+                             (if (sequential? conversion)
+                               `(~@conversion (~getter ~'arg))
+                               `(~conversion (~getter ~'arg)))))]))]
+    `(~'defn ~func-name-tagged [~'arg]
+       ~@(when-not prefix [`{:post [(~'global/strict! ~(u/schema-key (:package node) (:className node)) ~'%)]}])
+       ~(if (empty? optional-fields)
+          base-map
+          `(cond-> ~base-map
+             ~@(mapcat identity opt-steps))))))
 
 (defn- schema-var-name [class-name]
   (symbol (str (string/replace class-name "." "_") "-schema")))
@@ -489,8 +594,13 @@
                           (:className node))
         ana-node (assoc node :className full-class-name)
         entries (if (not (or (= (:category ana-node) :builder)
-                             (= (:category ana-node) :enum)
-                             (= (:category ana-node) :string-enum)))
+                             (= (:category ana-node) :nested/enum)
+                             (= (:category ana-node) :nested/string-enum)
+                             (= (:category ana-node) :nested/builder)
+                             (= (:category ana-node) :nested/factory)
+                             (= (:category ana-node) :nested/client)
+                             (= (:category ana-node) :factory)
+                             (= (:category ana-node) :client)))
                   [[(u/schema-key (:package ana-node) full-class-name)
                     (schema-var-name full-class-name)]]
                   [])
@@ -498,38 +608,56 @@
     (concat entries nested-entries)))
 
 (defn- emit-all-nested-forms [parent-node deps version main-class-name custom-mappings opaque-types generated-fqcns]
-  (mapcat (fn [n]
-            (let [ana-n (ana/analyze-class-node n)
-                  nested-name (:name n)
-                  current-full-name (str (:className parent-node) "." nested-name)
-                  ana-n (assoc ana-n :className current-full-name)
-                  nested-class-sym (string/replace current-full-name "." "$")
-                  current-deps (get-deps ana-n custom-mappings opaque-types generated-fqcns)]
-              (remove nil?
-                (concat
-                  (emit-all-nested-forms ana-n current-deps version main-class-name custom-mappings opaque-types generated-fqcns)
-                  (case (:category ana-n)
-                    (:accessor :variant-accessor)
-                    [(emit-accessor-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
-                     (emit-accessor-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
+  (let [foreign-mappings (:foreign-mappings parent-node)]
+    (mapcat (fn [n]
+              (let [n (assoc n :foreign-mappings foreign-mappings)
+                    ana-n (ana/analyze-class-node n)
+                    nested-name (:name n)
+                    current-full-name (str (:className parent-node) "." nested-name)
+                    ana-n (assoc ana-n :className current-full-name)
+                    nested-class-sym (string/replace current-full-name "." "$")
+                    current-deps (get-deps ana-n custom-mappings opaque-types generated-fqcns)]
+                (remove nil?
+                  (concat
+                    (emit-all-nested-forms ana-n current-deps version main-class-name custom-mappings opaque-types generated-fqcns)
+                    (case (:category ana-n)
+                      :nested/accessor-with-builder
+                      [(emit-accessor-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
+                       (emit-accessor-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
 
-                    :enum
-                    [(emit-enum-from-edn ana-n version ":from-edn" nested-class-sym current-full-name)
-                     (emit-enum-to-edn ana-n version ":to-edn" nested-class-sym current-full-name)]
+                      (:nested/enum :nested/string-enum :nested/builder :nested/factory :nested/client)
+                      nil
 
-                    :concrete-union
-                    [(emit-concrete-union-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
-                     (emit-concrete-union-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
+                      :concrete-union
+                      [(emit-concrete-union-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
+                       (emit-concrete-union-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
 
-                    :union-factory
-                    [(emit-union-factory-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
-                     (emit-union-factory-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
-                    nil)
-                  (when-not (or (= (:category ana-n) :builder)
-                                (= (:category ana-n) :enum)
-                                (= (:category ana-n) :string-enum))
-                    [(emit-schema ana-n version)])))))
-          (:nested parent-node)))
+                      :nested/union-factory
+                      [(emit-union-factory-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
+                       (emit-union-factory-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
+
+                      :nested/static-factory
+                      [(emit-static-factory-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
+                       (emit-static-factory-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
+
+                      :nested/read-only
+                      [(emit-read-only-from-edn ana-n version ":from-edn" nested-class-sym current-full-name)
+                       (emit-accessor-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
+
+                      :nested/pojo
+                      [(emit-accessor-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
+                       (emit-accessor-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
+                      nil)
+                    (when-not (or (= (:category ana-n) :builder)
+                                  (= (:category ana-n) :nested/enum)
+                                  (= (:category ana-n) :nested/string-enum)
+                                  (= (:category ana-n) :nested/builder)
+                                  (= (:category ana-n) :nested/factory)
+                                  (= (:category ana-n) :nested/client)
+                                  (= (:category ana-n) :factory)
+                                  (= (:category ana-n) :client))
+                      [(emit-schema ana-n version)])))))
+      (:nested parent-node))))
 
 (defn- get-resource-deps [node custom-mappings opaque-types generated-fqcns]
   (let [extends-syms (into #{}
@@ -578,21 +706,27 @@
          [from-edn to-edn] (if (= category :resource-extended-class)
                              (emit-resource-delegation node deps main-class-name)
                              [(case category
-                                (:accessor-with-builder :variant-accessor) (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                                :enum (emit-enum-from-edn node version nil main-class-name main-class-name)
-                                :concrete-union (emit-concrete-union-from-edn node deps version nil main-class-name main-class-name)
+                                :abstract (throw (Exception. "emit-abstract-from-edn unimplemented"))
                                 :abstract-union (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                                :union-factory (emit-union-factory-from-edn node deps version nil main-class-name main-class-name)
+                                :accessor-with-builder (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
+                                :concrete-union (emit-concrete-union-from-edn node deps version nil main-class-name main-class-name)
+                                :enum (emit-enum-from-edn node version nil main-class-name main-class-name)
                                 :read-only (emit-read-only-from-edn node version nil main-class-name main-class-name)
-                                (throw (Exception. "unimplemented")))
+                                :static-factory (emit-static-factory-from-edn node deps version nil main-class-name main-class-name)
+                                :union-factory (emit-union-factory-from-edn node deps version nil main-class-name main-class-name)
+                                :variant-accessor (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
+                                (throw (Exception. (str "unimplemented from-edn for category " category))))
                               (case category
-                                (:accessor-with-builder :variant-accessor) (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                :enum (emit-enum-to-edn node version nil main-class-name main-class-name)
-                                :concrete-union (emit-concrete-union-to-edn node deps version nil main-class-name main-class-name)
+                                :abstract (throw (Exception. "emit-abstract-to-edn unimplemented"))
                                 :abstract-union (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                :union-factory (emit-union-factory-to-edn node deps version nil main-class-name main-class-name)
+                                :accessor-with-builder (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
+                                :concrete-union (emit-concrete-union-to-edn node deps version nil main-class-name main-class-name)
+                                :enum (emit-enum-to-edn node version nil main-class-name main-class-name)
                                 :read-only (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                (throw (Exception. "unimplemented")))])
+                                :static-factory (emit-static-factory-to-edn node deps version nil main-class-name main-class-name)
+                                :union-factory (emit-union-factory-to-edn node deps version nil main-class-name main-class-name)
+                                :variant-accessor (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
+                                (throw (Exception. (str "unimplemented to-edn for category " category))))])
          schema (emit-schema node version)
          registry-entries (collect-registry-entries node nil)
          registry-map (into (sorted-map) registry-entries)

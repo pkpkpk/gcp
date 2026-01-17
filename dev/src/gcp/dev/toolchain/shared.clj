@@ -5,10 +5,7 @@
   #{:abstract
     :abstract-union
     :accessor-with-builder
-    :builder
     :client
-    :concrete-union
-    :variant-accessor
     :enum
     :error
     :exception
@@ -17,11 +14,22 @@
     :interface
     :pojo
     :read-only
-    :resource-extended-class
     :sentinel
     :static-factory
     :statics
     :string-enum
-    :stub
     :union-factory
-    :union-variant})
+    :variant-accessor
+
+    ;; Nested Categories
+    :nested/accessor-with-builder
+    :nested/builder
+    :nested/client
+    :nested/enum
+    :nested/factory
+    :nested/string-enum
+    :nested/abstract-union
+    :nested/union-factory
+    :nested/static-factory
+    :nested/read-only
+    :nested/pojo})
