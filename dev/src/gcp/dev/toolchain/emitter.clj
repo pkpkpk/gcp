@@ -15,6 +15,33 @@
    [gcp.dev.util :as u]
    [zprint.core :as zp]))
 
+;(defn- get-resource-deps [node custom-mappings opaque-types generated-fqcns]
+;  (let [extends-syms (into #{}
+;                           (map (fn [x]
+;                                  (let [s (str (if (sequential? x) (first x) x))]
+;                                    (symbol (last (string/split s #"\."))))))
+;                           (:extends node))
+;        all-deps (:typeDependencies node)
+;        ;; Filter deps that match the extends symbols (simple name match)
+;        relevant-deps (filter (fn [dep-fqcn]
+;                                (let [simple (last (string/split (str dep-fqcn) #"\."))]
+;                                  (contains? extends-syms (symbol simple))))
+;                              all-deps)
+;        ;; Create a synthetic node with filtered dependencies for get-deps
+;        synth-node (assoc node :typeDependencies relevant-deps)]
+;    (get-deps synth-node custom-mappings opaque-types generated-fqcns)))
+
+;(defn- emit-resource-delegation [node deps class-name]
+;  (let [super-dep (first deps)
+;        super-alias (:alias super-dep)
+;        class-sym (symbol class-name)]
+;    (when-not super-alias
+;      (throw (ex-info "Resource class must have a superclass dependency" {:node node :deps deps})))
+;    [`(~'defn ~'from-edn {:tag ~class-sym} [~'arg]
+;        (~(symbol (str super-alias "/from-edn")) ~'arg))
+;     `(~'defn ~'to-edn [~(with-meta 'arg {:tag class-sym})]
+;        (~(symbol (str super-alias "/to-edn")) ~'arg))]))
+
 (def ^:dynamic *strict-foreign-presence?*
   "If true, throws an exception when a foreign (external library) dependency is missing."
   true)
@@ -288,7 +315,7 @@
         class-sym (symbol class-sym-name)
         func-name-tagged (symbol (str func-name "__TAG__" class-sym))]
     `(~'defn ~func-name-tagged [~'arg]
-       (throw (ex-info (str "Class " ~class-sym-name " is read-only") {:class ~class-sym-name})))))
+       (throw (~'Exception. ~(str "Class " class-sym-name " is read-only"))))))
 
 (defn- emit-accessor-from-edn
   [node deps version prefix class-sym-name func-name-base]
@@ -628,10 +655,6 @@
                       (:nested/enum :nested/string-enum :nested/builder :nested/factory :nested/client)
                       nil
 
-                      :concrete-union
-                      [(emit-concrete-union-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
-                       (emit-concrete-union-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
-
                       :nested/union-factory
                       [(emit-union-factory-from-edn ana-n current-deps version ":from-edn" nested-class-sym current-full-name)
                        (emit-union-factory-to-edn ana-n current-deps version ":to-edn" nested-class-sym current-full-name)]
@@ -659,79 +682,50 @@
                       [(emit-schema ana-n version)])))))
       (:nested parent-node))))
 
-(defn- get-resource-deps [node custom-mappings opaque-types generated-fqcns]
-  (let [extends-syms (into #{}
-                           (map (fn [x]
-                                  (let [s (str (if (sequential? x) (first x) x))]
-                                    (symbol (last (string/split s #"\."))))))
-                           (:extends node))
-        all-deps (:typeDependencies node)
-        ;; Filter deps that match the extends symbols (simple name match)
-        relevant-deps (filter (fn [dep-fqcn]
-                                (let [simple (last (string/split (str dep-fqcn) #"\."))]
-                                  (contains? extends-syms (symbol simple))))
-                              all-deps)
-        ;; Create a synthetic node with filtered dependencies for get-deps
-        synth-node (assoc node :typeDependencies relevant-deps)]
-    (get-deps synth-node custom-mappings opaque-types generated-fqcns)))
-
-(defn- emit-resource-delegation [node deps class-name]
-  (let [super-dep (first deps)
-        super-alias (:alias super-dep)
-        class-sym (symbol class-name)]
-    (when-not super-alias
-      (throw (ex-info "Resource class must have a superclass dependency" {:node node :deps deps})))
-    [`(~'defn ~'from-edn {:tag ~class-sym} [~'arg]
-        (~(symbol (str super-alias "/from-edn")) ~'arg))
-
-     `(~'defn ~'to-edn [~(with-meta 'arg {:tag class-sym})]
-        (~(symbol (str super-alias "/to-edn")) ~'arg))]))
-
 (defn compile-class-forms
   "Compiles a class node into a sequence of Clojure forms.
    Accepts optional metadata map to inject into the namespace declaration."
   ([node] (compile-class-forms node nil))
   ([{:keys [category] :as node} metadata]
    (assert (contains? shared/categories (:category node)))
-   (let [custom-mappings (:custom-namespace-mappings node)
-         opaque-types (set (:opaque-types node))
-         generated-fqcns (set (::ana/generated-fqcns node))
-         version (u/extract-version (:doc node))
-         deps (if (= category :resource-extended-class)
-                (get-resource-deps node custom-mappings opaque-types generated-fqcns)
-                (get-deps node custom-mappings opaque-types generated-fqcns))
-         ns-form (emit-ns-form node deps metadata)
-         main-class-name (:className node)
-         nested-forms (emit-all-nested-forms node deps version main-class-name custom-mappings opaque-types generated-fqcns)
-         [from-edn to-edn] (if (= category :resource-extended-class)
-                             (emit-resource-delegation node deps main-class-name)
-                             [(case category
-                                :abstract (throw (Exception. "emit-abstract-from-edn unimplemented"))
-                                :abstract-union (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                                :accessor-with-builder (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                                :concrete-union (emit-concrete-union-from-edn node deps version nil main-class-name main-class-name)
-                                :enum (emit-enum-from-edn node version nil main-class-name main-class-name)
-                                :read-only (emit-read-only-from-edn node version nil main-class-name main-class-name)
-                                :static-factory (emit-static-factory-from-edn node deps version nil main-class-name main-class-name)
-                                :union-factory (emit-union-factory-from-edn node deps version nil main-class-name main-class-name)
-                                :variant-accessor (emit-accessor-from-edn node deps version nil main-class-name main-class-name)
-                                (throw (Exception. (str "unimplemented from-edn for category " category))))
-                              (case category
-                                :abstract (throw (Exception. "emit-abstract-to-edn unimplemented"))
-                                :abstract-union (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                :accessor-with-builder (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                :concrete-union (emit-concrete-union-to-edn node deps version nil main-class-name main-class-name)
-                                :enum (emit-enum-to-edn node version nil main-class-name main-class-name)
-                                :read-only (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                :static-factory (emit-static-factory-to-edn node deps version nil main-class-name main-class-name)
-                                :union-factory (emit-union-factory-to-edn node deps version nil main-class-name main-class-name)
-                                :variant-accessor (emit-accessor-to-edn node deps version nil main-class-name main-class-name)
-                                (throw (Exception. (str "unimplemented to-edn for category " category))))])
-         schema (emit-schema node version)
+   (let [custom-mappings  (:custom-namespace-mappings node)
+         opaque-types     (set (:opaque-types node))
+         generated-fqcns  (set (::ana/generated-fqcns node))
+         version          (u/extract-version (:doc node))
+         deps             (get-deps node custom-mappings opaque-types generated-fqcns)
+         ns-form          (emit-ns-form node deps metadata)
+         main-class-name  (:className node)
+         nested-forms     (emit-all-nested-forms node deps version main-class-name custom-mappings opaque-types generated-fqcns)
+         [from-edn to-edn] (case category
+                             :accessor-with-builder
+                             [(emit-accessor-from-edn node deps version nil main-class-name main-class-name)
+                              (emit-accessor-to-edn node deps version nil main-class-name main-class-name)]
+                             :enum
+                             [(emit-enum-from-edn node version nil main-class-name main-class-name)
+                              (emit-enum-to-edn node version nil main-class-name main-class-name)]
+                             :read-only
+                             [(emit-read-only-from-edn node version nil main-class-name main-class-name)
+                              (emit-accessor-to-edn node deps version nil main-class-name main-class-name)]
+                             :static-factory
+                             [(emit-static-factory-from-edn node deps version nil main-class-name main-class-name)
+                              (emit-static-factory-to-edn node deps version nil main-class-name main-class-name)]
+                             :union-abstract
+                             [(emit-accessor-from-edn node deps version nil main-class-name main-class-name)
+                              (emit-accessor-to-edn node deps version nil main-class-name main-class-name)]
+                             :union-concrete
+                             [(emit-concrete-union-from-edn node deps version nil main-class-name main-class-name)
+                              (emit-concrete-union-to-edn node deps version nil main-class-name main-class-name)]
+                             :union-factory
+                             [(emit-union-factory-from-edn node deps version nil main-class-name main-class-name)
+                              (emit-union-factory-to-edn node deps version nil main-class-name main-class-name)]
+                             :variant-accessor
+                             [(emit-accessor-from-edn node deps version nil main-class-name main-class-name)
+                              (emit-accessor-to-edn node deps version nil main-class-name main-class-name)]
+                             (throw (Exception. (str "bindings unimplemented for category " category))))
+         schema           (emit-schema node version)
          registry-entries (collect-registry-entries node nil)
-         registry-map (into (sorted-map) registry-entries)
-         registry-form `(~'global/include-schema-registry!
-                          (~'with-meta ~registry-map {:gcp.global/name (~'str ~'*ns*)}))]
+         registry-map     (into (sorted-map) registry-entries)
+         registry-form    `(~'global/include-schema-registry! (~'with-meta ~registry-map {:gcp.global/name (~'str ~'*ns*)}))]
      (remove nil? (concat [ns-form] nested-forms [from-edn to-edn schema registry-form])))))
 
 (defn emit-to-string

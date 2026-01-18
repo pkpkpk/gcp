@@ -254,15 +254,15 @@
                                    (filter #(= (:category %) :client))
                                    (mapv (fn [node]
                                            (symbol (str (:package node) "." (:name node))))))
-              pkg-ast {:sdk-name (get-sdk-name path)
-                       :path (.getAbsolutePath (io/file path))
-                       :package-name package-name
-                       :git-sha git-sha
-                       :git-tag git-tag
-                       :doc package-doc
-                       :service-clients service-clients
-                       :class/by-fqcn by-fqcn
-                       :class/name->fqcn name->fqcn}]
+              pkg-ast (sorted-map :sdk-name (get-sdk-name path)
+                                  :path (.getAbsolutePath (io/file path))
+                                  :package-name package-name
+                                  :git-sha git-sha
+                                  :git-tag git-tag
+                                  :doc package-doc
+                                  :service-clients service-clients
+                                  :class/by-fqcn by-fqcn
+                                  :class/name->fqcn name->fqcn)]
           (io/make-parents package-cache-file)
           (time-stage "Writing Package Cache"
             (binding [*print-length* nil

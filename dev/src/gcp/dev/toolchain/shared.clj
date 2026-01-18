@@ -2,9 +2,7 @@
 
 #! IT IS FORBIDDEN TO MODIFY THIS SET WITHOUT ELICITING USER FOR APPROVAL
 (def categories
-  #{:abstract
-    :abstract-union
-    :accessor-with-builder
+  #{:accessor-with-builder
     :client
     :enum
     :error
@@ -14,12 +12,18 @@
     :interface
     :pojo
     :read-only
+    :resource-extended
     :sentinel
     :static-factory
     :statics
     :string-enum
+    :union-abstract
     :union-factory
+    :union-concrete
     :variant-accessor
+
+    :other
+    :nested/other
 
     ;; Nested Categories
     :nested/accessor-with-builder
@@ -27,9 +31,11 @@
     :nested/client
     :nested/enum
     :nested/factory
-    :nested/string-enum
-    :nested/abstract-union
-    :nested/union-factory
-    :nested/static-factory
+    :nested/pojo
     :nested/read-only
-    :nested/pojo})
+    :nested/statics
+    :nested/static-factory
+    :nested/string-enum
+    :nested/union-abstract
+    :nested/union-factory
+    })

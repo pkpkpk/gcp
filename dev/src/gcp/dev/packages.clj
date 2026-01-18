@@ -294,7 +294,8 @@
    :include                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage"
                              "/google-cloud-storage/src/main/java/com/google/cloud/storage/multipartupload/model"
                              "/google-cloud-storage/src/main/java/com/google/cloud/storage/transfermanager"]
-   :exclude                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
+   :exclude                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage/ZeroCopySupport.java"
+                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
                              "/google-cloud-storage/src/main/java/com/google/cloud/storage/testing"]
    :native-prefixes         #{"com.google.cloud.storage"}})
 
@@ -440,7 +441,8 @@
 (defn lookup-class
   [pkg-like class-like]
   (let [pkg (parse pkg-like)]
-    (pkg/lookup-class pkg class-like)))
+    (when-let [node (pkg/lookup-class pkg class-like)]
+      (into (sorted-map) node))))
 
 (defn user-types
   [pkg-like]
@@ -565,6 +567,7 @@
     (reduce
       (fn [acc fqcn]
         (let [{:keys [category]} (analyze-class pkg fqcn)]
+          (assert (= category (:category (lookup-class pkg fqcn))))
           (if (contains? acc category)
             (update-in acc [category] conj fqcn)
             (assoc acc category (sorted-set fqcn)))))

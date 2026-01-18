@@ -288,28 +288,25 @@
 (defn ->schema
   "Converts an analyzed node into a malli schema."
   ([node] (->schema node (u/extract-version (:doc node))))
-  ([node version]
-   (let [category (:category node)
-         _        (assert (contains? shared/categories category))
-         schema   (case category
-                    :abstract (throw (Exception. "malli schema unimplemented for type :abstract"))
-                    :abstract-union (throw (Exception. "malli-abstract-union unimplemented"))
-                    :accessor-with-builder (malli-accessor node version)
-                    :concrete-union (malli-concrete-union node version)
-                    :enum (malli-enum node version)
-                    :read-only (malli-accessor node version)
-                    :static-factory (malli-static-factory node version)
-                    :string-enum (malli-string-enum node version)
-                    :union-factory (malli-union-factory node version)
-                    :variant-accessor (malli-variant-accessor node version)
-                    ;; ------------
-                    :nested/static-factory (malli-static-factory node version)
-                    :nested/union-factory (malli-union-factory node version)
-                    :nested/accessor-with-builder (malli-accessor node version)
-                    :nested/read-only (malli-accessor node version)
-                    :nested/pojo (malli-accessor node version)
-                    (throw (Exception. (str "->schema unimplemented for category " category))))
-         props    (second schema)]
+  ([{:keys [category] :as node} version]
+   (assert (contains? shared/categories category))
+   (let [[_ props :as schema] (case category
+                                :accessor-with-builder (malli-accessor node version)
+                                :enum (malli-enum node version)
+                                :read-only (malli-accessor node version)
+                                :static-factory (malli-static-factory node version)
+                                :string-enum (malli-string-enum node version)
+                                :union-abstract (throw (Exception. "malli-abstract-union unimplemented"))
+                                :union-concrete (malli-concrete-union node version)
+                                :union-factory (malli-union-factory node version)
+                                :variant-accessor (malli-variant-accessor node version)
+                                ;; ------------
+                                :nested/accessor-with-builder (malli-accessor node version)
+                                :nested/static-factory (malli-static-factory node version)
+                                :nested/union-factory (malli-union-factory node version)
+                                :nested/read-only (malli-accessor node version)
+                                :nested/pojo (malli-accessor node version)
+                                (throw (Exception. (str "->schema unimplemented for category " category))))]
      (assert (contains? props :gcp/key))
      (assert (contains? props :gcp/category))
      (assert (contains? shared/categories (get props :gcp/category)))
