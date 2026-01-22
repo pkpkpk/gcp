@@ -38,4 +38,4 @@
     :nested/string-enum
     :nested/union-abstract
     :nested/union-factory
-    })
+    :nested/variant-read-only})

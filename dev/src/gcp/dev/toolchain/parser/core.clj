@@ -216,7 +216,7 @@
                                            (if (seq res)
                                              (reduce (fn [inner-acc type-node]
                                                        (let [p (:package type-node)
-                                                             n (:name type-node)
+                                                             n (:className type-node)
                                                              key-str (if (and package-name p
                                                                               (string/starts-with? p package-name))
                                                                        (let [suffix (subs p (count package-name))]
@@ -230,14 +230,12 @@
                                              acc)))
                                        {}
                                        files))
-              by-fqcn (reduce-kv (fn [m _ node]
-                                   (let [fqcn (str (:package node) "." (:name node))]
-                                     (assoc m fqcn node)))
+              by-fqcn (reduce-kv (fn [m _ {:keys [fqcn] :as node}]
+                                   (assoc m fqcn node))
                                  {}
                                  class-name-map)
-              name->fqcn (reduce-kv (fn [m name node]
-                                      (let [fqcn (str (:package node) "." (:name node))]
-                                        (assoc m name fqcn)))
+              name->fqcn (reduce-kv (fn [m name {:keys [fqcn] :as node}]
+                                      (assoc m name fqcn))
                                     {}
                                     class-name-map)
               git-sha (time-stage "Getting Repo SHA" repo-sha) ;; Use pre-calculated
@@ -252,8 +250,7 @@
                                     nil)))))
               service-clients (->> (vals class-name-map)
                                    (filter #(= (:category %) :client))
-                                   (mapv (fn [node]
-                                           (symbol (str (:package node) "." (:name node))))))
+                                   (mapv #(symbol (:fqcn %))))
               pkg-ast (sorted-map :sdk-name (get-sdk-name path)
                                   :path (.getAbsolutePath (io/file path))
                                   :package-name package-name
@@ -267,6 +264,6 @@
           (time-stage "Writing Package Cache"
             (binding [*print-length* nil
                       *print-level* nil]
-              (tel/log! :info (str "Writing package cache to: " (.getAbsolutePath package-cache-file)))
+              (tel/log! :info (str "Writing package cache for " (get-sdk-name path) " to: " (.getAbsolutePath package-cache-file)))
               (spit package-cache-file (pr-str pkg-ast))))
           pkg-ast)))))

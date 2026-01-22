@@ -46,6 +46,11 @@
     (sequential? v) (vec v)
     :else [v]))
 
+(defn get-private-field [obj field-name]
+  (let [f (.getDeclaredField (class obj) field-name)]
+    (.setAccessible f true)
+    (.get f obj)))
+
 (defn get-schema [key] (get (mr/schemas *registry*) key))
 
 (defn schema-key?

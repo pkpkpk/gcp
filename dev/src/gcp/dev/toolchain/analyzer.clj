@@ -1,10 +1,13 @@
 (ns gcp.dev.toolchain.analyzer
   (:require
-    [clojure.set :as s]
-    [clojure.string :as string]
-    [gcp.dev.toolchain.shared :as shared]
-    [gcp.dev.util :as u])
-  (:import (clojure.lang Reflector)))
+   [clojure.set :as s]
+   [clojure.string :as string]
+   [gcp.dev.toolchain.shared :as shared]
+   [gcp.dev.util :as u]
+   [malli.core :as m]
+   [taoensso.telemere :as tel])
+  (:import
+   (clojure.lang Reflector)))
 
 (defn- get-nested [node name]
   (first (filter #(= (:name %) name) (:nested node))))
@@ -97,31 +100,34 @@
                  (remove pruned?))
            candidates))))
 
+(declare _analyze-class-node)
+
 (defn- basic-info
-  ([node] (basic-info node nil))
-  ([node specific-deps]
-   (assert (contains? shared/categories (:category node)))
-   (let [prune-set (:prune-dependencies node)
-         deps (or specific-deps (extract-all-dependencies node prune-set))
-         unresolved (into #{}
-                          (filter (fn [dep]
-                                    (let [s (str dep)]
-                                      (and (not (u/native-type s))
-                                           (not (string/starts-with? s "com.google.cloud"))
-                                           (not (u/foreign-binding-exists? (u/infer-foreign-ns s)))))))
-                          deps)]
-     (sorted-map
-       :gcp/key          (:gcp/key node)
-       :fqcn             (:fqcn node)
-       :className        (:name node)
-       :package          (:package node)
-       :category         (:category node)
-       :doc              (:doc node)
-       :nested           (:nested node)
-       :extends          (:extends node)
-       :git-sha          (:file-git-sha node)
-       :typeDependencies deps
-       :unresolved-deps  unresolved))))
+  [{:keys [category deps resource-identifier?
+           methods extends factory-methods constructors] :as node}]
+  {:pre [(contains? shared/categories category)]}
+  (let [has-string-factor? (let [methods (concat methods factory-methods)]
+                             (boolean
+                               (some (fn [m]
+                                       (and (or (= (:name m) "parse")
+                                                (= (:name m) "of"))
+                                            (:static? m)
+                                            (= 1 (count (:parameters m)))
+                                            (= (str (:type (first (:parameters m)))) "java.lang.String")))
+                                     methods)))
+        select (select-keys node [:fqcn :className :file-git-sha :package :category :doc :git-sha :deps])
+        nested (letfn [(rf [acc node]
+                         (if (contains? node :nested)
+                           (reduce rf acc (:nested node))
+                           (conj acc (_analyze-class-node (assoc node :deps deps)))))]
+                 (reduce rf [] (:nested node)))]
+    (cond-> (into (sorted-map) select)
+            (seq nested) (assoc :nested nested)
+            (seq methods) (assoc :methods methods)
+            (seq extends) (assoc :extends extends)
+            (seq constructors) (assoc :constructors constructors)
+            resource-identifier? (assoc :resource-identifier? resource-identifier?)
+            has-string-factor? (assoc :string-coercion? has-string-factor?))))
 
 (defn- analyze-accessor-with-builder [node]
   (let [builder-node (get-nested node "Builder")
@@ -206,20 +212,40 @@
                              (:parameters newBuilder))
                        #{})
         type-deps (s/union field-deps builder-deps)]
-    (assoc (basic-info node type-deps)
+    (assoc (basic-info node #_ type-deps)
       :fields fields
-      :typeDependencies type-deps
+      :methods (:methods node) ;; Pass through methods for emitter lookup (e.g. parse/of)
+      :factoryMethods (:factoryMethods node) ;; Pass through factory methods
       :newBuilder (when newBuilder {:name "newBuilder" :parameters (:parameters newBuilder)}))))
 
 (defn analyze-read-only [node]
   (let [node-getters (getters node)
-        fields (reduce (fn [acc m]
-                         (let [pname (u/property-name (:name m))]
-                           (assoc acc pname {:getterMethod (symbol (:name m))
-                                             :type (:returnType m)
-                                             :getterDoc (:doc m)})))
-                       (sorted-map)
-                       node-getters)
+        ;; Collect all parameter names from all public constructors
+        required-params (into #{}
+                              (comp (filter public?)
+                                    (mapcat :parameters)
+                                    (map :name))
+                              (:constructors node))
+
+        fields-from-getters (reduce (fn [acc m]
+                                      (let [pname (u/property-name (:name m))]
+                                        (assoc acc pname {:getterMethod (symbol (:name m))
+                                                          :type (:returnType m)
+                                                          :getterDoc (:doc m)
+                                                          :required? (contains? required-params pname)})))
+                                    (sorted-map)
+                                    node-getters)
+        fields (if (and (empty? fields-from-getters) (seq (:constructors node)))
+                 (let [canonical-ctor (last (sort-by #(count (:parameters %)) (:constructors node)))]
+                   (reduce (fn [acc param]
+                             (assoc acc (:name param)
+                                    {:type (:type param)
+                                     :getterDoc nil ;; No doc on param usually
+                                     :getterMethod nil
+                                     :required? true})) ;; Inferred from ctor, so required
+                           (sorted-map)
+                           (:parameters canonical-ctor)))
+                 fields-from-getters)
         prune-set (:prune-dependencies node)
         pruned? (if prune-set #(contains? prune-set (str %)) (constantly false))
         field-deps (into #{}
@@ -227,11 +253,13 @@
                                (remove #(u/excluded-type-name? (str %)))
                                (remove pruned?))
                          fields)]
-    (assoc (basic-info node field-deps)
+    (assoc (basic-info node #_field-deps)
       :fields fields
-      :typeDependencies field-deps)))
+      :constructors (:constructors node))))
 
-(defn analyze-static-factory [node]
+(defn analyze-static-factory
+  [{:keys [category] :as node}]
+  {:post [(= category (:category %))]}
   ;; Look for static 'of' methods
   (let [of-methods (filter #(and (static? %) (= (:name %) "of")) (:methods node))
         ;; Determine required parameters (intersection of all 'of' method parameters)
@@ -269,7 +297,10 @@
                         (comp (remove #(u/excluded-type-name? (str %)))
                               (remove pruned?))
                         (concat factory-deps prop-deps))]
-    (assoc (basic-info node type-deps) :factoryMethods of-methods :fields fields :typeDependencies type-deps)))
+    (assoc (basic-info node #_type-deps) #!-----------------------------------------------------------------------------TODO
+      :factoryMethods of-methods
+      :fields fields
+      :methods (:methods node))))
 
 (defn analyze-string-enum [node]
   (let [type-name (:name node)
@@ -284,9 +315,9 @@
                     (map :name))]
     (assoc (basic-info node) :values values)))
 
-(declare _analyze-class-node)
-
-(defn analyze-nested-union-factory [node]
+(defn analyze-nested-union-factory
+  [{:keys [category] :as node}]
+  {:post [(= category (:category %))]}
   (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
         return-type (:returnType get-type)
         self-type (:name node)
@@ -298,16 +329,18 @@
                                       (string/ends-with? rt (str "$" self-type)))))
                           (:methods node))
         relevant-items (concat [get-type] factories (getters node))
-        deps (extract-specific-dependencies relevant-items (:prune-dependencies node))]
-    (if get-type
-      (assoc (basic-info node deps)
-        :category :nested/union-factory
-        :getType return-type
-        :factories factories
-        :getters (getters node))
-      (_analyze-class-node (assoc node :category :nested/factory)))))
+        deps (extract-specific-dependencies relevant-items (:prune-dependencies node))] ;; ------------------------------TODO
+    (assoc (basic-info node #_deps)
+      :category :nested/union-factory
+      :getType return-type
+      :factories factories
+      :getters (getters node))))
 
-(defn analyze-union-factory [node]
+(declare _analyze-class-node)
+
+(defn analyze-union-factory
+  [{:keys [category] :as node}]
+  {:post [(= category (:category %))]}
   (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
         return-type (:returnType get-type)
         self-type (:name node)
@@ -320,59 +353,100 @@
         deps (extract-specific-dependencies relevant-items (:prune-dependencies node))]
     (if (and (not (abstract? node)) get-type)
       ;; It's actually a concrete-union if it has getType()
-      (_analyze-class-node (assoc node :category :concrete-union)) #!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TODO THIS SHOULD BE DECIDED AT PARSER, NOT HERE!!
-      (assoc (basic-info node deps)
+      (assoc (_analyze-class-node (assoc node :category :union-concrete)) :category (get node :category))
+      (assoc (basic-info node #_deps)
         :getType return-type
         :factories factories
         :getters (getters node)))))
 
-(defn analyze-variant-accessor [node]
+(defn analyze-variant-accessor
+  [{:keys [category] :as node}]
+  {:post [(= category (:category %))]}
   (let [res (_analyze-class-node (assoc node :category :accessor-with-builder))]
     (assoc res
       :discriminator (:discriminator node)
       ;; Explicitly reset the type to :variant-accessor to ensure correct schema generation
       :category :variant-accessor)))
 
-(defn analyze-abstract-union [node]
-  (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
-        return-type (:returnType get-type)]
-    (assoc (basic-info node) :getType return-type)))
-
-(defn analyze-concrete-union [node]
+(defn- analyze-union* [node]
   (let [get-type (first (filter #(= (:name %) "getType") (:methods node)))
         return-type (:returnType get-type)
-        ;; Static factory methods like 'json()', 'csv()' etc return variant types
-        factories (filter #(and (static? %)
-                                (public? %)
-                                (not (= (:name %) "of"))
-                                (not (= (:name %) "newBuilder"))
-                                (let [rt (str (:returnType %))]
-                                  (or (= rt (:name node))
-                                      (string/includes? rt "Options"))))
-                          (:methods node))
-        variants (into {}
-                       (keep (fn [f]
-                               (try
-                                 (let [cls (Class/forName (str (:package node) "." (:name node)))
-                                       instance (^[Class String Object/1] Reflector/invokeStaticMethod cls (:name f) (into-array Object []))
-                                       type-val (Reflector/invokeInstanceMethod instance "getType" (into-array Object []))
-                                       ;; Get the actual runtime class of the returned instance
-                                       runtime-class (.getName (type instance))]
-                                   [type-val {:factory (:name f)
-                                              :returnType runtime-class}])
-                                 (catch Exception _ nil))))
-                       factories)
-        ;; Add all variant return types to dependencies so emitter can find their from-edn/to-edn
+        reflective-fqcn (when (:fqcn node) (u/as-dollar-string (:fqcn node)))
+        factory-variants (if (or (abstract? node) (not reflective-fqcn))
+                           {}
+                           (let [;; Discover variants from static factories (concrete unions)
+                                 factories (filter #(and (static? %)
+                                                         (public? %)
+                                                         (not (= (:name %) "of"))
+                                                         (not (= (:name %) "newBuilder"))
+                                                         (let [rt (str (:returnType %))]
+                                                           (or (string/ends-with? rt (str "." (:name node)))
+                                                               (string/ends-with? rt (str "$" (:name node)))
+                                                               (= rt (:name node))
+                                                               (string/includes? rt "Options"))))
+                                                   (:methods node))]
+                             (into {}
+                                   (keep (fn [f]
+                                           (try
+                                             (let [cls (Class/forName reflective-fqcn)
+                                                   instance (^[Class String Object/1] Reflector/invokeStaticMethod cls (:name f) (into-array Object []))
+                                                   type-val (Reflector/invokeInstanceMethod instance "getType" (into-array Object []))
+                                                   runtime-class (.getName (type instance))]
+                                               [type-val {:factory (:name f)
+                                                          :returnType runtime-class}])
+                                             (catch Exception e
+                                               (throw (ex-info (str "WARN: failed to invoke factory " (:name f) " on " reflective-fqcn ": " (.getMessage e))
+                                                               {:cause e :node node}))))))
+                                   factories)))
+        ;; Discover variants from subclasses (abstract unions) using reflection
+        subclass-variants (if (and (abstract? node) reflective-fqcn)
+                            (try
+                              (let [base-cls (Class/forName reflective-fqcn)
+                                    outer-cls (.getDeclaringClass base-cls)
+                                    candidates (if outer-cls
+                                                 (.getDeclaredClasses outer-cls)
+                                                 [])
+                                    type-enum-name (last (string/split (str return-type) #"\."))
+                                    type-node (get-nested node type-enum-name)
+                                    valid-types (when type-node
+                                                  (into #{} (map #(if (map? %) (:name %) %)) (:values type-node)))]
+                                (reduce (fn [acc ^Class c]
+                                          (if (and (not= c base-cls)
+                                                   (.isAssignableFrom base-cls c))
+                                            (let [class-name (.getSimpleName c)
+                                                  candidate (u/camel-to-screaming-snake class-name)]
+                                              (if-let [m (or (when (contains? valid-types candidate) candidate)
+                                                             (some #(when (or (string/includes? candidate %)
+                                                                              (string/includes? % candidate)) %)
+                                                                   valid-types))]
+                                                (assoc acc m {:returnType (.getName c)})
+                                                acc))
+                                            acc))
+                                        {}
+                                        candidates))
+                              (catch Exception e
+                                (throw (ex-info (str "reflection failed for " reflective-fqcn ": " (.getMessage e)) {:cause e :node node}))))
+                            {})
+        variants (merge factory-variants subclass-variants)
         variant-deps (into #{}
                            (map (fn [[_ v]] (symbol (:returnType v))))
                            variants)]
-    (assoc (basic-info node variant-deps)
+    ; nested-variants ()
+    ; peer-variants ()
+    (assoc (basic-info node #_variant-deps)
       :getType return-type
-      :factories factories
       :variants variants
-      :typeDependencies variant-deps
-      ;; Auto-discover generated FQCNs from the variants we found
-      ::generated-fqcns (set (map :returnType (vals variants))))))
+      :variant-deps variant-deps
+      :factory-variants factory-variants
+      :peer-variants subclass-variants)))
+
+(defn analyze-abstract-union [node]
+  (analyze-union* node))
+
+(defn analyze-concrete-union [node]
+  (let [res (analyze-union* node)]
+    ;; Pass through factories for concrete unions as they are needed for construction
+    (assoc res :factories (get res :factories []))))
 
 ;; -----------------------------------------------------------------------------
 ;; Analyzer
@@ -380,7 +454,7 @@
 
 (defn _analyze-class-node
   [{:keys [category] :as node}]
-  {:post [(= category (:category %))]}
+  {:post [(= category (:category %)) (contains? % :className)]}
   (case category
     :accessor-with-builder (analyze-accessor-with-builder node)
     :client                (basic-info node)
@@ -390,7 +464,7 @@
     :factory               (basic-info node)
     :functional-interface  (basic-info node)
     :interface             (basic-info node)
-    :pojo                  (basic-info node)
+    :pojo                  (analyze-read-only node)
     :read-only             (analyze-read-only node)
     :resource-extended     (basic-info node)
     :sentinel              (basic-info node)
@@ -403,27 +477,23 @@
     :variant-accessor      (analyze-variant-accessor node)
     #!-----------
     :nested/accessor-with-builder (assoc (analyze-accessor-with-builder node) :category :nested/accessor-with-builder)
-    :nested/builder (basic-info node) ;;TODO do we need this?
-    :nested/client (assoc (basic-info node) :category :nested/client)
-    :nested/factory (assoc (basic-info node) :category :nested/factory)
-    :nested/pojo (assoc (_analyze-class-node (assoc node :category :pojo)) :category :nested/pojo)
-    :nested/read-only (assoc (_analyze-class-node (assoc node :category :read-only)) :category :nested/read-only)
-    :nested/static-factory (assoc (_analyze-class-node (assoc node :category :static-factory)) :category :nested/static-factory)
-    :nested/string-enum (analyze-string-enum node)
-    :nested/enum (assoc (basic-info node) :values (map :name (:values node)) :category :nested/enum)
-    :nested/union-abstract (assoc (_analyze-class-node (assoc node :category :abstract-union)) :category :nested/abstract-union)
-    :nested/union-factory (analyze-nested-union-factory node)
+    :nested/builder               (basic-info node)
+    :nested/client                (basic-info node)
+    :nested/enum                  (assoc (basic-info node) :values (map :name (:values node)))
+    :nested/factory               (basic-info node)
+    :nested/pojo                  (assoc (analyze-read-only node) :category :nested/pojo)
+    :nested/read-only             (assoc (_analyze-class-node (assoc node :category :read-only)) :category :nested/read-only)
+    :nested/statics               (basic-info node)
+    :nested/static-factory        (assoc (_analyze-class-node (assoc node :category :static-factory)) :category :nested/static-factory)
+    :nested/string-enum           (analyze-string-enum node)
+    :nested/union-abstract        (analyze-abstract-union node)
+    :nested/union-factory         (analyze-nested-union-factory node)
+    :nested/variant-read-only     (basic-info node)
     #! << IT IS FORBIDDEN TO CHANGE THIS BRANCH >>
     (throw (Exception. (str "illegal state: missing analysis handler for category " (:category node) " for class " (:fqcn node)))))) #! IT IS FORBIDDEN TO CHANGE THIS LINE
 
 (defn analyze-class-node
   [class-node]
   (assert (contains? shared/categories (:category class-node)) (str "Unsupported category in analyzer input node: '" (pr-str (:category class-node)) "'")) #! IT IS FORBIDDEN TO CHANGE THIS LINE
-  (assert (contains? class-node :foreign-mappings) "class-nodes must come with :foreign-mappings entry") #! IT IS FORBIDDEN TO CHANGE THIS LINE
-  (let [ana-node (_analyze-class-node class-node)]
-    (when-not (contains? shared/categories (:category ana-node))
-      (throw (Exception. (str "Unsupported category in analyzer output node '" (pr-str (:category ana-node)) "'"))))
-    (cond-> ana-node
-            (contains? class-node :opaque-types) (assoc :opaque-types (get class-node :opaque-types))
-            (contains? class-node :custom-namespace-mappings) (assoc :custom-namespace-mappings (get class-node :custom-namespace-mappings))
-            true (assoc :foreign-mappings (get class-node :foreign-mappings)))))
+  (assert (contains? class-node :deps) "class-nodes must come with :deps entry") #! IT IS FORBIDDEN TO CHANGE THIS LINE
+  (_analyze-class-node class-node))

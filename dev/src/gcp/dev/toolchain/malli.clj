@@ -3,7 +3,8 @@
   (:require
    [clojure.string :as string]
    [gcp.dev.toolchain.shared :as shared]
-   [gcp.dev.util :as u]))
+   [gcp.dev.util :as u]
+   [malli.util :as mu]))
 
 (defn- find-nested-enum [node type-name]
   (let [t-str (str type-name)]
@@ -130,32 +131,59 @@
             (remove (fn [[k v]] (string/starts-with? k "has")) fields)))))
 
 (defn- malli-static-factory
-  [{:keys [category doc fields className package] :as node} version]
-  (let [head [:map {:gcp/key  (:gcp/key node)
-                    :gcp/category category
-                    :closed   true
-                    :doc      (u/clean-doc doc)
-                    :class    className}]
-        ;; Filter only property fields (those with :type), ignoring factory method entries
-        prop-fields (filter (fn [[k v]] (:type v)) fields)]
-    (into head
-          (map
-            (fn [[k v]]
-              (let [{:keys [type getterDoc setterDoc required?]} v
-                    opts      (dissoc v :setterMethod :getterMethod :type :getterDoc :setterDoc :required? :parameters)
-                    g-doc     (u/clean-doc getterDoc)
-                    s-doc     (u/clean-doc setterDoc)
-                    raw-schema (->malli-type package type version node)
-                    [hoisted-opts schema] (hoist-schema-properties raw-schema)
-                    opts (merge opts hoisted-opts)]
-                (cond-> [(keyword k)]
-                  (or (seq opts) g-doc s-doc required?)
-                  (conj (cond-> opts
-                          g-doc (assoc :doc g-doc)
-                          s-doc (assoc :doc (str s-doc (when g-doc (str " " g-doc))))
-                          (not required?) (assoc :optional true)))
-                  true (conj schema))))
-            prop-fields))))
+  [{:keys [category doc fields className package factoryMethods] :as node} version]
+  (let [opts         {:gcp/key      (:gcp/key node)
+                      :gcp/category category
+                      :doc          (u/clean-doc doc)
+                      :class        className}
+        ;; Prefer 'of' methods for schema generation
+        of-methods (filter #(= (:name %) "of") factoryMethods)
+        target-methods (if (seq of-methods) of-methods factoryMethods)
+        ;; All possible properties from getters
+        all-prop-fields (filter (fn [[k v]] (:type v)) fields)
+
+        ;; Map each factory method to a :map schema
+        variant-schemas (map (fn [method]
+                               (let [params (:parameters method)
+                                     param-names (set (map :name params))
+                                     ;; Combine factory params with all other getter-based fields as optional
+                                     combined-fields (concat
+                                                       (map (fn [p] [(:name p) p]) params)
+                                                       (keep (fn [[pname info]]
+                                                               (when-not (contains? param-names pname)
+                                                                 [pname (assoc info :optional? true)]))
+                                                             all-prop-fields))
+                                     map-head [:map {:closed true}]]
+                                 (into map-head
+                                       (map (fn [[pname p-or-info]]
+                                              (let [ptype (:type p-or-info)
+                                                    ;; Find field info for docs if available
+                                                    field-info (get fields pname p-or-info)
+                                                    p-doc (or (u/clean-doc (:doc p-or-info))
+                                                              (u/clean-doc (:getterDoc field-info)))
+                                                    raw-schema (->malli-type package ptype version node)
+                                                    [hoisted-opts pschema] (hoist-schema-properties raw-schema)
+                                                    ;; Robust optionality check
+                                                    is-param? (contains? param-names pname)
+                                                    nullable? (some #(let [n (:name %)]
+                                                                       (or (= n "Nullable")
+                                                                           (string/ends-with? n ".Nullable")))
+                                                                    (:annotations p-or-info))
+                                                    doc-optional? (and p-doc (string/includes? (string/lower-case p-doc) "optional"))
+                                                    optional? (or (not is-param?) nullable? doc-optional?)
+
+                                                    p-opts (cond-> (or hoisted-opts {})
+                                                             p-doc (assoc :doc p-doc)
+                                                             optional? (assoc :optional true))]
+                                                (if (seq p-opts)
+                                                  [(keyword pname) p-opts pschema]
+                                                  [(keyword pname) pschema])))
+                                            combined-fields))))
+                             target-methods)]
+    (if (= 1 (count variant-schemas))
+      (let [s (first variant-schemas)]
+        (assoc-in s [1] (merge (second s) opts)))
+      (into [:or opts] variant-schemas))))
 
 (defn- malli-enum
   [{:keys [category doc values className package] :as node} version]
@@ -237,16 +265,22 @@
                       :gcp/category category
                       :doc          (u/clean-doc doc)
                       :class        className}
+        variants     (or variants {})
         ;; Complex variants (return a specialized subtype)
         complex-variants (filter (fn [[_ v]] (not= (:returnType v) current-fqcn)) variants)
         ;; Simple variants (return the union type itself)
         simple-variants (remove (fn [[_ v]] (not= (:returnType v) current-fqcn)) variants)
-        complex-schemas (map (fn [[_ v]]
-                               (let [{:keys [package class]} (u/split-fqcn (:returnType v))]
-                                 (u/schema-key package class)))
+        complex-schemas (map (fn [[t v]]
+                               (let [{:keys [package class]} (u/split-fqcn (:returnType v))
+                                     class (string/replace class "$" ".")]
+                                 (mu/merge (u/schema-key package class)
+                                           [:map [:type [:= t]]])))
                              complex-variants)
-        simple-schemas (map (fn [[t _]] [:map [:type [:= t]]]) simple-variants)]
-    (into [:or opts] (concat complex-schemas simple-schemas))))
+        simple-schemas (map (fn [[t _]] [:map [:type [:= t]]]) simple-variants)
+        all-schemas (concat complex-schemas simple-schemas)]
+    (if (seq all-schemas)
+      (into [:or opts] all-schemas)
+      [:map opts])))
 
 (defn- malli-union-factory
   [{:keys [category doc className package getType getters] :as node} version]
@@ -288,7 +322,7 @@
 (defn ->schema
   "Converts an analyzed node into a malli schema."
   ([node] (->schema node (u/extract-version (:doc node))))
-  ([{:keys [category] :as node} version]
+  ([{:keys [category string-coercion?] :as node} version]
    (assert (contains? shared/categories category))
    (let [[_ props :as schema] (case category
                                 :accessor-with-builder (malli-accessor node version)
@@ -296,7 +330,7 @@
                                 :read-only (malli-accessor node version)
                                 :static-factory (malli-static-factory node version)
                                 :string-enum (malli-string-enum node version)
-                                :union-abstract (throw (Exception. "malli-abstract-union unimplemented"))
+                                :union-abstract (malli-concrete-union node version)
                                 :union-concrete (malli-concrete-union node version)
                                 :union-factory (malli-union-factory node version)
                                 :variant-accessor (malli-variant-accessor node version)
@@ -304,10 +338,19 @@
                                 :nested/accessor-with-builder (malli-accessor node version)
                                 :nested/static-factory (malli-static-factory node version)
                                 :nested/union-factory (malli-union-factory node version)
+                                :nested/union-abstract (malli-concrete-union node version)
                                 :nested/read-only (malli-accessor node version)
                                 :nested/pojo (malli-accessor node version)
                                 (throw (Exception. (str "->schema unimplemented for category " category))))]
      (assert (contains? props :gcp/key))
      (assert (contains? props :gcp/category))
      (assert (contains? shared/categories (get props :gcp/category)))
-     schema)))
+     (if string-coercion?
+       [:or
+        {:gcp/key (:gcp/key props)
+         :gcp/category category
+         :doc (u/clean-doc (:doc props))
+         :class (:class props)}
+        :string
+        schema]
+       schema))))

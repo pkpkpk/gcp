@@ -1,19 +1,16 @@
 (ns gcp.dev.test.toolchain.analyzer-test
   (:require
    [clojure.test :refer [deftest is testing]]
-   [gcp.dev.packages :as p]
-   [gcp.dev.toolchain.analyzer :as ana]))
+   [gcp.dev.packages :as p]))
 
 (deftest analyze-all-package-classes-smoke-test
   (doseq [pkg-kw (keys p/packages)]
     (testing (str "Analyzing all classes in " pkg-kw)
       (let [pkg (p/parse pkg-kw)
-            types (p/package-user-types pkg)]
+            types (p/package-api-types pkg)]
         (doseq [t types]
-          (let [node (p/lookup-class pkg t)]
-            (when node
-              (try
-                (ana/analyze-class-node node)
-                (is true)
-                (catch Exception e
-                  (is false (str "Failed to analyze " t ": " (.getMessage e))))))))))))
+          (try
+            (p/analyze-class pkg t)
+            (is true)
+            (catch Exception e
+              (is false (str "Failed to analyze " t ": " (.getMessage e))))))))))

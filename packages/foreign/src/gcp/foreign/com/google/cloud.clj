@@ -31,7 +31,7 @@
             [gcp.foreign.com.google.api :as api]
             [gcp.foreign.com.google.protobuf :as protobuf])
   (:import
-   (com.google.cloud MonitoredResource MonitoredResourceDescriptor RetryOption RetryOption$OptionType)
+   (com.google.cloud MonitoredResource MonitoredResourceDescriptor Policy RetryOption RetryOption$OptionType)
    (java.time Duration)))
 
 (defn- edn->java-duration [arg]
@@ -86,9 +86,14 @@
         "JITTERED" {:jittered value}
         (throw (ex-info "Unknown RetryOption type" {:type type}))))))
 
+(defn Policy-to-edn [^Policy arg] (throw (Exception. "unimplemented")))
+
+(defn ^Policy Policy-from-edn [arg] (throw (Exception. "unimplemented")))
+
 (global/include-schema-registry!
  (with-meta
-   {::RetryOption [:or
+   {::Policy       :any
+    ::RetryOption [:or
                    [:map {:closed true} [:totalTimeout ::protobuf/Duration]]
                    [:map {:closed true} [:initialRetryDelay ::protobuf/Duration]]
                    [:map {:closed true} [:retryDelayMultiplier :double]]

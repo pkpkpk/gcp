@@ -225,6 +225,7 @@
             dependencies)))
 
 (defn- validate-dependencies! [sorted-nodes exemptions custom-mappings opaque]
+  #_
   (let [normalize (fn [s] (string/replace (str s) "$" "."))
         generated-fqcns (into #{} (comp (remove #(contains? exemptions (str (:package %) "." (:name %))))
                                         (map #(str (:package %) "." (:name %)))

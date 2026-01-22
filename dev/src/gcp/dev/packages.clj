@@ -26,87 +26,96 @@
    :description  "bindings for transitive foreign types using in gcp bindings"
    :package-root (io/file packages-root "foreign")
    :src-root     (io/file packages-root "foreign" "src")
-   :mappings     {"com.google.cloud.MonitoredResource" 'gcp.foreign.com.google.cloud
-                  "com.google.cloud.MonitoredResourceDescriptor" 'gcp.foreign.com.google.cloud
-                  "com.google.cloud.RetryOption" 'gcp.foreign.com.google.cloud
-                  "com.google.longrunning.Operation" 'gcp.foreign.com.google.longrunning
-                  "com.google.longrunning.stub.OperationsStub" 'gcp.foreign.com.google.longrunning.stub
-                  "com.google.longrunning.stub.GrpcOperationsStub" 'gcp.foreign.com.google.longrunning.stub
-                  "com.google.cloud.location.Location" 'gcp.foreign.com.google.cloud.location
-                  "com.google.cloud.location.GetLocationRequest" 'gcp.foreign.com.google.cloud.location
-                  "com.google.cloud.location.ListLocationsRequest" 'gcp.foreign.com.google.cloud.location
-                  "com.google.cloud.location.ListLocationsResponse" 'gcp.foreign.com.google.cloud.location
-                  "com.google.cloud.spi.ServiceRpcFactory" 'gcp.foreign.com.google.cloud.spi
-                  "com.google.type.Date" 'gcp.foreign.com.google.type
-                  "com.google.type.LatLng" 'gcp.foreign.com.google.type
-                  "com.google.common.util.concurrent.ListenableFuture" 'gcp.foreign.com.google.common.util.concurrent
-                  "com.google.common.collect.ImmutableList" 'gcp.foreign.com.google.common.collect
-                  "com.google.api.LabelDescriptor" 'gcp.foreign.com.google.api
-                  "com.google.api.MonitoredResource" 'gcp.foreign.com.google.api
-                  "com.google.api.MonitoredResourceDescriptor" 'gcp.foreign.com.google.api
-                  "com.google.api.HttpBody" 'gcp.foreign.com.google.api
-                  "com.google.api.resourcenames.ResourceName" 'gcp.foreign.com.google.api.resourcenames
-                  "com.google.api.services.bigquery.model.UserDefinedFunctionResource" 'gcp.foreign.com.google.api.services.bigquery.model
-                  "com.google.api.services.bigquery.model.QueryParameter" 'gcp.foreign.com.google.api.services.bigquery.model
-                  "com.google.api.core.ApiFuture" 'gcp.foreign.com.google.api.core
-                  "com.google.api.core.ApiService" 'gcp.foreign.com.google.api.core
-                  "com.google.api.core.AbstractApiService" 'gcp.foreign.com.google.api.core
-                  "com.google.api.gax.batching.FlowControlSettings" 'gcp.foreign.com.google.api.gax.batching
-                  "com.google.api.gax.batching.BatchingSettings" 'gcp.foreign.com.google.api.gax.batching
-                  "com.google.api.gax.paging.Page" 'gcp.foreign.com.google.api.gax.paging
-                  "com.google.api.gax.paging.AsyncPage" 'gcp.foreign.com.google.api.gax.paging
-                  "com.google.api.gax.longrunning.OperationFuture" 'gcp.foreign.com.google.api.gax.longrunning
-                  "com.google.api.gax.retrying.RetrySettings" 'gcp.foreign.com.google.api.gax.retrying
-                  "com.google.api.gax.retrying.ResultRetryAlgorithm" 'gcp.foreign.com.google.api.gax.retrying
-                  "com.google.api.gax.rpc.BidiStream" 'gcp.foreign.com.google.api.gax.rpc
-                  "com.google.api.gax.rpc.ClientContext" 'gcp.foreign.com.google.api.gax.rpc
-                  "com.google.api.gax.grpc.GrpcStubCallableFactory" 'gcp.foreign.com.google.api.gax.grpc
-                  "com.google.api.gax.httpjson.longrunning.OperationsClient" 'gcp.foreign.com.google.api.gax.httpjson.longrunning
-                  "com.google.api.gax.httpjson.longrunning.stub.OperationsStub" 'gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
-                  "com.google.api.gax.httpjson.longrunning.stub.HttpJsonOperationsStub" 'gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
-                  "com.google.api.gax.core.BackgroundResource" 'gcp.foreign.com.google.api.gax.core
-                  "com.google.api.gax.httpjson.HttpJsonStubCallableFactory" 'gcp.foreign.com.google.api.gax.httpjson
-                  "com.google.rpc.Status" 'gcp.foreign.com.google.rpc
-                  "com.google.iam.v1.Policy" 'gcp.foreign.com.google.iam.v1
-                  "com.google.iam.v1.GetIamPolicyRequest" 'gcp.foreign.com.google.iam.v1
-                  "com.google.iam.v1.SetIamPolicyRequest" 'gcp.foreign.com.google.iam.v1
-                  "com.google.iam.v1.TestIamPermissionsRequest" 'gcp.foreign.com.google.iam.v1
-                  "com.google.iam.v1.TestIamPermissionsResponse" 'gcp.foreign.com.google.iam.v1
-                  "com.google.auth.Credentials" 'gcp.foreign.com.google.auth
-                  "com.google.protobuf.Timestamp" 'gcp.foreign.com.google.protobuf
-                  "com.google.protobuf.ByteString" 'gcp.foreign.com.google.protobuf
-                  "com.google.protobuf.Any" 'gcp.foreign.com.google.protobuf
-                  "com.google.protobuf.Struct" 'gcp.foreign.com.google.protobuf
-                  "com.google.protobuf.Value" 'gcp.foreign.com.google.protobuf
-                  "com.google.protobuf.ProtocolStringList" 'gcp.foreign.com.google.protobuf
-                  "com.google.protobuf.Duration" 'gcp.foreign.com.google.protobuf
-                  "org.threeten.extra.PeriodDuration" 'gcp.foreign.org.threeten.extra
-                  "org.threeten.bp.Duration" 'gcp.foreign.org.threeten.bp
-                  "java.util.concurrent.CompletableFuture" 'gcp.foreign.java.util.concurrent
-                  "java.util.concurrent.TimeUnit" 'gcp.foreign.java.util.concurrent
-                  "java.util.logging.Logger" 'gcp.foreign.java.util.logging
-                  "java.util.logging.Level" 'gcp.foreign.java.util.logging
-                  "java.util.logging.Handler" 'gcp.foreign.java.util.logging
-                  "java.util.logging.LogRecord" 'gcp.foreign.java.util.logging
-                  "java.util.function.Consumer" 'gcp.foreign.java.util.function
-                  "java.util.OptionalLong" 'gcp.foreign.java.util
-                  "java.net.URL" 'gcp.foreign.java.net
-                  "java.io.InputStream" 'gcp.foreign.java.io
-                  "java.io.OutputStream" 'gcp.foreign.java.io
-                  "java.io.Closeable" 'gcp.foreign.java.io
-                  "java.io.Serializable" 'gcp.foreign.java.io
-                  "java.io.ObjectInputStream" 'gcp.foreign.java.io
-                  "java.sql.SQLException" 'gcp.foreign.java.sql
-                  "java.time.Duration" 'gcp.foreign.java.time
-                  "java.time.OffsetDateTime" 'gcp.foreign.java.time
-                  "java.nio.ByteBuffer" 'gcp.foreign.java.nio
-                  "java.nio.channels.ScatteringByteChannel" 'gcp.foreign.java.nio.channels
-                  "java.nio.channels.SeekableByteChannel" 'gcp.foreign.java.nio.channels
-                  "java.nio.channels.WritableByteChannel" 'gcp.foreign.java.nio.channels
-                  "java.nio.file.Path" 'gcp.foreign.java.nio.file
-                  "io.opentelemetry.api.OpenTelemetry" 'gcp.foreign.io.opentelemetry.api
-                  "io.opentelemetry.api.common.Attributes" 'gcp.foreign.io.opentelemetry.api.common
-                  "io.opentelemetry.api.trace.Tracer" 'gcp.foreign.io.opentelemetry.api.trace}})
+   :mappings     '{com.google.cloud.MonitoredResource                                  gcp.foreign.com.google.cloud
+                   com.google.cloud.MonitoredResourceDescriptor                        gcp.foreign.com.google.cloud
+                   com.google.cloud.Policy                                             gcp.foreign.com.google.cloud
+                   com.google.cloud.RetryOption                                        gcp.foreign.com.google.cloud
+                   com.google.longrunning.Operation                                    gcp.foreign.com.google.longrunning
+                   com.google.longrunning.stub.OperationsStub                          gcp.foreign.com.google.longrunning.stub
+                   com.google.longrunning.stub.GrpcOperationsStub                      gcp.foreign.com.google.longrunning.stub
+                   com.google.cloud.location.Location                                  gcp.foreign.com.google.cloud.location
+                   com.google.cloud.location.GetLocationRequest                        gcp.foreign.com.google.cloud.location
+                   com.google.cloud.location.ListLocationsRequest                      gcp.foreign.com.google.cloud.location
+                   com.google.cloud.location.ListLocationsResponse                     gcp.foreign.com.google.cloud.location
+                   com.google.cloud.spi.ServiceRpcFactory                              gcp.foreign.com.google.cloud.spi
+                   com.google.type.Date                                                gcp.foreign.com.google.type
+                   com.google.type.LatLng                                              gcp.foreign.com.google.type
+                   com.google.common.util.concurrent.ListenableFuture                  gcp.foreign.com.google.common.util.concurrent
+                   com.google.common.collect.ImmutableList                             gcp.foreign.com.google.common.collect
+                   com.google.api.LabelDescriptor                                      gcp.foreign.com.google.api
+                   com.google.api.MonitoredResource                                    gcp.foreign.com.google.api
+                   com.google.api.MonitoredResourceDescriptor                          gcp.foreign.com.google.api
+                   com.google.api.HttpBody                                             gcp.foreign.com.google.api
+                   com.google.api.resourcenames.ResourceName                           gcp.foreign.com.google.api.resourcenames
+                   com.google.api.services.bigquery.model.UserDefinedFunctionResource  gcp.foreign.com.google.api.services.bigquery.model
+                   com.google.api.services.bigquery.model.QueryParameter               gcp.foreign.com.google.api.services.bigquery.model
+                   com.google.api.core.ApiFuture                                       gcp.foreign.com.google.api.core
+                   com.google.api.core.ApiService                                      gcp.foreign.com.google.api.core
+                   com.google.api.core.AbstractApiService                              gcp.foreign.com.google.api.core
+                   com.google.api.gax.batching.FlowControlSettings                     gcp.foreign.com.google.api.gax.batching
+                   com.google.api.gax.batching.BatchingSettings                        gcp.foreign.com.google.api.gax.batching
+                   com.google.api.gax.paging.Page                                      gcp.foreign.com.google.api.gax.paging
+                   com.google.api.gax.paging.AsyncPage                                 gcp.foreign.com.google.api.gax.paging
+                   com.google.api.gax.longrunning.OperationFuture                      gcp.foreign.com.google.api.gax.longrunning
+                   com.google.api.gax.retrying.RetrySettings                           gcp.foreign.com.google.api.gax.retrying
+                   com.google.api.gax.retrying.ResultRetryAlgorithm                    gcp.foreign.com.google.api.gax.retrying
+                   com.google.api.gax.rpc.BidiStream                                   gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.ClientContext                                gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.grpc.GrpcStubCallableFactory                     gcp.foreign.com.google.api.gax.grpc
+                   com.google.api.gax.httpjson.longrunning.OperationsClient            gcp.foreign.com.google.api.gax.httpjson.longrunning
+                   com.google.api.gax.httpjson.longrunning.stub.OperationsStub         gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
+                   com.google.api.gax.httpjson.longrunning.stub.HttpJsonOperationsStub gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
+                   com.google.api.gax.core.BackgroundResource                          gcp.foreign.com.google.api.gax.core
+                   com.google.api.gax.httpjson.HttpJsonStubCallableFactory             gcp.foreign.com.google.api.gax.httpjson
+                   com.google.rpc.Status                                               gcp.foreign.com.google.rpc
+                   com.google.iam.v1.Policy                                            gcp.foreign.com.google.iam.v1
+                   com.google.iam.v1.GetIamPolicyRequest                               gcp.foreign.com.google.iam.v1
+                   com.google.iam.v1.SetIamPolicyRequest                               gcp.foreign.com.google.iam.v1
+                   com.google.iam.v1.TestIamPermissionsRequest                         gcp.foreign.com.google.iam.v1
+                   com.google.iam.v1.TestIamPermissionsResponse                        gcp.foreign.com.google.iam.v1
+                   com.google.auth.Credentials                                         gcp.foreign.com.google.auth
+                   com.google.protobuf.Timestamp                                       gcp.foreign.com.google.protobuf
+                   com.google.protobuf.ByteString                                      gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Any                                             gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Struct                                          gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Value                                           gcp.foreign.com.google.protobuf
+                   com.google.protobuf.ProtocolStringList                              gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Duration                                        gcp.foreign.com.google.protobuf
+                   com.google.protobuf.CodedInputStream                                gcp.foreign.com.google.protobuf
+                   com.google.protobuf.CodedOutputStream                               gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Descriptors                                     gcp.foreign.com.google.protobuf
+                   com.google.protobuf.ExtensionRegistryLite                           gcp.foreign.com.google.protobuf
+                   com.google.protobuf.GeneratedMessageV3                              gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Message                                         gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Parser                                          gcp.foreign.com.google.protobuf
+                   com.google.protobuf.UnknownFieldSet                                 gcp.foreign.com.google.protobuf
+                   org.threeten.extra.PeriodDuration                                   gcp.foreign.org.threeten.extra
+                   org.threeten.bp.Duration                                            gcp.foreign.org.threeten.bp
+                   java.util.concurrent.CompletableFuture                              gcp.foreign.java.util.concurrent
+                   java.util.concurrent.TimeUnit                                       gcp.foreign.java.util.concurrent
+                   java.util.logging.Logger                                            gcp.foreign.java.util.logging
+                   java.util.logging.Level                                             gcp.foreign.java.util.logging
+                   java.util.logging.Handler                                           gcp.foreign.java.util.logging
+                   java.util.logging.LogRecord                                         gcp.foreign.java.util.logging
+                   java.util.function.Consumer                                         gcp.foreign.java.util.function
+                   java.util.OptionalLong                                              gcp.foreign.java.util
+                   java.net.URL                                                        gcp.foreign.java.net
+                   java.io.InputStream                                                 gcp.foreign.java.io
+                   java.io.OutputStream                                                gcp.foreign.java.io
+                   java.io.Closeable                                                   gcp.foreign.java.io
+                   java.io.Serializable                                                gcp.foreign.java.io
+                   java.io.ObjectInputStream                                           gcp.foreign.java.io
+                   java.sql.SQLException                                               gcp.foreign.java.sql
+                   java.time.Duration                                                  gcp.foreign.java.time
+                   java.time.OffsetDateTime                                            gcp.foreign.java.time
+                   java.nio.ByteBuffer                                                 gcp.foreign.java.nio
+                   java.nio.channels.ScatteringByteChannel                             gcp.foreign.java.nio.channels
+                   java.nio.channels.SeekableByteChannel                               gcp.foreign.java.nio.channels
+                   java.nio.channels.WritableByteChannel                               gcp.foreign.java.nio.channels
+                   java.nio.file.Path                                                  gcp.foreign.java.nio.file
+                   io.opentelemetry.api.OpenTelemetry                                  gcp.foreign.io.opentelemetry.api
+                   io.opentelemetry.api.common.Attributes                              gcp.foreign.io.opentelemetry.api.common
+                   io.opentelemetry.api.trace.Tracer                                   gcp.foreign.io.opentelemetry.api.trace}})
 
 (def artifact-registry
   {:name                     'gcp.artifact-registry
@@ -124,7 +133,7 @@
    :include                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1"
                               "/proto-google-cloud-artifact-registry-v1/src/main/java/com/google/devtools/artifactregistry/v1"]
    :exclude                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1/stub"]
-   :native-prefixes          #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
+   :package-prefixes          #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
 
 (def monitoring
   {:name                     'gcp.monitoring
@@ -155,7 +164,7 @@
    :include                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3"
                               "/proto-google-cloud-monitoring-v3/src/main/java/com/google/monitoring/v3"]
    :exclude                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3/stub"]
-   :native-prefixes          #{"com.google.cloud.monitoring" "com.google.monitoring"}})
+   :package-prefixes          #{"com.google.cloud.monitoring" "com.google.monitoring"}})
 
 (def vertexai
   {:name                     'gcp.vertexai
@@ -175,7 +184,7 @@
                               "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api"
                               "/proto-google-cloud-vertexai-v1/src/main/java/com/google/cloud/vertexai/api"]
    :exclude                  ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api/stub"]
-   :native-prefixes          #{"com.google.cloud.vertexai" "com.google.vertexai"}})
+   :package-prefixes          #{"com.google.cloud.vertexai" "com.google.vertexai"}})
 
 (def bigquery
   {:name                      'gcp.bigquery
@@ -225,7 +234,7 @@
    :include                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
    :exclude                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
                                "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
-   :native-prefixes           #{"com.google.cloud.bigquery"}})
+   :package-prefixes           #{"com.google.cloud.bigquery"}})
 
 (def genai
   {:name                    'gcp.genai
@@ -237,7 +246,7 @@
    :googleapis/mvn-artifact "google-genai"
    :googleapis/git-repo     "java-genai"
    :api-roots               ["com.google.genai.Client"]
-   :native-prefixes         #{"com.google.genai"}
+   :package-prefixes         #{"com.google.genai"}
    :include                 ["/src/main/java/com/google/genai"]})
 
 (def logging
@@ -251,7 +260,7 @@
    :googleapis/git-repo     "java-logging"
    :api-roots               ["com.google.cloud.logging.Logging"
                              "com.google.cloud.logging.LoggingOptions"]
-   :native-prefixes         #{"com.google.cloud.logging" "com.google.logging"}
+   :package-prefixes         #{"com.google.cloud.logging" "com.google.logging"}
    :include                 ["/google-cloud-logging/src/main/java/com/google/cloud/logging"
                              "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2"
                              "/proto-google-cloud-logging-v2/src/main/java/com/google/logging/v2"]
@@ -276,8 +285,9 @@
                              "com.google.cloud.pubsub.v1.SchemaServiceSettings"
                              "com.google.cloud.pubsub.v1.Subscriber"
                              "com.google.cloud.pubsub.v1.Publisher"]
-   :native-prefixes         #{"com.google.cloud.pubsub" "com.google.pubsub"}
-   :include                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1"]
+   :package-prefixes         #{"com.google.cloud.pubsub" "com.google.pubsub" "com.google.pubsub.v1"}
+   :include                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1"
+                             "/proto-google-cloud-pubsub-v1/src/main/java/com/google/pubsub/v1"]
    :exclude                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1/stub"]})
 
 (def storage
@@ -297,7 +307,7 @@
    :exclude                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage/ZeroCopySupport.java"
                              "/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
                              "/google-cloud-storage/src/main/java/com/google/cloud/storage/testing"]
-   :native-prefixes         #{"com.google.cloud.storage"}})
+   :package-prefixes         #{"com.google.cloud.storage"}})
 
 (def storage-control
   {:name                    'gcp.storage-control
@@ -313,7 +323,7 @@
    :include                 ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2"
                              "/proto-google-cloud-storage-control-v2/src/main/java/com/google/storage/control/v2"]
    :exclude                 ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2/stub"]
-   :native-prefixes         #{"com.google.storage.control"}})
+   :package-prefixes         #{"com.google.storage.control"}})
 
 #!----------------------------------------------------------------------------------------------------------------------
 
@@ -409,32 +419,14 @@
       pkg-like
       (let [files   (resolve-package-files pkg-like)
             pkg-ast (parser/analyze-package (package-root pkg-like) files {})
-            prune-deps (:prune-dependencies pkg-like)
-            opaque-types (:opaque-types pkg-like)
-            ;; Inject configuration into class nodes
-            updated-classes (reduce-kv (fn [acc fqcn node]
-                                         (assoc acc fqcn
-                                                (cond-> node
-                                                  (contains? prune-deps fqcn)
-                                                  (assoc :prune-dependencies (get prune-deps fqcn))
-                                                  opaque-types
-                                                  (assoc :opaque-types opaque-types))))
-                                       (:class/by-fqcn pkg-ast)
-                                       (:class/by-fqcn pkg-ast))
             forwarded-keys [:name
-                            :native-prefixes
+                            :package-prefixes
                             :prune-dependencies
                             :custom-namespace-mappings
                             :exempt-types
                             :opaque-types]]
-        (merge pkg-ast
-               (select-keys pkg-like forwarded-keys)
-               {:type :parsed
-                :class/by-fqcn updated-classes})))
-
-    (string? pkg-like)
-    (assoc (parser/parse-package pkg-like {}) :type :parsed)
-
+        (merge (assoc pkg-ast :type :parsed)
+               (select-keys pkg-like forwarded-keys))))
     :else
     (throw (ex-info "Invalid argument to parse" {:arg pkg-like}))))
 
@@ -444,16 +436,6 @@
     (when-let [node (pkg/lookup-class pkg class-like)]
       (into (sorted-map) node))))
 
-(defn user-types
-  [pkg-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/user-types pkg)))
-
-(defn package-user-types
-  [pkg-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/package-user-types pkg)))
-
 (defn package-api-types
   "returns sorted list of all binding targets for the given package"
   [pkg-like]
@@ -461,50 +443,10 @@
         pred (into (or exempt-types #{}) (keys custom-namespace-mappings))]
     (sort (remove pred (keys (:class/by-fqcn pkg))))))
 
-(defn foreign-user-types
-  [pkg-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/foreign-user-types pkg)))
-
-(defn foreign-user-types-by-package
-  [pkg-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/foreign-user-types-by-package pkg)))
-
-(defn class-user-types
-  ([class-node]
-   (pkg/class-user-types class-node))
-  ([pkg-like class-like]
-   (let [pkg (parse pkg-like)]
-     (pkg/class-user-types pkg class-like))))
-
-(defn class-foreign-user-types [pkg-like class-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/class-foreign-user-types pkg class-like)))
-
-(defn class-package-user-types [pkg-like class-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/class-package-user-types pkg class-like)))
-
-(defn dependency-seq [pkg-like class-like]
-  (let [pkg (parse pkg-like)]
-    (pkg/dependency-seq pkg class-like)))
-
-(defn dependency-post-order [pkg-like class-like]
+(defn dependency-post-order
+  [pkg-like class-like]
   (let [pkg (parse pkg-like)]
     (pkg/dependency-post-order pkg class-like)))
-
-(defn analyze-class
-  [pkg-like class-like]
-  (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)]
-    (if-let [{:keys [fqcn] :as class-node} (lookup-class pkg class-like)]
-      (if (contains? custom-namespace-mappings fqcn)
-        (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
-        (if (contains? exempt-types fqcn)
-          (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
-          (analyzer/analyze-class-node (assoc class-node :foreign-mappings (get foreign :mappings)))))
-      (throw (ex-info (str "failed to find node for class-like '" class-like "'")
-                      {:pkg-like pkg-like :class-like class-like})))))
 
 (defn transitive-closure
   [pkg-like roots]
@@ -520,34 +462,27 @@
   ([pkg-like class-like]
    (class-deps pkg-like class-like false))
   ([pkg-like class-like recursive?]
-   (pkg/class-deps (parse pkg-like) class-like recursive?)))
+   (let [pkg  (parse pkg-like)]
+     (pkg/class-deps pkg class-like (get foreign :mappings)  recursive?))))
+
+(defn analyze-class
+  [pkg-like class-like]
+  (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)]
+    (if-let [{:keys [fqcn] :as class-node} (lookup-class pkg class-like)]
+      (if (contains? custom-namespace-mappings fqcn)
+        (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
+        (if (contains? exempt-types fqcn)
+          (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
+          (let [deps (class-deps pkg class-node)]
+            (analyzer/analyze-class-node (assoc class-node :deps deps)))))
+      (throw (ex-info (str "failed to find node for class-like '" class-like "'")
+                      {:pkg-like pkg-like :class-like class-like})))))
 
 (defn class-foreign-deps
   ([pkg-like class-like]
    (class-foreign-deps pkg-like class-like false))
   ([pkg-like class-like recursive?]
-   (get (class-deps pkg-like class-like recursive?) :foreign)))
-
-(defn package-foreign-deps
-  [pkg-like]
-  ;; for all package-user-types, analyze the type dependents relevant to bindings, and collect and merge the foreign types
-  (let [pkg (parse pkg-like)
-        ;; We iterate over all defined classes in the package that are considered user types
-        ;; (i.e. part of the API surface we care about).
-        types (pkg/package-user-types pkg)
-        ;; Use native prefixes to filter out internal types
-        native-prefixes (or (:native-prefixes pkg) #{(:package-name pkg)})
-        is-native? (fn [t] (some #(string/starts-with? (str t) %) native-prefixes))]
-    (->> types
-         (map #(pkg/lookup-class pkg %))
-         (filter some?)
-         (map #(class-deps pkg %))
-         (mapcat :foreign)
-         (remove is-native?)
-         (into (sorted-set)))))
-
-(defn global-foreign-deps []
-  (reduce into (map package-foreign-deps (keys packages))))
+   (get (class-deps pkg-like class-like recursive?) :foreign-mappings)))
 
 (defn api-types-for-category
   [pkg-like target-category]

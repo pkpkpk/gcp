@@ -214,26 +214,103 @@
   [^ClassOrInterfaceDeclaration type-decl solver]
   (mapv #(parse-type-ast % solver) (.getImplementedTypes type-decl)))
 
+(def known-annotations
+  #{{:name "BetaApi", :arguments []}
+    {:name "CanIgnoreReturnValue", :arguments []}
+    {:name "Override", :arguments []}
+    {:name "java.lang.Override", :arguments []}
+    {:name "Nullable", :arguments []}
+    {:name "NonNull", :arguments []}
+    {:name "SuppressWarnings", :arguments [{:value "\"PatternMatchingInstanceof\""}]}
+    {:name "SuppressWarnings", :arguments [{:value "\"unchecked\""}]}
+    {:name "SuppressWarnings", :arguments [{:value "\"NotPresentToEmptyOptional\""}]}
+    {:name "ExcludeFromGeneratedCoverageReport", :arguments []}
+    {:name "VisibleForTesting", :arguments []}})
+
+(defn annotated-beta? [annotations]
+  (some #(= "BetaApi" %) (map :name annotations)))
+
+(defn annotated-deprecated? [annotations]
+  (when (seq annotations)
+    (assert (every? string? (mapv :name annotations)) (str " => " annotations))
+    (some #(= "java.lang.Deprecated" %) (map :name annotations))))
+
+(defn annotated-nullable? [annotations]
+  (some #(= "Nullable" %) (map :name annotations)))
+
+(defn annotated-non-null? [annotations]
+  (some #(= "NonNull" %) (map :name annotations)))
+
+(defn annotated-obsolete? [annotations]
+  (some #(= "ObsoleteApi" %) (map :name annotations)))
+
+(defn parameter->edn
+  [solver ^Parameter p]
+  (let [annotations (extract-annotations p)
+        nullable? (annotated-nullable? annotations)
+        annotations' annotations
+        non-null? (annotated-non-null? annotations)
+        base {:name (.getNameAsString p)
+              :type (parse-type-ast (.getType p) solver)}]
+    (cond-> base
+            nullable? (assoc :nullable? nullable?)
+            non-null? (assoc :non-null? non-null?)
+            (.isVarArgs p) (assoc :varArgs? true)
+            (not-empty annotations') (assoc :annotations annotations'))))
+
+(defn method->edn
+  [solver ^MethodDeclaration m]
+  (let [annotations (extract-annotations m)
+        nullable? (annotated-nullable? annotations)
+        non-null? (annotated-non-null? annotations)
+        beta? (annotated-beta? annotations)
+        annotations' (remove (fn [{:keys [name] :as annotation}]
+                               (or (known-annotations annotation)
+                                   (string/starts-with?  name "Json")
+                                   (= "ObsoleteApi" name)
+                                   (= "BetaApi" name)
+                                   (= "TransportCompatibility" name)))
+                             annotations)
+        doc (extract-javadoc m)
+        base {:name (.getNameAsString m)
+              :modifiers (extract-modifiers m)
+              :returnType (parse-type-ast (.getType m) solver)
+              :parameters (mapv (partial parameter->edn solver) (.getParameters m))
+              :static? (.isStatic m)
+              :abstract? (.isAbstract m)}]
+    (when (not-empty annotations')
+      (println "WARN novel annotations for "(.getNameAsString m) ":" annotations'))
+    (cond-> base
+            doc (assoc :doc doc)
+            (not-empty annotations') (assoc :annotations annotations')
+            nullable? (assoc :nullable? nullable?)
+            non-null? (assoc :non-null? non-null?)
+            beta? (assoc :beta? beta?))))
+
 (defn extract-methods
   "Extracts method details (name, modifiers, return type, parameters, doc, annotations) from a type declaration."
   [^TypeDeclaration type-decl solver options]
   (let [methods (.getMethods type-decl)]
     (->> methods
          (filter #(visible? % options))
-         (mapv (fn [^MethodDeclaration m]
-                 {:name (.getNameAsString m)
-                  :modifiers (extract-modifiers m)
-                  :returnType (parse-type-ast (.getType m) solver)
-                  :parameters (mapv (fn [^Parameter p]
-                                      {:name (.getNameAsString p)
-                                       :type (parse-type-ast (.getType p) solver)
-                                       :varArgs? (.isVarArgs p)
-                                       :annotations (extract-annotations p)})
-                                    (.getParameters m))
-                  :doc (extract-javadoc m)
-                  :annotations (extract-annotations m)
-                  :static? (.isStatic m)
-                  :abstract? (.isAbstract m)})))))
+         (remove (fn [^MethodDeclaration m]
+                   (or
+                     (.isProtected m)
+                     (.isPrivate m)
+                     (let [methodName  (.getNameAsString m)
+                           annotations (extract-annotations m)]
+                       (or (annotated-deprecated? annotations)
+                           (annotated-obsolete? annotations)
+                           (#{"toString" "equals" "hashCode" "toBuilder" "toPb" "clone"
+                              "mergeFrom" "buildPartial"
+                              "getDescriptorForType" "getDescriptor" "setRepeatedField"
+                              "addRepeatedField" "mergeUnknownFields" "setUnknownFields"
+                              "getParserForType" "parser" "parseDelimitedFrom" "writeTo"
+                              "isInitialized"} methodName)
+                           (string/starts-with? methodName "clear")
+                           (string/starts-with? methodName "remove")
+                           (string/ends-with? methodName "OrBuilder"))))))
+         (mapv (partial method->edn solver)))))
 
 (defn extract-fields
   "Extracts field details (name, type, modifiers, doc, annotations) from a type declaration."
@@ -466,6 +543,21 @@
                       (= (.asString (.getType m)) self-name)))
                (.getMethods type-decl)))))
 
+(defn resource-identifier?
+  "Detects if a class is a resource identifier.
+   1. Handwritten: Static factory ending in 'Id' (e.g. TableId).
+   2. GAPIC: Implements ResourceName (e.g. TopicName)."
+  [^TypeDeclaration type-decl]
+  (or (and (static-factory? type-decl)
+           (string/ends-with? (.getNameAsString type-decl) "Id"))
+      (and (instance? ClassOrInterfaceDeclaration type-decl)
+           (not (.isInterface type-decl))
+           (some (fn [t]
+                   (let [n (.getNameAsString t)]
+                     (or (= n "ResourceName")
+                         (= n "com.google.api.resourcenames.ResourceName"))))
+                 (.getImplementedTypes type-decl)))))
+
 (defn public-constructors?
   "Checks if a class has any public constructors."
   [^TypeDeclaration type-decl]
@@ -475,7 +567,7 @@
                        (.getConstructors type-decl)))
     false))
 
- (defn resource-extended?
+(defn resource-extended?
   "Detects if a class extends a '...Info' class, indicating it is a resource with behavior."
   [^TypeDeclaration type-decl]
   (if (instance? ClassOrInterfaceDeclaration type-decl)
@@ -533,6 +625,7 @@
        (not (.isInterface type-decl))
        (not (.isAbstract type-decl))
        (not (public-constructors? type-decl))
+       (nil? (extract-discriminator type-decl))
        (or (seq (.getMethods type-decl))
            (seq (.getFields type-decl)))
        (every? #(.isStatic %) (.getMethods type-decl))
@@ -577,6 +670,15 @@
                (not (.isStatic m)))
              (.getMethods type-decl))))
 
+(defn variant-read-only?
+  "Detects if a class is a read-only variant (discriminated, no builder, no public constructors)."
+  [^TypeDeclaration type-decl]
+  (and (instance? ClassOrInterfaceDeclaration type-decl)
+       (some? (extract-discriminator type-decl))
+       (not (has-builder? type-decl))
+       (not (has-nested-builder? type-decl))
+       (not (public-constructors? type-decl))))
+
 (defn variant-accessor? [type-decl]
   (and (has-nested-builder? type-decl)
        (if (instance? ClassOrInterfaceDeclaration type-decl)
@@ -613,6 +715,7 @@
         (abstract-union? type-decl)           :nested/union-abstract
         (union-factory? type-decl)            :nested/union-factory
         (static-factory? type-decl)           :nested/static-factory
+        (variant-read-only? type-decl)        :nested/variant-read-only
         (read-only? type-decl)                :nested/read-only
         (pojo? type-decl)                     :nested/pojo
         (statics? type-decl)                  :nested/statics
@@ -643,10 +746,7 @@
         (concrete-union? type-decl)            :union-concrete
         (union-factory? type-decl)             :union-factory
         (variant-accessor? type-decl)          :variant-accessor
-        ; (and (instance? ClassOrInterfaceDeclaration type-decl) (.isAbstract type-decl)) :abstract
-        ; (and (union-type? type-decl) (not (.isAbstract type-decl))) :concrete-union
-        ; (resource-extended? type-decl) :resource-extended-class
-        ; (union-variant? type-decl) :union-variant
+        (variant-read-only? type-decl)         :variant-read-only
         ; (stub? type-decl) :stub
         :else  #! << REMOVING THIS BRANCH IS FORBIDDEN>>
         (let [msg (str "unknown category for package-type: '" fqcn "'")]
@@ -688,7 +788,7 @@
      (let [current-local-types (extract-local-types type-decl)
            local-types         (merge parent-local-types current-local-types)
            solver              (build-type-solver package imports local-types)
-           name                (.getNameAsString type-decl)
+           className           (.getNameAsString type-decl)
            kind                (cond
                                  (instance? ClassOrInterfaceDeclaration type-decl)
                                  (if (.isInterface type-decl) :interface :class)
@@ -696,15 +796,24 @@
                                  :else :unknown)
            category            (categorize-class type-decl)
            discriminator       (when (= category :variant-accessor)
-                                 (extract-discriminator type-decl))]
+                                 (extract-discriminator type-decl))
+           resource-id?        (resource-identifier? type-decl)
+           nested              (->> (.getMembers type-decl)
+                                    (filter #(and (instance? TypeDeclaration %) (visible? % options)))
+                                    (mapv #(process-type % package imports options file-git-sha local-types))
+                                    (remove nil?)
+                                    vec)
+           [extends implements] (when (instance? ClassOrInterfaceDeclaration type-decl)
+                                  [(filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
+                                   (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))])]
        (when (and (= category :variant-accessor) (nil? discriminator))
-         (throw (ex-info (str "Missing discriminator for variant-accessor: " name)
-                         {:class name :package package})))
+         (throw (ex-info (str "Missing discriminator for variant-accessor: " className)
+                         {:class className :package package})))
        (cond->
          (sorted-map
-           :name name
+           :className className
            :package package
-           :gcp/key (u/schema-key package name)
+           :gcp/key (u/schema-key package className)
            :fqcn (.get (.getFullyQualifiedName type-decl))
            :category category
            :file-git-sha file-git-sha
@@ -713,19 +822,14 @@
            :modifiers (extract-modifiers type-decl)
            :abstract? (when (instance? ClassOrInterfaceDeclaration type-decl) (.isAbstract type-decl))
            :methods (extract-methods type-decl solver options)
-           :fields (extract-fields type-decl solver options)
-           :nested (->> (.getMembers type-decl)
-                        (filter #(and (instance? TypeDeclaration %) (visible? % options)))
-                        (mapv #(process-type % package imports options file-git-sha local-types))
-                        (remove nil?)
-                        vec))
+           :fields (extract-fields type-decl solver options))
+         (seq nested) (assoc :nested nested)
+         (seq extends) (assoc :extends extends)
+         (seq implements) (assoc :implements implements)
+         resource-id? (assoc :resource-identifier? true)
          discriminator (assoc :discriminator discriminator)
          (= kind :class) (assoc :constructors (extract-constructors type-decl solver options))
-         (= kind :enum) (assoc :values (extract-enum-constants type-decl))
-         (instance? ClassOrInterfaceDeclaration type-decl)
-         (assoc
-           :extends (filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
-           :implements (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))))))))
+         (= kind :enum) (assoc :values (extract-enum-constants type-decl)))))))
 
 (defn parse
   "Parses a Java file at the given path and returns a vector of processed type maps.

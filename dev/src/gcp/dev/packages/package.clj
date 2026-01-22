@@ -2,7 +2,7 @@
   (:require
    [clojure.set :as s]
    [clojure.string :as string]
-   [gcp.dev.toolchain.analyzer :as analyzer]
+   [gcp.dev.util :as u]
    [malli.core :as m]))
 
 (def pkg-node-schema :map)
@@ -10,13 +10,13 @@
 
 (defn named? [class-like] (or (string? class-like) (ident? class-like)))
 
-(defn fqcn? [{:keys [native-prefixes] :as pkg} class-like]
+(defn fqcn? [{:keys [package-prefixes] :as pkg} class-like]
   (and (named? class-like)
        (reduce
          (fn [_ prefix]
            (when (string/starts-with? (name class-like) prefix)
              (reduced true)))
-         nil native-prefixes)))
+         nil package-prefixes)))
 
 (defn lookup-class [pkg class-like]
   (assert (m/validate pkg-node-schema pkg))
@@ -26,7 +26,7 @@
       (when-let [fqcn (get-in pkg [:class/name->fqcn (name class-like)])]
         (get-in pkg [:class/by-fqcn fqcn])))
     (if (and (map? class-like)
-             (contains? (set (vals :class/by-fqcn)) class-like))
+             (contains? (set (vals (:class/by-fqcn pkg))) class-like))
       class-like ;; already a node
       (throw (Exception. "bad class-like")))))
 
@@ -40,7 +40,9 @@
 (defn- extract-type-symbols [type-ast]
   (cond
     (symbol? type-ast) (if (or (#{'? 'void} type-ast) (ignored-type? type-ast)) (sorted-set) (conj (sorted-set) type-ast))
-    (sequential? type-ast) (reduce into (sorted-set) (map extract-type-symbols type-ast))
+    (sequential? type-ast) (if (= :type-parameter (first type-ast))
+                             (sorted-set)
+                             (reduce into (sorted-set) (map extract-type-symbols type-ast)))
     :else (sorted-set)))
 
 (defn class-user-types
@@ -57,26 +59,12 @@
      (into (reduce into (sorted-set) (map extract-type-symbols all-types))
            (mapcat class-user-types nested)))))
 
-(defn user-types [{:keys [class/by-fqcn] :as _pkg}]
-  (transduce (map class-user-types) (completing into) (sorted-set) (vals by-fqcn)))
-
 (defn- native-type? [pkg type-sym]
   (let [t-str (str type-sym)
         pkg-name (:package-name pkg)
         _ (assert (some? pkg-name))
-        native-prefixes (or (:native-prefixes pkg) #{pkg-name})]
-    (some #(string/starts-with? t-str %) native-prefixes)))
-
-(defn class-foreign-user-types [pkg class-like]
-  (let [class-node (if (map? class-like)
-                     class-like
-                     (lookup-class pkg class-like))]
-    (if class-node
-      (let [all-types (class-user-types class-node)]
-        (into (sorted-set)
-              (remove (fn [t] (native-type? pkg t)))
-              all-types))
-      (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
+        package-prefixes (or (:package-prefixes pkg) #{pkg-name})]
+    (some #(string/starts-with? t-str %) package-prefixes)))
 
 (defn class-package-user-types [pkg class-like]
   (let [class-node (if (map? class-like)
@@ -88,27 +76,6 @@
               (filter (fn [t] (native-type? pkg t)))
               all-types))
       (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
-
-(defn package-user-types [pkg]
-  (transduce (map #(class-package-user-types pkg %)) (completing into) (sorted-set) (vals (:class/by-fqcn pkg))))
-
-(defn foreign-user-types [pkg]
-  (transduce (map #(class-foreign-user-types pkg %)) (completing into) (sorted-set) (vals (:class/by-fqcn pkg))))
-
-(defn foreign-user-types-by-package
-  "Returns a map of package name to a set of foreign types used in the package.
-   Primitives are grouped under the :primitive key."
-  [pkg]
-  (let [foreign-types (foreign-user-types pkg)]
-    (reduce (fn [acc type-sym]
-              (let [t-str (str type-sym)
-                    last-dot (.lastIndexOf t-str ".")
-                    pkg-key (if (neg? last-dot)
-                              :primitive
-                              (subs t-str 0 last-dot))]
-                (update acc pkg-key (fnil conj (sorted-set)) type-sym)))
-            (sorted-map-by (fn [a b] (compare (str a) (str b))))
-            foreign-types)))
 
 ;; -------------------------------------------------------------------------
 ;; Dependency Graph Logic
@@ -132,7 +99,7 @@
     @types))
 
 (def ignore-extends-categories
-  #{:enum :string-enum :abstract-union :concrete-union :union-variant
+  #{:enum :string-enum :union-abstract :union-concrete :variant-accessor :union-factory
     :accessor-with-builder :builder :static-factory :factory :pojo :read-only
     :client})
 
@@ -156,7 +123,8 @@
         ctor-deps (mapcat (fn [c]
                             (mapcat #(collect-types (:type %)) (:parameters c)))
                           (:constructors node))
-        all-deps (concat extends-deps implements-deps field-deps method-deps ctor-deps)
+        nested-deps (mapcat extract-deps-from-node (:nested node))
+        all-deps (concat extends-deps implements-deps field-deps method-deps ctor-deps nested-deps)
         pruned (or (:prune-dependencies node) #{})]
     ;; 6. Nested classes (recurse? No, dependency graph usually treats top-level)
     ;;    But we might want to depend on inner classes.
@@ -281,28 +249,27 @@
    in depth-first order. Restricted to package-local (native) user types.
    Handles cycles by tracking visited nodes."
   [pkg class-like]
-  (let [root-node (if (map? class-like)
-                    class-like
-                    (lookup-class pkg class-like))]
+  (let [{:keys [fqcn] :as root-node} (if (map? class-like)
+                                       class-like
+                                       (lookup-class pkg class-like))]
     (if root-node
-      (let [fqcn (str (:package root-node) "." (:name root-node))]
-        (loop [stack   (list fqcn)
-               visited #{}
-               result  []]
-          (if (empty? stack)
-            result
-            (let [current (peek stack)
-                  stack   (pop stack)]
-              (if (contains? visited current)
-                (recur stack visited result)
-                (let [deps (try
-                             (class-package-user-types pkg current)
-                             (catch Exception _ #{}))
-                      ;; Sort deps to ensure deterministic order
-                      sorted-deps (sort (map str deps))
-                      ;; Add deps to stack (reverse to process in order)
-                      new-stack (into stack (reverse sorted-deps))]
-                  (recur new-stack (conj visited current) (conj result current))))))))
+      (loop [stack   (list fqcn)
+             visited #{}
+             result  []]
+        (if (empty? stack)
+          result
+          (let [current (peek stack)
+                stack   (pop stack)]
+            (if (contains? visited current)
+              (recur stack visited result)
+              (let [deps        (try
+                                  (class-package-user-types pkg current)
+                                  (catch Exception _ #{}))
+                    ;; Sort deps to ensure deterministic order
+                    sorted-deps (sort (map str deps))
+                    ;; Add deps to stack (reverse to process in order)
+                    new-stack   (into stack (reverse sorted-deps))]
+                (recur new-stack (conj visited current) (conj result current)))))))
       (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
 
 (defn dependency-post-order
@@ -319,46 +286,230 @@
                     (concat (apply concat child-seqs) [name])))))]
       (distinct (traverse tree #{})))))
 
-(defn- normalize-type [type-name]
-  (let [s (str type-name)
-        parts (string/split s #"[.$]")]
-    (if-let [idx (first (keep-indexed (fn [i part]
-                                        (when (and (seq part)
-                                                   (^[char] Character/isUpperCase (first part)))
-                                          i))
-                                      parts))]
-      (string/join "." (subvec parts 0 (inc idx)))
-      s)))
+;; TODO some of these may need foreign bindings
+;; Need better more robust way of determining user-types
+(def ignored-deps '#{com.google.api.core.ApiFunction
+                     com.google.api.gax.core.GoogleCredentialsProvider
+                     com.google.api.gax.core.InstantiatingExecutorProvider
+                     com.google.api.gax.httpjson.InstantiatingHttpJsonChannelProvider
+                     com.google.api.gax.grpc.InstantiatingGrpcChannelProvider
+                     com.google.api.gax.paging.AbstractFixedSizeCollection
+                     com.google.api.gax.paging.AbstractPage
+                     com.google.api.gax.paging.AbstractPagedListResponse
+                     com.google.api.gax.retrying.RetryingContext
+                     com.google.api.gax.retrying.TimedAttemptSettings
+                     com.google.api.gax.retrying.TimedRetryAlgorithm
+                     com.google.api.gax.rpc.PageContext
+                     com.google.api.gax.rpc.ApiClientHeaderProvider
+                     com.google.api.gax.rpc.ClientSettings
+                     com.google.api.gax.rpc.OperationCallSettings
+                     com.google.api.gax.rpc.PagedCallSettings
+                     com.google.api.gax.rpc.TransportChannelProvider
+                     com.google.api.gax.rpc.UnaryCallSettings
+                     com.google.cloud.ServiceFactory
+                     com.google.cloud.ServiceOptions
+                     com.google.cloud.ServiceOptions.Builder
+                     com.google.cloud.ServiceRpc
+                     com.google.cloud.TransportOptions
+                     com.google.cloud.http.BaseHttpServiceException
+                     com.google.cloud.http.HttpTransportOptions
+                     com.google.common.collect.ImmutableSet
+                     com.google.common.base.Supplier
+                     com.google.longrunning.OperationsClient
+                     com.google.protobuf.Descriptors
+                     com.google.protobuf.Empty
+                     com.google.protobuf.FieldMask
+                     com.google.protobuf.Internal
+                     com.google.protobuf.Internal.EnumLiteMap})
+
+;; STRICTNESS WARNING:
+;; This set defines types that are treated as opaque primitives (no conversion, no bindings).
+;; It MUST ONLY contain foundational Java types (java.lang.*, java.util.*) and primitives.
+;; DO NOT add Google Cloud types (com.google.cloud.*) to this set to silence "Broken dependency"
+;; errors. If a GCP dependency is missing, you must either:
+;;   1. Generate the missing package.
+;;   2. Add a certified manual binding to gcp.foreign.*.
+;;   3. Add a custom mapping in packages.clj.
+;; Bypassing architectural gaps by 'fudging' native-type is strictly forbidden.
+(def native-type
+  #{"int"
+    "boolean"
+    "long"
+    "byte<>"
+    "byte"
+    "double"
+    "float"
+    "void"
+    "java.lang.Boolean"
+    "java.lang.String"
+    "java.lang.Integer"
+    "java.lang.Long"
+    "java.lang.Double"
+    "java.lang.Object"
+    "java.lang.Void"
+    "Map<java.lang.String, java.lang.String>"
+    "Map<java.lang.String,java.lang.String>"
+    "Map<String,String>"
+    "Map<String, String>"
+    "java.util.Map<String, String>"
+    "java.util.Map<String,String>"
+    "java.util.Map<java.lang.String, java.lang.String>"
+    "java.util.Map<java.lang.String,java.lang.String>"
+    "List<java.lang.String>"
+    "List<String>"
+    "java.util.List<java.lang.String>"
+    "java.util.List<String>"
+    "java.math.BigDecimal"
+    "java.math.BigInteger"
+    "java.sql.ResultSet"
+    "java.time.Instant"
+    "java.util.Map"
+    "java.util.List"
+    "java.util.Set"
+    "java.util.Iterator"
+    "java.util.Optional"
+    "java.util.AbstractList"
+    "java.lang.Iterable"
+    "java.lang.Exception"
+    "java.lang.Throwable"
+    "java.lang.Error"
+    "java.lang.AutoCloseable"
+    "com.google.cloud.StringEnumValue"
+    "java.nio.charset.Charset"
+    "java.io.IOException"})
+
+(defn- extract-all-dependencies [node]
+  (let [fields          (:fields node)
+        methods         (:methods node)
+        ctors           (:constructors node)
+        extends         (:extends node)
+        implements      (:implements node)
+        nested          (:nested node)
+        field-deps      (mapcat (fn [f] (extract-type-symbols (:type f))) fields)
+        method-deps     (mapcat (fn [m]
+                                  (concat (extract-type-symbols (:returnType m))
+                                          (mapcat #(extract-type-symbols (:type %)) (:parameters m))))
+                                methods)
+        ctor-deps       (mapcat (fn [c] (mapcat #(extract-type-symbols (:type %)) (:parameters c))) ctors)
+
+        extends-deps    (if (contains? ignore-extends-categories (:category node))
+                          []
+                          (mapcat extract-type-symbols extends))
+        implements-deps (mapcat extract-type-symbols implements)
+        nested-deps     (mapcat extract-all-dependencies nested)
+        candidates      (concat field-deps method-deps ctor-deps extends-deps implements-deps nested-deps)]
+    (into #{}
+          (comp
+            (remove #(u/excluded-type-name? (str %)))
+            ; (remove (comp str u/native-type))
+            (remove ignored-deps))
+          candidates)))
+
+(def ^:dynamic *strict-foreign-existence?* false)
+(def ^:dynamic *strict-peer-existence?* false)
 
 (defn class-deps
-  [{:keys [native-prefixes] :as pkg} class-like recursive?]
-  (assert (not-empty native-prefixes))
-  (let [is-internal? (fn [dep]
-                       (let [dep-str (str dep)]
-                         (some #(string/starts-with? dep-str %) native-prefixes)))
-        calc-deps    (fn [node-or-name]
-                       (let [node (if (map? node-or-name)
-                                    node-or-name
-                                    (lookup-class pkg node-or-name))]
-                         (if node
-                           (let [analyzed (analyzer/analyze-class-node node)
-                                 deps     (:typeDependencies analyzed)]
-                             (reduce (fn [acc dep]
-                                       (let [norm-dep (normalize-type dep)
-                                             sym      (symbol norm-dep)]
-                                         (if (is-internal? norm-dep)
-                                           (update acc :internal conj sym)
-                                           (update acc :foreign conj sym))))
-                                     {:internal (sorted-set) :foreign (sorted-set)}
-                                     deps))
-                           {:internal (sorted-set) :foreign (sorted-set)})))]
-    (if-not recursive?
-      (calc-deps class-like)
-      (let [all-internal (dependency-seq pkg class-like)]
-        (reduce (fn [acc fqcn]
-                  (let [deps (calc-deps fqcn)]
-                    (-> acc
-                        (update :internal into (:internal deps))
-                        (update :foreign into (:foreign deps)))))
-                {:internal (sorted-set) :foreign (sorted-set)}
-                all-internal)))))
+  [{:keys [package-prefixes
+           exempt-types
+           opaque-types
+           prune-dependencies
+           custom-namespace-mappings] :as pkg
+    :or {exempt-types #{}
+         opaque-types #{}}} class-like foreign-mappings recursive?]
+  (assert (not-empty package-prefixes))
+  (let [{:keys [fqcn] :as node} (lookup-class pkg class-like)
+        _  (assert (some? node))
+        deps (if prune-dependencies
+               (let [pred (into #{} (map symbol) (keys prune-dependencies))]
+                 (into (sorted-set) (remove pred) (extract-all-dependencies node))
+                 (extract-all-dependencies node)))
+        unresolved  (into #{}
+                          (filter (fn [dep]
+                                    (let [s (str dep)]
+                                      (and (not (native-type s))
+                                           (not (exempt-types s))
+                                           (not (opaque-types s))
+                                           (not (string/starts-with? s "com.google.cloud"))
+                                           (not (string/starts-with? s "com.google.common"))
+                                           (not (u/foreign-binding-exists? (u/infer-foreign-ns s)))))))
+                          deps)
+        _           (when (not (empty? unresolved))
+                      (throw (ex-info (str "unresolved deps for " (:fqcn node)) {:node            node
+                                                                                 :unresolved-deps unresolved})))
+        peer?       (fn [dep]
+                      (let [dep-str (str dep)]
+                        (some #(string/starts-with? dep-str %) package-prefixes)))
+        calc-deps   (fn [node-or-name]
+                      (let [node (if (map? node-or-name)
+                                   node-or-name
+                                   (lookup-class pkg node-or-name))]
+                        (if node
+                          (let [nested-classes (into (sorted-set) ;; TODO should be recursive?
+                                                 (comp (map :className)
+                                                       (map symbol))
+                                                 (:nested node))]
+                            (reduce (fn [acc dep]
+                                      (assert (symbol? dep))
+                                      (if (peer? dep)
+                                        (if (= fqcn dep)
+                                          acc
+                                          (update acc :peer conj (symbol dep)))
+                                        (if (native-type (str dep))
+                                          (update acc :native conj (symbol dep))
+                                          (update acc :foreign conj (symbol dep)))))
+                                    {:peer (sorted-set) :foreign (sorted-set) :native (sorted-set) :nested nested-classes}
+                                    deps))
+                          {:peer (sorted-set) :foreign (sorted-set) :native (sorted-set) :nested (sorted-set)})))
+        res         (if-not recursive?
+                      (calc-deps class-like)
+                      (let [all-internal (dependency-seq pkg class-like)]
+                        (reduce (fn [acc fqcn]
+                                  (let [deps (calc-deps fqcn)]
+                                    (-> acc
+                                        (update :native into (:native deps))
+                                        (update :peer into (:peer deps))
+                                        (update :foreign into (:foreign deps))
+                                        (update :nested into (map symbol) (:nested deps)))))
+                                {:peer (sorted-set) :foreign (sorted-set) :native (sorted-set) :nested (sorted-set)}
+                                all-internal)))
+        foreign-mappings' (into (sorted-map) (select-keys foreign-mappings (get res :foreign)))
+        ; _ (println "foreign-mappings'" foreign-mappings')
+        _ (when-not (= (count foreign-mappings') (count (:foreign res)))
+            (throw (ex-info (str "missing expected foreign mappings for class " fqcn)
+                            (let [known (set (keys foreign-mappings))
+                                  expected (:foreign res)
+                                  found (into (sorted-set) (keys foreign-mappings'))
+                                  missing (clojure.set/difference expected found)]
+                              {:missing  missing
+                               :missing' (clojure.set/difference missing ignored-deps)
+                               :ts (map type missing)
+                               "(contains? ignored-deps (first missing)" (contains? ignored-deps (first missing))
+                               "(contains? deps (first missing))" (contains? deps (first missing))}))))
+        peer-mappings (reduce
+                        (fn [acc peer]
+                          (if (or (exempt-types (str peer)) (opaque-types (str peer)))
+                            acc
+                            (if-let [custom (get custom-namespace-mappings (str peer))]
+                              (assoc acc peer custom)
+                              (assoc acc peer (u/binding-ns (:package-name pkg) package-prefixes peer)))))
+                        (sorted-map)
+                        (:peer res))]
+    (sorted-map
+      :native (get res :native)
+      :nested (get res :nested)
+      :exempt (or exempt-types #{})
+      :opaque (or opaque-types #{})
+      :foreign-mappings foreign-mappings'
+      :peer-mappings peer-mappings)))
+
+; peer?
+; (when (and *strict-peer-presence?* (not exists?))
+;  (throw (ex-info (str "Peer namespace missing: " ns)
+;                  {:type :require :dep dep})))
+;
+; (and (not cloud?) (not custom?))
+; (do
+;  (when (and *strict-foreign-presence?* (not exists?))
+;    (throw (ex-info (str "Foreign namespace missing: " ns)
+;                    {:type :require :dep dep})))
+;  (check-certification ns fqcn)))

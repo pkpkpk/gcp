@@ -5,7 +5,6 @@
    [clojure.java.io :as io]
    [gcp.dev.digest :as digest]
    [gcp.dev.packages :as pkg]
-   [gcp.dev.toolchain.analyzer :as ana]
    [gcp.dev.toolchain.emitter :as emitter]
    [gcp.dev.toolchain.fuzz :as fuzz]
    [gcp.dev.toolchain.shared :as shared]
@@ -34,7 +33,7 @@
   "Compiles a class node into a formatted string with optional metadata & provenance."
   ([node]
    (compile-to-string node nil))
-  ([node {:keys [metadata provenance?] :or {provenance? true metadata {}}}]
+  ([node {:keys [metadata provenance?] :or {provenance? false metadata {}}}]
    (when-not (contains? shared/categories (:category node))
      (throw (Exception. (str "Unsupported category in class-node: '" (:category node) "'"))))
    (let [metadata (cond-> metadata

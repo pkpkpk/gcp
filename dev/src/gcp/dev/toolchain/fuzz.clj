@@ -55,19 +55,26 @@
       (assoc result :seed seed)
       (assoc result :seed seed :pass? false))))
 
-(defn load-class-forms! [fqcn forms]
+(defn load-class-code! [fqcn code]
   (try
-    (eval (list* 'do forms))
+    (let [forms (edamame.core/parse-string-all code)
+          ns-form (first forms)
+          _ (assert (and (seq? ns-form) (= 'ns (first ns-form))))
+          ns-name (second ns-form)]
+      (eval ns-form)
+      (doseq [f (rest forms)]
+        (eval `(do (in-ns '~(symbol (name ns-name))) ~f)))
+      (require ns-name))
     (catch Exception e
-      (tel/log! :error ["Failed to eval forms for" fqcn ":" (.getMessage e)])
+      (tel/log! :error ["Failed to load code for" fqcn ":" (.getMessage e)])
       (throw e))))
 
 (defn- load-dependencies! [pkg-key fqcn]
   (let [deps (pkg/dependency-post-order pkg-key fqcn)]
     (doseq [dep (butlast deps)]
-      (let [ana-node (pkg/analyze-class pkg-key fqcn)
-            forms (emitter/compile-class-forms ana-node)]
-        (load-class-forms! dep forms)))))
+      (let [ana-node (pkg/analyze-class pkg-key dep)
+            code (emitter/emit-to-string ana-node)]
+        (load-class-code! dep code)))))
 
 (defn- run-certification-protocol
   [sk generator verify-fn options]
@@ -102,16 +109,14 @@
       ;; 1. Load Dependencies
       (load-dependencies! pkg-key fqcn)
       ;; 2. Load Target (fresh compilation)
-      (let [node (pkg/lookup-class pkg-key fqcn)
-            ana-node (pkg/analyze-class pkg-key node)
-            forms (try
-                    (emitter/compile-class-forms ana-node)
-                    (catch Exception e
-                      (throw (ex-info (str "failed to emit class: " (ex-message e))
-                                      {:parser-node node
-                                       :ana-node ana-node
-                                       :cause e}))))
-            _ (load-class-forms! fqcn forms)
+      (let [ana-node (pkg/analyze-class pkg-key fqcn)
+            code (try
+                   (emitter/emit-to-string ana-node)
+                   (catch Exception e
+                     (throw (ex-info (str "failed to emit class: " (ex-message e))
+                                     {:ana-node ana-node
+                                      :cause e}))))
+            _ (load-class-code! fqcn code)
             sk (u/schema-key (:package ana-node) (:className ana-node))
             generator (gen/generator sk)
             verify-fn (fn [edn]
