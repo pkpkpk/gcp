@@ -1,23 +1,62 @@
 (ns gcp.global
   (:require
-   clojure.string
-   [malli.core :as m]
-   [malli.edn]
-   [malli.error :as me]
-   [malli.registry :as mr]
-   [malli.util :as mu]
-   [sci.core :as sci])
+    clojure.string
+    [malli.core :as m]
+    [malli.edn]
+    [malli.error :as me]
+    [malli.registry :as mr]
+    [malli.util :as mu]
+    [sci.core :as sci])
   (:import
-   (clojure.lang ExceptionInfo)))
+    (clojure.lang ExceptionInfo)))
+
+(def *classes (atom {'java.lang.reflect.Modifier java.lang.reflect.Modifier
+                     'java.lang.reflect.Method   java.lang.reflect.Method}))
+
+(defn- parse-class-symbol [class-symbol]
+  (if (simple-symbol? class-symbol)
+    [class-symbol nil]
+    (let [nest (name class-symbol)]
+      (assert (and (= 1 (count nest))
+                   (some? (re-find #"\d" nest))) "qualified symbols representing arrays must have singular digit name")
+      [(symbol (namespace class-symbol)) (Integer/parseInt nest)])))
+
+(defmacro instance-schema
+  [class-symbol]
+  (assert (symbol? class-symbol))
+  (let [[scalar-sym array-nest] (parse-class-symbol class-symbol)
+        scalar-class (eval `(import ~scalar-sym))
+        array-class (when array-nest
+                      (loop [i array-nest
+                             class scalar-class]
+                        (if (zero? i)
+                          class
+                          (recur (dec i) (.arrayType class)))))]
+    (when-not (contains? @*classes scalar-class)
+      (swap! *classes assoc scalar-sym scalar-class))
+    (when array-class
+      (when-not (contains? @*classes array-class)
+        (swap! *classes assoc class-symbol array-class)))
+    `[:fn
+      {:error/message (str "not an instance of "  ~class-symbol)}
+      (~'fn [~'v] (~'instance? ~class-symbol ~'v))]))
+
+
+(def built-in-schemas
+  {:bigint (instance-schema java.math.BigInteger)
+   :bigdec 'decimal?
+   :re (instance-schema java.util.regex.Pattern)
+   :inst 'inst?
+   :float [:double {:min -3.4028235E38 :max 3.4028235E38}]
+   :byte [:int {:min -128 :max 127}]
+   :char 'char?})
 
 (defonce ^:dynamic *strict-mode* true)
 (defonce ^:dynamic *dbg* false)
-(defonce ^:dynamic *registry* (mr/composite-registry (m/default-schemas) (mu/schemas)))
-
-(def *classes (atom {'java.lang.reflect.Modifier java.lang.reflect.Modifier
-                     'java.lang.reflect.Method   java.lang.reflect.Method
-                     'java.nio.ByteBuffer        java.nio.ByteBuffer
-                     'java.util.List             java.util.List}))
+(defonce ^:dynamic *registry* (mr/composite-registry
+                                built-in-schemas
+                                (m/default-schemas)
+                                (mu/schemas)))
 
 (def sci-namespaces {'clojure.string      (sci/copy-ns clojure.string (sci/create-ns 'clojure.string {}))
                      'clojure.core        (sci/copy-ns clojure.core (sci/create-ns 'clojure.core {}))})
@@ -26,19 +65,6 @@
   {:registry       *registry*
    ::m/sci-options {:classes    @*classes
                     :namespaces sci-namespaces}})
-
-(defmacro instance-schema
-  [class-symbol]
-  (assert (symbol? class-symbol))
-  (let [fqcn (if (clojure.string/includes? (str class-symbol) ".")
-               class-symbol
-               (symbol (str "java.lang." class-symbol)))]
-    `(do
-       (let [sym# (quote ~class-symbol)]
-         (swap! gcp.global/*classes assoc sym# (import ~class-symbol)))
-       [:fn
-        {:error/message (str "not an instance of " (quote ~class-symbol))}
-        (list 'fn ['v] (list 'instance? (quote ~class-symbol) 'v))])))
 
 (defn to-vec [v]
   (cond

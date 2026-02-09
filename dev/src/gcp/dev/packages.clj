@@ -33,11 +33,25 @@
                    com.google.longrunning.Operation                                    gcp.foreign.com.google.longrunning
                    com.google.longrunning.stub.OperationsStub                          gcp.foreign.com.google.longrunning.stub
                    com.google.longrunning.stub.GrpcOperationsStub                      gcp.foreign.com.google.longrunning.stub
+                   com.google.cloud.FieldSelector                                      gcp.foreign.com.google.cloud
+                   com.google.cloud.ReadChannel                                        gcp.foreign.com.google.cloud
+                   com.google.cloud.Restorable                                         gcp.foreign.com.google.cloud
+                   com.google.cloud.RestorableState                                    gcp.foreign.com.google.cloud
+                   com.google.cloud.Role                                               gcp.foreign.com.google.cloud
+                   com.google.cloud.ServiceFactory                                     gcp.foreign.com.google.cloud
+                   com.google.cloud.ServiceOptions                                     gcp.foreign.com.google.cloud
+                   com.google.cloud.ServiceRpc                                         gcp.foreign.com.google.cloud
+                   com.google.cloud.StringEnumType                                     gcp.foreign.com.google.cloud
+                   com.google.cloud.StringEnumValue                                    gcp.foreign.com.google.cloud
+                   com.google.cloud.TransportOptions                                   gcp.foreign.com.google.cloud
+                   com.google.cloud.Tuple                                              gcp.foreign.com.google.cloud
+                   com.google.cloud.WriteChannel                                       gcp.foreign.com.google.cloud
                    com.google.cloud.location.Location                                  gcp.foreign.com.google.cloud.location
                    com.google.cloud.location.GetLocationRequest                        gcp.foreign.com.google.cloud.location
                    com.google.cloud.location.ListLocationsRequest                      gcp.foreign.com.google.cloud.location
                    com.google.cloud.location.ListLocationsResponse                     gcp.foreign.com.google.cloud.location
                    com.google.cloud.spi.ServiceRpcFactory                              gcp.foreign.com.google.cloud.spi
+                   com.google.gson.JsonObject                                          gcp.foreign.com.google.gson
                    com.google.type.Date                                                gcp.foreign.com.google.type
                    com.google.type.LatLng                                              gcp.foreign.com.google.type
                    com.google.common.util.concurrent.ListenableFuture                  gcp.foreign.com.google.common.util.concurrent
@@ -47,8 +61,11 @@
                    com.google.api.MonitoredResourceDescriptor                          gcp.foreign.com.google.api
                    com.google.api.HttpBody                                             gcp.foreign.com.google.api
                    com.google.api.resourcenames.ResourceName                           gcp.foreign.com.google.api.resourcenames
-                   com.google.api.services.bigquery.model.UserDefinedFunctionResource  gcp.foreign.com.google.api.services.bigquery.model
+                   com.google.api.services.bigquery.model.EncryptionConfiguration      gcp.foreign.com.google.api.services.bigquery.model
+                   com.google.api.services.bigquery.model.ExternalDataConfiguration    gcp.foreign.com.google.api.services.bigquery.model
                    com.google.api.services.bigquery.model.QueryParameter               gcp.foreign.com.google.api.services.bigquery.model
+                   com.google.api.services.bigquery.model.TrainingRun                  gcp.foreign.com.google.api.services.bigquery.model
+                   com.google.api.services.bigquery.model.UserDefinedFunctionResource  gcp.foreign.com.google.api.services.bigquery.model
                    com.google.api.core.ApiFuture                                       gcp.foreign.com.google.api.core
                    com.google.api.core.ApiService                                      gcp.foreign.com.google.api.core
                    com.google.api.core.AbstractApiService                              gcp.foreign.com.google.api.core
@@ -67,6 +84,18 @@
                    com.google.api.gax.httpjson.longrunning.stub.HttpJsonOperationsStub gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
                    com.google.api.gax.core.BackgroundResource                          gcp.foreign.com.google.api.gax.core
                    com.google.api.gax.httpjson.HttpJsonStubCallableFactory             gcp.foreign.com.google.api.gax.httpjson
+                   com.google.api.gax.rpc.ApiClientHeaderProvider                      gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.ApiException                                 gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.BatchingCallSettings                         gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.ClientSettings                               gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.HeaderProvider                               gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.OperationCallSettings                        gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.PageContext                                  gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.PagedCallSettings                            gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.ServerStreamingCallSettings                  gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.StreamingCallSettings                        gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.TransportChannelProvider                     gcp.foreign.com.google.api.gax.rpc
+                   com.google.api.gax.rpc.UnaryCallSettings                            gcp.foreign.com.google.api.gax.rpc
                    com.google.rpc.Status                                               gcp.foreign.com.google.rpc
                    com.google.iam.v1.Policy                                            gcp.foreign.com.google.iam.v1
                    com.google.iam.v1.GetIamPolicyRequest                               gcp.foreign.com.google.iam.v1
@@ -89,8 +118,20 @@
                    com.google.protobuf.Message                                         gcp.foreign.com.google.protobuf
                    com.google.protobuf.Parser                                          gcp.foreign.com.google.protobuf
                    com.google.protobuf.UnknownFieldSet                                 gcp.foreign.com.google.protobuf
+                   com.google.protobuf.BoolValue                                       gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Descriptors.EnumValueDescriptor                 gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Descriptors.FieldDescriptor                     gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Empty                                           gcp.foreign.com.google.protobuf
+                   com.google.protobuf.FieldMask                                       gcp.foreign.com.google.protobuf
+                   com.google.protobuf.LazyStringArrayList                             gcp.foreign.com.google.protobuf
+                   com.google.protobuf.ListValue                                       gcp.foreign.com.google.protobuf
+                   com.google.protobuf.MapField                                        gcp.foreign.com.google.protobuf
+                   com.google.protobuf.RepeatedFieldBuilderV3                          gcp.foreign.com.google.protobuf
+                   com.google.protobuf.SingleFieldBuilderV3                            gcp.foreign.com.google.protobuf
+                   com.google.protobuf.Value.Builder                                   gcp.foreign.com.google.protobuf
                    org.threeten.extra.PeriodDuration                                   gcp.foreign.org.threeten.extra
                    org.threeten.bp.Duration                                            gcp.foreign.org.threeten.bp
+                   java.time.format.DateTimeFormatter                                  gcp.foreign.java.time.format
                    java.util.concurrent.CompletableFuture                              gcp.foreign.java.util.concurrent
                    java.util.concurrent.TimeUnit                                       gcp.foreign.java.util.concurrent
                    java.util.logging.Logger                                            gcp.foreign.java.util.logging
@@ -100,22 +141,53 @@
                    java.util.function.Consumer                                         gcp.foreign.java.util.function
                    java.util.OptionalLong                                              gcp.foreign.java.util
                    java.net.URL                                                        gcp.foreign.java.net
+                   java.net.URI                                                        gcp.foreign.java.net
                    java.io.InputStream                                                 gcp.foreign.java.io
                    java.io.OutputStream                                                gcp.foreign.java.io
                    java.io.Closeable                                                   gcp.foreign.java.io
                    java.io.Serializable                                                gcp.foreign.java.io
                    java.io.ObjectInputStream                                           gcp.foreign.java.io
+                   java.io.BufferedReader                                              gcp.foreign.java.io
+                   java.io.File                                                        gcp.foreign.java.io
+                   java.io.IOException                                                 gcp.foreign.java.io
+                   java.io.PrintStream                                                 gcp.foreign.java.io
+                   java.io.PrintWriter                                                 gcp.foreign.java.io
                    java.sql.SQLException                                               gcp.foreign.java.sql
+                   java.sql.ResultSet                                                  gcp.foreign.java.sql
                    java.time.Duration                                                  gcp.foreign.java.time
                    java.time.OffsetDateTime                                            gcp.foreign.java.time
                    java.nio.ByteBuffer                                                 gcp.foreign.java.nio
                    java.nio.channels.ScatteringByteChannel                             gcp.foreign.java.nio.channels
                    java.nio.channels.SeekableByteChannel                               gcp.foreign.java.nio.channels
                    java.nio.channels.WritableByteChannel                               gcp.foreign.java.nio.channels
+                   java.nio.channels.ReadableByteChannel                               gcp.foreign.java.nio.channels
+                   java.nio.charset.Charset                                            gcp.foreign.java.nio.charset
                    java.nio.file.Path                                                  gcp.foreign.java.nio.file
                    io.opentelemetry.api.OpenTelemetry                                  gcp.foreign.io.opentelemetry.api
                    io.opentelemetry.api.common.Attributes                              gcp.foreign.io.opentelemetry.api.common
-                   io.opentelemetry.api.trace.Tracer                                   gcp.foreign.io.opentelemetry.api.trace}})
+                   io.opentelemetry.api.trace.Tracer                                   gcp.foreign.io.opentelemetry.api.trace
+                   java.lang.AutoCloseable                                             gcp.foreign.java.lang
+                   java.lang.Class                                                     gcp.foreign.java.lang
+                   java.lang.Error                                                     gcp.foreign.java.lang
+                   java.lang.Exception                                                 gcp.foreign.java.lang
+                   java.lang.Throwable                                                 gcp.foreign.java.lang
+                   java.lang.StackTraceElement                                         gcp.foreign.java.lang
+                   java.lang.reflect.Method                                            gcp.foreign.java.lang.reflect
+                   java.security.Key                                                   gcp.foreign.java.security
+                   java.security.SecureRandom                                          gcp.foreign.java.security
+                   java.text.SimpleDateFormat                                          gcp.foreign.java.text
+                   java.util.Base64.Encoder                                            gcp.foreign.java.util
+                   java.util.Comparator                                                gcp.foreign.java.util
+                   java.util.Spliterator                                               gcp.foreign.java.util
+                   java.util.concurrent.Executor                                       gcp.foreign.java.util.concurrent
+                   java.util.concurrent.ScheduledExecutorService                       gcp.foreign.java.util.concurrent
+                   java.util.concurrent.ScheduledFuture                                gcp.foreign.java.util.concurrent
+                   java.util.concurrent.atomic.AtomicBoolean                           gcp.foreign.java.util.concurrent.atomic
+                   java.util.concurrent.atomic.AtomicInteger                           gcp.foreign.java.util.concurrent.atomic
+                   java.util.concurrent.locks.Lock                                     gcp.foreign.java.util.concurrent.locks
+                   java.util.function.Function                                         gcp.foreign.java.util.function
+                   java.util.function.Predicate                                        gcp.foreign.java.util.function
+                   java.util.function.Supplier                                         gcp.foreign.java.util.function}})
 
 (def artifact-registry
   {:name                     'gcp.artifact-registry
@@ -123,6 +195,7 @@
    :description              "edn bindings for the google-cloud-artifact-registry sdk"
    :package-root             (io/file packages-root "artifact-registry")
    :type                     :static
+   :discovery-url            "https://artifactregistry.googleapis.com/$discovery/rest?version=v1"
    :googleapis/mvn-org       "com.google.cloud"
    :googleapis/mvn-artifact  "google-cloud-artifact-registry"
    :googleapis/git-repo      "google-cloud-java"
@@ -141,6 +214,7 @@
    :description              "edn bindings for the google-cloud-monitoring sdk"
    :package-root             (io/file packages-root "monitoring")
    :type                     :static
+   :discovery-url            "https://monitoring.googleapis.com/$discovery/rest?version=v3"
    :googleapis/mvn-org       "com.google.cloud"
    :googleapis/mvn-artifact  "google-cloud-monitoring"
    :googleapis/git-repo      "google-cloud-java"
@@ -164,7 +238,7 @@
    :include                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3"
                               "/proto-google-cloud-monitoring-v3/src/main/java/com/google/monitoring/v3"]
    :exclude                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3/stub"]
-   :package-prefixes          #{"com.google.cloud.monitoring" "com.google.monitoring"}})
+   :package-prefixes         #{"com.google.cloud.monitoring" "com.google.monitoring" "com.google.monitoring.v3"}})
 
 (def vertexai
   {:name                     'gcp.vertexai
@@ -172,6 +246,7 @@
    :description              "edn bindings for the google-cloud-vertexai sdk"
    :package-root             (io/file packages-root "vertexai")
    :type                     :static
+   :discovery-url            "https://aiplatform.googleapis.com/$discovery/rest?version=v1"
    :googleapis/mvn-org       "com.google.cloud"
    :googleapis/mvn-artifact  "google-cloud-vertexai"
    :googleapis/git-repo      "google-cloud-java"
@@ -192,49 +267,40 @@
    :description               "edn bindings for the google-cloud-bigquery sdk"
    :package-root              (io/file packages-root "bigquery")
    :type                      :static
+   :discovery-url             "https://bigquery.googleapis.com/$discovery/rest?version=v2"
    :googleapis/mvn-org        "com.google.cloud"
    :googleapis/mvn-artifact   "google-cloud-bigquery"
    :googleapis/git-repo       "java-bigquery"
    :api-roots                 ["com.google.cloud.bigquery.BigQuery"
                                "com.google.cloud.bigquery.BigQueryOptions"
                                "com.google.cloud.bigquery.JobStatistics"]
-   :custom-namespace-mappings {"com.google.cloud.bigquery.QueryParameterValue"   'gcp.bigquery.custom.QueryParameterValue
-                               "com.google.cloud.bigquery.TableResult"           'gcp.bigquery.custom.TableResult
-                               "com.google.cloud.bigquery.FieldValue"            'gcp.bigquery.custom.TableResult
-                               "com.google.cloud.bigquery.FieldValueList"        'gcp.bigquery.custom.TableResult
-                               "com.google.cloud.bigquery.Range"                 'gcp.bigquery.custom.TableResult
-                               "com.google.cloud.bigquery.Dataset"               'gcp.bigquery.custom.Dataset
-                               "com.google.cloud.bigquery.Job"                   'gcp.bigquery.custom.Job
-                               "com.google.cloud.bigquery.JobStatistics"         'gcp.bigquery.custom.JobStatistics
-                               "com.google.cloud.bigquery.Model"                 'gcp.bigquery.custom.Model
-                               "com.google.cloud.bigquery.Routine"               'gcp.bigquery.custom.Routine
-                               "com.google.cloud.bigquery.Table"                 'gcp.bigquery.custom.Table
-                               "com.google.cloud.bigquery.StandardSQLDataType"   'gcp.bigquery.custom.StandardSQL
-                               "com.google.cloud.bigquery.StandardSQLStructType" 'gcp.bigquery.custom.StandardSQL
-                               "com.google.cloud.bigquery.StandardSQLField"      'gcp.bigquery.custom.StandardSQL
-                               "com.google.cloud.bigquery.StandardSQLTypeName"   'gcp.bigquery.custom.StandardSQL}
+   :custom-namespace-mappings '{com.google.cloud.bigquery.QueryParameterValue   gcp.bigquery.custom.QueryParameterValue
+                                com.google.cloud.bigquery.TableResult           gcp.bigquery.custom.TableResult
+                                com.google.cloud.bigquery.FieldValue            gcp.bigquery.custom.TableResult
+                                com.google.cloud.bigquery.FieldValueList        gcp.bigquery.custom.TableResult
+                                com.google.cloud.bigquery.Range                 gcp.bigquery.custom.TableResult
+                                com.google.cloud.bigquery.Dataset               gcp.bigquery.custom.Dataset
+                                com.google.cloud.bigquery.Job                   gcp.bigquery.custom.Job
+                                com.google.cloud.bigquery.JobStatistics         gcp.bigquery.custom.JobStatistics
+                                com.google.cloud.bigquery.Model                 gcp.bigquery.custom.Model
+                                com.google.cloud.bigquery.Routine               gcp.bigquery.custom.Routine
+                                com.google.cloud.bigquery.Table                 gcp.bigquery.custom.Table
+                                com.google.cloud.bigquery.StandardSQLDataType   gcp.bigquery.custom.StandardSQL
+                                com.google.cloud.bigquery.StandardSQLStructType gcp.bigquery.custom.StandardSQL
+                                com.google.cloud.bigquery.StandardSQLField      gcp.bigquery.custom.StandardSQL
+                                com.google.cloud.bigquery.StandardSQLTypeName   gcp.bigquery.custom.StandardSQL}
    :opaque-types              #{"com.google.cloud.bigquery.Option"}
-   :exempt-types              #{"com.google.cloud.bigquery.TableDataWriteChannel"}
-   :prune-dependencies        {"com.google.cloud.bigquery.Field"                 #{"com.google.cloud.bigquery.FieldList"}
-                               "com.google.cloud.bigquery.FieldValue"            #{"com.google.cloud.bigquery.FieldValueList"}
-                               "com.google.cloud.bigquery.Range"                 #{"com.google.cloud.bigquery.FieldValueList"
-                                                                                   "com.google.cloud.bigquery.FieldValue"}
-                               "com.google.cloud.bigquery.Dataset"               #{"com.google.cloud.bigquery.BigQuery"}
-                               "com.google.cloud.bigquery.Job"                   #{"com.google.cloud.bigquery.BigQuery"}
-                               "com.google.cloud.bigquery.Model"                 #{"com.google.cloud.bigquery.BigQuery"}
-                               "com.google.cloud.bigquery.Routine"               #{"com.google.cloud.bigquery.BigQuery"}
-                               "com.google.cloud.bigquery.Table"                 #{"com.google.cloud.bigquery.BigQuery"}
-                               "com.google.cloud.bigquery.StandardSQLDataType"   #{"com.google.cloud.bigquery.StandardSQLStructType"
-                                                                                   "com.google.cloud.bigquery.StandardSQLField"}
-                               "com.google.cloud.bigquery.StandardSQLStructType" #{"com.google.cloud.bigquery.StandardSQLDataType"
-                                                                                   "com.google.cloud.bigquery.StandardSQLField"}
-                               "com.google.cloud.bigquery.StandardSQLField"      #{"com.google.cloud.bigquery.StandardSQLDataType"
-                                                                                   "com.google.cloud.bigquery.StandardSQLStructType"}
-                               "com.google.cloud.bigquery.UserDefinedFunction"   #{"com.google.api.services.bigquery.model.UserDefinedFunctionResource"}}
+   :exempt-types              #{"com.google.cloud.bigquery.TableDataWriteChannel"
+                                "com.google.cloud.bigquery.BigQueryRetryAlgorithm"
+                                "com.google.cloud.bigquery.BigQueryRetryHelper"
+                                "com.google.cloud.bigquery.BigQueryFactory"
+                                "com.google.cloud.bigquery.BigQueryResultImpl"
+                                "com.google.cloud.bigquery.BigQueryResultStatsImpl"}
+   :collection-wrappers       {'com.google.cloud.bigquery.FieldList ['java.util.List 'com.google.cloud.bigquery.Field]}
    :include                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
    :exclude                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
                                "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
-   :package-prefixes           #{"com.google.cloud.bigquery"}})
+   :package-prefixes          #{"com.google.cloud.bigquery"}})
 
 (def genai
   {:name                    'gcp.genai
@@ -242,6 +308,7 @@
    :description             "edn bindings for the google-genai sdk"
    :package-root            (io/file packages-root "genai")
    :type                    :static
+   :discovery-url           "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta"
    :googleapis/mvn-org      "com.google.genai"
    :googleapis/mvn-artifact "google-genai"
    :googleapis/git-repo     "java-genai"
@@ -255,6 +322,7 @@
    :description             "edn bindings for the google-cloud-logging sdk"
    :package-root            (io/file packages-root "logging")
    :type                    :static
+   :discovery-url           "https://logging.googleapis.com/$discovery/rest?version=v2"
    :googleapis/mvn-org      "com.google.cloud"
    :googleapis/mvn-artifact "google-cloud-logging"
    :googleapis/git-repo     "java-logging"
@@ -274,6 +342,7 @@
    :description             "edn bindings for the google-cloud-pubsub sdk"
    :package-root            (io/file packages-root "pubsub")
    :type                    :static
+   :discovery-url           "https://pubsub.googleapis.com/$discovery/rest?version=v1"
    :googleapis/mvn-org      "com.google.cloud"
    :googleapis/mvn-artifact "google-cloud-pubsub"
    :googleapis/git-repo     "java-pubsub"
@@ -296,6 +365,7 @@
    :description             "edn bindings for the google-cloud-storage sdk"
    :package-root            (io/file packages-root "storage")
    :type                    :static
+   :discovery-url           "https://storage.googleapis.com/$discovery/rest?version=v1"
    :googleapis/mvn-org      "com.google.cloud"
    :googleapis/mvn-artifact "google-cloud-storage"
    :googleapis/git-repo     "java-storage"
@@ -418,11 +488,12 @@
     (if (= (:type pkg-like) :parsed)
       pkg-like
       (let [files   (resolve-package-files pkg-like)
-            pkg-ast (parser/analyze-package (package-root pkg-like) files {})
+            options {:exempt-types (:exempt-types pkg-like)}
+            pkg-ast (parser/analyze-package (package-root pkg-like) files options)
             forwarded-keys [:name
                             :package-prefixes
-                            :prune-dependencies
                             :custom-namespace-mappings
+                            :collection-wrappers
                             :exempt-types
                             :opaque-types]]
         (merge (assoc pkg-ast :type :parsed)
@@ -430,17 +501,32 @@
     :else
     (throw (ex-info "Invalid argument to parse" {:arg pkg-like}))))
 
+(defn lookup-pkg-key [class-like]
+  (let [fqcn (if (map? class-like)
+               (:fqcn class-like)
+               class-like)]
+    (loop [packages packages]
+      (when-let [[pkg-key {:keys [package-prefixes]}] (first packages)]
+        (if (some #(string/starts-with? (str fqcn) %) package-prefixes)
+          pkg-key
+          (recur (rest packages)))))))
+
 (defn lookup-class
-  [pkg-like class-like]
-  (let [pkg (parse pkg-like)]
-    (when-let [node (pkg/lookup-class pkg class-like)]
-      (into (sorted-map) node))))
+  ([class-like]
+   (if (symbol? class-like)
+     (lookup-class (str class-like))
+     (when-let [pkg-key (lookup-pkg-key class-like)]
+       (lookup-class pkg-key class-like))))
+  ([pkg-like class-like]
+   (let [pkg (parse pkg-like)]
+     (when-let [node (pkg/lookup-class pkg class-like)]
+       (into (sorted-map) node)))))
 
 (defn package-api-types
   "returns sorted list of all binding targets for the given package"
   [pkg-like]
   (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)
-        pred (into (or exempt-types #{}) (keys custom-namespace-mappings))]
+        pred (into (or exempt-types #{}) (map #(str %)) (keys custom-namespace-mappings))]
     (sort (remove pred (keys (:class/by-fqcn pkg))))))
 
 (defn dependency-post-order
@@ -459,6 +545,8 @@
 (defn class-deps
   "Analyzes the dependencies of a node and returns a map separating them into
    :internal (same package/service) and :foreign (external, e.g. java.*, protobuf)."
+  ([class-like]
+   (class-deps (lookup-pkg-key class-like) class-like false))
   ([pkg-like class-like]
    (class-deps pkg-like class-like false))
   ([pkg-like class-like recursive?]
@@ -466,23 +554,21 @@
      (pkg/class-deps pkg class-like (get foreign :mappings)  recursive?))))
 
 (defn analyze-class
-  [pkg-like class-like]
-  (let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)]
-    (if-let [{:keys [fqcn] :as class-node} (lookup-class pkg class-like)]
-      (if (contains? custom-namespace-mappings fqcn)
-        (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
-        (if (contains? exempt-types fqcn)
-          (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
-          (let [deps (class-deps pkg class-node)]
-            (analyzer/analyze-class-node (assoc class-node :deps deps)))))
-      (throw (ex-info (str "failed to find node for class-like '" class-like "'")
-                      {:pkg-like pkg-like :class-like class-like})))))
-
-(defn class-foreign-deps
+  ([class-like]
+   (analyze-class (lookup-pkg-key class-like) class-like))
   ([pkg-like class-like]
-   (class-foreign-deps pkg-like class-like false))
-  ([pkg-like class-like recursive?]
-   (get (class-deps pkg-like class-like recursive?) :foreign-mappings)))
+   (assert (some? pkg-like))
+   (if-let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)]
+     (if-let [{:keys [fqcn] :as class-node} (lookup-class pkg class-like)]
+       (if (contains? custom-namespace-mappings fqcn)
+         (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
+         (if (contains? exempt-types fqcn)
+           (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
+           (let [deps (class-deps pkg class-node)]
+             (analyzer/analyze-class-node (assoc class-node :deps deps)))))
+       (throw (ex-info (str "failed to find node for class-like '" class-like "'")
+                       {:pkg-like pkg-like :class-like class-like})))
+     (throw (Exception. (str "failed to parse package " pkg-like))))))
 
 (defn api-types-for-category
   [pkg-like target-category]
@@ -490,7 +576,7 @@
   (let [pkg (parse pkg-like)]
     (reduce
       (fn [acc fqcn]
-        (let [{:keys [category]} (analyze-class pkg fqcn)]
+        (let [{:keys [category]} (lookup-class pkg fqcn)]
           (if (= target-category category)
             (conj acc fqcn)
             acc)))
@@ -501,8 +587,7 @@
   (let [pkg (parse pkg-like)]
     (reduce
       (fn [acc fqcn]
-        (let [{:keys [category]} (analyze-class pkg fqcn)]
-          (assert (= category (:category (lookup-class pkg fqcn))))
+        (let [{:keys [category]} (lookup-class pkg fqcn)]
           (if (contains? acc category)
             (update-in acc [category] conj fqcn)
             (assoc acc category (sorted-set fqcn)))))

@@ -56,17 +56,16 @@
 
 (defn excluded-type-name?
   [type-name]
-  (or (string/ends-with? type-name "Impl")
-      (string/ends-with? type-name "Helper")
-      (string/ends-with? type-name "OrBuilder")
-      (string/ends-with? type-name "Callable")
-      (string/ends-with? type-name "Serializer")
-      (string/ends-with? type-name "UnusedPrivateParameter")
-      (string/ends-with? type-name "Proto")
-      (string/ends-with? type-name "AutoCloseable")
-      (string/ends-with? type-name "Closeable")
-      (string/ends-with? type-name "Serializable")
-      (= type-name "BigQueryErrorMessages")))
+  (let [type-name (str type-name)]
+    (or (string/ends-with? type-name "OrBuilder")
+        (string/ends-with? type-name "Callable")
+        (string/ends-with? type-name "Serializer")
+        (string/ends-with? type-name "UnusedPrivateParameter")
+        (string/ends-with? type-name "Proto")
+        (string/ends-with? type-name "AutoCloseable")
+        (string/ends-with? type-name "Closeable")
+        (string/ends-with? type-name "Serializable")
+        (= type-name "BigQueryErrorMessages"))))
 
 (defn extract-version
   [doc]
@@ -105,29 +104,39 @@
         ""))
     :else method-name))
 
+(defn property-key [parameter-or-parameter-name]
+  (if (map? parameter-or-parameter-name)
+    (property-key (:name parameter-or-parameter-name))
+    (do
+      (assert (string? parameter-or-parameter-name))
+      (keyword (property-name parameter-or-parameter-name)))))
+
 (def ^:private ns-mapping
   {"artifactregistry" "artifact-registry"})
 
 (defn package-to-ns
-  [package-name]
-  (let [pkg-str (str package-name)
-        ;; Strip common prefixes: com.google.cloud, com.google.devtools, etc.
-        base (if (string/starts-with? pkg-str "com.google.")
-               (let [parts (string/split pkg-str #"\.")]
-                 (if (> (count parts) 3)
-                   (string/join "." (drop 3 parts))
-                   pkg-str))
-               pkg-str)
-        ;; Apply mappings to the first segment of the base
-        base-parts (string/split base #"\.")
-        mapped-first (get ns-mapping (first base-parts) (first base-parts))
-        ;; Construct strict hierarchy: gcp.bindings.<service>.<rest>
-        ;; e.g. com.google.cloud.bigquery -> gcp.bindings.bigquery
-        ;; e.g. com.google.cloud.bigquery.storage.v1 -> gcp.bindings.bigquery.storage.v1
-        ns-str (str "gcp.bindings." mapped-first
-                    (when (next base-parts)
-                      (str "." (string/join "." (rest base-parts)))))]
-    (symbol ns-str)))
+  ([package-name]
+   (package-to-ns package-name false))
+  ([package-name foreign?]
+   (let [pkg-str      (str package-name)
+         ;; Strip common prefixes: com.google.cloud, com.google.devtools, etc.
+         base         (if (string/starts-with? pkg-str "com.google.")
+                        (let [parts (string/split pkg-str #"\.")]
+                          (if (> (count parts) 3)
+                            (string/join "." (drop 3 parts))
+                            pkg-str))
+                        pkg-str)
+         ;; Apply mappings to the first segment of the base
+         base-parts   (string/split base #"\.")
+         mapped-first (get ns-mapping (first base-parts) (first base-parts))
+         ;; Construct strict hierarchy: gcp.bindings.<service>.<rest>
+         ;; e.g. com.google.cloud.bigquery -> gcp.bindings.bigquery
+         ;; e.g. com.google.cloud.bigquery.storage.v1 -> gcp.bindings.bigquery.storage.v1
+         root (if foreign? "gcp.foreign." "gcp.bindings.")
+         ns-str       (str root mapped-first
+                           (when (next base-parts)
+                             (str "." (string/join "." (rest base-parts)))))]
+     (symbol ns-str))))
 
 (defn binding-ns
   [package-name package-prefixes fqcn]
@@ -143,10 +152,25 @@
         ;; Find index of first part that starts with Uppercase
         idx (first (keep-indexed (fn [i p] (when (re-find #"^[A-Z]" p) i)) parts))]
     (if idx
-      {:package (string/join "." (take idx parts))
-       :class (string/join "." (drop idx parts))}
+      (let [package (string/join "." (take idx parts))
+            nested (vec (rest (drop idx parts)))]
+        (cond-> {:package     package
+                 :class       (string/join "." (drop idx parts))}
+                (seq nested) (assoc :nested nested
+                                    :parent-fqcn (str package "." (first (drop idx parts))))))
       {:package (string/join "." (butlast parts))
-       :class (last parts)})))
+       :class   (last parts)})))
+
+(defn nested-fqcn?
+  [fqcn]
+  (contains? (split-fqcn fqcn) :nested))
+
+(defn fqcn->schema-key
+  ([fqcn]
+   (fqcn->schema-key fqcn false))
+  ([fqcn foreign?]
+   (let [{:keys [package class]} (split-fqcn fqcn)]
+     (keyword (name (package-to-ns package foreign?)) class))))
 
 (defn infer-foreign-ns [fqcn]
   (let [{:keys [package]} (split-fqcn fqcn)]
@@ -208,16 +232,7 @@
     (when-let [res (io/resource path)]
       (source-ns-meta (slurp res)))))
 
-(defn schema-key
-  [package-name class-name]
-  (let [ns-sym (package-to-ns package-name)]
-    (keyword (name ns-sym) class-name)))
-
 (declare class-parts)
-
-(defn package-key
-  [package t]
-  (keyword "gcp" (string/join "." (into [(:packageName package)] (class-parts t)))))
 
 (defn dot-parts
   [class]
@@ -306,5 +321,83 @@
     (if (class? clazz)
       clazz
       (throw (Exception. (str "failed to create class from class-like '" class-like "'"))))))
+
+(defn fish->clj-array
+  "Converts fish-style array notation (Type<>) to modern Clojure 1.12 array syntax (Type/depth).
+   Handles multi-dimensional arrays (Type<><> -> Type/2).
+   Returns a symbol."
+  [sym-or-str]
+  (let [s (str sym-or-str)]
+    (loop [curr s depth 0]
+      (if (string/ends-with? curr "<>")
+        (recur (subs curr 0 (- (count curr) 2)) (inc depth))
+        (if (pos? depth)
+          (symbol (str curr "/" depth))
+          (symbol curr))))))
+
+(defn fish->ast-array
+  "Converts fish-style array notation (Type<>) to the AST array representation ([:array Type]).
+   Handles multi-dimensional arrays (Type<><> -> [:array [:array Type]]).
+   Returns a symbol or vector."
+  [sym-or-str]
+  (let [s (str sym-or-str)]
+    (if (string/ends-with? s "<>")
+      (loop [curr s layers 0]
+        (if (string/ends-with? curr "<>")
+          (recur (subs curr 0 (- (count curr) 2)) (inc layers))
+          (reduce (fn [acc _] [:array acc]) (symbol curr) (range layers))))
+      (symbol s))))
+
+(defn ast-array->clj-array
+  "Converts AST-style array representation ([:array Type]) to modern Clojure 1.12 array syntax (Type/depth).
+   Handles multi-dimensional arrays ([:array [:array Type]] -> Type/2).
+   Returns a symbol."
+  [ast-type]
+  (if (and (vector? ast-type) (= :array (first ast-type)))
+    (loop [curr ast-type depth 0]
+      (if (and (vector? curr) (= :array (first curr)))
+        (recur (second curr) (inc depth))
+        (symbol (str curr "/" depth))))
+    (symbol (str ast-type))))
+
+(defn array-dimension
+  "Returns the array dimension (>= 1) for a given type representation.
+   Accepts:
+   - Java Class: byte/1, String/2 (checks .isArray)
+   - Fish style: Type<>, Type<><>
+   - Clojure style: Type/1, Type/2
+   - AST style: [:array Type], [:array [:array Type]]
+   Returns 0 if not an array."
+  [type-rep]
+  (cond
+    ;; Java Class
+    (class? type-rep)
+    (if (.isArray type-rep)
+      (count (take-while #(= \[ %) (.getName type-rep)))
+      0)
+
+    ;; AST style: [:array ...]
+    (and (vector? type-rep) (= :array (first type-rep)))
+    (loop [curr type-rep depth 0]
+      (if (and (vector? curr) (= :array (first curr)))
+        (recur (second curr) (inc depth))
+        depth))
+
+    ;; Fish style: Type<> or Type<><> (string or symbol)
+    (let [s (str type-rep)]
+      (string/ends-with? s "<>"))
+    (loop [curr (str type-rep) depth 0]
+      (if (string/ends-with? curr "<>")
+        (recur (subs curr 0 (- (count curr) 2)) (inc depth))
+        depth))
+
+    ;; Clojure style: Type/N
+    :else
+    (let [s (str type-rep)]
+      (if-let [[_ n] (re-matches #".+/(\d+)$" s)]
+        (try
+          (Integer/parseInt n)
+          (catch NumberFormatException _ 0))
+        0))))
 
 (defonce reflect (memoize (fn [class-like] (clojure.reflect/reflect (as-class class-like)))))

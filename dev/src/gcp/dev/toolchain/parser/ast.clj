@@ -3,19 +3,26 @@
    Responsible for traversing Java source files and extracting structural information
    into Clojure data structures."
   (:require
-   [clojure.string :as string]
-   [gcp.dev.util :as u]
-   [taoensso.telemere :as tel])
+    [clojure.string :as string]
+    [gcp.dev.util :as u]
+    [taoensso.telemere :as tel])
   (:import
-   (com.github.javaparser StaticJavaParser)
-   (com.github.javaparser.ast CompilationUnit ImportDeclaration Modifier$Keyword PackageDeclaration)
+    (com.github.javaparser StaticJavaParser)
+    (com.github.javaparser.ast CompilationUnit ImportDeclaration Modifier$Keyword PackageDeclaration)
    (com.github.javaparser.ast.body AnnotationDeclaration BodyDeclaration ClassOrInterfaceDeclaration ConstructorDeclaration EnumConstantDeclaration EnumDeclaration FieldDeclaration MethodDeclaration Parameter TypeDeclaration VariableDeclarator)
    (com.github.javaparser.ast.comments JavadocComment)
-   (com.github.javaparser.ast.expr FieldAccessExpr MethodCallExpr NameExpr NormalAnnotationExpr SingleMemberAnnotationExpr)
-   (com.github.javaparser.ast.stmt ExplicitConstructorInvocationStmt)
+   (com.github.javaparser.ast.expr AssignExpr FieldAccessExpr MethodCallExpr NameExpr NormalAnnotationExpr SingleMemberAnnotationExpr)
+   (com.github.javaparser.ast.stmt ExplicitConstructorInvocationStmt ExpressionStmt ReturnStmt)
    (com.github.javaparser.ast.type ArrayType ClassOrInterfaceType PrimitiveType Type TypeParameter VoidType WildcardType)
    (com.github.javaparser.javadoc Javadoc)
    (java.io File FileInputStream)))
+
+(defn extract-type-parameters
+  "Extracts type parameter names from a type declaration."
+  [^TypeDeclaration type-decl]
+  (if (instance? ClassOrInterfaceDeclaration type-decl)
+    (mapv #(.getNameAsString %) (.getTypeParameters ^ClassOrInterfaceDeclaration type-decl))
+    []))
 
 (defn type-parameter?
   "Checks if a given Type is a generic type parameter."
@@ -73,8 +80,9 @@
 (defn build-type-solver
   "Creates a function that resolves simple class names to their fully qualified names
    based on the package declaration, imports, and locally defined types."
-  [package imports local-overrides]
-  (let [import-map (reduce (fn [acc ^String i]
+  [package imports local-overrides type-parameters]
+  (let [type-params (set type-parameters)
+        import-map (reduce (fn [acc ^String i]
                              (let [parts (string/split i #"\.")
                                    simple (last parts)]
                                (assoc acc simple i)))
@@ -88,7 +96,8 @@
           (get import-map simple-name)
           (if (contains? known-types simple-name)
             (str (if (contains? java-lang-types simple-name) "java.lang." "") simple-name)
-            (if (and package (not (contains? #{"T" "E" "K" "V" "?"} simple-name)))
+            (if (and package (not (or (contains? #{"T" "E" "K" "V" "?"} simple-name)
+                                     (contains? type-params simple-name))))
               (str package "." simple-name)
               simple-name))))))
 
@@ -110,29 +119,32 @@
 (defn parse-type-ast
   "Parses a JavaParser Type object into a Clojure-friendly representation (symbol or vector).
    Handles primitives, arrays, generics, wildcards, and void."
-  [^Type t solver]
+  [^Type t solver type-params]
   (let [res (cond
               (instance? ClassOrInterfaceType t)
               (let [name (.getNameAsString t)
                     scope (.getScope t)
                     base (if (.isPresent scope)
-                           (let [scope-ast (parse-type-ast (.get scope) solver)
+                           (let [scope-ast (parse-type-ast (.get scope) solver type-params)
                                  scope-sym (if (sequential? scope-ast) (first scope-ast) scope-ast)]
                              (symbol (str scope-sym "." name)))
-                           (resolve-type name solver))]
-                (if-let [args (.getTypeArguments t)]
-                  (if (.isPresent args)
-                    (let [arg-types (mapv #(parse-type-ast % solver) (.get args))]
-                      (into [base] arg-types))
-                    base)
-                  base))
+                           (resolve-type name solver))
+                    ret (if-let [args (.getTypeArguments t)]
+                          (if (.isPresent args)
+                            (let [arg-types (mapv #(parse-type-ast % solver type-params) (.get args))]
+                              (into [base] arg-types))
+                            base)
+                          base)]
+                (when (and (vector? ret) (= 1 (count ret)))
+                  (throw (Exception. (str "Ambiguous type representation:" ret ", vector representations require [type element...]"))))
+                ret)
 
               (instance? PrimitiveType t)
               (symbol (.asString t))
 
               (instance? ArrayType t)
               (let [component (.getComponentType t)]
-                [(parse-type-ast component solver)])
+                [:array (parse-type-ast component solver type-params)])
 
               (instance? VoidType t)
               'void
@@ -141,13 +153,14 @@
               (let [extended (.getExtendedType t)
                     super (.getSuperType t)]
                 (cond
-                  (.isPresent extended) (list '? :extends (parse-type-ast (.get extended) solver))
-                  (.isPresent super) (list '? :super (parse-type-ast (.get super) solver))
+                  (.isPresent extended) (vector '? :extends (parse-type-ast (.get extended) solver type-params))
+                  (.isPresent super) (vector '? :super (parse-type-ast (.get super) solver type-params))
                   :else '?))
 
               :else
               (symbol (.asString t)))]
-    (if (type-parameter? t)
+    (if (or (type-parameter? t)
+            (contains? type-params (str res)))
       [:type-parameter res]
       res)))
 
@@ -206,13 +219,13 @@
 
 (defn extract-extends
   "Extracts extended types from a class or interface declaration."
-  [^ClassOrInterfaceDeclaration type-decl solver]
-  (mapv #(parse-type-ast % solver) (.getExtendedTypes type-decl)))
+  [^ClassOrInterfaceDeclaration type-decl solver type-params]
+  (mapv #(parse-type-ast % solver type-params) (.getExtendedTypes type-decl)))
 
 (defn extract-implements
   "Extracts implemented types from a class or interface declaration."
-  [^ClassOrInterfaceDeclaration type-decl solver]
-  (mapv #(parse-type-ast % solver) (.getImplementedTypes type-decl)))
+  [^ClassOrInterfaceDeclaration type-decl solver type-params]
+  (mapv #(parse-type-ast % solver type-params) (.getImplementedTypes type-decl)))
 
 (def known-annotations
   #{{:name "BetaApi", :arguments []}
@@ -245,25 +258,143 @@
   (some #(= "ObsoleteApi" %) (map :name annotations)))
 
 (defn parameter->edn
-  [solver ^Parameter p]
+  [solver type-params ^Parameter p]
   (let [annotations (extract-annotations p)
         nullable? (annotated-nullable? annotations)
         annotations' annotations
         non-null? (annotated-non-null? annotations)
         base {:name (.getNameAsString p)
-              :type (parse-type-ast (.getType p) solver)}]
+              :type (parse-type-ast (.getType p) solver type-params)}]
     (cond-> base
             nullable? (assoc :nullable? nullable?)
             non-null? (assoc :non-null? non-null?)
             (.isVarArgs p) (assoc :varArgs? true)
             (not-empty annotations') (assoc :annotations annotations'))))
 
+(defn check-args-for-variant [args]
+  (some (fn [arg]
+          (let [name (cond
+                       (instance? FieldAccessExpr arg)
+                       (.getIdentifier (.getName ^FieldAccessExpr arg))
+
+                       (instance? NameExpr arg)
+                       (.getNameAsString ^NameExpr arg)
+
+                       :else nil)]
+            (when (and name (re-matches #"^[A-Z0-9_]+$" name))
+              name)))
+        args))
+
+(defn extract-factory-variant
+  "Analyzes a static factory method body to determine the variant it produces.
+   Looks for 'return new Class(Variant.ENUM, ...)' patterns, checking both direct instantiation
+   and inner subclass constructors."
+  [^MethodDeclaration m ^TypeDeclaration parent-decl]
+  (when (and (.isStatic m) (.isPresent (.getBody m)))
+    (let [body (.get (.getBody m))
+          stmts (.getStatements body)]
+      (some (fn [stmt]
+              (when (instance? ReturnStmt stmt)
+                (let [expr (.getExpression ^ReturnStmt stmt)]
+                  (when (.isPresent expr)
+                    (let [e (.get expr)]
+                      (when (instance? com.github.javaparser.ast.expr.ObjectCreationExpr e)
+                        (let [oce ^com.github.javaparser.ast.expr.ObjectCreationExpr e
+                              args (.getArguments oce)
+                              type-name (.getNameAsString (.getType oce))]
+                          ;; Strategy 1: Check arguments directly
+                          (or (check-args-for-variant args)
+                              ;; Strategy 2: Check inner class constructor
+                              (let [inner-decl (some (fn [member]
+                                                       (when (and (instance? com.github.javaparser.ast.body.TypeDeclaration member)
+                                                                  (= (.getNameAsString member) type-name))
+                                                         member))
+                                                     (.getMembers parent-decl))]
+                                (when inner-decl
+                                  (some (fn [^ConstructorDeclaration ctor]
+                                          (let [cbody (.getBody ctor)
+                                                cstmts (.getStatements cbody)]
+                                            (when (and (not (.isEmpty cstmts))
+                                                       (instance? ExplicitConstructorInvocationStmt (.get cstmts 0)))
+                                              (let [super-call ^ExplicitConstructorInvocationStmt (.get cstmts 0)]
+                                                (when (not (.isThis super-call))
+                                                  (check-args-for-variant (.getArguments super-call)))))))
+                                        (.getConstructors inner-decl))))))))))))
+            stmts))))
+
+(defn extract-returned-field
+  "Extracts the name of the field returned by a simple getter method.
+   Matches 'return field;' or 'return this.field;'."
+  [^MethodDeclaration m]
+  (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
+        stmts (when body (.getStatements body))]
+    (when (and stmts (= 1 (.size stmts)))
+      (let [stmt (.get stmts 0)]
+        (when (instance? ReturnStmt stmt)
+          (let [expr (when (.isPresent (.getExpression ^ReturnStmt stmt))
+                       (.get (.getExpression ^ReturnStmt stmt)))]
+            (when expr
+              (cond
+                (instance? FieldAccessExpr expr) (.getNameAsString ^FieldAccessExpr expr)
+                (instance? NameExpr expr) (.getNameAsString ^NameExpr expr)
+                :else nil))))))))
+
+(defn extract-assigned-field
+  "Extracts the name of the field assigned in a simple setter method.
+   Matches 'this.field = arg;' or 'field = arg;'."
+  [^MethodDeclaration m]
+  (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
+        stmts (when body (.getStatements body))]
+    (when (and stmts (= 1 (.size stmts)))
+      (let [stmt (.get stmts 0)]
+        (when (instance? ExpressionStmt stmt)
+          (let [expr (.getExpression ^ExpressionStmt stmt)]
+            (when (instance? AssignExpr expr)
+              (let [target (.getTarget ^AssignExpr expr)]
+                (cond
+                  (instance? FieldAccessExpr target) (.getNameAsString ^FieldAccessExpr target)
+                  (instance? NameExpr target) (.getNameAsString ^NameExpr target)
+                  :else nil)))))))))
+
+(defn extract-parameter-mappings
+  "Analyzes a builder factory method body to map parameters to their corresponding setter methods.
+   Looks for 'return new Builder().setX(param).setY(param2);' patterns."
+  [^MethodDeclaration m]
+  (let [params (set (map #(.getNameAsString %) (.getParameters m)))
+        body (when (.isPresent (.getBody m)) (.get (.getBody m)))
+        stmts (when body (.getStatements body))]
+    (when (and stmts (= 1 (.size stmts)))
+      (let [stmt (.get stmts 0)]
+        (when (instance? ReturnStmt stmt)
+          (let [expr (when (.isPresent (.getExpression ^ReturnStmt stmt))
+                       (.get (.getExpression ^ReturnStmt stmt)))]
+            (when expr
+              (loop [e expr mappings {}]
+                (if (instance? MethodCallExpr e)
+                  (let [mce ^MethodCallExpr e
+                        name (.getNameAsString mce)
+                        args (.getArguments mce)
+                        new-mappings (if (and (string/starts-with? name "set")
+                                              (= 1 (.size args)))
+                                       (let [arg (.get args 0)]
+                                         (if (and (instance? NameExpr arg)
+                                                  (contains? params (.getNameAsString ^NameExpr arg)))
+                                           (assoc mappings (.getNameAsString ^NameExpr arg) name)
+                                           mappings))
+                                       mappings)]
+                    (if (.isPresent (.getScope mce))
+                      (recur (.get (.getScope mce)) new-mappings)
+                      new-mappings))
+                  mappings)))))))))
+
 (defn method->edn
-  [solver ^MethodDeclaration m]
+  [solver type-params ^TypeDeclaration parent-decl ^MethodDeclaration m]
   (let [annotations (extract-annotations m)
         nullable? (annotated-nullable? annotations)
         non-null? (annotated-non-null? annotations)
         beta? (annotated-beta? annotations)
+        variant (extract-factory-variant m parent-decl)
+        parameter-mappings (extract-parameter-mappings m)
         annotations' (remove (fn [{:keys [name] :as annotation}]
                                (or (known-annotations annotation)
                                    (string/starts-with?  name "Json")
@@ -272,16 +403,23 @@
                                    (= "TransportCompatibility" name)))
                              annotations)
         doc (extract-javadoc m)
+        field-name (if (empty? (.getParameters m))
+                     (extract-returned-field m)
+                     (when (= 1 (.size (.getParameters m)))
+                       (extract-assigned-field m)))
         base {:name (.getNameAsString m)
-              :modifiers (extract-modifiers m)
-              :returnType (parse-type-ast (.getType m) solver)
-              :parameters (mapv (partial parameter->edn solver) (.getParameters m))
+              ;:modifiers (extract-modifiers m)
+              :returnType (parse-type-ast (.getType m) solver type-params)
+              :parameters (mapv (partial parameter->edn solver type-params) (.getParameters m))
               :static? (.isStatic m)
               :abstract? (.isAbstract m)}]
     (when (not-empty annotations')
       (println "WARN novel annotations for "(.getNameAsString m) ":" annotations'))
     (cond-> base
             doc (assoc :doc doc)
+            variant (assoc :variant variant)
+            field-name (assoc :field-name field-name)
+            parameter-mappings (assoc :parameter-mappings parameter-mappings)
             (not-empty annotations') (assoc :annotations annotations')
             nullable? (assoc :nullable? nullable?)
             non-null? (assoc :non-null? non-null?)
@@ -289,7 +427,7 @@
 
 (defn extract-methods
   "Extracts method details (name, modifiers, return type, parameters, doc, annotations) from a type declaration."
-  [^TypeDeclaration type-decl solver options]
+  [^TypeDeclaration type-decl solver options type-params]
   (let [methods (.getMethods type-decl)]
     (->> methods
          (filter #(visible? % options))
@@ -310,52 +448,90 @@
                            (string/starts-with? methodName "clear")
                            (string/starts-with? methodName "remove")
                            (string/ends-with? methodName "OrBuilder"))))))
-         (mapv (partial method->edn solver)))))
+         (mapv (partial method->edn solver type-params type-decl)))))
 
 (defn extract-fields
   "Extracts field details (name, type, modifiers, doc, annotations) from a type declaration."
-  [^TypeDeclaration type-decl solver options]
+  [^TypeDeclaration type-decl solver options type-params]
   (let [fields (.getFields type-decl)]
     (->> fields
-         (filter #(visible? % options))
          (mapcat (fn [^FieldDeclaration f]
-                   (let [common {:doc (extract-javadoc f)
-                                 :modifiers (extract-modifiers f)
-                                 :annotations (extract-annotations f)
-                                 :static? (.isStatic f)
-                                 :final? (.isFinal f)}]
-                     (mapv (fn [^VariableDeclarator v]
-                             (merge common
-                                    {:name (.getNameAsString v)
-                                     :type (parse-type-ast (.getType v) solver)}))
+                   (let [modifiers   (into #{} (remove #{"private" "static" "final"}) (extract-modifiers f))
+                         annotations (extract-annotations f)
+                         common (cond-> {:doc (extract-javadoc f)
+                                         :static? (.isStatic f)
+                                         :private? (.isPrivate f)
+                                         :final? (.isFinal f)}
+                                        (seq annotations) (assoc :annotations  annotations)
+                                        (seq modifiers) (assoc :modifiers modifiers))]
+                     (into []
+                           (comp
+                             (map (fn [^VariableDeclarator v]
+                                    (let [base (merge common
+                                                      {:name (.getNameAsString v)
+                                                       :type (parse-type-ast (.getType v) solver type-params)})]
+                                      (if (and (.isPresent (.getInitializer v))
+                                               (.isStringLiteralExpr (.get (.getInitializer v))))
+                                        (assoc base :value (.getValue (.asStringLiteralExpr (.get (.getInitializer v)))))
+                                        base))))
+                             (remove #(contains? #{"serialVersionUID" "TO_PB_FUNCTION" "FROM_PB_FUNCTION"
+                                                   "INSTANCE"}
+                                                 (:name %))))
                            (.getVariables f)))))
          vec)))
 
+(defn type-contains-hidden? [type-ast hidden-fqcns]
+  (cond
+    (symbol? type-ast) (contains? hidden-fqcns (str type-ast))
+    (vector? type-ast) (some #(type-contains-hidden? % hidden-fqcns) type-ast)
+    :else false))
+
 (defn extract-constructors
   "Extracts constructor details (name, modifiers, parameters, doc, annotations) from a class declaration."
-  [^ClassOrInterfaceDeclaration type-decl solver options]
+  [^ClassOrInterfaceDeclaration type-decl solver options type-params hidden-types]
   (let [constructors (.getConstructors type-decl)]
     (->> constructors
          (filter #(visible? % options))
+         ;; Note: This only filters constructors using hidden *nested* types.
+         ;; Constructors using package-private types from *peer* classes (same package)
+         ;; are not currently detected because we don't have visibility into peer classes here.
+         (remove (fn [c]
+                   (some (fn [p]
+                           (let [t (parse-type-ast (.getType p) solver type-params)]
+                             (type-contains-hidden? t hidden-types)))
+                         (.getParameters c))))
          (mapv (fn [^ConstructorDeclaration c]
-                 {:name (.getNameAsString c)
-                  :modifiers (extract-modifiers c)
-                  :parameters (mapv (fn [^Parameter p]
-                                      {:name (.getNameAsString p)
-                                       :type (parse-type-ast (.getType p) solver)
-                                       :annotations (extract-annotations p)})
-                                    (.getParameters c))
-                  :doc (extract-javadoc c)
-                  :annotations (extract-annotations c)})))))
+                 (let [annotations (extract-annotations c)
+                       doc         (extract-javadoc c)]
+                   (cond->
+                     {:name        (.getNameAsString c)
+                      :modifiers   (extract-modifiers c)
+                      :parameters  (mapv (fn [^Parameter p]
+                                           (let [annotations (extract-annotations p)]
+                                             (cond->
+                                               {:name (.getNameAsString p)
+                                                :type (parse-type-ast (.getType p) solver type-params)}
+                                               (seq annotations) (assoc :annotations annotations))))
+                                         (.getParameters c))}
+                     doc (assoc :doc doc)
+                     (seq annotations) (assoc :annotations (extract-annotations c)))))))))
 
 (defn extract-enum-constants
   "Extracts enum constants (name, doc, arguments, annotations) from an enum declaration."
   [^EnumDeclaration type-decl]
-  (mapv (fn [^EnumConstantDeclaration c]
-          {:name (.getNameAsString c)
-           :doc (extract-javadoc c)
-           :annotations (extract-annotations c)
-           :arguments (mapv #(.toString %) (.getArguments c))})
+  (into []
+        (comp
+          (remove
+            (fn [^EnumConstantDeclaration c]
+              (let [annotations (extract-annotations c)]
+                (annotated-deprecated? annotations))))
+          (map (fn [^EnumConstantDeclaration c]
+                  (let [annotations (extract-annotations c)
+                        #_ #_ arguments   (mapv #(.toString %) (.getArguments c))]
+                    (cond-> {:name  (.getNameAsString c)
+                             :doc (extract-javadoc c)}
+                          (seq annotations) (assoc :annotations annotations))))
+                ))
         (.getEntries type-decl)))
 
 (defn functional-interface?
@@ -478,6 +654,31 @@
               (check-constructor (.getConstructors builder)))))]
     (or from-builder-method from-constructor from-nested-builder)))
 
+(defn public-constructors?
+  "Checks if a class has any public constructors."
+  [^TypeDeclaration type-decl]
+  (if (instance? ClassOrInterfaceDeclaration type-decl)
+    (not-empty (filter (fn [^ConstructorDeclaration c]
+                         (.isPublic c))
+                       (.getConstructors type-decl)))
+    false))
+
+(defn has-static-factories? [type-decl]
+  (let [self-name (.getNameAsString type-decl)]
+    (some (fn [^MethodDeclaration m]
+            (and (.isStatic m)
+                 (.isPublic m)
+                 (let [ret (.asString (.getType m))]
+                   (or (= ret self-name)
+                       (string/ends-with? ret (str "." self-name))))))
+          (.getMethods type-decl))))
+
+(defn has-nested-builder? [type-decl]
+  (some (fn [member]
+          (and (instance? TypeDeclaration member)
+               (string/ends-with? (.getNameAsString member) "Builder")))
+        (.getMembers type-decl)))
+
 (defn union-type?
   "Detects if a class is a union type (has a getType() method)."
   [^TypeDeclaration type-decl]
@@ -493,16 +694,6 @@
                                  (string/ends-with? (.getNameAsString ret) ".Type"))))))
                methods))))
 
-(defn has-static-factories? [type-decl]
-  (let [self-name (.getNameAsString type-decl)]
-    (some (fn [^MethodDeclaration m]
-            (and (.isStatic m)
-                 (.isPublic m)
-                 (let [ret (.asString (.getType m))]
-                   (or (= ret self-name)
-                       (string/ends-with? ret (str "." self-name))))))
-          (.getMethods type-decl))))
-
 (defn abstract-union?
   [^TypeDeclaration type-decl]
   (and (union-type? type-decl)
@@ -514,15 +705,57 @@
   (and (union-type? type-decl)
        (not (.isAbstract type-decl))))
 
-(defn has-nested-builder? [type-decl]
-  (some (fn [member]
-          (and (instance? TypeDeclaration member)
-               (string/ends-with? (.getNameAsString member) "Builder")))
-        (.getMembers type-decl)))
+(defn collection-wrapper?
+  "Detects if a class is a collection wrapper (constructed via static 'of' taking Iterable/Array/Varargs)."
+  [^TypeDeclaration type-decl]
+  (and (instance? ClassOrInterfaceDeclaration type-decl)
+       (not (.isInterface type-decl))
+       (not (public-constructors? type-decl))
+       (some (fn [t]
+               (let [n (.getNameAsString t)]
+                 (or (string/includes? n "List")
+                     (string/includes? n "Iterable")
+                     (string/includes? n "Collection")
+                     (string/includes? n "Set"))))
+             (concat (.getImplementedTypes ^ClassOrInterfaceDeclaration type-decl)
+                     (.getExtendedTypes ^ClassOrInterfaceDeclaration type-decl)))
+       (let [methods (.getMethods type-decl)
+             of-methods (filter #(and (.isStatic %)
+                                      (.isPublic %)
+                                      (= "of" (.getNameAsString %)))
+                                methods)]
+         (and (seq of-methods)
+              (every? (fn [^MethodDeclaration m]
+                        (let [params (.getParameters m)]
+                          (and (= 1 (.size params))
+                               (let [p (.get params 0)
+                                     t (.getType p)]
+                                 (or (.isArrayType t)
+                                     (.isVarArgs p)
+                                     (and (.isClassOrInterfaceType t)
+                                          (let [n (.getNameAsString t)]
+                                            (or (= n "Iterable")
+                                                (= n "List")
+                                                (string/ends-with? n ".Iterable")
+                                                (string/ends-with? n ".List")))))))))
+                      of-methods)))))
 
-(defn union-factory? [type-decl]
-  (and (not (has-nested-builder? type-decl))
-       (has-static-factories? type-decl)))
+(defn union-tagged?
+  "Detects a tagged union type:
+   - Must be a union type (has getType() discriminator).
+   - Not a builder owner, has static factories.
+   - No public constructors.
+   - Exactly two instance fields (discriminator + payload)."
+  [^TypeDeclaration type-decl]
+  (and (union-type? type-decl)
+       (not (has-nested-builder? type-decl))
+       (has-static-factories? type-decl)
+       (not (public-constructors? type-decl))
+       (let [fields (.getFields type-decl)
+             vars (->> fields
+                       (remove #(.isStatic %))
+                       (mapcat #(.getVariables %)))]
+         (= 2 (count vars)))))
 
 (defn static-factory?
   "Detects if a class is a static factory (no public constructors, has static 'of' method returning self)."
@@ -531,6 +764,7 @@
        (not (union-type? type-decl))
        (not (.isInterface type-decl))
        (not (has-nested-builder? type-decl))
+       (not (collection-wrapper? type-decl))
        ;; No public constructors
        (empty? (filter (fn [^ConstructorDeclaration c]
                          (.isPublic c))
@@ -539,6 +773,7 @@
        (let [self-name (.getNameAsString type-decl)]
          (some (fn [^MethodDeclaration m]
                  (and (.isStatic m)
+                      (.isPublic m)
                       (= (.getNameAsString m) "of")
                       (= (.asString (.getType m)) self-name)))
                (.getMethods type-decl)))))
@@ -558,14 +793,17 @@
                          (= n "com.google.api.resourcenames.ResourceName"))))
                  (.getImplementedTypes type-decl)))))
 
-(defn public-constructors?
-  "Checks if a class has any public constructors."
+(defn factory?
+  "Detects if a class is a factory/namespace (no public constructors, specific naming patterns)."
   [^TypeDeclaration type-decl]
-  (if (instance? ClassOrInterfaceDeclaration type-decl)
-    (not-empty (filter (fn [^ConstructorDeclaration c]
-                         (.isPublic c))
-                       (.getConstructors type-decl)))
-    false))
+  (let [name (.getNameAsString type-decl)]
+    (and (instance? ClassOrInterfaceDeclaration type-decl)
+         (not (.isInterface type-decl))
+         (not (public-constructors? type-decl))
+         (or (string/ends-with? name "Configs")
+             (string/ends-with? name "Roles")
+             (string/ends-with? name "Factory")
+             (string/ends-with? name "Factories")))))
 
 (defn resource-extended?
   "Detects if a class extends a '...Info' class, indicating it is a resource with behavior."
@@ -587,13 +825,39 @@
             extended))
     false))
 
+(defn has-accessors? [^TypeDeclaration type-decl]
+  (or (some (fn [^FieldDeclaration f] (and (.isPublic f) (not (.isStatic f)))) (.getFields type-decl))
+      (some (fn [^MethodDeclaration m]
+              (and (.isPublic m)
+                   (not (.isStatic m))
+                   (empty? (.getParameters m))
+                   (let [n (.getNameAsString m)]
+                     (or (string/starts-with? n "get")
+                         (string/starts-with? n "is")
+                         (string/starts-with? n "has")))))
+            (.getMethods type-decl))))
+
+(defn exception?
+  "Detects if a class is an exception (extends Throwable via reflection)."
+  [^TypeDeclaration type-decl]
+  (try
+    (if (.isPresent (.getFullyQualifiedName type-decl))
+      (let [fqcn (.get (.getFullyQualifiedName type-decl))
+            c (u/as-class fqcn)]
+        (.isAssignableFrom Throwable c))
+      false)
+    (catch Throwable _ false)))
+
 (defn pojo?
-  "Detects if a class is a POJO (has public constructors, no builder)."
+  "Detects if a class is a POJO (has public constructors, no builder).
+   Relaxed to include classes without explicit accessors (e.g. exceptions),
+   but explicitly excludes Exceptions to enforce :read-only semantics."
   [^TypeDeclaration type-decl]
   (and (instance? ClassOrInterfaceDeclaration type-decl)
        (not (.isInterface type-decl))
        (not (.isAbstract type-decl))
-       (public-constructors? type-decl)))
+       (public-constructors? type-decl)
+       (not (exception? type-decl))))
 
 (defn sentinel?
   "Detects if a class is a sentinel (no fields, no methods, no public constructors, not abstract)."
@@ -604,18 +868,6 @@
        (not (public-constructors? type-decl))
        (empty? (.getFields type-decl))
        (empty? (.getMethods type-decl))))
-
-(defn factory?
-  "Detects if a class is a factory/namespace (no public constructors, specific naming patterns)."
-  [^TypeDeclaration type-decl]
-  (let [name (.getNameAsString type-decl)]
-    (and (instance? ClassOrInterfaceDeclaration type-decl)
-         (not (.isInterface type-decl))
-         (not (public-constructors? type-decl))
-         (or (string/ends-with? name "Configs")
-             (string/ends-with? name "Roles")
-             (string/ends-with? name "Factory")
-             (string/ends-with? name "Factories")))))
 
 (defn statics?
   "Detects if a class is a collection of static members (no public constructors, all static members, not abstract).
@@ -664,6 +916,7 @@
        (nil? (extract-discriminator type-decl))
        (not (public-constructors? type-decl))
        (not (static-factory? type-decl))
+       (not (collection-wrapper? type-decl))
        (not (union-type? type-decl))
        (not (resource-extended? type-decl))
        (some (fn [^MethodDeclaration m]
@@ -709,14 +962,16 @@
         (accessor? type-decl)                 :nested/accessor-with-builder
         (string/ends-with? fqcn "Builder")    :nested/builder
         (lifecycle-client? type-decl)         :nested/client
+        (collection-wrapper? type-decl)       :nested/collection-wrapper
         (instance? EnumDeclaration type-decl) :nested/enum
         (factory? type-decl)                  :nested/factory
         (string-enum? type-decl)              :nested/string-enum
         (abstract-union? type-decl)           :nested/union-abstract
-        (union-factory? type-decl)            :nested/union-factory
+        (union-tagged? type-decl)             :nested/union-tagged
         (static-factory? type-decl)           :nested/static-factory
         (variant-read-only? type-decl)        :nested/variant-read-only
         (read-only? type-decl)                :nested/read-only
+        (exception? type-decl)                :nested/read-only
         (pojo? type-decl)                     :nested/pojo
         (statics? type-decl)                  :nested/statics
         :else  #! << REMOVING THIS BRANCH IS FORBIDDEN>>
@@ -729,12 +984,12 @@
       (cond
         (accessor? type-decl)                  :accessor-with-builder
         (lifecycle-client? type-decl)          :client
+        (collection-wrapper? type-decl)        :collection-wrapper
         (instance? EnumDeclaration type-decl)  :enum
-        (string/ends-with? fqcn "Exception")   :exception
-        (string/ends-with? fqcn "Error")       :error
         (factory? type-decl)                   :factory
         (functional-interface? type-decl)      :functional-interface
         (interface? type-decl)                 :interface
+        (exception? type-decl)                 :read-only
         (pojo? type-decl)                      :pojo
         (read-only? type-decl)                 :read-only
         (resource-extended? type-decl)         :resource-extended
@@ -744,7 +999,7 @@
         (string-enum? type-decl)               :string-enum
         (abstract-union? type-decl)            :union-abstract
         (concrete-union? type-decl)            :union-concrete
-        (union-factory? type-decl)             :union-factory
+        (union-tagged? type-decl)              :union-tagged
         (variant-accessor? type-decl)          :variant-accessor
         (variant-read-only? type-decl)         :variant-read-only
         ; (stub? type-decl) :stub
@@ -774,20 +1029,54 @@
            :asterisk? (.isAsterisk i)})
         (.getImports cu)))
 
+(defn extract-payload-field [^TypeDeclaration type-decl]
+  (let [fields (.getFields type-decl)
+        vars (->> fields
+                  (remove #(.isStatic %))
+                  (mapcat #(.getVariables %)))]
+    (when (= 2 (count vars))
+      (let [discriminator (some #(when (contains? #{"type" "kind" "mode" "code"} (.getNameAsString %)) %) vars)
+            payload (if discriminator
+                      (first (remove #(= % discriminator) vars))
+                      nil)]
+        (when payload
+          (.getNameAsString payload))))))
+
+(defn extract-tag-field [^TypeDeclaration type-decl]
+  (let [fields (.getFields type-decl)
+        vars (->> fields
+                  (remove #(.isStatic %))
+                  (mapcat #(.getVariables %)))]
+    (when (= 2 (count vars))
+      (some (fn [v]
+              (let [n (.getNameAsString v)]
+                (when (contains? #{"type" "kind" "mode" "code"} n)
+                  n)))
+            vars))))
+
 (defn process-type
   "Processes a single TypeDeclaration into a map containing its structure, members, and metadata."
   ([type-decl package imports options file-git-sha]
-   (process-type type-decl package imports options file-git-sha {}))
-  ([^TypeDeclaration type-decl package imports options file-git-sha parent-local-types]
+   (process-type type-decl package imports options file-git-sha {} #{}))
+  ([^TypeDeclaration type-decl package imports options file-git-sha parent-local-types parent-type-params]
    {:post [(or (sorted? %) (nil? %))]}
    (if (or (not (visible? type-decl options))
            (instance? AnnotationDeclaration type-decl)
            (and package (string/includes? package ".spi."))
-           (u/excluded-type-name? (.getNameAsString type-decl)))
+           (u/excluded-type-name? (.getNameAsString type-decl))
+           (and (:exempt-types options)
+                (try
+                  (if (.isPresent (.getFullyQualifiedName type-decl))
+                    (contains? (:exempt-types options) (.get (.getFullyQualifiedName type-decl)))
+                    false)
+                  (catch Exception _ false))))
      nil
-     (let [current-local-types (extract-local-types type-decl)
+     (let [fqcn                (.get (.getFullyQualifiedName type-decl))
+           current-type-params (extract-type-parameters type-decl)
+           current-local-types (extract-local-types type-decl)
            local-types         (merge parent-local-types current-local-types)
-           solver              (build-type-solver package imports local-types)
+           all-type-params     (into (set parent-type-params) current-type-params)
+           solver              (build-type-solver package imports local-types all-type-params)
            className           (.getNameAsString type-decl)
            kind                (cond
                                  (instance? ClassOrInterfaceDeclaration type-decl)
@@ -795,17 +1084,38 @@
                                  (instance? EnumDeclaration type-decl) :enum
                                  :else :unknown)
            category            (categorize-class type-decl)
+           payload-field       (when (or (= category :union-tagged)
+                                         (= category :nested/union-tagged))
+                                 (extract-payload-field type-decl))
+           tag-field           (when (or (= category :union-tagged)
+                                         (= category :nested/union-tagged))
+                                 (extract-tag-field type-decl))
            discriminator       (when (= category :variant-accessor)
                                  (extract-discriminator type-decl))
            resource-id?        (resource-identifier? type-decl)
            nested              (->> (.getMembers type-decl)
                                     (filter #(and (instance? TypeDeclaration %) (visible? % options)))
-                                    (mapv #(process-type % package imports options file-git-sha local-types))
+                                    (mapv #(process-type % package imports options file-git-sha local-types all-type-params))
                                     (remove nil?)
                                     vec)
+
+           ;; Identify nested types that were hidden (e.g. package-private) so we can filter constructors using them
+           nested-decls (filter #(instance? TypeDeclaration %) (.getMembers type-decl))
+           hidden-nested (into #{}
+                               (comp (remove #(visible? % options))
+                                     (keep (fn [t]
+                                             (get local-types (.getNameAsString t)))))
+                               nested-decls)
+
            [extends implements] (when (instance? ClassOrInterfaceDeclaration type-decl)
-                                  [(filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver))
-                                   (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver))])]
+                                  [(filterv #(not (u/excluded-type-name? (str %))) (extract-extends type-decl solver all-type-params))
+                                   (filterv #(not (u/excluded-type-name? (str %))) (extract-implements type-decl solver all-type-params))])
+           annotations (extract-annotations type-decl)
+           constructors (when (= kind :class)
+                          (extract-constructors type-decl solver options all-type-params hidden-nested))
+           methods (extract-methods type-decl solver options all-type-params)
+           fields (extract-fields type-decl solver options all-type-params)
+           modifiers (extract-modifiers type-decl)]
        (when (and (= category :variant-accessor) (nil? discriminator))
          (throw (ex-info (str "Missing discriminator for variant-accessor: " className)
                          {:class className :package package})))
@@ -813,22 +1123,25 @@
          (sorted-map
            :className className
            :package package
-           :gcp/key (u/schema-key package className)
-           :fqcn (.get (.getFullyQualifiedName type-decl))
+           :gcp/key (u/fqcn->schema-key fqcn)
+           :fqcn fqcn
            :category category
            :file-git-sha file-git-sha
            :doc (extract-javadoc type-decl)
-           :annotations (extract-annotations type-decl)
-           :modifiers (extract-modifiers type-decl)
-           :abstract? (when (instance? ClassOrInterfaceDeclaration type-decl) (.isAbstract type-decl))
-           :methods (extract-methods type-decl solver options)
-           :fields (extract-fields type-decl solver options))
+           :abstract? (when (instance? ClassOrInterfaceDeclaration type-decl) (.isAbstract type-decl)))
+         (seq modifiers) (assoc :modifiers modifiers)
+         (seq fields) (assoc :fields fields)
+         (seq current-type-params) (assoc :type-parameters current-type-params)
+         (seq annotations) (assoc :annotations annotations)
+         (seq methods) (assoc :methods methods)
          (seq nested) (assoc :nested nested)
          (seq extends) (assoc :extends extends)
          (seq implements) (assoc :implements implements)
+         (seq constructors) (assoc :constructors constructors)
          resource-id? (assoc :resource-identifier? true)
+         payload-field (assoc :payload-field payload-field)
+         tag-field (assoc :tag-field tag-field)
          discriminator (assoc :discriminator discriminator)
-         (= kind :class) (assoc :constructors (extract-constructors type-decl solver options))
          (= kind :enum) (assoc :values (extract-enum-constants type-decl)))))))
 
 (defn parse

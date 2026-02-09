@@ -248,6 +248,31 @@
                                   (if (.isPresent pkg)
                                     (extract-javadoc (.get pkg))
                                     nil)))))
+              by-fqcn (let [inheritance-map (reduce-kv
+                                              (fn [acc fqcn node]
+                                                (reduce (fn [inner-acc parent]
+                                                          (update inner-acc (str parent) (fnil conj #{}) fqcn))
+                                                        acc
+                                                        (:extends node)))
+                                              {}
+                                              by-fqcn)]
+                        (reduce-kv
+                          (fn [acc fqcn node]
+                            (if-let [sub-fqcns (get inheritance-map fqcn)]
+                              (let [sub-nodes (keep #(get by-fqcn %) sub-fqcns)
+                                    variant-map (reduce (fn [m sub]
+                                                          (if-let [d (:discriminator sub)]
+                                                            (assoc m d (symbol (:fqcn sub)))
+                                                            m))
+                                                        {}
+                                                        sub-nodes)
+                                    node' (assoc node :subclasses (into #{} (map symbol) sub-fqcns))]
+                                (assoc acc fqcn (if (seq variant-map)
+                                                  (assoc node' :variant-mappings variant-map)
+                                                  node')))
+                              acc))
+                          by-fqcn
+                          by-fqcn))
               service-clients (->> (vals class-name-map)
                                    (filter #(= (:category %) :client))
                                    (mapv #(symbol (:fqcn %))))

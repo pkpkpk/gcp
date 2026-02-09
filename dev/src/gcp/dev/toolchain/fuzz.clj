@@ -117,7 +117,7 @@
                                      {:ana-node ana-node
                                       :cause e}))))
             _ (load-class-code! fqcn code)
-            sk (u/schema-key (:package ana-node) (:className ana-node))
+            sk (u/fqcn->schema-key fqcn)
             generator (gen/generator sk)
             verify-fn (fn [edn]
                         (let [ns-sym (symbol (str (u/package-to-ns (:package ana-node)) "." (:className ana-node)))
