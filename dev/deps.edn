@@ -12,6 +12,7 @@
          gcp/foreign                           {:local/root "../packages/foreign"}
          gcp/artifact-registry                 {:local/root "../packages/artifact-registry"}
          gcp/bigquery                          {:local/root "../packages/bigquery"}
+         gcp/bigquery-services                 {:local/root "../packages/bigquery-services"}
          gcp/genai                             {:local/root "../packages/genai"}
          gcp/logging                           {:local/root "../packages/logging"}
          gcp/monitoring                        {:local/root "../packages/monitoring"}

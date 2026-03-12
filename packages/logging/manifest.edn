@@ -1,0 +1,8 @@
+{:googleapis/mvn-org "com.google.cloud",
+ :googleapis/mvn-artifact "google-cloud-logging",
+ :googleapis/mvn-release "3.25.0",
+ :googleapis/repo "java-logging",
+ :googleapis/git-repo "java-logging",
+ :googleapis/git-tag "v3.24.0",
+ :googleapis/git-sha "32612798a6cb632590e28900825fbc8c22eebe58",
+ :gcp/release "3.25.0-0"}

@@ -1,87 +1,86 @@
 (ns gcp.bigquery.custom.StandardSQL
-  (:require [gcp.global :as global])
+  (:require [gcp.global :as g])
   (:import (com.google.cloud.bigquery StandardSQLDataType StandardSQLField StandardSQLStructType StandardSQLTableType StandardSQLTypeName)))
 
-(declare DataType:from-edn DataType:to-edn)
+(declare StandardSQLDataType-from-edn StandardSQLDataType-to-edn)
 
-(defn ^StandardSQLField Field:from-edn
+(defn ^StandardSQLField StandardSQLField-from-edn
   [{:keys [name dataType] :as arg}]
-  (global/strict! :gcp.bigquery/StandardSQLField arg)
+  (g/strict! ::StandardSQLField arg)
   (let [builder (StandardSQLField/newBuilder)]
     (when name
       (.setName builder name))
-    (.setDataType builder (DataType:from-edn dataType))
+    (.setDataType builder (StandardSQLDataType-from-edn dataType))
     (.build builder)))
 
-(defn Field:to-edn [^StandardSQLField arg]
-  {:post [(global/strict! :gcp.bigquery/StandardSQLField %)]}
-  (cond-> {:dataType (DataType:to-edn (.getDataType arg))}
+(defn StandardSQLField-to-edn [^StandardSQLField arg]
+  {:post [(g/strict! ::StandardSQLField %)]}
+  (cond-> {:dataType (StandardSQLDataType-to-edn (.getDataType arg))}
           (some? (.getName arg))
           (assoc :name (.getName arg))))
 
-(defn ^StandardSQLStructType StructType:from-edn
+(defn ^StandardSQLStructType StandardSQLStructType-from-edn
   [{:keys [fieldList] :as arg}]
-  (global/strict! :gcp.bigquery/StandardSQLStructType arg)
+  (g/strict! ::StandardSQLStructType arg)
   (let [builder (StandardSQLStructType/newBuilder)]
-    (.setFields builder (map Field:from-edn fieldList))
+    (.setFields builder (map StandardSQLField-from-edn fieldList))
     (.build builder)))
 
-(defn StructType:to-edn [^StandardSQLStructType arg]
-  {:post [(global/strict! :gcp.bigquery/StandardSQLStructType %)]}
-  {:fieldList (map Field:to-edn (.getFields arg))})
+(defn StandardSQLStructType-to-edn [^StandardSQLStructType arg]
+  {:post [(g/strict! ::StandardSQLStructType %)]}
+  {:fieldList (map StandardSQLField-to-edn (.getFields arg))})
 
-(defn ^StandardSQLDataType DataType:from-edn
+(defn ^StandardSQLDataType StandardSQLDataType-from-edn
   [{:keys [typeName typeKind structType arrayElementType] :as arg}]
-  (global/strict! :gcp.bigquery/StandardSQLDataType arg)
+  (g/strict! ::StandardSQLDataType arg)
   (let [builder           (if typeKind
                             (StandardSQLDataType/newBuilder ^String typeKind)
                             (StandardSQLDataType/newBuilder ^StandardSQLTypeName (StandardSQLTypeName/valueOf typeName)))]
     (when structType
-      (.setStructType builder (StructType:from-edn structType)))
-    (some->> arrayElementType DataType:from-edn (.setArrayElementType builder))
+      (.setStructType builder (StandardSQLStructType-from-edn structType)))
+    (some->> arrayElementType StandardSQLDataType-from-edn (.setArrayElementType builder))
     (.build builder)))
 
-(defn DataType:to-edn [^StandardSQLDataType arg]
-  {:post [(global/strict! :gcp.bigquery/StandardSQLDataType %)]}
+(defn StandardSQLDataType-to-edn [^StandardSQLDataType arg]
+  {:post [(g/strict! ::StandardSQLDataType %)]}
   (cond-> {:typeKind (.getTypeKind arg)}
           (.getArrayElementType arg)
-          (assoc :arrayElementType (DataType:to-edn (.getArrayElementType arg)))
+          (assoc :arrayElementType (StandardSQLDataType-to-edn (.getArrayElementType arg)))
           (.getStructType arg)
-          (assoc :structType (StructType:to-edn (.getStructType arg)))))
+          (assoc :structType (StandardSQLStructType-to-edn (.getStructType arg)))))
 
-(defn ^StandardSQLTableType TableType:from-edn
+(defn ^StandardSQLTableType StandardSQLTableType-from-edn
   [{:keys [columns] :as arg}]
-  (global/strict! :gcp.bigquery/StandardSQLTableType arg)
+  (g/strict! ::StandardSQLTableType arg)
   (let [builder (StandardSQLTableType/newBuilder)]
-    (.setColumns builder (map Field:from-edn columns))
+    (.setColumns builder (map StandardSQLField-from-edn columns))
     (.build builder)))
 
-(defn TableType:to-edn [^StandardSQLTableType arg]
-  {:post [(global/strict! :gcp.bigquery/StandardSQLTableType %)]}
-  {:columns (map Field:to-edn (.getColumns arg))})
+(defn StandardSQLTableType-to-edn [^StandardSQLTableType arg]
+  {:post [(g/strict! ::StandardSQLTableType %)]}
+  {:columns (map StandardSQLField-to-edn (.getColumns arg))})
 
 (def schemas
-  {:gcp.bigquery/StandardSQLDataType
+  {::StandardSQLDataType
    [:map {:closed true}
-    [:typeKind {:optional true} :gcp.bigquery/StandardSQLTypeName]
-    [:typeName {:optional true} :gcp.bigquery/StandardSQLTypeName]
-    [:arrayElementType {:optional true} [:ref :gcp.bigquery/StandardSQLDataType]]
-    [:structType {:optional true} [:ref :gcp.bigquery/StandardSQLStructType]]]
+    [:typeKind [:ref ::StandardSQLTypeName]]
+    [:arrayElementType {:optional true} [:ref ::StandardSQLDataType]]
+    [:structType {:optional true} [:ref ::StandardSQLStructType]]]
 
-   :gcp.bigquery/StandardSQLField
+   ::StandardSQLField
    [:map {:closed true}
     [:name {:optional true} :string]
-    [:dataType :gcp.bigquery/StandardSQLDataType]]
+    [:dataType ::StandardSQLDataType]]
 
-   :gcp.bigquery/StandardSQLStructType
+   ::StandardSQLStructType
    [:map {:closed true}
-    [:fieldList [:sequential :gcp.bigquery/StandardSQLField]]]
+    [:fieldList [:sequential ::StandardSQLField]]]
 
-   :gcp.bigquery/StandardSQLTableType
+   ::StandardSQLTableType
    [:map {:closed true}
-    [:columns [:sequential :gcp.bigquery/StandardSQLField]]]
+    [:columns [:sequential ::StandardSQLField]]]
 
-   :gcp.bigquery/StandardSQLTypeName
+   ::StandardSQLTypeName
    [:enum "TIME" "FLOAT64" "INTERVAL" "BIGNUMERIC" "BOOL" "DATE" "BYTES" "GEOGRAPHY" "NUMERIC" "ARRAY" "JSON" "STRING" "DATETIME" "STRUCT" "TIMESTAMP" "INT64" "RANGE"]})
 
-(global/include-schema-registry! (with-meta schemas {:gcp.global/name (str *ns*)}))
+(g/include-schema-registry! (with-meta schemas {::g/name "gcp.bigquery.custom.StandardSQL"}))

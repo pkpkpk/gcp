@@ -1,0 +1,8 @@
+{:googleapis/mvn-org "com.google.cloud",
+ :googleapis/mvn-artifact "google-cloud-vertexai",
+ :googleapis/mvn-release "1.44.0",
+ :googleapis/repo "google-cloud-java",
+ :googleapis/git-repo "google-cloud-java",
+ :googleapis/git-tag "v1.44.0",
+ :googleapis/git-sha "f34cfaf87cfaf766c878d31b96a4274d628a100e",
+ :gcp/release "1.44.0-0"}

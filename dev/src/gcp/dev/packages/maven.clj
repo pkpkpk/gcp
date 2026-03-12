@@ -28,14 +28,14 @@
 (defn- stable? [v]
   (not (re-find #"(?i)(snapshot|rc|beta|alpha|milestone)" v)))
 
-(defn latest-release
+(defn latest-stable-release
   "Returns the latest stable release version string for the given group and artifact."
   [group artifact]
   (->> (resolve-versions group artifact)
        (filter stable?)
        last))
 
-(defn latest-candidate
+(defn latest-release-candidate
   "Returns the latest snapshot or release candidate version string for the given group and artifact."
   [group artifact]
   (->> (resolve-versions group artifact)

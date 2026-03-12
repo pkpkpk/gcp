@@ -3,6 +3,7 @@
    Handles generation provenance and signature injection."
   (:require
    [clojure.java.io :as io]
+   [clojure.string :as string]
    [gcp.dev.digest :as digest]
    [gcp.dev.packages :as pkg]
    [gcp.dev.toolchain.emitter :as emitter]
@@ -42,26 +43,8 @@
 
 (defn compile-to-file
   "Compiles a class node and writes the result to the specified output path."
-  [node output-path]
+  [node target-file]
   (let [code (compile-to-string node)]
-    (io/make-parents (io/file output-path))
-    (spit output-path code)
-    output-path))
-
-(defn compile-and-certify
-  "Compiles, certifies (fuzzes), and writes a class to disk.
-   
-   Args:
-     pkg-key: Package keyword (e.g., :vertexai).
-     fqcn: Fully qualified class name.
-     output-path: Target file path.
-     options: Map containing :seed (optional)."
-  [pkg-key fqcn output-path options]
-  (let [cert-result     (fuzz/certify-class pkg-key fqcn (merge options {:timeout-ms 60000}))
-        cert-metadata   {:gcp.dev/certification cert-result}
-        ana-node        (pkg/analyze-class pkg-key fqcn)
-        metadata        cert-metadata
-        code            (compile-to-string ana-node {:metadata metadata})]
-    (io/make-parents (io/file output-path))
-    (spit output-path code)
-    output-path))
+    (io/make-parents (io/file target-file))
+    (spit target-file code)
+    target-file))

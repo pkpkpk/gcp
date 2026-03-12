@@ -1,35 +1,44 @@
 (ns gcp.dev.toolchain.fuzz.generators
-  (:refer-clojure :exclude [boolean int long])
   (:require
-   [clojure.test.check.generators :as gen])
+   [clojure.test.check.generators :as tgen]
+   [gcp.gen :as gen]
+   [gcp.global :as g]
+   [malli.core :as m]
+   [malli.registry :as mr])
   (:import
-   (com.google.protobuf ByteString)))
+   (java.time LocalDate LocalDateTime LocalTime)
+   (java.time.temporal ChronoField ChronoUnit)
+   (org.threeten.extra PeriodDuration)))
 
-(def byte-string
-  (gen/fmap #(ByteString/copyFrom (byte-array %))
-            (gen/vector gen/byte 0 5)))
+(defn with-gen [schema gen]
+  (let [[type props & rest] schema]
+    (into [type (assoc props :gen/gen gen)] rest)))
 
-(def string
-  gen/string-alphanumeric)
+(defn test-registry []
+  (let [global-registry (mr/schemas g/*registry*)]
+    (mr/registry
+      (merge global-registry
+             {:Time           (with-gen (g/instance-schema java.time.LocalTime)
+                                        (tgen/return (.truncatedTo (LocalTime/now) ChronoUnit/MICROS)))
+              :Date           (with-gen (g/instance-schema java.time.LocalDate)
+                                        (tgen/return (LocalDate/now)))
+              :DateTime       (with-gen (g/instance-schema java.time.LocalDateTime)
+                                        (tgen/return (.truncatedTo (LocalDateTime/now) ChronoUnit/MICROS)))
+              :PeriodDuration (with-gen (g/instance-schema org.threeten.extra.PeriodDuration)
+                                        (tgen/return (PeriodDuration/of (java.time.Period/ofDays 1))))
+              :bigint         (with-gen (g/instance-schema java.math.BigInteger)
+                                        (tgen/return (java.math.BigInteger. "1")))
+              :bigdec         (with-gen (g/instance-schema java.math.BigDecimal)
+                                        (tgen/return (bigdec 2.718)))}))))
 
-(def int
-  gen/small-integer)
-
-(def long
-  gen/large-integer)
-
-(def boolean
-  gen/boolean)
-
-(def generators
-  {"com.google.protobuf.ByteString" byte-string
-   "java.lang.String" string
-   "java.lang.Integer" int
-   "int" int
-   "java.lang.Long" long
-   "long" long
-   "java.lang.Boolean" boolean
-   "boolean" boolean})
-
-(defn get-generator [type-name]
-  (get generators type-name))
+(comment
+  (defn certify-custom-binding [sk verify-fn options]
+    (let [reg (test-registry)
+          ;; Update global options to include the new registry for this context
+          mopts (merge (g/mopts) {:registry reg})
+          schema (m/schema (get reg sk) mopts)
+          _ (when-not schema (throw (ex-info "Schema not found" {:sk sk})))
+          pruned-schema (fuzz/prune-read-only-schema schema)
+          ;; Create generator with explicit options
+          generator (gen/generator pruned-schema mopts)]
+      (fuzz/run-certification-protocol sk generator verify-fn options))))

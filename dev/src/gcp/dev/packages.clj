@@ -3,476 +3,72 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as string]
+   [gcp.dev.packages.definitions :as defs]
    [gcp.dev.packages.maven :as mvn]
    [gcp.dev.packages.package :as pkg]
+   [gcp.dev.packages.sync :as sync]
    [gcp.dev.toolchain.analyzer :as analyzer]
    [gcp.dev.toolchain.parser :as parser]
    [gcp.dev.toolchain.shared :as shared]
-   [gcp.dev.util :as u]))
+   [gcp.dev.util :as u])
+  (:import
+   (java.io File)))
 
-(defonce googleapis (u/get-googleapis-repos-path))
-(defonce packages-root (io/file (u/get-gcp-repo-root) "packages"))
+(def global defs/global)
+(def foreign defs/foreign)
+(def packages defs/packages)
 
-(def global
-  {:name         'gcp.global
-   :lib          'com.github.pkpkpk/gcp.global
-   :description  "global malli registry & utilities for gcp bindings"
-   :package-root (io/file packages-root "global")
-   :src-root     (io/file packages-root "global" "src")})
-
-(def foreign
-  {:name         'gcp.foreign
-   :lib          'com.github.pkpkpk/gcp.foreign
-   :description  "bindings for transitive foreign types using in gcp bindings"
-   :package-root (io/file packages-root "foreign")
-   :src-root     (io/file packages-root "foreign" "src")
-   :mappings     '{com.google.cloud.MonitoredResource                                  gcp.foreign.com.google.cloud
-                   com.google.cloud.MonitoredResourceDescriptor                        gcp.foreign.com.google.cloud
-                   com.google.cloud.Policy                                             gcp.foreign.com.google.cloud
-                   com.google.cloud.RetryOption                                        gcp.foreign.com.google.cloud
-                   com.google.longrunning.Operation                                    gcp.foreign.com.google.longrunning
-                   com.google.longrunning.stub.OperationsStub                          gcp.foreign.com.google.longrunning.stub
-                   com.google.longrunning.stub.GrpcOperationsStub                      gcp.foreign.com.google.longrunning.stub
-                   com.google.cloud.FieldSelector                                      gcp.foreign.com.google.cloud
-                   com.google.cloud.ReadChannel                                        gcp.foreign.com.google.cloud
-                   com.google.cloud.Restorable                                         gcp.foreign.com.google.cloud
-                   com.google.cloud.RestorableState                                    gcp.foreign.com.google.cloud
-                   com.google.cloud.Role                                               gcp.foreign.com.google.cloud
-                   com.google.cloud.ServiceFactory                                     gcp.foreign.com.google.cloud
-                   com.google.cloud.ServiceOptions                                     gcp.foreign.com.google.cloud
-                   com.google.cloud.ServiceRpc                                         gcp.foreign.com.google.cloud
-                   com.google.cloud.StringEnumType                                     gcp.foreign.com.google.cloud
-                   com.google.cloud.StringEnumValue                                    gcp.foreign.com.google.cloud
-                   com.google.cloud.TransportOptions                                   gcp.foreign.com.google.cloud
-                   com.google.cloud.Tuple                                              gcp.foreign.com.google.cloud
-                   com.google.cloud.WriteChannel                                       gcp.foreign.com.google.cloud
-                   com.google.cloud.location.Location                                  gcp.foreign.com.google.cloud.location
-                   com.google.cloud.location.GetLocationRequest                        gcp.foreign.com.google.cloud.location
-                   com.google.cloud.location.ListLocationsRequest                      gcp.foreign.com.google.cloud.location
-                   com.google.cloud.location.ListLocationsResponse                     gcp.foreign.com.google.cloud.location
-                   com.google.cloud.spi.ServiceRpcFactory                              gcp.foreign.com.google.cloud.spi
-                   com.google.gson.JsonObject                                          gcp.foreign.com.google.gson
-                   com.google.type.Date                                                gcp.foreign.com.google.type
-                   com.google.type.LatLng                                              gcp.foreign.com.google.type
-                   com.google.common.util.concurrent.ListenableFuture                  gcp.foreign.com.google.common.util.concurrent
-                   com.google.common.collect.ImmutableList                             gcp.foreign.com.google.common.collect
-                   com.google.api.LabelDescriptor                                      gcp.foreign.com.google.api
-                   com.google.api.MonitoredResource                                    gcp.foreign.com.google.api
-                   com.google.api.MonitoredResourceDescriptor                          gcp.foreign.com.google.api
-                   com.google.api.HttpBody                                             gcp.foreign.com.google.api
-                   com.google.api.resourcenames.ResourceName                           gcp.foreign.com.google.api.resourcenames
-                   com.google.api.services.bigquery.model.EncryptionConfiguration      gcp.foreign.com.google.api.services.bigquery.model
-                   com.google.api.services.bigquery.model.ExternalDataConfiguration    gcp.foreign.com.google.api.services.bigquery.model
-                   com.google.api.services.bigquery.model.QueryParameter               gcp.foreign.com.google.api.services.bigquery.model
-                   com.google.api.services.bigquery.model.TrainingRun                  gcp.foreign.com.google.api.services.bigquery.model
-                   com.google.api.services.bigquery.model.UserDefinedFunctionResource  gcp.foreign.com.google.api.services.bigquery.model
-                   com.google.api.core.ApiFuture                                       gcp.foreign.com.google.api.core
-                   com.google.api.core.ApiService                                      gcp.foreign.com.google.api.core
-                   com.google.api.core.AbstractApiService                              gcp.foreign.com.google.api.core
-                   com.google.api.gax.batching.FlowControlSettings                     gcp.foreign.com.google.api.gax.batching
-                   com.google.api.gax.batching.BatchingSettings                        gcp.foreign.com.google.api.gax.batching
-                   com.google.api.gax.paging.Page                                      gcp.foreign.com.google.api.gax.paging
-                   com.google.api.gax.paging.AsyncPage                                 gcp.foreign.com.google.api.gax.paging
-                   com.google.api.gax.longrunning.OperationFuture                      gcp.foreign.com.google.api.gax.longrunning
-                   com.google.api.gax.retrying.RetrySettings                           gcp.foreign.com.google.api.gax.retrying
-                   com.google.api.gax.retrying.ResultRetryAlgorithm                    gcp.foreign.com.google.api.gax.retrying
-                   com.google.api.gax.rpc.BidiStream                                   gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.ClientContext                                gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.grpc.GrpcStubCallableFactory                     gcp.foreign.com.google.api.gax.grpc
-                   com.google.api.gax.httpjson.longrunning.OperationsClient            gcp.foreign.com.google.api.gax.httpjson.longrunning
-                   com.google.api.gax.httpjson.longrunning.stub.OperationsStub         gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
-                   com.google.api.gax.httpjson.longrunning.stub.HttpJsonOperationsStub gcp.foreign.com.google.api.gax.httpjson.longrunning.stub
-                   com.google.api.gax.core.BackgroundResource                          gcp.foreign.com.google.api.gax.core
-                   com.google.api.gax.httpjson.HttpJsonStubCallableFactory             gcp.foreign.com.google.api.gax.httpjson
-                   com.google.api.gax.rpc.ApiClientHeaderProvider                      gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.ApiException                                 gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.BatchingCallSettings                         gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.ClientSettings                               gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.HeaderProvider                               gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.OperationCallSettings                        gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.PageContext                                  gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.PagedCallSettings                            gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.ServerStreamingCallSettings                  gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.StreamingCallSettings                        gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.TransportChannelProvider                     gcp.foreign.com.google.api.gax.rpc
-                   com.google.api.gax.rpc.UnaryCallSettings                            gcp.foreign.com.google.api.gax.rpc
-                   com.google.rpc.Status                                               gcp.foreign.com.google.rpc
-                   com.google.iam.v1.Policy                                            gcp.foreign.com.google.iam.v1
-                   com.google.iam.v1.GetIamPolicyRequest                               gcp.foreign.com.google.iam.v1
-                   com.google.iam.v1.SetIamPolicyRequest                               gcp.foreign.com.google.iam.v1
-                   com.google.iam.v1.TestIamPermissionsRequest                         gcp.foreign.com.google.iam.v1
-                   com.google.iam.v1.TestIamPermissionsResponse                        gcp.foreign.com.google.iam.v1
-                   com.google.auth.Credentials                                         gcp.foreign.com.google.auth
-                   com.google.protobuf.Timestamp                                       gcp.foreign.com.google.protobuf
-                   com.google.protobuf.ByteString                                      gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Any                                             gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Struct                                          gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Value                                           gcp.foreign.com.google.protobuf
-                   com.google.protobuf.ProtocolStringList                              gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Duration                                        gcp.foreign.com.google.protobuf
-                   com.google.protobuf.CodedInputStream                                gcp.foreign.com.google.protobuf
-                   com.google.protobuf.CodedOutputStream                               gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Descriptors                                     gcp.foreign.com.google.protobuf
-                   com.google.protobuf.ExtensionRegistryLite                           gcp.foreign.com.google.protobuf
-                   com.google.protobuf.GeneratedMessageV3                              gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Message                                         gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Parser                                          gcp.foreign.com.google.protobuf
-                   com.google.protobuf.UnknownFieldSet                                 gcp.foreign.com.google.protobuf
-                   com.google.protobuf.BoolValue                                       gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Descriptors.EnumValueDescriptor                 gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Descriptors.FieldDescriptor                     gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Empty                                           gcp.foreign.com.google.protobuf
-                   com.google.protobuf.FieldMask                                       gcp.foreign.com.google.protobuf
-                   com.google.protobuf.LazyStringArrayList                             gcp.foreign.com.google.protobuf
-                   com.google.protobuf.ListValue                                       gcp.foreign.com.google.protobuf
-                   com.google.protobuf.MapField                                        gcp.foreign.com.google.protobuf
-                   com.google.protobuf.RepeatedFieldBuilderV3                          gcp.foreign.com.google.protobuf
-                   com.google.protobuf.SingleFieldBuilderV3                            gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Value.Builder                                   gcp.foreign.com.google.protobuf
-                   org.threeten.extra.PeriodDuration                                   gcp.foreign.org.threeten.extra
-                   org.threeten.bp.Duration                                            gcp.foreign.org.threeten.bp
-                   java.time.format.DateTimeFormatter                                  gcp.foreign.java.time.format
-                   java.util.concurrent.CompletableFuture                              gcp.foreign.java.util.concurrent
-                   java.util.concurrent.TimeUnit                                       gcp.foreign.java.util.concurrent
-                   java.util.logging.Logger                                            gcp.foreign.java.util.logging
-                   java.util.logging.Level                                             gcp.foreign.java.util.logging
-                   java.util.logging.Handler                                           gcp.foreign.java.util.logging
-                   java.util.logging.LogRecord                                         gcp.foreign.java.util.logging
-                   java.util.function.Consumer                                         gcp.foreign.java.util.function
-                   java.util.OptionalLong                                              gcp.foreign.java.util
-                   java.net.URL                                                        gcp.foreign.java.net
-                   java.net.URI                                                        gcp.foreign.java.net
-                   java.io.InputStream                                                 gcp.foreign.java.io
-                   java.io.OutputStream                                                gcp.foreign.java.io
-                   java.io.Closeable                                                   gcp.foreign.java.io
-                   java.io.Serializable                                                gcp.foreign.java.io
-                   java.io.ObjectInputStream                                           gcp.foreign.java.io
-                   java.io.BufferedReader                                              gcp.foreign.java.io
-                   java.io.File                                                        gcp.foreign.java.io
-                   java.io.IOException                                                 gcp.foreign.java.io
-                   java.io.PrintStream                                                 gcp.foreign.java.io
-                   java.io.PrintWriter                                                 gcp.foreign.java.io
-                   java.sql.SQLException                                               gcp.foreign.java.sql
-                   java.sql.ResultSet                                                  gcp.foreign.java.sql
-                   java.time.Duration                                                  gcp.foreign.java.time
-                   java.time.OffsetDateTime                                            gcp.foreign.java.time
-                   java.nio.ByteBuffer                                                 gcp.foreign.java.nio
-                   java.nio.channels.ScatteringByteChannel                             gcp.foreign.java.nio.channels
-                   java.nio.channels.SeekableByteChannel                               gcp.foreign.java.nio.channels
-                   java.nio.channels.WritableByteChannel                               gcp.foreign.java.nio.channels
-                   java.nio.channels.ReadableByteChannel                               gcp.foreign.java.nio.channels
-                   java.nio.charset.Charset                                            gcp.foreign.java.nio.charset
-                   java.nio.file.Path                                                  gcp.foreign.java.nio.file
-                   io.opentelemetry.api.OpenTelemetry                                  gcp.foreign.io.opentelemetry.api
-                   io.opentelemetry.api.common.Attributes                              gcp.foreign.io.opentelemetry.api.common
-                   io.opentelemetry.api.trace.Tracer                                   gcp.foreign.io.opentelemetry.api.trace
-                   java.lang.AutoCloseable                                             gcp.foreign.java.lang
-                   java.lang.Class                                                     gcp.foreign.java.lang
-                   java.lang.Error                                                     gcp.foreign.java.lang
-                   java.lang.Exception                                                 gcp.foreign.java.lang
-                   java.lang.Throwable                                                 gcp.foreign.java.lang
-                   java.lang.StackTraceElement                                         gcp.foreign.java.lang
-                   java.lang.reflect.Method                                            gcp.foreign.java.lang.reflect
-                   java.security.Key                                                   gcp.foreign.java.security
-                   java.security.SecureRandom                                          gcp.foreign.java.security
-                   java.text.SimpleDateFormat                                          gcp.foreign.java.text
-                   java.util.Base64.Encoder                                            gcp.foreign.java.util
-                   java.util.Comparator                                                gcp.foreign.java.util
-                   java.util.Spliterator                                               gcp.foreign.java.util
-                   java.util.concurrent.Executor                                       gcp.foreign.java.util.concurrent
-                   java.util.concurrent.ScheduledExecutorService                       gcp.foreign.java.util.concurrent
-                   java.util.concurrent.ScheduledFuture                                gcp.foreign.java.util.concurrent
-                   java.util.concurrent.atomic.AtomicBoolean                           gcp.foreign.java.util.concurrent.atomic
-                   java.util.concurrent.atomic.AtomicInteger                           gcp.foreign.java.util.concurrent.atomic
-                   java.util.concurrent.locks.Lock                                     gcp.foreign.java.util.concurrent.locks
-                   java.util.function.Function                                         gcp.foreign.java.util.function
-                   java.util.function.Predicate                                        gcp.foreign.java.util.function
-                   java.util.function.Supplier                                         gcp.foreign.java.util.function}})
-
-(def artifact-registry
-  {:name                     'gcp.artifact-registry
-   :lib                      'com.github.pkpkpk/gcp.artifact-registry
-   :description              "edn bindings for the google-cloud-artifact-registry sdk"
-   :package-root             (io/file packages-root "artifact-registry")
-   :type                     :static
-   :discovery-url            "https://artifactregistry.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org       "com.google.cloud"
-   :googleapis/mvn-artifact  "google-cloud-artifact-registry"
-   :googleapis/git-repo      "google-cloud-java"
-   :googleapis/git-repo-root "java-artifact-registry"
-   ; :pinned-version           "1.4.0"
-   :api-roots                ["com.google.devtools.artifactregistry.v1.ArtifactRegistryClient"
-                              "com.google.devtools.artifactregistry.v1.ArtifactRegistrySettings"]
-   :include                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1"
-                              "/proto-google-cloud-artifact-registry-v1/src/main/java/com/google/devtools/artifactregistry/v1"]
-   :exclude                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1/stub"]
-   :package-prefixes          #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
-
-(def monitoring
-  {:name                     'gcp.monitoring
-   :lib                      'com.github.pkpkpk/gcp.monitoring
-   :description              "edn bindings for the google-cloud-monitoring sdk"
-   :package-root             (io/file packages-root "monitoring")
-   :type                     :static
-   :discovery-url            "https://monitoring.googleapis.com/$discovery/rest?version=v3"
-   :googleapis/mvn-org       "com.google.cloud"
-   :googleapis/mvn-artifact  "google-cloud-monitoring"
-   :googleapis/git-repo      "google-cloud-java"
-   :googleapis/git-repo-root "java-monitoring"
-   :api-roots                ["com.google.cloud.monitoring.v3.AlertPolicyServiceClient"
-                              "com.google.cloud.monitoring.v3.AlertPolicyServiceSettings"
-                              "com.google.cloud.monitoring.v3.GroupServiceClient"
-                              "com.google.cloud.monitoring.v3.GroupServiceSettings"
-                              "com.google.cloud.monitoring.v3.MetricServiceClient"
-                              "com.google.cloud.monitoring.v3.MetricServiceSettings"
-                              "com.google.cloud.monitoring.v3.NotificationChannelServiceClient"
-                              "com.google.cloud.monitoring.v3.NotificationChannelServiceSettings"
-                              "com.google.cloud.monitoring.v3.QueryServiceClient"
-                              "com.google.cloud.monitoring.v3.QueryServiceSettings"
-                              "com.google.cloud.monitoring.v3.ServiceMonitoringServiceClient"
-                              "com.google.cloud.monitoring.v3.ServiceMonitoringServiceSettings"
-                              "com.google.cloud.monitoring.v3.SnoozeServiceClient"
-                              "com.google.cloud.monitoring.v3.SnoozeServiceSettings"
-                              "com.google.cloud.monitoring.v3.UptimeCheckServiceClient"
-                              "com.google.cloud.monitoring.v3.UptimeCheckServiceSettings"]
-   :include                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3"
-                              "/proto-google-cloud-monitoring-v3/src/main/java/com/google/monitoring/v3"]
-   :exclude                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3/stub"]
-   :package-prefixes         #{"com.google.cloud.monitoring" "com.google.monitoring" "com.google.monitoring.v3"}})
-
-(def vertexai
-  {:name                     'gcp.vertexai
-   :lib                      'com.github.pkpkpk/gcp.vertexai
-   :description              "edn bindings for the google-cloud-vertexai sdk"
-   :package-root             (io/file packages-root "vertexai")
-   :type                     :static
-   :discovery-url            "https://aiplatform.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org       "com.google.cloud"
-   :googleapis/mvn-artifact  "google-cloud-vertexai"
-   :googleapis/git-repo      "google-cloud-java"
-   :googleapis/git-repo-root "java-vertexai"
-   :api-roots                ["com.google.cloud.vertexai.VertexAI"
-                              "com.google.cloud.vertexai.api.LlmUtilityServiceSettings"
-                              "com.google.cloud.vertexai.api.PredictionServiceSettings"
-                              "com.google.cloud.vertexai.api.EndpointServiceSettings"]
-   :include                  ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/VertexAI.java"
-                              "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api"
-                              "/proto-google-cloud-vertexai-v1/src/main/java/com/google/cloud/vertexai/api"]
-   :exclude                  ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api/stub"]
-   :package-prefixes          #{"com.google.cloud.vertexai" "com.google.vertexai"}})
-
-(def bigquery
-  {:name                      'gcp.bigquery
-   :lib                       'com.github.pkpkpk/gcp.bigquery
-   :description               "edn bindings for the google-cloud-bigquery sdk"
-   :package-root              (io/file packages-root "bigquery")
-   :type                      :static
-   :discovery-url             "https://bigquery.googleapis.com/$discovery/rest?version=v2"
-   :googleapis/mvn-org        "com.google.cloud"
-   :googleapis/mvn-artifact   "google-cloud-bigquery"
-   :googleapis/git-repo       "java-bigquery"
-   :api-roots                 ["com.google.cloud.bigquery.BigQuery"
-                               "com.google.cloud.bigquery.BigQueryOptions"
-                               "com.google.cloud.bigquery.JobStatistics"]
-   :custom-namespace-mappings '{com.google.cloud.bigquery.QueryParameterValue   gcp.bigquery.custom.QueryParameterValue
-                                com.google.cloud.bigquery.TableResult           gcp.bigquery.custom.TableResult
-                                com.google.cloud.bigquery.FieldValue            gcp.bigquery.custom.TableResult
-                                com.google.cloud.bigquery.FieldValueList        gcp.bigquery.custom.TableResult
-                                com.google.cloud.bigquery.Range                 gcp.bigquery.custom.TableResult
-                                com.google.cloud.bigquery.Dataset               gcp.bigquery.custom.Dataset
-                                com.google.cloud.bigquery.Job                   gcp.bigquery.custom.Job
-                                com.google.cloud.bigquery.JobStatistics         gcp.bigquery.custom.JobStatistics
-                                com.google.cloud.bigquery.Model                 gcp.bigquery.custom.Model
-                                com.google.cloud.bigquery.Routine               gcp.bigquery.custom.Routine
-                                com.google.cloud.bigquery.Table                 gcp.bigquery.custom.Table
-                                com.google.cloud.bigquery.StandardSQLDataType   gcp.bigquery.custom.StandardSQL
-                                com.google.cloud.bigquery.StandardSQLStructType gcp.bigquery.custom.StandardSQL
-                                com.google.cloud.bigquery.StandardSQLField      gcp.bigquery.custom.StandardSQL
-                                com.google.cloud.bigquery.StandardSQLTypeName   gcp.bigquery.custom.StandardSQL}
-   :opaque-types              #{"com.google.cloud.bigquery.Option"}
-   :exempt-types              #{"com.google.cloud.bigquery.TableDataWriteChannel"
-                                "com.google.cloud.bigquery.BigQueryRetryAlgorithm"
-                                "com.google.cloud.bigquery.BigQueryRetryHelper"
-                                "com.google.cloud.bigquery.BigQueryFactory"
-                                "com.google.cloud.bigquery.BigQueryResultImpl"
-                                "com.google.cloud.bigquery.BigQueryResultStatsImpl"}
-   :collection-wrappers       {'com.google.cloud.bigquery.FieldList ['java.util.List 'com.google.cloud.bigquery.Field]}
-   :include                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
-   :exclude                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
-                               "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
-   :package-prefixes          #{"com.google.cloud.bigquery"}})
-
-(def genai
-  {:name                    'gcp.genai
-   :lib                     'com.github.pkpkpk/gcp.genai
-   :description             "edn bindings for the google-genai sdk"
-   :package-root            (io/file packages-root "genai")
-   :type                    :static
-   :discovery-url           "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta"
-   :googleapis/mvn-org      "com.google.genai"
-   :googleapis/mvn-artifact "google-genai"
-   :googleapis/git-repo     "java-genai"
-   :api-roots               ["com.google.genai.Client"]
-   :package-prefixes         #{"com.google.genai"}
-   :include                 ["/src/main/java/com/google/genai"]})
-
-(def logging
-  {:name                    'gcp.logging
-   :lib                     'com.github.pkpkpk/gcp.logging
-   :description             "edn bindings for the google-cloud-logging sdk"
-   :package-root            (io/file packages-root "logging")
-   :type                    :static
-   :discovery-url           "https://logging.googleapis.com/$discovery/rest?version=v2"
-   :googleapis/mvn-org      "com.google.cloud"
-   :googleapis/mvn-artifact "google-cloud-logging"
-   :googleapis/git-repo     "java-logging"
-   :api-roots               ["com.google.cloud.logging.Logging"
-                             "com.google.cloud.logging.LoggingOptions"]
-   :package-prefixes         #{"com.google.cloud.logging" "com.google.logging"}
-   :include                 ["/google-cloud-logging/src/main/java/com/google/cloud/logging"
-                             "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2"
-                             "/proto-google-cloud-logging-v2/src/main/java/com/google/logging/v2"]
-   :exclude                 ["/google-cloud-logging/src/main/java/com/google/cloud/logging/spi"
-                             "/google-cloud-logging/src/main/java/com/google/cloud/logging/testing"
-                             "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2/stub"]})
-
-(def pubsub
-  {:name                    'gcp.pubsub
-   :lib                     'com.github.pkpkpk/gcp.pubsub
-   :description             "edn bindings for the google-cloud-pubsub sdk"
-   :package-root            (io/file packages-root "pubsub")
-   :type                    :static
-   :discovery-url           "https://pubsub.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org      "com.google.cloud"
-   :googleapis/mvn-artifact "google-cloud-pubsub"
-   :googleapis/git-repo     "java-pubsub"
-   :api-roots               ["com.google.cloud.pubsub.v1.TopicAdminClient"
-                             "com.google.cloud.pubsub.v1.TopicAdminSettings"
-                             "com.google.cloud.pubsub.v1.SubscriptionAdminClient"
-                             "com.google.cloud.pubsub.v1.SubscriptionAdminSettings"
-                             "com.google.cloud.pubsub.v1.SchemaServiceClient"
-                             "com.google.cloud.pubsub.v1.SchemaServiceSettings"
-                             "com.google.cloud.pubsub.v1.Subscriber"
-                             "com.google.cloud.pubsub.v1.Publisher"]
-   :package-prefixes         #{"com.google.cloud.pubsub" "com.google.pubsub" "com.google.pubsub.v1"}
-   :include                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1"
-                             "/proto-google-cloud-pubsub-v1/src/main/java/com/google/pubsub/v1"]
-   :exclude                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1/stub"]})
-
-(def storage
-  {:name                    'gcp.storage
-   :lib                     'com.github.pkpkpk/gcp.storage
-   :description             "edn bindings for the google-cloud-storage sdk"
-   :package-root            (io/file packages-root "storage")
-   :type                    :static
-   :discovery-url           "https://storage.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org      "com.google.cloud"
-   :googleapis/mvn-artifact "google-cloud-storage"
-   :googleapis/git-repo     "java-storage"
-   :api-roots               ["com.google.cloud.storage.Storage"
-                             "com.google.cloud.storage.StorageOptions"]
-   :include                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/multipartupload/model"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/transfermanager"]
-   :exclude                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage/ZeroCopySupport.java"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/testing"]
-   :package-prefixes         #{"com.google.cloud.storage"}})
-
-(def storage-control
-  {:name                    'gcp.storage-control
-   :lib                     'com.github.pkpkpk/gcp.storage-control
-   :description             "edn bindings for the google-cloud-storage-control sdk"
-   :package-root            (io/file packages-root "storage-control")
-   :type                    :static
-   :googleapis/mvn-org      "com.google.cloud"
-   :googleapis/mvn-artifact "google-cloud-storage-control"
-   :googleapis/git-repo     "java-storage"
-   :api-roots               ["com.google.storage.control.v2.StorageControlClient"
-                             "com.google.storage.control.v2.StorageControlSettings"]
-   :include                 ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2"
-                             "/proto-google-cloud-storage-control-v2/src/main/java/com/google/storage/control/v2"]
-   :exclude                 ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2/stub"]
-   :package-prefixes         #{"com.google.storage.control"}})
+(def vertexai defs/vertexai)
+(def bigquery defs/bigquery)
+(def pubsub defs/pubsub)
+(def storage defs/storage)
+(def storage-control defs/storage-control)
+(def logging defs/logging)
+(def genai defs/genai)
+(def monitoring defs/monitoring)
+(def artifact-registry defs/artifact-registry)
 
 #!----------------------------------------------------------------------------------------------------------------------
 
-(def packages
-  {:vertexai vertexai
-   :bigquery bigquery
-   :pubsub pubsub
-   :storage storage
-   :storage-control storage-control
-   :logging logging
-   :genai genai
-   :monitoring monitoring
-   :artifact-registry artifact-registry})
+(defn as-pkg [pkg-like]
+  (if (keyword? pkg-like)
+    (or (get packages pkg-like)
+        (throw (Exception. (str "unknown package key " pkg-like))))
+    pkg-like))
 
-#!----------------------------------------------------------------------------------------------------------------------
+(defn update-package-deps [pkg-like]
+  (sync/update-package-deps (as-pkg pkg-like)))
 
-(defn latest-release [arg]
-  (if (keyword? arg)
-    (latest-release (get packages arg))
-    (let [{:keys [googleapis/mvn-org googleapis/mvn-artifact]} arg]
-      (mvn/latest-release mvn-org mvn-artifact))))
+(defn update-all-deps
+  "Updates deps.edn for all registered packages."
+  []
+  (doseq [pkg-key (keys packages)]
+    (update-package-deps pkg-key)))
 
-#!----------------------------------------------------------------------------------------------------------------------
+(defn status [pkg-like]
+  (sync/status (as-pkg pkg-like)))
 
-(defn manifest-path
-  "Returns the path to the manifest.edn file for a given package."
-  [pkg-like]
-  (let [pkg-def (if (keyword? pkg-like) (get packages pkg-like) pkg-like)]
-    (io/file (:package-root pkg-def) "manifest.edn")))
+(defn needs-sync? [pkg-like]
+  (sync/needs-sync? (as-pkg pkg-like)))
 
-(defn load-manifest
-  "Loads the manifest.edn for a package, returning nil if it doesn't exist."
-  [pkg-like]
-  (let [f (manifest-path pkg-like)]
-    (when (.exists f)
-      (edn/read-string (slurp f)))))
-
-(defn save-manifest
-  "Saves the given manifest map to the package's manifest.edn file."
-  [pkg-like manifest]
-  (let [f (manifest-path pkg-like)]
-    (io/make-parents f)
-    (spit f (with-out-str (clojure.pprint/pprint manifest)))))
+(defn sync-to-release [pkg-like]
+  (sync/sync-to-release (as-pkg pkg-like)))
 
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn clear-cache [] (parser/clear-cache))
 
 (defn package-root [pkg-like]
-  (let [{:keys [googleapis/git-repo googleapis/git-repo-root]} (if (keyword? pkg-like) (get packages pkg-like) pkg-like)]
-    (if-let [override (:override-root pkg-like)]
-      (if git-repo-root
-        (io/file override git-repo-root)
-        override)
-      (if (keyword? pkg-like)
-        (package-root (get packages pkg-like))
-        (if git-repo-root
-          (io/file googleapis git-repo git-repo-root)
-          (io/file googleapis git-repo))))))
+  (:package-root (as-pkg pkg-like)))
 
-(defn- resolve-package-files
-  [{:keys [include exclude] :as pkg}]
-  (let [root      (package-root pkg)
-        excludes  (map #(io/file root (subs % 1)) exclude)
-        includes  (map #(io/file root (subs % 1)) include)
-        all-files (mapcat (fn [f]
-                            (let [exists? (.exists f)]
-                              (if (.isDirectory f)
-                                (filter #(string/ends-with? (.getName %) ".java") (file-seq f))
-                                (if (and (.isFile f) (string/ends-with? (.getName f) ".java"))
-                                  [f]
-                                  []))))
-                          includes)]
-    (filter (fn [f]
-              (let [abs-path (.getAbsolutePath f)]
-                (not-any? (fn [ex]
-                            (string/starts-with? abs-path (.getAbsolutePath ex)))
-                          excludes)))
-            all-files)))
+(defn manifest
+  "Reads the manifest.edn file for the given package.
+   Returns the manifest map or nil if not found."
+  [pkg-like]
+  (let [root (package-root pkg-like)
+        manifest-file (io/file root "manifest.edn")]
+    (when (.exists manifest-file)
+      (edn/read-string (slurp manifest-file)))))
 
 (defn parse
   "Analyzes a package specified by keyword (e.g. :bigquery), static definition map, or path string.
@@ -483,21 +79,8 @@
     (if-let [pkg-def (get packages pkg-like)]
       (parse pkg-def)
       (throw (ex-info "Unknown package keyword" {:package pkg-like :available (keys packages)})))
-
     (map? pkg-like)
-    (if (= (:type pkg-like) :parsed)
-      pkg-like
-      (let [files   (resolve-package-files pkg-like)
-            options {:exempt-types (:exempt-types pkg-like)}
-            pkg-ast (parser/analyze-package (package-root pkg-like) files options)
-            forwarded-keys [:name
-                            :package-prefixes
-                            :custom-namespace-mappings
-                            :collection-wrappers
-                            :exempt-types
-                            :opaque-types]]
-        (merge (assoc pkg-ast :type :parsed)
-               (select-keys pkg-like forwarded-keys))))
+    (pkg/parse pkg-like)
     :else
     (throw (ex-info "Invalid argument to parse" {:arg pkg-like}))))
 
@@ -521,6 +104,36 @@
    (let [pkg (parse pkg-like)]
      (when-let [node (pkg/lookup-class pkg class-like)]
        (into (sorted-map) node)))))
+
+(defn target-file
+  ([class-like]
+   (if (symbol? class-like)
+     (target-file (str class-like))
+     (when-let [pkg-key (lookup-pkg-key class-like)]
+       (target-file pkg-key class-like))))
+  ([pkg-like class-like]
+   (let [pkg (parse pkg-like)]
+     (when-let [node (pkg/lookup-class pkg class-like)]
+       (pkg/fqcn->target-file pkg (:fqcn node))))))
+
+(defn target-file->fqcn
+  ([file]
+   (let [path (if (instance? File file)
+                (.getPath file)
+                (str file))
+         pkg-key (cond
+                   (and (string/includes? path "bigquery")
+                        (not (string/includes? path "services"))) :bigquery
+                   (and (string/includes? path "bigquery")
+                        (string/includes? path "services")) :bigquery-services
+                   (string/includes? path "vertexai") :vertexai
+                   (string/includes? path "storage") :storage
+                   true
+                   (throw (Exception. "TODO")))]
+     (target-file->fqcn pkg-key file)))
+  ([pkg-like file]
+   (let [pkg (parse pkg-like)]
+     (pkg/target-file->fqcn pkg file))))
 
 (defn package-api-types
   "returns sorted list of all binding targets for the given package"
@@ -560,7 +173,7 @@
    (assert (some? pkg-like))
    (if-let [{:keys [custom-namespace-mappings exempt-types] :as pkg} (parse pkg-like)]
      (if-let [{:keys [fqcn] :as class-node} (lookup-class pkg class-like)]
-       (if (contains? custom-namespace-mappings fqcn)
+       (if (contains? custom-namespace-mappings (symbol fqcn))
          (throw (Exception. (str "Class " fqcn " is listed as custom override and is exempt from analysis")))
          (if (contains? exempt-types fqcn)
            (throw (Exception. (str "Class " fqcn " is listed as exempt-type and is exempt from analysis")))
@@ -587,10 +200,12 @@
   (let [pkg (parse pkg-like)]
     (reduce
       (fn [acc fqcn]
-        (let [{:keys [category]} (lookup-class pkg fqcn)]
-          (if (contains? acc category)
-            (update-in acc [category] conj fqcn)
-            (assoc acc category (sorted-set fqcn)))))
+        (if (u/nested-fqcn? fqcn)
+          acc
+          (let [{:keys [category]} (lookup-class pkg fqcn)]
+            (if (contains? acc category)
+              (update-in acc [category] conj fqcn)
+              (assoc acc category (sorted-set fqcn))))))
       (sorted-map)
       (package-api-types pkg))))
 
@@ -598,3 +213,35 @@
   (reduce
     (partial merge-with into)
     (map api-types-by-category (keys packages))))
+
+(defn require-graph [fqcn]
+  (let [visited (atom {})]
+    (letfn [(visit [curr]
+              (let [curr-fqcn (str curr)]
+                (when-not (contains? @visited curr-fqcn)
+                  (let [node (analyze-class curr-fqcn)
+                        requires (into (sorted-set) (map str) (keys (:require-types node)))]
+                    (swap! visited assoc curr-fqcn requires)
+                    (doseq [dep requires]
+                      (visit dep))))))]
+      (visit fqcn)
+      @visited)))
+
+(defn topological-order [fqcn]
+  (let [graph (require-graph fqcn)
+        visited (atom #{})
+        visiting (atom #{})
+        stack (atom [])]
+    (letfn [(visit [node]
+              (if (contains? @visiting node)
+                (throw (ex-info "Circular dependency detected" {:node node :visiting @visiting}))
+                (when-not (contains? @visited node)
+                  (swap! visiting conj node)
+                  (doseq [dep (get graph node)]
+                    (visit dep))
+                  (swap! visiting disj node)
+                  (swap! visited conj node)
+                  (swap! stack conj node))))]
+      (doseq [node (keys graph)]
+        (visit node))
+      @stack)))

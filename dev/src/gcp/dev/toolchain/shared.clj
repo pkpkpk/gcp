@@ -1,6 +1,8 @@
 (ns gcp.dev.toolchain.shared
-  (:require [clojure.core.match :refer [match]]
-            [clojure.set :as set]))
+  (:require
+   [clojure.core.match :refer [match]]
+   [clojure.set :as set]
+   [gcp.dev.util :as u]))
 
 #! IT IS FORBIDDEN TO MODIFY THIS SET WITHOUT ELICITING USER FOR APPROVAL
 (def categories
@@ -13,12 +15,14 @@
     :factory
     :functional-interface
     :interface
+    :mutable-pojo
     :pojo
     :read-only
     :resource-extended
     :sentinel
     :static-factory
-    :statics
+    :static-utilities
+    :static-variants
     :string-enum
     :union-abstract
     :union-concrete
@@ -36,8 +40,12 @@
     :nested/enum
     :nested/factory
     :nested/pojo
+    :nested/mutable-pojo
+    :nested/variant-pojo
     :nested/read-only
-    :nested/statics
+    :nested/static-utilities
+    :nested/static-variants
+    :nested/client-options
     :nested/static-factory
     :nested/string-enum
     :nested/union-abstract
@@ -63,34 +71,27 @@
            [T A B]                                           [(categorize-type deps T) (categorize-type deps A) (categorize-type deps B)]
            :else (throw (ex-info (str "unknown vector type representation: " t) {:deps deps :param-type t})))
     (cond
-      ('#{java.lang.String
-          java.util.UUID
-          java.util.regex.Pattern
-          void java.lang.Void
-          double java.lang.Double
-          long java.lang.Long
-          int java.lang.Integer
-          byte java.lang.Byte
-          char java.lang.Char
-          float java.lang.Float
-          java.time.Instant
-          java.lang.Object
-          boolean java.lang.Boolean
-          java.math.BigInteger
-          java.math.BigDecimal} t) :scalar
+      (contains? (:scalars deps) t) :scalar
+
+      (contains? (:native deps) t) :native
 
       ('#{?} t)
       :generic
 
-      (contains? (:collection-wrappers deps) t)
-      [:collection-wrapper (categorize-type deps (get-in deps [:collection-wrappers t]))]
-
       (contains? (:custom-mappings deps) t)
       :custom
+
+      (u/enum? t)
+      :enum
+
       (contains? (:foreign-mappings deps) t)
       :foreign
       (get (:peer-mappings deps) t)
-      :peer
+      (if (u/nested-fqcn? t)
+        :peer/nested
+        :peer)
+      (contains? (:sibling deps) t)
+      :sibling
       (contains? (:nested deps) t)
       :nested
       (= t (:self deps))

@@ -4,12 +4,15 @@
    [clojure.reflect]
    [clojure.string :as string]
    [edamame.core :as edamame]
+   [hasch.core :as hasch]
    [rewrite-clj.node :as n]
    [rewrite-clj.parser :as p]
    [rewrite-clj.zip :as z]
    [zprint.core :as zp]))
 
 (set! *print-namespace-maps* false)
+
+(defn hasch [arg] (str (hasch/uuid arg)))
 
 (defn relative-path [base f]
   (let [base-path (.getAbsolutePath (io/file base))
@@ -141,7 +144,7 @@
 (defn binding-ns
   [package-name package-prefixes fqcn]
   (let [package-base (package-to-ns package-name)
-        [prefix] (filter #(string/starts-with? fqcn %) (reverse (sort-by count package-prefixes)))
+        [prefix] (filter #(string/starts-with? (str fqcn) %) (reverse (sort-by count package-prefixes)))
         _ (assert (some? prefix))
         postfix (subs (name fqcn) (count prefix))]
     (symbol (str (name package-base) postfix))))
@@ -172,6 +175,48 @@
    (let [{:keys [package class]} (split-fqcn fqcn)]
      (keyword (name (package-to-ns package foreign?)) class))))
 
+(defn custom-schema-key [custom-ns]
+  (let [{:keys [package class]} (split-fqcn (str custom-ns))]
+    (keyword package class)))
+
+(defn schema-key
+  [{:keys [custom-mappings foreign-mappings peer-mappings nested self sibling] :as deps} fqcn]
+  (assert (or (symbol? fqcn) (string? fqcn)))
+  (let [t (symbol fqcn)]
+    (cond
+      (= self t)
+      (fqcn->schema-key fqcn)
+
+      (contains? nested t)
+      (fqcn->schema-key fqcn)
+
+      (contains? sibling t)
+      (fqcn->schema-key fqcn)
+
+      (contains? peer-mappings t)
+      (fqcn->schema-key fqcn)
+
+      (contains? foreign-mappings t)
+      (fqcn->schema-key fqcn true)
+
+      (contains? custom-mappings t)
+      (let [{:keys [package class nested parent-fqcn] :as split} (split-fqcn fqcn)
+            target-ns (get custom-mappings t)
+            alias-name (last (string/split (name target-ns) #"\."))]
+        (if (nil? nested)
+          (if (= alias-name class)
+            (let [{:keys [package class]} (split-fqcn (str target-ns))]
+              (keyword package class))
+            (keyword (str target-ns) class))
+          (let [{parent-class :class} (split-fqcn parent-fqcn)]
+            (if (= alias-name parent-class)
+              (let [key-ns (string/join "." (butlast (string/split (str target-ns) #"\.")))]
+                (keyword key-ns class))
+              (throw (Exception. "TODO"))))))
+
+      :else
+      (throw (ex-info "could not resolve fqcn" {:deps deps :fqcn fqcn})))))
+
 (defn infer-foreign-ns [fqcn]
   (let [{:keys [package]} (split-fqcn fqcn)]
     (symbol (str "gcp.foreign." package))))
@@ -200,8 +245,13 @@
         (merge (meta name-sym)
                (when (map? maybe-map) maybe-map))))))
 
+(defn- indent-str [s indent]
+  (let [lines (string/split-lines s)
+        spaces (apply str (repeat indent \space))]
+    (string/join "\n" (cons (first lines) (map #(str spaces %) (rest lines))))))
+
 (defn update-ns-metadata [source metadata-key metadata-val]
-  (let [zloc (z/of-string source)
+  (let [zloc (z/of-string source {:track-position? true})
         ;; find (ns ...)
         ns-loc (z/find-value zloc z/next 'ns)
         ;; name is next sibling
@@ -210,21 +260,22 @@
         next-loc (z/right name-loc)]
     (if (and next-loc (z/map? next-loc))
       ;; Update existing metadata map
-      (let [existing-map (z/sexpr next-loc)
-            updated-map-data (assoc existing-map metadata-key metadata-val)
+      (let [col (dec (second (z/position next-loc)))
+            existing-map (z/sexpr next-loc)
+            updated-map-data (into (sorted-map) (assoc existing-map metadata-key metadata-val))
             formatted-map-str (zp/zprint-str updated-map-data {:map {:comma? false}})
-            formatted-map-node (p/parse-string formatted-map-str)
-            updated-zip (z/replace next-loc formatted-map-node)]
-        (z/root-string (if (z/linebreak? (z/left updated-zip))
-                         updated-zip
-                         (z/insert-left updated-zip (n/newline-node "\n")))))
+            indented-map-str (indent-str formatted-map-str col)
+            formatted-map-node (p/parse-string indented-map-str)]
+        (z/root-string (z/replace next-loc formatted-map-node)))
       ;; Insert new metadata map after name
-      (let [new-map-str (zp/zprint-str {metadata-key metadata-val} {:map {:comma? false}})
-            new-map-node (p/parse-string new-map-str)
-            updated-ns (-> name-loc
-                           (z/insert-right new-map-node)
-                           (z/insert-newline-right))]
-        (z/root-string updated-ns)))))
+      (let [indent 2
+            new-map-str (zp/zprint-str (sorted-map metadata-key metadata-val) {:map {:comma? false}})
+            indented-map-str (indent-str new-map-str indent)
+            new-map-node (p/parse-string indented-map-str)]
+        (z/root-string
+          (-> name-loc
+              (z/insert-right new-map-node)
+              (z/insert-right (n/whitespace-node "\n  "))))))))
 
 (defn ns-meta
   [ns-sym]
@@ -401,3 +452,26 @@
         0))))
 
 (defonce reflect (memoize (fn [class-like] (clojure.reflect/reflect (as-class class-like)))))
+
+(defn fqcn->java-name [fqcn]
+  (let [{:keys [package class]} (split-fqcn (name fqcn))]
+    (str package "." (string/replace class "." "$"))))
+
+(defn enum? [fqcn]
+  (try
+    (or (.isEnum (Class/forName (fqcn->java-name fqcn)))
+        (= "class com.google.cloud.StringEnumValue"
+           (str (.getSuperclass (Class/forName (fqcn->java-name fqcn))))))
+    (catch Exception _ false)))
+
+(defn enum-values [fqcn]
+  (when-not (enum? fqcn)
+    (throw (Exception. (str fqcn " is not an enum"))))
+  (let [c (Class/forName (fqcn->java-name fqcn))]
+    (if (.isEnum c)
+      (->> (.getEnumConstants c)
+           (map #(.name %))
+           (remove #{"UNRECOGNIZED"}))
+      (let [values-method (.getMethod c "values" (into-array Class []))
+            values        (.invoke values-method nil (into-array Object []))]
+        (map #(.name %) (seq values))))))

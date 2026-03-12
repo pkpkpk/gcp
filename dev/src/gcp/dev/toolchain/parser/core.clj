@@ -165,6 +165,14 @@
         (.getAbsolutePath d)
         (recur (.getParent d))))))
 
+(defn flatten-nodes
+  "Recursively flattens a tree of AST nodes (with :nested types) into a flat sequence."
+  [nodes]
+  (mapcat (fn [node]
+            (cons node
+                  (flatten-nodes (:nested node))))
+          nodes))
+
 (defn analyze-package
   "Analyzes a package (directory of Java files).
    Orchestrates parsing of individual files (cached), and aggregates the results into a package AST.
@@ -189,7 +197,40 @@
             (analyze-package path files options))))
       (do
         (tel/log! :debug "Package cache miss. Analyzing package...")
-        (let [;; To find the "root" package of the artifact, we look for files with the shortest path.
+        (let [;; Create a map of directory -> set of simple class names (peers)
+              ;; This ensures that we only consider classes in the SAME directory/package as peers,
+              ;; avoiding issues with name collisions across sibling/nested packages.
+              dir-peers (reduce
+                          (fn [acc file]
+                            (if (string/ends-with? (.getName file) ".java")
+                              (let [dir (.getAbsolutePath (.getParentFile file))
+                                    name (let [n (.getName file)] (subs n 0 (- (count n) 5)))]
+                                (update acc dir (fnil conj #{}) name))
+                              acc))
+                          {}
+                          files)
+
+              ;; Scan for nested types to resolve inherited nested classes (e.g. Type in TableDefinition)
+              nested-peers (reduce
+                             (fn [acc file]
+                               (if (string/ends-with? (.getName file) ".java")
+                                 (try
+                                   (let [dir (.getAbsolutePath (.getParentFile file))
+                                         cu (StaticJavaParser/parse (FileInputStream. file))
+                                         nested-map (ast/scan-nested-types cu)]
+                                     (if (seq nested-map)
+                                       (update acc dir (fnil merge {}) nested-map)
+                                       acc))
+                                   (catch Exception e
+                                     (tel/log! :warn ["Failed to scan nested types for" (.getName file) ":" (.getMessage e)])
+                                     acc))
+                                 acc))
+                             {}
+                             files)
+
+              options-with-peers (assoc options :dir-peers dir-peers :nested-peers nested-peers)
+
+              ;; To find the "root" package of the artifact, we look for files with the shortest path.
               ;; We scan until we find one that yields a valid package declaration.
               sorted-files (->> files
                                 (remove #(let [n (.getName %)]
@@ -197,7 +238,7 @@
                                                (string/ends-with? n "package-info.java"))))
                                 (sort-by #(count (.getPath %))))
               package-name (some (fn [f]
-                                   (let [nodes (parse-file-cached (.getPath f) options)]
+                                   (let [nodes (parse-file-cached (.getPath f) options-with-peers)]
                                      (:package (first nodes))))
                                  sorted-files)
               ;; We still look for package-info.java for documentation, preferentially the one at the root
@@ -212,21 +253,20 @@
 
               class-name-map (time-stage "Parsing Classes (Cached)"
                                (reduce (fn [acc f]
-                                         (let [res (parse-file-cached (.getPath f) options)]
+                                         (let [res (parse-file-cached (.getPath f) options-with-peers)]
                                            (if (seq res)
-                                             (reduce (fn [inner-acc type-node]
-                                                       (let [p (:package type-node)
-                                                             n (:className type-node)
-                                                             key-str (if (and package-name p
-                                                                              (string/starts-with? p package-name))
-                                                                       (let [suffix (subs p (count package-name))]
-                                                                         (if (string/blank? suffix)
-                                                                           n
-                                                                           (str (subs suffix 1) "." n)))
-                                                                       n)]
-                                                         (assoc inner-acc key-str type-node)))
+                                             (reduce (fn [inner-acc node]
+                                                       (let [fqcn (:fqcn node)
+                                                             key-str (if (and package-name fqcn
+                                                                              (string/starts-with? fqcn package-name))
+                                                                       (let [suffix (subs fqcn (count package-name))]
+                                                                         (if (string/starts-with? suffix ".")
+                                                                           (subs suffix 1)
+                                                                           suffix))
+                                                                       (or fqcn (:className node)))]
+                                                         (assoc inner-acc key-str node)))
                                                      acc
-                                                     res)
+                                                     (flatten-nodes res))
                                              acc)))
                                        {}
                                        files))
@@ -272,6 +312,15 @@
                                                   node')))
                               acc))
                           by-fqcn
+                          by-fqcn))
+              by-fqcn (letfn [(sync-nested [node]
+                                (if (seq (:nested node))
+                                  (assoc node :nested (mapv #(sync-nested (get by-fqcn (:fqcn %))) (:nested node)))
+                                  node))]
+                        (reduce-kv
+                          (fn [acc fqcn node]
+                            (assoc acc fqcn (sync-nested node)))
+                          {}
                           by-fqcn))
               service-clients (->> (vals class-name-map)
                                    (filter #(= (:category %) :client))

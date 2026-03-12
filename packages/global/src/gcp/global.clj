@@ -1,4 +1,5 @@
 (ns gcp.global
+  (:refer-clojure :exclude [merge])
   (:require
     clojure.string
     [malli.core :as m]
@@ -8,10 +9,11 @@
     [malli.util :as mu]
     [sci.core :as sci])
   (:import
-    (clojure.lang ExceptionInfo)))
+    (clojure.lang ExceptionInfo)
+    (java.time LocalTime LocalDate LocalDateTime)
+    (org.threeten.extra PeriodDuration)))
 
-(def *classes (atom {'java.lang.reflect.Modifier java.lang.reflect.Modifier
-                     'java.lang.reflect.Method   java.lang.reflect.Method}))
+(def *classes (atom {}))
 
 (defn- parse-class-symbol [class-symbol]
   (if (simple-symbol? class-symbol)
@@ -22,25 +24,29 @@
       [(symbol (namespace class-symbol)) (Integer/parseInt nest)])))
 
 (defmacro instance-schema
-  [class-symbol]
-  (assert (symbol? class-symbol))
-  (let [[scalar-sym array-nest] (parse-class-symbol class-symbol)
-        scalar-class (eval `(import ~scalar-sym))
-        array-class (when array-nest
-                      (loop [i array-nest
-                             class scalar-class]
-                        (if (zero? i)
-                          class
-                          (recur (dec i) (.arrayType class)))))]
-    (when-not (contains? @*classes scalar-class)
-      (swap! *classes assoc scalar-sym scalar-class))
-    (when array-class
-      (when-not (contains? @*classes array-class)
-        (swap! *classes assoc class-symbol array-class)))
-    `[:fn
-      {:error/message (str "not an instance of "  ~class-symbol)}
-      (~'fn [~'v] (~'instance? ~class-symbol ~'v))]))
-
+  "Given fully qualified class symbol, create a instance predicate schema.
+   This will register the class into the global sci environment"
+  ([class-symbol]
+   `(instance-schema nil ~class-symbol))
+  ([properties class-symbol]
+   (assert (symbol? class-symbol))
+   (when properties (assert (map? properties)))
+   (let [[scalar-sym array-nest] (parse-class-symbol class-symbol)
+         scalar-class (eval `(import ~scalar-sym))
+         array-class  (when array-nest
+                        (loop [i     array-nest
+                               class scalar-class]
+                          (if (zero? i)
+                            class
+                            (recur (dec i) (.arrayType class)))))
+         props (clojure.core/merge
+                 {:error/message (str "not an instance of " class-symbol)}
+                 properties)]
+     (when-not (contains? @*classes scalar-class)
+       (swap! *classes assoc scalar-sym scalar-class))
+     (when (and array-class (not (contains? @*classes array-class)))
+       (swap! *classes assoc class-symbol array-class))
+     `[:fn ~props (quote (~'fn [~'v] (~'instance? ~class-symbol ~'v)))])))
 
 (def built-in-schemas
   {:bigint (instance-schema java.math.BigInteger)
@@ -49,7 +55,12 @@
    :inst 'inst?
    :float [:double {:min -3.4028235E38 :max 3.4028235E38}]
    :byte [:int {:min -128 :max 127}]
-   :char 'char?})
+   :char 'char?
+   :Timestamp 'inst?
+   :Time      (instance-schema java.time.LocalTime)
+   :Date      (instance-schema java.time.LocalDate)
+   :DateTime  (instance-schema java.time.LocalDateTime)
+   :PeriodDuration (instance-schema org.threeten.extra.PeriodDuration)})
 
 (defonce ^:dynamic *strict-mode* true)
 (defonce ^:dynamic *dbg* false)
@@ -72,10 +83,34 @@
     (sequential? v) (vec v)
     :else [v]))
 
-(defn get-private-field [obj field-name]
-  (let [f (.getDeclaredField (class obj) field-name)]
-    (.setAccessible f true)
-    (.get f obj)))
+(defn get-private-field
+  [obj field-name]
+  (loop [clazz (class obj)]
+    (if-not clazz
+      (throw (NoSuchFieldException. (str "Field " field-name " not found in class hierarchy.")))
+      (if-let [f (try
+                   (.getDeclaredField clazz field-name)
+                   (catch NoSuchFieldException _ nil))]
+        (do
+          (.setAccessible f true)
+          (.get f obj))
+        (recur (.getSuperclass clazz))))))
+
+(defn invoke-private-method
+  "Invokes a no-arg private or package-private method on obj."
+  [obj method-name]
+  (loop [clazz (class obj)]
+    (if-not clazz
+      (throw (NoSuchMethodException. (str "Method " method-name " not found in class hierarchy.")))
+      (if-let [m (try
+                   (.getDeclaredMethod clazz method-name (into-array Class []))
+                   (catch NoSuchMethodException _ nil))]
+        (do
+          (.setAccessible m true)
+          (.invoke m obj (object-array 0)))
+        (recur (.getSuperclass clazz))))))
+
+(defn get-all-schemas [] (mr/schemas *registry*))
 
 (defn get-schema [key] (get (mr/schemas *registry*) key))
 
@@ -126,7 +161,7 @@
   (if-let [{registry-name ::name} (meta registry)]
     (do
       (assert-registry-keys! registry registry-name)
-      (let [candidate (merge (mr/schemas *registry*) registry)]
+      (let [candidate (clojure.core/merge (mr/schemas *registry*) registry)]
         (when-let [bad-pairs (not-empty
                                (reduce (fn [acc [k schema]]
                                          (let [opts      (assoc (mopts) :registry candidate)
@@ -262,7 +297,14 @@
   ([?schema opts]
    (if-let [?schema (and (keyword? ?schema) (get-schema ?schema))]
      (m/schema (get *registry* ?schema) (mopts))
-     (m/schema ?schema (merge (mopts) opts)))))
+     (m/schema ?schema (clojure.core/merge (mopts) opts)))))
+
+(defn form [schema]
+  (m/form schema mopts))
+
+(defn merge
+  [schema1 schema2]
+  (mu/merge schema1 schema2 (mopts)))
 
 #!-----------------------------------------------------------------------------
 

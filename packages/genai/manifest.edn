@@ -1,0 +1,8 @@
+{:googleapis/mvn-org "com.google.genai",
+ :googleapis/mvn-artifact "google-genai",
+ :googleapis/mvn-release "1.38.0",
+ :googleapis/repo "java-genai",
+ :googleapis/git-repo "java-genai",
+ :googleapis/git-tag "v1.38.0",
+ :googleapis/git-sha "70404c07c57e2379907c2d0dfaba692ee37bc769",
+ :gcp/release "1.38.0-0"}

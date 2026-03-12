@@ -1,4 +1,4 @@
 {:path ["src"],
  :deps
- {com.google.cloud/google-cloud-logging {:mvn/version "3.23.9"},
+ {com.google.cloud/google-cloud-logging {:mvn/version "3.25.0"},
   gcp/global {:local/root "../global"}}}

@@ -1,0 +1,8 @@
+{:googleapis/mvn-org "com.google.cloud",
+ :googleapis/mvn-artifact "google-cloud-monitoring",
+ :googleapis/mvn-release "3.85.0",
+ :googleapis/repo "google-cloud-java",
+ :googleapis/git-repo "google-cloud-java",
+ :googleapis/git-tag "v1.78.0",
+ :googleapis/git-sha "ca8b9876e49576c34cf4a7694536aa0ba4357358",
+ :gcp/release "3.85.0-0"}

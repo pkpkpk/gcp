@@ -1,0 +1,8 @@
+{:googleapis/mvn-org "com.google.cloud",
+ :googleapis/mvn-artifact "google-cloud-storage",
+ :googleapis/mvn-release "2.62.1",
+ :googleapis/repo "java-storage",
+ :googleapis/git-repo "java-storage",
+ :googleapis/git-tag "v2.62.1",
+ :googleapis/git-sha "9f549d2e2c953381bb67640b32779e3bc914edb6",
+ :gcp/release "2.62.1-0"}

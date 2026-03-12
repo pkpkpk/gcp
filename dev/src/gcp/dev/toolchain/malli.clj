@@ -1,15 +1,15 @@
 (ns gcp.dev.toolchain.malli
   "Convert analyzer AST nodes into malli schemas"
   (:require
-    [clojure.core.match :refer [match]]
-    [clojure.math.combinatorics :as combo]
-    [clojure.set :as set]
-    [clojure.string :as string]
-    [gcp.dev.toolchain.shared :as shared :refer [categorize-type]]
-    [gcp.dev.util :as u]
-    [gcp.global :as g]
-    [malli.core :as m]
-    [malli.util :as mu]))
+   [clojure.core.match :refer [match]]
+   [clojure.math.combinatorics :as combo]
+   [clojure.set :as set]
+   [clojure.string :as string]
+   [gcp.dev.toolchain.shared :as shared :refer [categorize-type]]
+   [gcp.dev.util :as u]
+   [gcp.global :as g]
+   [malli.core :as m]
+   [malli.util :as mu]))
 
 (defn- hoist-props
   [schema]
@@ -23,14 +23,14 @@
 
 (defn common-opts [node]
   (into (sorted-map :gcp/category (:category node) :closed true)
-        (select-keys node [:gcp/key :doc :fqcn :file-git-sha :package])))
+        (select-keys node [:gcp/key :doc])))
 
 (defn scalar-type [t]
   (case t
     (void java.lang.Void) :nil
     (? Object) :any
     (java.lang.Char char) :char
-    java.lang.String :string
+    java.lang.String [:string {:min 1}]
     (java.lang.Byte byte) :byte
     (java.lang.Integer int) [:int {:min -2147483648 :max 2147483647}]
     (java.lang.Long long) :int
@@ -44,35 +44,62 @@
     java.math.BigInteger :bigint
     (throw (Exception. (str "could not resolve scalar type: " (pr-str t))))))
 
+(defn- enum-values [fqcn]
+  (try
+    (let [c (Class/forName (name fqcn))]
+      (when (.isEnum c)
+        (->> (.getEnumConstants c)
+             (map #(.name %))
+             (remove #{"UNRECOGNIZED"}))))
+    (catch ClassNotFoundException _ nil)))
+
+(defn map-key-schema [K]
+  (if (= K 'java.lang.String)
+    [:or 'simple-keyword? [:string {:min 1}]]
+    (scalar-type K)))
+
 (defn type-schema
   [deps t]
   (let [type-category (shared/categorize-type deps t)]
     (match type-category
       :scalar (scalar-type t)
-      :peer (u/fqcn->schema-key t)
-      :foreign (u/fqcn->schema-key t true)
-      :nested (u/fqcn->schema-key t)
-      [:foreign :generic] (u/fqcn->schema-key t true)
+      :enum (into [:enum {:closed true}] (u/enum-values t))
+      :peer (u/schema-key deps t)
+      :peer/nested (u/schema-key deps t)
+      :nested (u/schema-key deps t)
+      :sibling (u/schema-key deps t)
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      [:map :scalar :scalar] (let [[_ K V] t]
-                               [:map-of (scalar-type K) (scalar-type V)])
-      [:map :scalar :foreign] (let [[_ K V] t]
-                                [:map-of (scalar-type K) (u/fqcn->schema-key V true)])
-      [:map :scalar (:or :nested :peer)] (let [[_ K V] t]
-                                           [:map-of (scalar-type K) (u/fqcn->schema-key V)])
+      #! Foreign
+      :foreign (u/schema-key deps t)
+      [:foreign :generic] :any
+      [(:or :iterable :list :array) :foreign] [:sequential {:min 1} (u/schema-key deps (second t))]
+      [:map :scalar :foreign] (let [[_ K V] t] [:map-of (map-key-schema K) (u/schema-key deps V)])
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      [:collection-wrapper [(:or :iterable :list) :self]] [:sequential (u/fqcn->schema-key (:self deps))]
-      [:collection-wrapper [(:or :iterable :list) :peer]] [:sequential (u/fqcn->schema-key (get-in deps [:collection-wrappers t 1]))]
+      #! Custom
+      :custom (u/schema-key deps t)
+      [(:or :iterable :list) :custom] [:sequential (u/schema-key deps (second t))]
+      [:map :scalar :custom] (let [[_ K V] t] [:map-of (map-key-schema K) (u/schema-key deps V)])
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      [(:or :iterable :list :array) :self]               [:sequential (u/fqcn->schema-key (:self deps))]
-      [(:or :iterable :list :array) (:or :nested :peer)] [:sequential (u/fqcn->schema-key (second t))]
-      [(:or :iterable :list :array) :foreign]            [:sequential (u/fqcn->schema-key (second t) true)]
-      [(:or :iterable :list :array) :scalar]             [:sequential (scalar-type (second t))]
+      #! Self
+      :self [:ref (u/fqcn->schema-key (:self deps))]
+      [(:or :iterable :list) :self] [:sequential {:min 1} [:ref (u/fqcn->schema-key (:self deps))]]
+      [:map :scalar :self] (let [[_ K V] t] [:map-of (map-key-schema K) [:ref (u/fqcn->schema-key (:self deps))]])
+      [:array :self] (list 'gcp.global/instance-schema (symbol (str (name (second t)) "/1")))
+      #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      :native (list 'gcp.global/instance-schema (symbol (name t)))
+      [:array :native] (list 'gcp.global/instance-schema (symbol (str (name (second t)) "/1")))
+      #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      [:map :scalar
+       (:or :nested :peer :sibling)] (let [[_ K V] t] [:map-of (map-key-schema K) (u/schema-key deps V)])
+      [:map :scalar :scalar] (let [[_ K V] t] [:map-of (map-key-schema K) (scalar-type V)])
+      [:map :scalar :enum] (let [[_ K V] t] [:map-of (map-key-schema K) (into [:enum {:closed true}] (u/enum-values V))])
+      [:map :scalar [:list :peer]] (let [[_ K [_ E]] t] [:map-of (map-key-schema K) [:sequential {:min 1} (u/schema-key deps E)]])
+      #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      [(:or :iterable :list :array) :enum] [:sequential {:min 1} (into [:enum {:closed true}] (u/enum-values (second t)))]
+      [(:or :iterable :list :array) (:or :nested :peer :sibling)] [:sequential {:min 1} (u/schema-key deps (second t))]
+      [(:or :iterable :list :array) :scalar] [:sequential {:min 1} (scalar-type (second t))]
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       [:set :scalar] [:set (scalar-type (second t))]
-      #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      :custom (u/fqcn->schema-key (get-in deps [:custom-mappings t]))
-      [(:or :iterable :list) :custom] [:sequential (u/fqcn->schema-key (get-in deps [:custom-mappings (second t)]))]
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       :else (throw (Exception. (str "could not resolve schema type: " (pr-str t) " with category " type-category))))))
 
@@ -96,8 +123,10 @@
                              ;; these are fields passed to constructor (no setter)
                              ;; but recovered via getter
                              (let [{:keys [doc returnType] :as getter} (get-in node [:getters-by-key k])
+                                   {:as setter} (get-in node [:builder-setters-by-key k])
                                    _ (assert (some? getter) (str "missing required :getters-by-key " k))
-                                   opts {:getter-doc doc}]
+                                   opts (cond-> {:getter-doc doc}
+                                                (some? setter) (assoc :setter-doc (:doc setter)))]
                                (assoc acc k {:opts opts :schema (type-schema deps returnType)})))
                            (sorted-map)
                            (:keys/required node))
@@ -109,13 +138,7 @@
                                    _ (when (not= (type-schema deps (:returnType getter))
                                                  (type-schema deps (get-in setter [:parameters 0 :type])))
                                        (throw (ex-info "expected return-type to equal parameter type"
-                                                       {:returnType          (:returnType getter)
-                                                        :returnType-category (categorize-type deps (:returnType getter))
-                                                        :returnType-schema   (type-schema deps (:returnType getter))
-                                                        :paramType           (get-in setter [:parameters 0 :type])
-                                                        :paramType-category  (categorize-type deps (get-in setter [:parameters 0 :type]))
-                                                        :paramType-schema    (type-schema deps (get-in setter [:parameters 0 :type]))
-                                                        :getter              getter
+                                                       {:getter              getter
                                                         :setter              setter})))
                                    opts (cond-> {:optional true}
                                           (get getter :doc) (assoc :getter-doc (get getter :doc))
@@ -151,7 +174,7 @@
     [:maybe opts [:map {:closed true} [(u/property-name (:name method)) :any]]]))
 
 (defn static-factory-cond-schema
-  [{:keys [factory-methods deps] :as node}]
+  [{:keys [factory-methods getters-by-key deps] :as node}]
   (let [rf (fn [acc {:keys [parameters] :as method}]
              (let [opts (cond-> {:closed true} (:doc method) (assoc :doc (:doc method)))]
                (cond
@@ -159,17 +182,29 @@
                  (conj acc [:maybe [:map opts [(u/property-key (:name method)) :any]]])
 
                  (= 1 (count parameters))
-                 (let [parameter  (first parameters)
-                       schema     (type-schema deps (:type parameter))
-                       map-schema [:map opts [(u/property-key (:name parameter)) schema]]]
+                 (let [parameter (first parameters)
+                       k         (u/property-key (:name parameter))
+                       getter    (get getters-by-key k)
+                       doc       (:doc getter)
+                       p-opts    (cond-> {} doc (assoc :doc doc))
+                       schema    (type-schema deps (:type parameter))
+                       map-schema (if (seq p-opts)
+                                    [:map opts [k p-opts schema]]
+                                    [:map opts [k schema]])]
                    (conj acc schema map-schema))
 
                  :else
                  (let [schema (into [:map opts]
                                     (map
                                       (fn [parameter]
-                                        [(u/property-key (:name parameter))
-                                         (type-schema deps (:type parameter))]))
+                                        (let [k      (u/property-key (:name parameter))
+                                              getter (get getters-by-key k)
+                                              doc    (:doc getter)
+                                              p-opts (cond-> {} doc (assoc :doc doc))
+                                              schema (type-schema deps (:type parameter))]
+                                          (if (seq p-opts)
+                                            [k p-opts schema]
+                                            [k schema]))))
                                     parameters)]
                    (conj acc schema)))))]
     (reduce rf [:or (common-opts node)] factory-methods)))
@@ -264,10 +299,40 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn variant-accessor-schema
-  [{:keys [discriminator] :as node}]
-  (let [accessor-schema (accessor-with-builder-schema node)
-        variant-schema [:map [:type [:= discriminator]]]]
-    (m/form (mu/merge accessor-schema variant-schema))))
+  [{:keys [deps discriminator keys/required keys/optional keys/read-only] :as node}]
+  (let [base [:map (common-opts node)
+              [:type [:= discriminator]]]
+        required-fields (map
+                          (fn [k]
+                            (let [{:keys [doc returnType] :as getter} (get-in node [:getters-by-key k])
+                                  {:as setter} (get-in node [:setters-by-key k])
+                                  _ (assert (some? getter) (str "missing required :getters-by-key " k))
+                                  opts (cond-> {:getter-doc doc}
+                                               (some? setter) (assoc :setter-doc (:doc setter)))]
+                              [k opts (type-schema deps returnType)]))
+                          required)
+        optional-fields (map
+                          (fn [k]
+                            (let [getter (g/coerce map? (get-in node [:getters-by-key k]))
+                                  setter (g/coerce map? (get-in node [:setters-by-key k]))
+                                  _ (when (not= (type-schema deps (:returnType getter))
+                                                (type-schema deps (get-in setter [:parameters 0 :type])))
+                                      (throw (ex-info "expected return-type to equal parameter type"
+                                                      {:getter              getter
+                                                       :setter              setter})))
+                                  opts (cond-> {:optional true}
+                                               (get getter :doc) (assoc :getter-doc (get getter :doc))
+                                               (get setter :doc) (assoc :setter-doc (get setter :doc)))]
+                              [k opts (type-schema deps (:returnType getter))]))
+                          optional)
+        read-only-fields (map
+                           (fn [k]
+                             (let [getter (g/coerce map? (get-in node [:getters-by-key k]))
+                                   opts (cond-> {:optional true :read-only? true}
+                                                (get getter :doc) (assoc :getter-doc (get getter :doc)))]
+                               [k opts (type-schema deps (:returnType getter))]))
+                           read-only)]
+    (into base (sort-by first (concat required-fields optional-fields read-only-fields)))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 
@@ -298,6 +363,77 @@
                 [k schema]))))
         getters-by-key))
 
+(defn variant-pojo-schema
+  [{:keys [deps getters-by-key keys/required discriminator] :as node}]
+  (into [:map (common-opts node)
+         [:type [:= discriminator]]]
+        (->> getters-by-key
+             (remove (fn [[k _]] (= k :type)))
+             (map
+               (fn [[k {:keys [doc returnType]}]]
+                 (let [opts (cond-> {}
+                                    doc (assoc :doc doc)
+                                    (not (contains? required k)) (assoc :optional true))
+                       schema (type-schema deps returnType)]
+                   (if opts
+                     [k opts schema]
+                     [k schema])))))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn mutable-pojo-schema
+  [{:keys [getter-setters-by-key deps] :as node}]
+  (let [opts (common-opts node)
+        fields (reduce
+                 (fn [acc [k {:keys [getter setter]}]]
+                   (let [returnType (get getter :returnType)
+                         _ (assert (= returnType (get-in setter [:parameters 0 :type])))
+                         schema (type-schema deps returnType)
+                         props {:getter-doc (get getter :doc)
+                                :setter-doc (get setter :doc)
+                                :optional true}]
+                     (conj acc [k props schema])))
+                 []
+                 getter-setters-by-key)]
+    (into [:map opts] (sort-by first fields))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn collection-wrapper-schema
+  [{:keys [deps element-type] :as node}]
+  (let [opts (common-opts node)]
+    [:sequential opts (type-schema deps element-type)]))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! statics
+
+(defn static-variants-schema
+  [{:keys [key->factory deps] :as node}]
+  (let [opts (common-opts node)
+        [v :as vs] (map
+                     (fn [[k {:keys [doc parameters] :as factory}]]
+                       (let [opts (cond-> {:closed true} doc (assoc :doc doc))
+                             ?T (get-in parameters [0 :type])]
+                         [:map opts
+                          [k (if ?T (type-schema deps ?T) :any)]]))
+                     key->factory)]
+    (if (= 1 (count vs))
+      (update-in v [1] merge opts)
+      (into [:or opts] vs))))
+
+(defn client-options-schema
+  [{:keys [key->factory deps] :as node}]
+  (let [opts (common-opts node)
+        fields (map
+                 (fn [[k {:keys [doc parameters]}]]
+                   (let [field-opts (cond-> {:optional true} doc (assoc :doc doc))
+                         ?T (get-in parameters [0 :type])]
+                     (if ?T
+                       [k field-opts (type-schema deps ?T)]
+                       [k field-opts :boolean])))
+                 key->factory)]
+    [:maybe opts (into [:map {:closed true}] fields)]))
+
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn ->schema
@@ -307,23 +443,30 @@
           (contains? (second %) :gcp/category)
           (= category (get (second %) :gcp/category))]}
   (case category
+    :nested/client-options (client-options-schema node)
+    (:static-variants :nested/static-variants) (static-variants-schema node)
+    (:mutable-pojo
+      :nested/mutable-pojo) (mutable-pojo-schema node)
     (:enum
-     :string-enum
-     :nested/enum
-     :nested/string-enum) (enum-schema node)
+      :string-enum
+      :nested/enum
+      :nested/string-enum) (enum-schema node)
     (:accessor-with-builder
-     :nested/accessor-with-builder) (accessor-with-builder-schema node)
+      :nested/accessor-with-builder) (accessor-with-builder-schema node)
     (:static-factory
-     :nested/static-factory) (static-factory-schema node)
+      :nested/static-factory) (static-factory-schema node)
     (:read-only
-     :nested/read-only) (read-only-schema node)
-    (:union-abstract
-     :nested/union-abstract) (union-abstract-schema node)
+      :nested/read-only
+      :interface) (read-only-schema node)
+    (:union-abstract :nested/union-abstract) (union-abstract-schema node)
     (:union-concrete
       :nested/union-concrete) (union-concrete-schema node)
     (:variant-accessor
-     :nested/variant-accessor) (variant-accessor-schema node)
+      :nested/variant-accessor) (variant-accessor-schema node)
     (:union-tagged
-     :nested/union-tagged) (union-tagged-schema node)
+      :nested/union-tagged) (union-tagged-schema node)
     (:pojo :nested/pojo) (pojo-schema node)
+    :nested/variant-pojo (variant-pojo-schema node)
+    (:collection-wrapper
+      :nested/collection-wrapper) (collection-wrapper-schema node)
     (throw (Exception. (str "->schema unimplemented for category " category)))))

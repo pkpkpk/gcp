@@ -1,37 +1,11 @@
 (ns gcp.foreign.com.google.cloud
-  {:gcp.dev/certification
-   {:MonitoredResource
-      {:protocol-hash
-         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-       :base-seed 1767557871664
-       :timestamp "2026-01-04T20:17:51.703621525Z"
-       :passed-stages
-         {:smoke 1767557871664 :standard 1767557871665 :stress 1767557871666}
-       :source-hash
-         "19a033f51c5782388dad10259d9088c4c8d358fc0df767170278e8dd7186b770"}
-    :MonitoredResourceDescriptor
-      {:protocol-hash
-         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-       :base-seed 1767557871704
-       :timestamp "2026-01-04T20:17:51.750784586Z"
-       :passed-stages
-         {:smoke 1767557871704 :standard 1767557871705 :stress 1767557871706}
-       :source-hash
-         "19a033f51c5782388dad10259d9088c4c8d358fc0df767170278e8dd7186b770"}
-    :RetryOption
-      {:protocol-hash
-         "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-       :base-seed 1767557871752
-       :timestamp "2026-01-04T20:17:51.759657220Z"
-       :passed-stages
-         {:smoke 1767557871752 :standard 1767557871753 :stress 1767557871754}
-       :source-hash
-         "19a033f51c5782388dad10259d9088c4c8d358fc0df767170278e8dd7186b770"}}}
-  (:require [gcp.global :as global]
+  (:require [gcp.global :as g]
             [gcp.foreign.com.google.api :as api]
             [gcp.foreign.com.google.protobuf :as protobuf])
   (:import
-   (com.google.cloud MonitoredResource MonitoredResourceDescriptor Policy RetryOption RetryOption$OptionType)
+   (com.google.cloud MonitoredResource MonitoredResourceDescriptor
+                     RetryOption RetryOption$OptionType
+                     Binding Condition Policy)
    (java.time Duration)))
 
 (defn- edn->java-duration [arg]
@@ -86,13 +60,82 @@
         "JITTERED" {:jittered value}
         (throw (ex-info "Unknown RetryOption type" {:type type}))))))
 
-(defn Policy-to-edn [^Policy arg] (throw (Exception. "unimplemented")))
+(def Condition-schema
+  [:map
+   {:closed true
+    :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM."
+    :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Condition"]}
+   [:description [:string {:min 1}]]
+   [:expression [:string {:min 1}]]
+   [:title [:string {:min 1}]]])
 
-(defn ^Policy Policy-from-edn [arg] (throw (Exception. "unimplemented")))
+(defn ^Condition Condition-from-edn [arg]
+  (let [builder (Condition/newBuilder)]
+    (some->>  (:description arg) (.setDescription builder))
+    (some->> (:expression arg) (.setExpression builder))
+    (some->> (:title arg) (.setTitle builder))
+    (.build builder)))
 
-(global/include-schema-registry!
- (with-meta
-   {::Policy       :any
+(defn Condition-to-edn [^Condition arg]
+  (cond-> {}
+          (.getDescription arg) (assoc :description (.getDescription arg))
+          (.getExpression arg) (assoc :expression (.getExpression arg))
+          (.getTitle arg) (assoc :title (.getTitle arg))))
+
+(def Binding-schema
+  [:map
+   {:closed true
+    :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM"
+    :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Binding"]}
+   [:role [:string {:min 1}]]
+   [:members [:sequential [:string {:min 1}]]]
+   [:condition [:ref ::Condition]]])
+
+(defn ^Binding Binding-from-edn [arg]
+  (let [builder (Binding/newBuilder)]
+    (some->> (:role arg) (.setRole builder))
+    (some->> (:members arg) (.setMembers builder))
+    (some->> (:condition arg) Condition-from-edn (.setCondition builder))
+    (.build builder)))
+
+(defn Binding-to-edn [^Binding arg]
+  (cond-> {}
+          (.getRole arg) (assoc :role (.getRole arg))
+          (.getMembers arg) (assoc :members (.getMembers arg))
+          (.getCondition arg) (assoc :condition (Condition-to-edn (.getCondition arg)))))
+
+(def Policy-schema
+  [:map {:closed true
+         :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM"
+         :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Policy"
+                "https://docs.cloud.google.com/iam/docs/reference/rest/v1/Policy"]}
+   [:version {:doc "Returns the version of the policy. The default version is 0, meaning only the \"owner\", \"editor\", and \"viewer\" roles are permitted. If the version is 1, you may also use other roles."}
+    [:enum 0 1 3]]
+   [:etag {:read-only? true
+           :optional true
+           :doc "Etags are used for optimistic concurrency control as a way to help prevent simultaneous updates of a policy from overwriting each other. It is strongly suggested that systems make use of the etag in the read-modify-write cycle to perform policy updates in order to avoid race conditions. An etag is returned in the response to getIamPolicy, and systems are expected to put that etag in the request to setIamPolicy to ensure that their change will be applied to the same version of the policy. If no etag is provided in the call to setIamPolicy, then the existing policy is overwritten blindly."}
+    [:string {:min 1}]]
+   [:bindings {:optional true} [:sequential [:ref ::Binding]]]])
+
+(defn ^Policy Policy-from-edn [arg]
+  (let [builder (Policy/newBuilder)]
+    (some->> (:etag arg) (.setEtag builder))
+    (some->> (:version arg) (.setVersion builder))
+    (some->> (:bindings arg) (map Binding-from-edn) (.setBindings builder))
+    (.build builder)))
+
+(defn Policy-to-edn [^Policy arg]
+  {:post [(g/strict! ::Policy %)]}
+  (cond-> {}
+          (.getEtag arg) (assoc :etag (.getEtag arg))
+          (.getVersion arg) (assoc :version (.getVersion arg))
+          (seq (.getBindings arg)) (assoc :bindings (map Binding-to-edn (.getBindings arg)))))
+
+(g/include-schema-registry!
+  (with-meta
+    {::Condition    Condition-schema
+    ::Binding      Binding-schema
+    ::Policy       Policy-schema
     ::RetryOption [:or
                    [:map {:closed true} [:totalTimeout ::protobuf/Duration]]
                    [:map {:closed true} [:initialRetryDelay ::protobuf/Duration]]
@@ -108,4 +151,4 @@
                                    [:displayName :string]
                                    [:description :string]
                                    [:labels [:sequential :gcp.foreign.com.google.api/LabelDescriptor]]]}
-   {::global/name ::registry}))
+    {::g/name ::registry}))

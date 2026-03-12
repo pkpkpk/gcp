@@ -98,6 +98,7 @@
       []
       (->> (string/split-lines out)
            (map #(second (string/split % #"\s+")))
+           (remove #(string/ends-with? % "^{}"))
            (map #(string/replace % "refs/tags/" ""))))))
 
 (defn fetch-tag
@@ -105,27 +106,54 @@
   [repo-path tag]
   (run-git repo-path "fetch" "origin" (str "refs/tags/" tag ":refs/tags/" tag)))
 
+(defn fetch-all
+  "Fetches all updates (branches and tags) from the remote."
+  [repo-path]
+  (run-git repo-path "fetch" "--all" "--tags" "--prune"))
+
 (defn find-tag-for-artifact
   "Finds the git tag corresponding to the artifact version.
-   Tries local tags first, then queries remote and fetches if found."
-  [repo-path artifact-id version]
-  (let [simple-tag (str "v" version)
-        artifact-tag (str artifact-id "-v" version)
-        local-check (fn [t]
-                      (try
-                        (run-git repo-path "rev-parse" "--verify" (str t "^{tag}"))
-                        t
-                        (catch Exception _ nil)))]
-    (or (local-check simple-tag)
-        (local-check artifact-tag)
-        ;; Try remote
-        (let [remote-tags (into #{} (concat (ls-remote-tags repo-path simple-tag)
-                                            (ls-remote-tags repo-path artifact-tag)))]
-          (cond
-            (contains? remote-tags simple-tag)
-            (do (fetch-tag repo-path simple-tag) simple-tag)
+   Tries local tags first, then queries remote and fetches if found.
+   Handles various tagging conventions (e.g. vX.Y.Z, artifact-vX.Y.Z, artifact-X.Y.Z).
+   Optionally accepts a tag-pattern (e.g. 'v*') to limit the search scope.
+   Fallback: if no specific tag found, tries to find the latest semver tag (vX.Y.Z) from the repo."
+  ([repo-path artifact-id version]
+   (find-tag-for-artifact repo-path artifact-id version "v*"))
+  ([repo-path artifact-id version tag-pattern]
+   (let [simple-tag (str "v" version)
+         artifact-tag-v (str artifact-id "-v" version)
+         artifact-tag (str artifact-id "-" version)
+         candidates [simple-tag artifact-tag-v artifact-tag]
+         local-check (fn [t]
+                       (try
+                         (run-git repo-path "rev-parse" "--verify" (str "refs/tags/" t))
+                         t
+                         (catch Exception _ nil)))]
+     (or (some local-check candidates)
+         ;; Try remote with a broader search or specific pattern
+         (let [pattern (if tag-pattern tag-pattern (str "*" artifact-id "*" version))
+               remote-tags (into #{} (ls-remote-tags repo-path pattern))]
+           (cond
+             (contains? remote-tags simple-tag)
+             (do (fetch-tag repo-path simple-tag) simple-tag)
 
-            (contains? remote-tags artifact-tag)
-            (do (fetch-tag repo-path artifact-tag) artifact-tag)
-
-            :else nil)))))
+             (contains? remote-tags artifact-tag-v)
+             (do (fetch-tag repo-path artifact-tag-v) artifact-tag-v)
+             (contains? remote-tags artifact-tag)
+             (do (fetch-tag repo-path artifact-tag) artifact-tag)
+             ;; Fallback: look for any tag ending in the version
+             :else
+             (if-let [match (first (filter #(string/ends-with? % (str "v" version)) remote-tags))]
+               (do (fetch-tag repo-path match) match)
+               ;; Final Fallback: if it's likely a monorepo and we found nothing specific, 
+               ;; pick the latest 'vX.Y.Z' tag.
+               (let [all-tags (ls-remote-tags repo-path "v*")
+                     semver-tags (filter #(re-matches #"v\d+\.\d+\.\d+" %) all-tags)
+                     sorted-tags (sort-by (fn [t] (mapv #(Integer/parseInt %) (string/split (subs t 1) #"\.")))
+                                          (fn [a b] (compare b a)) ;; reverse sort
+                                          semver-tags)
+                     latest (first sorted-tags)]
+                 (when latest
+                   (println "WARN: No specific tag found for" artifact-id version ". Falling back to latest monorepo tag:" latest)
+                   (fetch-tag repo-path latest)
+                   latest)))))))))
