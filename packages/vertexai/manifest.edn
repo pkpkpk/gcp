@@ -1,8 +1,8 @@
 {:googleapis/mvn-org "com.google.cloud",
  :googleapis/mvn-artifact "google-cloud-vertexai",
- :googleapis/mvn-release "1.44.0",
- :googleapis/repo "google-cloud-java",
- :googleapis/git-repo "google-cloud-java",
- :googleapis/git-tag "v1.44.0",
- :googleapis/git-sha "f34cfaf87cfaf766c878d31b96a4274d628a100e",
- :gcp/release "1.44.0-0"}
+ :googleapis/mvn-release "1.49.0",
+ :googleapis/repo "java-vertexai",
+ :googleapis/git-repo "java-vertexai",
+ :googleapis/git-tag "v1.49.0",
+ :googleapis/git-sha "c664b8c02fa26d30eca2c76e1b802e85427c0301",
+ :gcp/release "1.49.0-0"}

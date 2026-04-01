@@ -19,11 +19,13 @@
      :session session
      :request req}))
 
-(defn- resolve-versions
+(defn- resolve-versions-impl
   [group artifact]
   (let [{:keys [system session request]} (version-range-request group artifact)
         result (.resolveVersionRange system session request)]
     (mapv #(.toString %) (.getVersions result))))
+
+(def resolve-versions (memoize resolve-versions-impl))
 
 (defn- stable? [v]
   (not (re-find #"(?i)(snapshot|rc|beta|alpha|milestone)" v)))

@@ -27,6 +27,8 @@
     :union-abstract
     :union-concrete
     :union-tagged
+    :union-protobuf-oneof
+    :protobuf-message
     :variant-accessor
 
     :other
@@ -50,6 +52,8 @@
     :nested/string-enum
     :nested/union-abstract
     :nested/union-tagged
+    :nested/union-protobuf-oneof
+    :nested/protobuf-message
     :nested/variant-read-only})
 
 (defn categorize-type [deps t]
@@ -57,18 +61,19 @@
   (if (vector? t)
     (match t
            [:type-parameter _] :generic
-           [:array E]                                        [:array (categorize-type deps E)]
+           [:array E]                                           [:array (categorize-type deps E)]
            [(:or 'java.util.List
-              'com.google.common.collect.ImmutableList) E]   [:list (categorize-type deps E)]
+                 'com.google.common.collect.ImmutableList) E]   [:list (categorize-type deps E)]
            [(:or 'java.util.Set
-              'com.google.common.collect.ImmutableSet) E]    [:set (categorize-type deps E)]
+                 'com.google.common.collect.ImmutableSet) E]    [:set (categorize-type deps E)]
            [(:or 'java.util.Map
-              'com.google.common.collect.ImmutableMap) K V]  [:map (categorize-type deps K) (categorize-type deps V)]
-           ['java.lang.Iterable E]                           [:iterable (categorize-type deps E)]
-           ['java.util.Iterator E]                           [:iterator (categorize-type deps E)]
-           ['java.util.Optional E]                           [:optional (categorize-type deps E)]
-           [T E]                                             [(categorize-type deps T) (categorize-type deps E)]
-           [T A B]                                           [(categorize-type deps T) (categorize-type deps A) (categorize-type deps B)]
+                 'com.google.common.collect.ImmutableMap) K V]  [:map (categorize-type deps K) (categorize-type deps V)]
+           ['java.lang.Iterable E]                              [:iterable (categorize-type deps E)]
+           ['java.util.Iterator E]                              [:iterator (categorize-type deps E)]
+           ['java.util.Optional E]                              [:optional (categorize-type deps E)]
+           ['? :extends T]                                      (keyword "generic" (name (categorize-type deps T)))
+           [T E]                                                [(categorize-type deps T) (categorize-type deps E)]
+           [T A B]                                              [(categorize-type deps T) (categorize-type deps A) (categorize-type deps B)]
            :else (throw (ex-info (str "unknown vector type representation: " t) {:deps deps :param-type t})))
     (cond
       (contains? (:scalars deps) t) :scalar
@@ -80,6 +85,9 @@
 
       (contains? (:custom-mappings deps) t)
       :custom
+
+      (contains? (:support-mappings deps) t)
+      :support
 
       (u/enum? t)
       :enum

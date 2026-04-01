@@ -90,7 +90,52 @@
   [repo-path rev]
   (run-git repo-path "rev-parse" rev))
 
-(defn ls-remote-tags
+(defn- commits-between-impl
+  "Returns a list of commit summaries between two revisions, optionally scoped by a path."
+  [repo-path old-rev new-rev & [path]]
+  (let [args (cond-> ["log" "--format=%h %s" (str old-rev ".." new-rev)]
+               path (conj "--" path))
+        out (apply run-git repo-path args)]
+    (if (string/blank? out)
+      []
+      (string/split-lines out))))
+
+(def commits-between (memoize commits-between-impl))
+
+(defn- diff-files-impl
+  "Returns a map of file changes between two revisions, optionally scoped by a path."
+  [repo-path old-rev new-rev & [path]]
+  (let [args (cond-> ["diff" "--name-status" (str old-rev ".." new-rev)]
+               path (conj "--" path))
+        out (apply run-git repo-path args)]
+    (if (string/blank? out)
+      {:added [] :modified [] :deleted [] :renamed [] :copied []}
+      (reduce
+        (fn [acc line]
+          (let [[status file] (string/split line #"\s+" 2)
+                status-key (case (first status)
+                             \A :added
+                             \M :modified
+                             \D :deleted
+                             \R :renamed
+                             \C :copied
+                             :modified)]
+            (update acc status-key (fnil conj []) file)))
+        {:added [] :modified [] :deleted [] :renamed [] :copied []}
+        (string/split-lines out)))))
+
+(def diff-files (memoize diff-files-impl))
+
+(defn diff-patch
+  "Returns the unified diff patch between two revisions for the given paths."
+  [repo-path old-rev new-rev paths]
+  (if (empty? paths)
+    ""
+    (let [args (concat ["diff" (str old-rev ".." new-rev) "--"] paths)
+          out (apply run-git repo-path args)]
+      out)))
+
+(defn- ls-remote-tags-impl
   "Lists tags from the remote matching a pattern."
   [repo-path pattern]
   (let [out (run-git repo-path "ls-remote" "--tags" "origin" pattern)]
@@ -100,6 +145,8 @@
            (map #(second (string/split % #"\s+")))
            (remove #(string/ends-with? % "^{}"))
            (map #(string/replace % "refs/tags/" ""))))))
+
+(def ls-remote-tags (memoize ls-remote-tags-impl))
 
 (defn fetch-tag
   "Fetches a specific tag from the remote."
@@ -111,19 +158,27 @@
   [repo-path]
   (run-git repo-path "fetch" "--all" "--tags" "--prune"))
 
-(defn find-tag-for-artifact
+(defn- find-tag-for-artifact-impl
   "Finds the git tag corresponding to the artifact version.
    Tries local tags first, then queries remote and fetches if found.
    Handles various tagging conventions (e.g. vX.Y.Z, artifact-vX.Y.Z, artifact-X.Y.Z).
    Optionally accepts a tag-pattern (e.g. 'v*') to limit the search scope.
-   Fallback: if no specific tag found, tries to find the latest semver tag (vX.Y.Z) from the repo."
+   Fallback: if no specific tag found, tries to find the latest semver tag (vX.Y.Z) from the repo.
+   For monorepos (pkg :monorepo? true), we ignore simple 'vX.Y.Z' matches if they don't match the
+   module version inside the tag, preferring the latest tag as a safer fallback."
   ([repo-path artifact-id version]
-   (find-tag-for-artifact repo-path artifact-id version "v*"))
+   (find-tag-for-artifact-impl repo-path artifact-id version "v*"))
   ([repo-path artifact-id version tag-pattern]
-   (let [simple-tag (str "v" version)
+   (find-tag-for-artifact-impl nil repo-path artifact-id version tag-pattern))
+  ([pkg repo-path artifact-id version tag-pattern]
+   (let [monorepo? (:monorepo? pkg)
+         simple-tag (str "v" version)
          artifact-tag-v (str artifact-id "-v" version)
          artifact-tag (str artifact-id "-" version)
-         candidates [simple-tag artifact-tag-v artifact-tag]
+         ;; If it's a monorepo, simple 'vX.Y.Z' is likely a collision with an ancient monorepo-wide tag
+         candidates (if monorepo?
+                      [artifact-tag-v artifact-tag]
+                      [simple-tag artifact-tag-v artifact-tag])
          local-check (fn [t]
                        (try
                          (run-git repo-path "rev-parse" "--verify" (str "refs/tags/" t))
@@ -134,13 +189,15 @@
          (let [pattern (if tag-pattern tag-pattern (str "*" artifact-id "*" version))
                remote-tags (into #{} (ls-remote-tags repo-path pattern))]
            (cond
-             (contains? remote-tags simple-tag)
-             (do (fetch-tag repo-path simple-tag) simple-tag)
-
              (contains? remote-tags artifact-tag-v)
              (do (fetch-tag repo-path artifact-tag-v) artifact-tag-v)
+
              (contains? remote-tags artifact-tag)
              (do (fetch-tag repo-path artifact-tag) artifact-tag)
+
+             (and (not monorepo?) (contains? remote-tags simple-tag))
+             (do (fetch-tag repo-path simple-tag) simple-tag)
+
              ;; Fallback: look for any tag ending in the version
              :else
              (if-let [match (first (filter #(string/ends-with? % (str "v" version)) remote-tags))]
@@ -157,3 +214,5 @@
                    (println "WARN: No specific tag found for" artifact-id version ". Falling back to latest monorepo tag:" latest)
                    (fetch-tag repo-path latest)
                    latest)))))))))
+
+(def find-tag-for-artifact (memoize find-tag-for-artifact-impl))

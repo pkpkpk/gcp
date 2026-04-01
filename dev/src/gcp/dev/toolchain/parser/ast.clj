@@ -12,7 +12,7 @@
    (com.github.javaparser.ast CompilationUnit ImportDeclaration Modifier$Keyword PackageDeclaration)
    (com.github.javaparser.ast.body AnnotationDeclaration BodyDeclaration ClassOrInterfaceDeclaration ConstructorDeclaration EnumConstantDeclaration EnumDeclaration FieldDeclaration MethodDeclaration Parameter TypeDeclaration VariableDeclarator)
    (com.github.javaparser.ast.comments JavadocComment)
-   (com.github.javaparser.ast.expr AssignExpr FieldAccessExpr MethodCallExpr NameExpr NormalAnnotationExpr ObjectCreationExpr SingleMemberAnnotationExpr ThisExpr)
+   (com.github.javaparser.ast.expr AssignExpr FieldAccessExpr MethodCallExpr NameExpr NormalAnnotationExpr ObjectCreationExpr SingleMemberAnnotationExpr StringLiteralExpr ThisExpr)
    (com.github.javaparser.ast.stmt ExplicitConstructorInvocationStmt ExpressionStmt ReturnStmt)
    (com.github.javaparser.ast.type ArrayType ClassOrInterfaceType PrimitiveType Type TypeParameter VoidType WildcardType)
    (com.github.javaparser.javadoc Javadoc)
@@ -99,7 +99,7 @@
   "Creates a function that resolves simple class names to their fully qualified names
    based on the package declaration, imports, and locally defined types."
   [package imports local-overrides type-parameters package-peers nested-peers extended-peers]
-  (let [type-params (set type-parameters)
+  (let [class-type-params (set type-parameters)
         import-map (reduce (fn [acc ^String i]
                              (let [parts (string/split i #"\.")
                                    simple (last parts)]
@@ -108,46 +108,52 @@
                            (map :name imports))
         java-lang-types #{"String" "Integer" "Boolean" "Long" "Double" "Float" "Short" "Byte" "Character" "Object" "Class" "Void" "Enum" "AutoCloseable" "Iterable" "Runnable" "Throwable" "Error" "Exception" "Cloneable" "Comparable"}
         known-prefixes #{"java" "javax" "com" "org" "net" "io"}
-        known-types (into java-lang-types known-prefixes)]
-    (fn [simple-name]
-      (or (get local-overrides simple-name)
-          (get import-map simple-name)
-          (if (contains? known-types simple-name)
-            (str (if (contains? java-lang-types simple-name) "java.lang." "") simple-name)
-            (if (and package (not (or (contains? #{"T" "E" "K" "V" "?"} simple-name)
-                                    (contains? type-params simple-name))))
-              (cond
-                (contains? package-peers simple-name)
-                (str package "." simple-name)
+        known-types (into java-lang-types known-prefixes)
+        implicit-util-types {"Entry" "java.util.Map.Entry"
+                             "Map.Entry" "java.util.Map.Entry"}]
+    (fn solver
+      ([simple-name] (solver simple-name class-type-params))
+      ([simple-name all-type-params]
+       (or (get local-overrides simple-name)
+           (get import-map simple-name)
+           (get implicit-util-types simple-name)
+           (if (contains? known-types simple-name)
+             (str (if (contains? java-lang-types simple-name) "java.lang." "") simple-name)
+             (if (and package (not (or (contains? #{"T" "E" "K" "V" "?"} simple-name)
+                                     (contains? all-type-params simple-name))))
+               (cond
+                 (contains? package-peers simple-name)
+                 (str package "." simple-name)
 
-                ;; Check if it is a nested type of a peer class that we extend
-                (some (fn [extended-peer]
-                        (when-let [nested-set (get nested-peers extended-peer)]
-                          (contains? nested-set simple-name)))
-                      extended-peers)
-                (let [owner (some (fn [extended-peer]
-                                    (when (contains? (get nested-peers extended-peer) simple-name)
-                                      extended-peer))
-                                  extended-peers)]
-                  (str package "." owner "." simple-name))
+                 ;; Check if it is a nested type of a peer class that we extend
+                 (some (fn [extended-peer]
+                         (when-let [nested-set (get nested-peers extended-peer)]
+                           (contains? nested-set simple-name)))
+                       extended-peers)
+                 (let [owner (some (fn [extended-peer]
+                                     (when (contains? (get nested-peers extended-peer) simple-name)
+                                       extended-peer))
+                                   extended-peers)]
+                   (str package "." owner "." simple-name))
 
-                :else simple-name)
-              simple-name))))))
+                 :else (str package "." simple-name))
+               simple-name)))))))
 
 (defn resolve-type
   "Resolves a type string (including generics and arrays) to a symbol using the solver."
-  [type-str solver]
-  (cond
-    (string/includes? type-str "<")
-    (let [base-end (.indexOf type-str "<")
-          base (subs type-str 0 base-end)
-          generics (subs type-str (inc base-end) (dec (count type-str)))]
-      (symbol (str (solver base) "<" generics ">")))
-    (string/ends-with? type-str "[]")
-    (let [base (subs type-str 0 (- (count type-str) 2))]
-      [(resolve-type base solver)])
-    :else
-    (symbol (solver type-str))))
+  ([type-str solver] (resolve-type type-str solver #{}))
+  ([type-str solver all-type-params]
+   (cond
+     (string/includes? type-str "<")
+     (let [base-end (.indexOf type-str "<")
+           base (subs type-str 0 base-end)
+           generics (subs type-str (inc base-end) (dec (count type-str)))]
+       (symbol (str (solver base all-type-params) "<" generics ">")))
+     (string/ends-with? type-str "[]")
+     (let [base (subs type-str 0 (- (count type-str) 2))]
+       [(resolve-type base solver all-type-params)])
+     :else
+     (symbol (solver type-str all-type-params)))))
 
 (defn parse-type-ast
   "Parses a JavaParser Type object into a Clojure-friendly representation (symbol or vector).
@@ -161,7 +167,7 @@
                            (let [scope-ast (parse-type-ast (.get scope) solver type-params)
                                  scope-sym (if (sequential? scope-ast) (first scope-ast) scope-ast)]
                              (symbol (str scope-sym "." name)))
-                           (resolve-type name solver))
+                           (resolve-type name solver type-params))
                     ret (if-let [args (.getTypeArguments t)]
                           (if (.isPresent args)
                             (let [arg-types (mapv #(parse-type-ast % solver type-params) (.get args))]
@@ -406,46 +412,131 @@
 
 (defn extract-returned-field
   "Extracts the name of the field returned by a simple getter method.
-   Matches 'return field;' or 'return this.field;'."
-  [^MethodDeclaration m]
-  (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
-        stmts (when body (.getStatements body))]
-    (when (and stmts (= 1 (.size stmts)))
-      (let [stmt (.get stmts 0)]
-        (when (instance? ReturnStmt stmt)
-          (let [expr (when (.isPresent (.getExpression ^ReturnStmt stmt))
-                       (.get (.getExpression ^ReturnStmt stmt)))]
-            (when expr
-              (cond
-                (instance? FieldAccessExpr expr) (.getNameAsString ^FieldAccessExpr expr)
-                (instance? NameExpr expr) (.getNameAsString ^NameExpr expr)
-                :else nil))))))))
+   Matches 'return field;' or 'return this.field;'. Falls back to looking for a single accessed class field."
+  ([^MethodDeclaration m]
+   (extract-returned-field m nil))
+  ([^MethodDeclaration m ^TypeDeclaration parent-decl]
+   (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
+         stmts (when body (.getStatements body))]
+     (or
+       ;; First pass: the original, strict pattern-matching heuristic.
+       ;; This is fast and reliable for standard POJO getters (e.g. `return field;` or `return this.field;`).
+       ;; We preserve this because many downstream classes rely on its specific constraints.
+       (when (and stmts (= 1 (.size stmts)))
+         (let [stmt (.get stmts 0)]
+           (when (instance? ReturnStmt stmt)
+             (let [expr (when (.isPresent (.getExpression ^ReturnStmt stmt))
+                          (.get (.getExpression ^ReturnStmt stmt)))]
+               (when expr
+                 (cond
+                   (instance? FieldAccessExpr expr) (.getNameAsString ^FieldAccessExpr expr)
+                   (instance? NameExpr expr) (.getNameAsString ^NameExpr expr)
+                   :else nil))))))
+       ;; Second pass: the generalized AST fallback.
+       ;; Used for complex generated getters (like Protobuf's) where the method body might contain
+       ;; intermediate variable assignments or conditional logic (e.g. checking bitfields).
+       ;; This dynamically verifies if there is exactly ONE class field accessed within the method body.
+       (when (and parent-decl body)
+         (let [fields (set (keep (fn [member]
+                                   (when (instance? FieldDeclaration member)
+                                     (.getNameAsString (.getVariable ^FieldDeclaration member 0))))
+                                 (.getMembers parent-decl)))
+               names (map #(.getNameAsString %) (.findAll m NameExpr))
+               field-accesses (map #(.getNameAsString %) (.findAll m FieldAccessExpr))
+               all-accessed (concat names field-accesses)
+               accessed-fields (filter fields all-accessed)
+               unique-accessed-fields (set accessed-fields)]
+           (when (= 1 (count unique-accessed-fields))
+             (first unique-accessed-fields))))))))
 
 (defn extract-assigned-field
   "Extracts the name of the field assigned in a simple setter method.
-   Matches 'this.field = arg;' or 'field = arg;' and optionally a second 'return this;' statement for fluent setters."
-  [^MethodDeclaration m]
-  (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
-        stmts (when body (.getStatements body))]
-    (when stmts
-      (let [size (.size stmts)
-            valid-setter? (or (= size 1)
-                              (and (= size 2)
-                                   (let [stmt1 (.get stmts 1)]
-                                     (and (instance? ReturnStmt stmt1)
-                                          (let [expr (.getExpression ^ReturnStmt stmt1)]
-                                            (and (.isPresent expr)
-                                                 (instance? ThisExpr (.get expr))))))))]
-        (when valid-setter?
-          (let [stmt (.get stmts 0)]
-            (when (instance? ExpressionStmt stmt)
-              (let [expr (.getExpression ^ExpressionStmt stmt)]
-                (when (instance? AssignExpr expr)
-                  (let [target (.getTarget ^AssignExpr expr)]
-                    (cond
-                      (instance? FieldAccessExpr target) (.getNameAsString ^FieldAccessExpr target)
-                      (instance? NameExpr target) (.getNameAsString ^NameExpr target)
-                      :else nil)))))))))))
+   Matches 'this.field = arg;' or 'field = arg;' and optionally a second 'return this;' statement for fluent setters. Falls back to looking for a single accessed class field."
+  ([^MethodDeclaration m]
+   (extract-assigned-field m nil))
+  ([^MethodDeclaration m ^TypeDeclaration parent-decl]
+   (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
+         stmts (when body (.getStatements body))]
+     (or
+       ;; First pass: the original, strict pattern-matching heuristic.
+       ;; This is fast and highly reliable for standard POJO setters (e.g. `this.field = arg;`).
+       ;; We preserve this to ensure no regressions for simple, well-behaved classes.
+       (when stmts
+         (let [size (.size stmts)
+               valid-setter? (or (= size 1)
+                                 (and (= size 2)
+                                      (let [stmt1 (.get stmts 1)]
+                                        (and (instance? ReturnStmt stmt1)
+                                             (let [expr (.getExpression ^ReturnStmt stmt1)]
+                                               (and (.isPresent expr)
+                                                    (instance? ThisExpr (.get expr))))))))]
+           (when valid-setter?
+             (let [stmt (.get stmts 0)]
+               (when (instance? ExpressionStmt stmt)
+                 (let [expr (.getExpression ^ExpressionStmt stmt)]
+                   (when (instance? AssignExpr expr)
+                     (let [target (.getTarget ^AssignExpr expr)]
+                       (cond
+                         (instance? FieldAccessExpr target) (.getNameAsString ^FieldAccessExpr target)
+                         (instance? NameExpr target) (.getNameAsString ^NameExpr target)
+                         :else nil)))))))))
+
+       ;; Second pass: the generalized AST fallback.
+       ;; Used for complex generated setters (like Protobuf's) where the method body might contain
+       ;; null checks, bitfield assignments, or derive values via method calls (e.g. `field = val.getNumber()`).
+       ;; This identifies fields that are either directly assigned using a parameter,
+       ;; or mutated by a method call that involves a parameter.
+       (when (and parent-decl body)
+         (let [;; Collect all formal parameter names of the method.
+               params (set (map #(.getNameAsString %) (.getParameters m)))
+               ;; Collect all field names defined in the parent class to ensure we only return valid fields.
+               fields (set (mapcat (fn [member]
+                                     (when (instance? FieldDeclaration member)
+                                       (map #(.getNameAsString %) (.getVariables ^FieldDeclaration member))))
+                                   (.getMembers parent-decl)))
+               assignments (.findAll m AssignExpr)
+               method-calls (.findAll m MethodCallExpr)
+
+               ;; Identify fields assigned a value that involves a method parameter.
+               ;; Handles cases like: `this.language_ = value.getNumber();`
+               assigned-fields
+               (keep (fn [^AssignExpr a]
+                       (let [target (.getTarget a)
+                             value (.getValue a)
+                             target-name (cond
+                                           (instance? NameExpr target) (.getNameAsString ^NameExpr target)
+                                           (instance? FieldAccessExpr target) (.getNameAsString ^FieldAccessExpr target)
+                                           :else nil)
+                             ;; Find all symbols used in the value (RHS) of the assignment.
+                             involved-in-value (set (concat (map #(.getNameAsString %) (.findAll value NameExpr))
+                                                            (map #(.getNameAsString %) (.findAll value FieldAccessExpr))))]
+                         ;; If the target is a known field and any parameter is involved in the assignment...
+                         (when (and target-name (fields target-name)
+                                    (some params involved-in-value))
+                           target-name)))
+                     assignments)
+
+               ;; Identify fields involved in method calls that also use a method parameter.
+               ;; Handles cases like: `onChanged(field, param);` or `field.update(param);`
+               mutated-fields
+               (mapcat (fn [^MethodCallExpr call]
+                         ;; Find all symbols involved in the entire method call (scope and arguments).
+                         (let [involved-names (set (concat (map #(.getNameAsString %) (.findAll call NameExpr))
+                                                           (map #(.getNameAsString %) (.findAll call FieldAccessExpr))))
+                               ;; If any method parameter is used in this call...
+                               has-param? (some params involved-names)]
+                           (if has-param?
+                             ;; ...then all class fields mentioned in the same call are potentially being mutated.
+                             (filter fields involved-names)
+                             [])))
+                       method-calls)
+
+               ;; Merge all candidate fields identified via assignment or mutation.
+               all-involved-fields (set (concat assigned-fields mutated-fields))]
+           (when (seq all-involved-fields)
+             ;; Tie-breaking: If multiple fields are involved (e.g. Protobuf's `parts_` vs `partsBuilder_`),
+             ;; we prefer the shortest name, which typically represents the underlying storage field.
+             (first (sort-by count all-involved-fields)))))))))
 
 (defn extract-parameter-mappings
   "Analyzes a builder factory method body to map parameters to their corresponding setter methods.
@@ -478,14 +569,82 @@
                       new-mappings))
                   mappings)))))))))
 
+(defn- extract-regex-from-expr [expr parent-decl]
+  (cond
+    (instance? StringLiteralExpr expr)
+    (.getValue ^StringLiteralExpr expr)
+
+    (instance? MethodCallExpr expr)
+    (let [mce ^MethodCallExpr expr]
+      (when (and (= "compile" (.getNameAsString mce))
+                 (let [s (if (.isPresent (.getScope mce))
+                           (let [scope (.get (.getScope mce))]
+                             (if (instance? NameExpr scope)
+                               (.getNameAsString ^NameExpr scope)
+                               (.toString scope)))
+                           "Pattern")]
+                   (or (= "Pattern" s) (= "java.util.regex.Pattern" s))))
+        (let [args (.getArguments mce)]
+          (when (and (seq args))
+            (extract-regex-from-expr (first args) parent-decl)))))
+
+    (instance? NameExpr expr)
+    (let [name (.getNameAsString ^NameExpr expr)]
+      (some (fn [member]
+              (when (and (instance? FieldDeclaration member)
+                         (some #(= name (.getNameAsString %)) (.getVariables ^FieldDeclaration member)))
+                (let [v (first (filter #(= name (.getNameAsString %)) (.getVariables ^FieldDeclaration member)))]
+                  (when (.isPresent (.getInitializer v))
+                    (extract-regex-from-expr (.get (.getInitializer v)) parent-decl)))))
+            (.getMembers parent-decl)))
+
+    (instance? FieldAccessExpr expr)
+    (let [fae ^FieldAccessExpr expr]
+      (let [name (.getIdentifier (.getName fae))]
+        (some (fn [member]
+                (when (and (instance? FieldDeclaration member)
+                           (some #(= name (.getNameAsString %)) (.getVariables ^FieldDeclaration member)))
+                  (let [v (first (filter #(= name (.getNameAsString %)) (.getVariables ^FieldDeclaration member)))]
+                    (when (.isPresent (.getInitializer v))
+                      (extract-regex-from-expr (.get (.getInitializer v)) parent-decl)))))
+              (.getMembers parent-decl))))
+
+    :else nil))
+
+(defn- extract-parameter-regexes [^MethodDeclaration m parent-decl]
+  (let [body (when (.isPresent (.getBody m)) (.get (.getBody m)))
+        mce-calls (when body (.findAll body MethodCallExpr))
+        params (mapv #(.getNameAsString %) (.getParameters m))]
+    (reduce
+     (fn [acc mce]
+       (if (and (= "matcher" (.getNameAsString mce))
+                (.isPresent (.getScope mce)))
+         (let [args (.getArguments mce)]
+           (if (and (= 1 (count args))
+                    (instance? NameExpr (first args))
+                    (some #(= (.getNameAsString ^NameExpr (first args)) %) params))
+             (let [param-name (.getNameAsString ^NameExpr (first args))
+                   scope (.get (.getScope mce))
+                   regex (extract-regex-from-expr scope parent-decl)]
+               (if regex
+                 (assoc acc param-name regex)
+                 acc))
+             acc))
+         acc))
+     {}
+     mce-calls)))
+
 (defn method->edn
   [solver type-params ^TypeDeclaration parent-decl ^MethodDeclaration m]
-  (let [annotations (extract-annotations m)
+  (let [method-type-params (set (map #(.getNameAsString %) (.getTypeParameters m)))
+        all-type-params (into (set type-params) method-type-params)
+        annotations (extract-annotations m)
         nullable? (annotated-nullable? annotations)
         non-null? (annotated-non-null? annotations)
         beta? (annotated-beta? annotations)
         factory-variant (extract-factory-variant m parent-decl)
         parameter-mappings (extract-parameter-mappings m)
+        parameter-regexes (extract-parameter-regexes m parent-decl)
         annotations' (remove (fn [{:keys [name] :as annotation}]
                                (or (known-annotations annotation)
                                    (string/starts-with?  name "Json")
@@ -498,17 +657,22 @@
                      (when (= 1 (.size (.getParameters m)))
                        (extract-factory-field m parent-decl))
                      (if (empty? (.getParameters m))
-                       (extract-returned-field m)
+                       (extract-returned-field m parent-decl)
                        (when (= 1 (.size (.getParameters m)))
-                         (extract-assigned-field m))))
+                         (extract-assigned-field m parent-decl))))
         base {:name (.getNameAsString m)
               ; :modifiers (extract-modifiers m)
-              :returnType (parse-type-ast (.getType m) solver type-params)
-              :parameters (mapv (partial parameter->edn solver type-params) (.getParameters m))
+              :returnType (parse-type-ast (.getType m) solver all-type-params)
+              :parameters (mapv (fn [p]
+                                  (let [p-edn (parameter->edn solver all-type-params p)]
+                                    (if-let [re (get parameter-regexes (:name p-edn))]
+                                      (assoc p-edn :regex re)
+                                      p-edn)))
+                                (.getParameters m))
               :static? (.isStatic m)
               :private? (not (.isPublic m))
               :abstract? (.isAbstract m)}
-        throws (mapv #(parse-type-ast % solver type-params) (.getThrownExceptions m))]
+        throws (mapv #(parse-type-ast % solver all-type-params) (.getThrownExceptions m))]
     (when (not-empty annotations')
       (println "WARN novel annotations for "(.getNameAsString m) ":" annotations'))
     (cond-> base
@@ -522,6 +686,11 @@
             nullable? (assoc :nullable? nullable?)
             non-null? (assoc :non-null? non-null?)
             beta? (assoc :beta? beta?))))
+
+(def protobuf-types
+  '#{com.google.protobuf.Descriptors.FieldDescriptor
+     com.google.protobuf.FieldMask
+     })
 
 (defn extract-methods
   "Extracts method details (name, modifiers, return type, parameters, doc, annotations) from a type declaration."
@@ -537,16 +706,37 @@
                            annotations (extract-annotations m)]
                        (or (annotated-deprecated? annotations)
                            (annotated-obsolete? annotations)
-                           (#{"toString" "equals" "hashCode" "toBuilder" "toPb" "clone"
+                           (#{"toString" "equals" "hashCode" "toBuilder"
+                              "toPb" "fromPb" "clone" "setField"
                               "mergeFrom" "buildPartial"
-                              "getDescriptorForType" "getDescriptor" "setRepeatedField"
+                              "getClass" "wait" "notify" "notifyAll"
+                              "mergeReadMask" "getReadMask" "setReadMask" "hasReadMask"
+                              "mergeUpdateMask" "getUpdateMask" "setUpdateMask" "hasUpdateMask"
+                              "getDescriptorForType" "getDescriptor" "setRepeatedField" "getDefaultInstanceForType"
                               "addRepeatedField" "mergeUnknownFields" "setUnknownFields"
                               "getParserForType" "parser" "parseDelimitedFrom" "writeTo"
                               "isInitialized"} methodName)
                            (string/starts-with? methodName "clear")
                            (string/starts-with? methodName "remove")
-                           (string/ends-with? methodName "OrBuilder"))))))
-         (mapv (partial method->edn solver type-params type-decl)))))
+                           (string/starts-with? methodName "merge")
+                           (and (string/starts-with? methodName "add")
+                                (not (string/starts-with? methodName "addAll")))
+                           (string/includes? methodName "$")
+                           (and (not (.isStatic m))
+                                (string/includes? methodName "Builder")))))))
+         (mapv (partial method->edn solver type-params type-decl))
+         (remove (fn [{parameters :parameters :as m}]
+                   (or
+                     (some #(or (protobuf-types %)
+                                (= % "builderForValue")
+                                (string/includes? % "Callable")
+                                (string/includes? % "ReadMask"))
+                           (map :name parameters))
+                     (and (or (string/starts-with? (:name m) "add")
+                              (string/starts-with? (:name m) "set")
+                              (string/starts-with? (:name m) "get"))
+                          (= "index" (get-in parameters [0 :name])))
+                     (protobuf-types (:returnType m))))))))
 
 (defn extract-fields
   "Extracts field details (name, type, modifiers, doc, annotations) from a type declaration."
@@ -593,13 +783,17 @@
          ;; Note: This only filters constructors using hidden *nested* types.
          ;; Constructors using package-private types from *peer* classes (same package)
          ;; are not currently detected because we don't have visibility into peer classes here.
-         (remove (fn [c]
-                   (some (fn [p]
-                           (let [t (parse-type-ast (.getType p) solver type-params)]
-                             (type-contains-hidden? t hidden-types)))
-                         (.getParameters c))))
+         (remove (fn [^ConstructorDeclaration c]
+                   (let [ctor-type-params (set (map #(.getNameAsString %) (.getTypeParameters c)))
+                         all-type-params (into (set type-params) ctor-type-params)]
+                     (some (fn [p]
+                             (let [t (parse-type-ast (.getType p) solver all-type-params)]
+                               (type-contains-hidden? t hidden-types)))
+                           (.getParameters c)))))
          (mapv (fn [^ConstructorDeclaration c]
-                 (let [annotations (extract-annotations c)
+                 (let [ctor-type-params (set (map #(.getNameAsString %) (.getTypeParameters c)))
+                       all-type-params (into (set type-params) ctor-type-params)
+                       annotations (extract-annotations c)
                        doc         (extract-javadoc c)]
                    (cond->
                      {:name        (.getNameAsString c)
@@ -608,12 +802,16 @@
                                            (let [annotations (extract-annotations p)]
                                              (cond->
                                                {:name (.getNameAsString p)
-                                                :type (parse-type-ast (.getType p) solver type-params)}
+                                                :type (parse-type-ast (.getType p) solver all-type-params)}
                                                (seq annotations) (assoc :annotations annotations))))
                                          (.getParameters c))}
                      doc (assoc :doc doc)
-                     (seq (.getThrownExceptions c)) (assoc :throws (mapv #(parse-type-ast % solver type-params) (.getThrownExceptions c)))
-                     (seq annotations) (assoc :annotations annotations))))))))
+                     (seq (.getThrownExceptions c)) (assoc :throws (mapv #(parse-type-ast % solver all-type-params) (.getThrownExceptions c)))
+                     (seq annotations) (assoc :annotations annotations)))))
+         (remove
+           (fn [{:keys [parameters] :as ctor}]
+             (and (= 1 (count parameters))
+                  (= "builder" (get-in parameters [0 :name]))))))))
 
 (defn extract-enum-constants
   "Extracts enum constants (name, doc, arguments, annotations) from an enum declaration."
@@ -881,7 +1079,7 @@
              (.getMethods type-decl))))
 
 (defn static-factory?
-  "Detects if a class is a static factory (no public constructors, has static 'of' method returning self)."
+  "Detects if a class is a static factory (no public constructors, has static factories returning self)."
   [^TypeDeclaration type-decl]
   (and (instance? ClassOrInterfaceDeclaration type-decl)
        (not (union-type? type-decl))
@@ -893,14 +1091,7 @@
        (empty? (filter (fn [^ConstructorDeclaration c]
                          (.isPublic c))
                        (.getConstructors type-decl)))
-       ;; Has static 'of' method returning self
-       (let [self-name (.getNameAsString type-decl)]
-         (some (fn [^MethodDeclaration m]
-                 (and (.isStatic m)
-                      (.isPublic m)
-                      (= (.getNameAsString m) "of")
-                      (= (.asString (.getType m)) self-name)))
-               (.getMethods type-decl)))))
+       (has-static-factories? type-decl)))
 
 (defn resource-identifier?
   "Detects if a class is a resource identifier.
@@ -948,6 +1139,43 @@
               (= (.getNameAsString t) "StringEnumValue"))
             extended))
     false))
+
+(defn union-protobuf-oneof?
+  "Detects a Protobuf oneof union type (has a [Something]Case enum and get[Something]Case() method)."
+  [^TypeDeclaration type-decl]
+  (and (instance? ClassOrInterfaceDeclaration type-decl)
+       (let [members (.getMembers type-decl)
+             enums (filter #(instance? EnumDeclaration %) members)
+             methods (.getMethods type-decl)]
+         (some (fn [^EnumDeclaration e]
+                 (let [enum-name (.getNameAsString e)]
+                   (and (string/ends-with? enum-name "Case")
+                        (some (fn [^MethodDeclaration m]
+                                (let [method-name (.getNameAsString m)]
+                                  (and (= method-name (str "get" enum-name))
+                                       (= 0 (.size (.getParameters m))))))
+                              methods))))
+               enums))))
+
+(defn protobuf-message?
+  "Detects if a class is a generated Protobuf message."
+  [^TypeDeclaration type-decl]
+  (and (not (union-protobuf-oneof? type-decl))
+       (if (instance? ClassOrInterfaceDeclaration type-decl)
+         (let [extended (.getExtendedTypes type-decl)
+               implements (.getImplementedTypes type-decl)]
+           (or (some (fn [^ClassOrInterfaceType t]
+                       (or (= (.getNameAsString t) "GeneratedMessageV3")
+                           (= (.getNameAsString t) "GeneratedMessage")
+                           (= (.getNameAsString t) "MessageOrBuilder")
+                           (= (.getNameAsString t) "GeneratedMessage.Builder")
+                           (= (.getNameAsString t) "GeneratedMessageV3.Builder")))
+                     extended)
+               (some (fn [^ClassOrInterfaceType t]
+                       (or (= (.getNameAsString t) "MessageOrBuilder")
+                           (= (.getNameAsString t) "Message.Builder")))
+                     implements)))
+         false)))
 
 (defn has-accessors? [^TypeDeclaration type-decl]
   (or (some (fn [^FieldDeclaration f] (and (.isPublic f) (not (.isStatic f)))) (.getFields type-decl))
@@ -1094,7 +1322,9 @@
   [^TypeDeclaration type-decl]
   (and (instance? ClassOrInterfaceDeclaration type-decl)
        (has-builder? type-decl)
-       (nil? (extract-discriminator type-decl))))
+       (nil? (extract-discriminator type-decl))
+       (not (union-protobuf-oneof? type-decl))
+       (not (protobuf-message? type-decl))))
 
 (defn read-only?
   "Detects if a class is read-only (no public constructors, has instance methods)."
@@ -1110,6 +1340,7 @@
        (not (static-factory? type-decl))
        (not (collection-wrapper? type-decl))
        (not (union-type? type-decl))
+       (not (union-protobuf-oneof? type-decl))
        (not (resource-extended? type-decl))
        (not (mutable-pojo? type-decl))
        (some (fn [^MethodDeclaration m]
@@ -1123,7 +1354,8 @@
        (some? (extract-discriminator type-decl))
        (not (has-builder? type-decl))
        (not (has-nested-builder? type-decl))
-       (not (public-constructors? type-decl))))
+       (not (public-constructors? type-decl))
+       (not (union-protobuf-oneof? type-decl))))
 
 (defn variant-accessor? [type-decl]
   (and (has-nested-builder? type-decl)
@@ -1137,7 +1369,8 @@
                               (string/ends-with? n "Configuration")))))
                  extended))
          false)
-       (some? (extract-discriminator type-decl))))
+       (some? (extract-discriminator type-decl))
+       (not (union-protobuf-oneof? type-decl))))
 
 (def ^:dynamic *throw-on-uncategorized?* false)
 
@@ -1153,11 +1386,14 @@
     (if (.isNestedType type-decl)
       (cond
         (accessor? type-decl)                 :nested/accessor-with-builder
+        (union-protobuf-oneof? type-decl)     :nested/union-protobuf-oneof
+        (protobuf-message? type-decl)         :nested/protobuf-message
         (string/ends-with? fqcn "Builder")    :nested/builder
         (lifecycle-client? type-decl)         :nested/client
         (collection-wrapper? type-decl)       :nested/collection-wrapper
         (instance? EnumDeclaration type-decl) :nested/enum
         (factory? type-decl)                  :nested/factory
+        (functional-interface? type-decl)      :nested/functional-interface
         (string-enum? type-decl)              :nested/string-enum
         (abstract-union? type-decl)           :nested/union-abstract
         (union-tagged? type-decl)             :nested/union-tagged
@@ -1180,6 +1416,8 @@
               :nested/other))))
       (cond
         (accessor? type-decl)                  :accessor-with-builder
+        (union-protobuf-oneof? type-decl)      :union-protobuf-oneof
+        (protobuf-message? type-decl)          :protobuf-message
         (lifecycle-client? type-decl)          :client
         (collection-wrapper? type-decl)        :collection-wrapper
         (mutable-pojo? type-decl)              :mutable-pojo
@@ -1340,7 +1578,8 @@
          (sorted-map
            :className className
            :package package
-           :gcp/key (u/fqcn->schema-key fqcn)
+           :gcp/key (u/fqcn->gcp-key fqcn)
+           :gcp/ns (u/fqcn->gcp-ns fqcn)
            :fqcn fqcn
            :category category
            :file-git-sha file-git-sha

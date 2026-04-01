@@ -14,6 +14,8 @@
 (def pkg-node-schema :map)
 (def class-node-schema :map)
 
+#!----------------------------------------------------------------------------------------------------------------------
+
 (defn named? [class-like] (or (string? class-like) (ident? class-like)))
 
 (defn fqcn? [{:keys [package-prefixes] :as pkg} class-like]
@@ -118,55 +120,60 @@
         (update node :methods into synthetic-methods))
       node)))
 
-(defn lookup-class [pkg class-like]
-  (when-let [node (lookup-class-raw pkg class-like)]
-    (let [node-with-synth (inject-synthetic-getters node)
-          node-with-inheritance (if-let [extends (:extends node-with-synth)]
-                                  (let [parent-fqcns                  (map str extends)
-                                        ;; Methods
-                                        parent-methods                (mapcat (fn [parent-fqcn]
-                                                                                (if (fqcn? pkg parent-fqcn)
-                                                                                  (when-let [parent-node (lookup-class pkg parent-fqcn)]
-                                                                                    (:methods parent-node))
-                                                                                  (reflect-parent-methods parent-fqcn)))
-                                                                              parent-fqcns)
-                                        inherited-methods             (filter #(and (not (:static? %)))
-                                                                              parent-methods)
+(def ignore-inheritance-prefixes
+  #{"com.google.protobuf."})
 
-                                        ;; Fields
-                                        parent-fields                 (mapcat (fn [parent-fqcn]
-                                                                                (if (fqcn? pkg parent-fqcn)
-                                                                                  (when-let [parent-node (lookup-class pkg parent-fqcn)]
-                                                                                    (:fields parent-node))
-                                                                                  (reflect-parent-fields parent-fqcn)))
-                                                                              parent-fqcns)
+(defn lookup-class
+  ([pkg class-like]
+   (lookup-class pkg class-like true))
+  ([pkg class-like resolve-nested?]
+   (when-let [node (lookup-class-raw pkg class-like)]
+     (let [node-with-synth (inject-synthetic-getters node)
+           node-with-inheritance (if-let [extends (:extends node-with-synth)]
+                                   (let [parent-fqcns                  (->> (map str extends)
+                                                                            (remove (fn [fqcn]
+                                                                                      (some #(string/starts-with? fqcn %) ignore-inheritance-prefixes))))
+                                         ;; Methods
+                                         parent-methods                (mapcat (fn [parent-fqcn]
+                                                                                 (if (fqcn? pkg parent-fqcn)
+                                                                                   (when-let [parent-node (lookup-class pkg parent-fqcn false)]
+                                                                                     (:methods parent-node))
+                                                                                   (reflect-parent-methods parent-fqcn)))
+                                                                               parent-fqcns)
+                                         inherited-methods             (filter #(and (not (:static? %)))
+                                                                               parent-methods)
 
-                                        field-map                     (into {} (map (juxt :name :name)) parent-fields)
-                                        inherited-methods-with-fields (map (fn [m]
-                                                                             (if (:field-name m)
-                                                                               m
-                                                                               (let [prop (property-name (:name m))]
-                                                                                 (if-let [f-name (get field-map prop)]
-                                                                                   (assoc m :field-name f-name)
-                                                                                   m))))
-                                                                           inherited-methods)
+                                         ;; Fields
+                                         parent-fields                 (mapcat (fn [parent-fqcn]
+                                                                                 (if (fqcn? pkg parent-fqcn)
+                                                                                   (when-let [parent-node (lookup-class pkg parent-fqcn false)]
+                                                                                     (:fields parent-node))
+                                                                                   (reflect-parent-fields parent-fqcn)))
+                                                                               parent-fqcns)
 
-                                        existing-method-names         (set (map :name (:methods node-with-synth)))
-                                        unique-inherited-methods      (remove #(contains? existing-method-names (:name %)) inherited-methods-with-fields)
+                                         field-map                     (into {} (map (juxt :name :name)) parent-fields)
+                                         inherited-methods-with-fields (map (fn [m]
+                                                                              (if (:field-name m)
+                                                                                m
+                                                                                (let [prop (property-name (:name m))]
+                                                                                  (if-let [f-name (get field-map prop)]
+                                                                                    (assoc m :field-name f-name)
+                                                                                    m))))
+                                                                            inherited-methods)
 
-                                        inherited-fields              (remove #(or (:static? %)) parent-fields)
-                                        existing-field-names          (set (map :name (:fields node-with-synth)))
-                                        unique-inherited-fields       (remove #(contains? existing-field-names (:name %)) inherited-fields)]
-                                    (-> node-with-synth
-                                        (update :methods into unique-inherited-methods)
-                                        (update :fields into unique-inherited-fields)))
-                                  node-with-synth)]
-      (if (seq (:nested node-with-inheritance))
-        (update node-with-inheritance :nested (partial mapv #(lookup-class pkg %)))
-        node-with-inheritance))))
+                                         existing-method-names         (set (map :name (:methods node-with-synth)))
+                                         unique-inherited-methods      (remove #(contains? existing-method-names (:name %)) inherited-methods-with-fields)
 
-#!------------------------------------------------------------------------------
-
+                                         inherited-fields              (remove #(or (:static? %)) parent-fields)
+                                         existing-field-names          (set (map :name (:fields node-with-synth)))
+                                         unique-inherited-fields       (remove #(contains? existing-field-names (:name %)) inherited-fields)]
+                                     (-> node-with-synth
+                                         (update :methods into unique-inherited-methods)
+                                         (update :fields into unique-inherited-fields)))
+                                   node-with-synth)]
+       (if (and resolve-nested? (seq (:nested node-with-inheritance)))
+         (update node-with-inheritance :nested (partial mapv #(lookup-class pkg %)))
+         node-with-inheritance)))))
 #!------------------------------------------------------------------------------
 #! repo interop
 
@@ -202,8 +209,10 @@
           pkg-ast (parser/analyze-package (layout/package-source-root pkg) files options)
           forwarded-keys [:name
                           :package-root
+                          :bindings-target-root
                           :package-prefixes
                           :custom-namespace-mappings
+                          :support-packages
                           :exempt-types
                           :opaque-types
                           :parser-options]]
@@ -212,27 +221,19 @@
 
 (defn ^File fqcn->target-file
   "Determines the output file path for a given FQCN."
-  [{:keys [package-name package-root package-prefixes] :as pkg} node-or-fqcn]
+  [pkg node-or-fqcn]
   (assert (map? pkg))
   (if (map? node-or-fqcn)
     (fqcn->target-file pkg (:fqcn node-or-fqcn))
     (let [fqcn (m/coerce string? node-or-fqcn)
-          custom-ns (get (:custom-namespace-mappings pkg) (symbol fqcn))
-          target-ns (cond
-                      (nil? custom-ns)
-                      (u/binding-ns package-name package-prefixes fqcn)
-
-                      (= (str custom-ns) (str (u/package-to-ns (:package (u/split-fqcn fqcn)))))
-                      custom-ns ;; It's already the full namespace
-
-                      (string/ends-with? (str custom-ns) (str "." (:class (u/split-fqcn fqcn))))
-                      custom-ns ;; It's already the full namespace
-
-                      :else
-                      (symbol (str (name custom-ns) "." (:class (u/split-fqcn fqcn)))))
+          target-ns (if-let [custom-ns (get (:custom-namespace-mappings pkg) (symbol fqcn))]
+                      (if (string/ends-with? (str custom-ns) (str "." (:class (u/split-fqcn fqcn))))
+                        custom-ns
+                        (symbol (str (name custom-ns) "." (:class (u/split-fqcn fqcn)))))
+                      (u/fqcn->gcp-ns fqcn))
           rel-path (str (string/replace (str target-ns) "." "/") ".clj")
-          target-dir (:package-root pkg)]
-      (io/file target-dir "src" rel-path))))
+          bindings-root (layout/package-bindings-root pkg)]
+      (io/file bindings-root rel-path))))
 
 (defn target-file->fqcn
   "Finds the FQCN that maps to the given target file.
@@ -274,14 +275,16 @@
      (into (reduce into (sorted-set) (map extract-type-symbols all-types))
            (mapcat class-user-types nested)))))
 
-(defn- native-type? [pkg type-sym]
+(defn- native-type?
+  [pkg type-sym]
   (let [t-str (str type-sym)
         pkg-name (:package-name pkg)
         _ (assert (some? pkg-name))
         package-prefixes (or (:package-prefixes pkg) #{pkg-name})]
     (some #(string/starts-with? t-str %) package-prefixes)))
 
-(defn class-package-user-types [pkg class-like]
+(defn class-package-user-types
+  [pkg class-like]
   (let [class-node (if (map? class-like)
                      class-like
                      (lookup-class pkg class-like))]
@@ -292,153 +295,10 @@
               all-types))
       (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
 
-(defn- collect-types
-  "Walks an arbitrary data structure (AST type representation) and collects all Symbols.
-   Excludes common java.lang types if desired, but here we collect everything that looks like a class."
-  [x]
-  (let [types (atom (sorted-set))]
-    (clojure.walk/postwalk
-      (fn [form]
-        (when (symbol? form)
-          (let [s (name form)]
-            ;; Heuristic: starts with uppercase or contains dot, likely a class
-            (when (or (string/includes? s ".")
-                      (re-matches #"^[A-Z].*" s))
-              (swap! types conj (name form)))))
-        form)
-      x)
-    @types))
-
 (def ignore-extends-categories
   #{:enum :string-enum :union-abstract :union-concrete :variant-accessor :union-tagged
     :accessor-with-builder :builder :static-factory :factory :pojo :read-only
     :client})
-
-(defn- extract-deps-from-node
-  "Extracts all dependencies (as FQCN strings) from a class AST node."
-  [node]
-  (let [extends-deps (if (contains? ignore-extends-categories (:category node))
-                       []
-                       (mapcat collect-types (:extends node)))
-        implements-deps (mapcat collect-types (:implements node))
-        field-deps (mapcat #(collect-types (:type %)) (:fields node))
-        method-deps (mapcat (fn [m]
-                              (concat (collect-types (:returnType m))
-                                      (mapcat #(collect-types (:type %)) (:parameters m))))
-                            (:methods node))
-        ctor-deps (mapcat (fn [c]
-                            (mapcat #(collect-types (:type %)) (:parameters c)))
-                          (:constructors node))
-        nested-deps (mapcat extract-deps-from-node (:nested node))
-        all-deps (concat extends-deps implements-deps field-deps method-deps ctor-deps nested-deps)
-        pruned (or (:prune-dependencies node) #{})]
-    (into (sorted-set)
-          (remove pruned)
-          all-deps)))
-
-(defn build-dependency-graph
-  "Builds a dependency graph from the package analysis result.
-   Returns a map: {FQCN #{DependencyFQCN ...}}"
-  [package-ast]
-  (let [fqcn-map (:class/by-fqcn package-ast)
-        internal-classes (set (keys fqcn-map))
-        base-resolve (fn [dep]
-                       (if (contains? internal-classes dep)
-                         dep
-                         (let [parts (string/split dep #".")]
-                           (loop [p parts]
-                             (if (empty? p)
-                               nil
-                               (let [parent (string/join "." p)]
-                                 (if (contains? internal-classes parent)
-                                   parent
-                                   (recur (pop p)))))))))]
-    (reduce-kv (fn [graph fqcn node]
-                 (let [raw-deps (extract-deps-from-node node)
-                       current-pkg (:package node)
-                       resolve-dep (fn [dep]
-                                     (or (base-resolve dep)
-                                         (when current-pkg
-                                           (base-resolve (str current-pkg "." dep)))))
-                       internal-deps (into #{}
-                                           (comp (keep resolve-dep)
-                                                 (remove #(= % fqcn)))
-                                           raw-deps)]
-                   (assoc graph fqcn internal-deps)))
-               {}
-               fqcn-map)))
-
-(defn dependency-tree
-  "Generates a dependency tree (nested map) starting from a root class.
-   'package-path' is the file path to the package source (for analysis).
-   'root-class-name' is the simple name or FQCN of the root class (e.g. 'Storage').
-   Returns a map where keys are class names and values are sub-dependencies.
-   Uses a 'seen' set to break cycles."
-  [pkg-ast root-class-name]
-  (let [graph   (build-dependency-graph pkg-ast)
-        ;; Find FQCN for root-class-name if it's simple
-        root-fqcn (or (when (contains? graph root-class-name) root-class-name)
-                      (first (filter #(string/ends-with? % (str "." root-class-name)) (keys graph))))]
-    (when-not root-fqcn
-      (throw (ex-info (str "Root class not found: " root-class-name) {:available (take 10 (keys graph))})))
-    (letfn [(build-tree [node seen]
-              (if (contains? seen node)
-                {node :cycle}
-                (let [deps (get graph node)
-                      new-seen (conj seen node)]
-                  {node (into {} (map #(build-tree % new-seen) deps))})))]
-
-      (build-tree root-fqcn #{}))))
-
-(defn transitive-closure
-  "Returns the set of all internal classes reachable from the given roots.
-   'roots' is a collection of FQCN strings."
-  [pkg roots]
-  (let [graph (build-dependency-graph pkg)
-        roots (set roots)]
-    (loop [queue (into clojure.lang.PersistentQueue/EMPTY roots)
-           visited roots]
-      (if (empty? queue)
-        visited
-        (let [current (peek queue)
-              queue   (pop queue)
-              deps    (get graph current)
-              new-deps (remove visited deps)]
-          (recur (into queue new-deps)
-                 (into visited new-deps)))))))
-
-(defn topological-sort
-  "Returns a sequence of FQCNs sorted topologically (dependencies first).
-   'nodes' is a collection of FQCN strings to sort.
-   Throws an exception if a circular dependency is detected."
-  [pkg nodes]
-  (let [graph (build-dependency-graph pkg)
-        ;; We only care about the subgraph defined by 'nodes'
-        relevant-graph (select-keys graph nodes)
-        nodes-set (set nodes)]
-    (letfn [(dfs [node visited visiting path stack]
-              (cond
-                (contains? visiting node)
-                (let [cycle-path (conj (vec (drop-while #(not= % node) path)) node)]
-                  (throw (ex-info (str "Circular dependency detected: " (string/join " -> " cycle-path))
-                                  {:cycle-node node
-                                   :path path
-                                   :cycle cycle-path})))
-                (contains? visited node)
-                [visited stack]
-                :else
-                (let [new-visiting (conj visiting node)
-                      new-path     (conj path node)
-                      deps (filter nodes-set (get relevant-graph node))
-                      [visited stack] (reduce (fn [[v s] dep]
-                                                (dfs dep v new-visiting new-path s))
-                                              [visited stack]
-                                              deps)]
-                  [(conj visited node) (conj stack node)])))]
-      (second (reduce (fn [[visited stack] node]
-                        (dfs node visited #{} [] stack))
-                      [#{} []]
-                      nodes)))))
 
 (defn dependency-seq
   "Returns a sequence of FQCNs representing the dependency closure of `class-like`
@@ -467,20 +327,6 @@
                     new-stack   (into stack (reverse sorted-deps))]
                 (recur new-stack (conj visited current) (conj result current)))))))
       (throw (ex-info "class not found" {:pkg pkg :class-like class-like})))))
-
-(defn dependency-post-order
-  "Returns a sequence of FQCNs representing the dependency closure of `class-like`
-   in post-order (leaves first, root last).
-   Useful for bottom-up compilation or instantiation."
-  [pkg class-like]
-  (let [tree (dependency-tree pkg class-like)]
-    (letfn [(traverse [node seen]
-              (let [[name children] (first node)]
-                (if (or (= children :cycle) (contains? seen name))
-                  [] ;; Skip cycles or already visited in this path
-                  (let [child-seqs (map (fn [[k v]] (traverse {k v} (conj seen name))) children)]
-                    (concat (apply concat child-seqs) [name])))))]
-      (distinct (traverse tree #{})))))
 
 ;; TODO some of these may need foreign bindings
 ;; Need better more robust way of determining user-types
@@ -519,13 +365,13 @@
                      com.google.api.gax.rpc.StatusCode
                      com.google.api.gax.rpc.ErrorDetails
                      com.google.api.pathtemplate.PathTemplate
-                     com.google.auth.ServiceAccountSigner
                      com.google.auth.oauth2.GoogleCredentials
                      com.google.cloud.grpc.BaseGrpcServiceException
                      com.google.cloud.grpc.GrpcTransportOptions
                      com.google.cloud.http.BaseHttpServiceException
                      com.google.cloud.http.HttpTransportOptions
                      com.google.common.base.Function
+                     com.google.common.base.MoreObjects.ToStringHelper
                      com.google.common.base.Optional
                      com.google.common.base.Supplier
                      com.google.common.collect.ImmutableMap
@@ -533,10 +379,61 @@
                      com.google.common.collect.ImmutableSet
                      com.google.common.hash.HashFunction
                      com.google.longrunning.OperationsClient
+                     com.google.api.gax.rpc.PagedCallSettings.Builder
+                     com.google.api.gax.httpjson.InstantiatingHttpJsonChannelProvider.Builder
+                     com.google.api.gax.rpc.ClientSettings.Builder
+                     com.google.api.gax.grpc.InstantiatingGrpcChannelProvider.Builder
+                     com.google.api.gax.rpc.ApiClientHeaderProvider.Builder
+                     com.google.api.gax.core.GoogleCredentialsProvider.Builder
+                     com.google.api.gax.core.InstantiatingExecutorProvider.Builder
+                     com.google.api.gax.rpc.UnaryCallSettings.Builder
+                     com.google.api.gax.rpc.ServerStreamingCallSettings.Builder
+                     com.google.api.gax.rpc.StreamingCallSettings.Builder
+                     com.google.api.HttpBody.Builder
+                     com.google.rpc.Status.Builder
+                     #!---------------------------------------
                      com.google.type.CalendarPeriod
                      com.google.type.Expr
+                     com.google.type.LatLng.Builder
                      com.google.type.TimeOfDay
-                     io.opentelemetry.api.trace.Span})
+                     com.google.type.Date.Builder
+                     #!---------------------------------------\
+                     io.opentelemetry.api.trace.Span
+                     #!---------------------------------------
+                     com.google.protobuf.Struct.Builder
+                     com.google.protobuf.Duration.Builder
+                     com.google.protobuf.Timestamp.Builder
+                     com.google.protobuf.CodedInputStream
+                     com.google.protobuf.CodedOutputStream
+                     com.google.protobuf.Descriptors
+                     com.google.protobuf.Descriptors$Descriptor
+                     com.google.protobuf.Descriptors$FieldDescriptor
+                     com.google.protobuf.Descriptors$OneofDescriptor
+                     com.google.protobuf.Descriptors.EnumValueDescriptor
+                     com.google.protobuf.Extension
+                     com.google.protobuf.ExtensionLite
+                     com.google.protobuf.ExtensionRegistryLite
+                     com.google.protobuf.FieldMask
+                     com.google.protobuf.FieldMask.Builder
+                     com.google.protobuf.FieldSet
+                     com.google.protobuf.GeneratedMessageV3
+                     com.google.protobuf.GeneratedMessage
+                     com.google.protobuf.GeneratedMessage.Builder
+                     com.google.protobuf.GeneratedMessage$GeneratedExtension
+                     com.google.protobuf.ListValue.Builder
+                     com.google.protobuf.MapField
+                     com.google.protobuf.MapFieldBuilder
+                     com.google.protobuf.Message
+                     com.google.protobuf.MessageLite$Builder
+                     com.google.protobuf.Message$Builder
+                     com.google.protobuf.Parser
+                     com.google.protobuf.RepeatedFieldBuilderV3
+                     com.google.protobuf.SingleFieldBuilderV3
+                     com.google.protobuf.UnknownFieldSet
+                     com.google.protobuf.Value.Builder
+                     com.google.protobuf.RepeatedFieldBuilder
+                     com.google.protobuf.SingleFieldBuilder
+                     })
 
 (def scalars
   '#{void java.lang.Void
@@ -552,6 +449,11 @@
      java.util.UUID
      java.util.regex.Pattern
      java.time.Instant
+     java.time.LocalTime
+     java.time.LocalDate
+     java.time.LocalDateTime
+     java.time.OffsetDateTime
+     java.time.Duration
      java.lang.Object
      java.math.BigInteger
      java.math.BigDecimal})
@@ -571,40 +473,10 @@
      java.util.Map.Entry})
 
 (def native-types
-  '#{; float boolean int void long char double byte
-     ; java.lang.Boolean
-     ; java.lang.Char
-     ; java.lang.String
-     ; java.lang.Integer
-     ; java.lang.Long
-     ; java.lang.Double
-     ; java.lang.Float
-     ; java.lang.Void
-     ; java.lang.Object
-     ; java.math.BigDecimal
-     ; java.math.BigInteger
-     ; java.time.Instant
-     ; java.util.UUID
-     ; java.util.regex.Pattern
+  '#{
      #!----------------------------------------
      #! time
-     java.time.Duration
-     java.time.OffsetDateTime
      java.time.format.DateTimeFormatter
-     #!--------------------------------------
-     #! collections
-     ; java.util.Map
-     ; java.util.List
-     ; java.util.Set
-     ; java.util.Collection
-     ; java.lang.Iterable
-     ; java.util.Iterator
-     ; java.util.Optional
-     ; java.util.ArrayList
-     ; java.util.ArrayDeque
-     ; java.util.AbstractList
-     ; java.util.AbstractMap
-     ; java.util.Map.Entry
      #!----------------------------------------
      java.io.BufferedReader
      java.io.Closeable
@@ -690,10 +562,9 @@
                     (symbol (subs s 0 (- (count s) 2)))
                     sym))))
             (remove #(u/excluded-type-name? (str %)))
-            (remove #(string/ends-with? (str %) "Builder"))
+            ; (remove #(string/ends-with? (str %) "Builder"))
             (remove #(string/ends-with? (str %) ".Annotations")) ; com.google.cloud.bigquery.Annotations etc in private fields for resource types
             (remove #(string/starts-with? (str %) "com.google.protobuf.Internal"))
-            (remove #(string/starts-with? (str %) "com.google.api.services.bigquery.model."))
             (remove #(string/starts-with? (str %) "io.opencensus"))
             (remove #(string/starts-with? (str %) "com.google.protobuf.GeneratedMessageV3"))
             (remove #(string/starts-with? (str %) "com.google.api.client"))
@@ -702,13 +573,23 @@
           candidates)))
 
 (defn class-deps
+  "This produces all *possible* types used in a class-binding
+   The *actual* type dependencies are a subset determined during analysis
+
+   scalars == clojure types that do not require binding
+   native  == jdk provided class
+   foreign == class in different package
+   peer    == class in same package
+   nested  == a class belonging to a parent
+   sibling == a fellow nested class from the same parent (relative relationship to node being parsed)
+   custom  == a class that has a handwritten binding in an override namespace"
   [{:keys [package-prefixes
            exempt-types
            opaque-types
            prune-dependencies
            custom-namespace-mappings] :as pkg
     :or {exempt-types #{}
-         opaque-types #{}}} class-like foreign-mappings recursive?]
+         opaque-types #{}}} class-like foreign-mappings support-pkgs recursive?]
   (assert (not-empty package-prefixes))
   (let [{:keys [fqcn] :as node} (lookup-class pkg class-like)
         _                 (assert (some? node))
@@ -739,6 +620,13 @@
                                         (symbol (:parent-fqcn (u/split-fqcn dep)))
                                         dep)]
                               (get custom-namespace-mappings dep)))
+        support           (fn [dep]
+                            (let [dep-str (str dep)]
+                              (reduce
+                                (fn [_ spkg]
+                                  (when (some #(string/starts-with? dep-str %) (:package-prefixes spkg))
+                                    (reduced spkg)))
+                                nil support-pkgs)))
         unresolved        (into #{}
                                 (filter (fn [dep]
                                           (and (not (native-types dep))
@@ -750,7 +638,8 @@
                                                (not (nested? dep))
                                                (not (sibling? dep))
                                                (not (foreign? dep))
-                                               (not (custom dep)))))
+                                               (not (custom dep))
+                                               (not (support dep)))))
                                 deps)
         _                 (when (not (empty? unresolved))
                             (throw (ex-info (str "unresolved deps for " (:fqcn node)) {:unresolved-deps unresolved})))
@@ -763,6 +652,7 @@
                                           (assert (symbol? dep))
                                           (cond
                                             (custom dep) (update acc :custom conj dep)
+                                            (support dep) (update acc :support conj dep)
                                             (foreign? dep) (update acc :foreign conj dep)
                                             (peer? dep) (if (= fqcn (str dep)) acc (update acc :peer conj dep))
                                             (nested? dep) (update acc :nested conj dep)
@@ -773,6 +663,7 @@
                                             :else (throw (ex-info (str "unknown dep " dep) {:dep dep :fqcn fqcn}))))
                                         {:peer        (sorted-set)
                                          :custom      (sorted-set)
+                                         :support     (sorted-set)
                                          :foreign     (sorted-set)
                                          :scalars     (sorted-set)
                                          :collections (sorted-set)
@@ -782,6 +673,7 @@
                                         deps)
                                 {:peer        (sorted-set)
                                  :custom      (sorted-set)
+                                 :support     (sorted-set)
                                  :foreign     (sorted-set)
                                  :scalars     (sorted-set)
                                  :collections (sorted-set)
@@ -798,11 +690,13 @@
                                               (update :collections into (:collections deps))
                                               (update :native into (:native deps))
                                               (update :peer into (:peer deps))
+                                              (update :support into (:support deps))
                                               (update :foreign into (:foreign deps))
                                               (update :nested into (map symbol) (:nested deps))
                                               (update :sibling into (map symbol) (:sibling deps)))))
                                       {:peer        (sorted-set)
                                        :foreign     (sorted-set)
+                                       :support     (sorted-set)
                                        :scalars     (sorted-set)
                                        :collections (sorted-set)
                                        :native      (sorted-set)
@@ -815,6 +709,20 @@
                                   (fn [dep]
                                     [dep (custom dep)]))
                                 (get res :custom))
+        support-mappings' (into (sorted-map)
+                                (map
+                                  (fn [dep]
+                                    (let [spkg (support dep)]
+                                      [dep (or (let [parent-dep (if (u/nested-fqcn? dep)
+                                                                  (symbol (:parent-fqcn (u/split-fqcn dep)))
+                                                                  dep)]
+                                                 (get (:custom-namespace-mappings spkg) parent-dep))
+                                               (if (u/nested-fqcn? dep)
+                                                 (let [{:keys [parent-fqcn]} (u/split-fqcn dep)
+                                                       parent (symbol parent-fqcn)]
+                                                   (u/fqcn->gcp-ns parent))
+                                                 (u/fqcn->gcp-ns dep)))])))
+                                (get res :support))
         _                 (when-not (= (count foreign-mappings') (count (:foreign res)))
                             (throw (ex-info (str "missing expected foreign mappings for class " fqcn)
                                             (let [#_#_known (set (keys foreign-mappings))
@@ -831,10 +739,10 @@
                                   (if (u/nested-fqcn? peer)
                                     (let [{:keys [parent-fqcn]} (u/split-fqcn peer)
                                           parent         (symbol parent-fqcn)
-                                          parent-binding (u/binding-ns (:package-name pkg) package-prefixes parent)]
+                                          parent-binding (u/fqcn->gcp-ns parent)]
                                       (assoc acc peer parent-binding
                                                  parent parent-binding))
-                                    (assoc acc peer (u/binding-ns (:package-name pkg) package-prefixes peer))))))
+                                    (assoc acc peer (u/fqcn->gcp-ns peer))))))
                             (sorted-map)
                             (:peer res))]
     (sorted-map
@@ -845,19 +753,7 @@
       :nested            (get res :nested)
       :sibling           (get res :sibling)
       :exempt            (or exempt-types #{})
-      :opaque            (or opaque-types #{})
       :custom-mappings   custom-mappings'
+      :support-mappings  support-mappings'
       :foreign-mappings  foreign-mappings'
       :peer-mappings     peer-mappings)))
-
-; peer?
-; (when (and *strict-peer-presence?* (not exists?))
-;  (throw (ex-info (str "Peer namespace missing: " ns)
-;                  {:type :require :dep dep})))
-
-; (and (not cloud?) (not custom?))
-; (do
-;  (when (and *strict-foreign-presence?* (not exists?))
-;    (throw (ex-info (str "Foreign namespace missing: " ns)
-;                    {:type :require :dep dep})))
-;  (check-certification ns fqcn)))

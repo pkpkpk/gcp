@@ -62,14 +62,17 @@
   (= "nested" (namespace (:category node))))
 
 (defn defn-from-edn [node body]
-  `(~'defn ~(from-edn-function-name node) [~'arg]
-     ~@(when-not (nested? node) `[(~'global/strict! ~(:gcp/key node) ~'arg)])
-     ~body))
+  (let [strict-form `[(~'global/strict! ~(:gcp/key node) ~'arg)]]
+    `(~'defn ~(from-edn-function-name node) [~'arg]
+       ~@(when-not (nested? node) strict-form)
+       ~body)))
 
 (defn defn-to-edn [node body]
-  `(~'defn ~(to-edn-function-name node) [~'arg]
-     ~@(when-not (nested? node) `[{:post [(~'global/strict! ~(:gcp/key node) ~'%)]}])
-     ~body))
+  (let [strict-form [{:post [(list 'global/strict! (:gcp/key node) '%)]}]]
+    `(~'defn ~(to-edn-function-name node) [~'arg]
+       ~@(when-not (nested? node) strict-form)
+       (~'when ~'arg
+         ~body))))
 
 (def native-predicates
   '{java.lang.Boolean boolean?
@@ -77,18 +80,21 @@
     java.lang.String  string?
     java.lang.Integer int?
     java.lang.Long    int?
+    java.lang.Short   int?
     java.lang.Float   float?
-    java.lang.Double  double?
+    java.lang.Double  float?
     java.lang.Object  object?
     java.util.UUID    uuid?
     int     int?
     long    int?
     byte    int?
-    double  double?
+    short   int?
+    double  float?
     float   float?
     char    char?
     boolean boolean?
-    void    nil?})
+    void    nil?
+    java.time.OffsetDateTime inst?})
 
 (defn scalar->pred [deps t]
   (if (vector? t)
@@ -232,6 +238,8 @@
   (case t
     java.lang.Throwable '(Throwable->map arg)
     java.sql.ResultSet arg
+    (java.time.Duration
+      java.time.OffsetDateTime) arg
     (throw (ex-info (str "missing invoke-native-to-edn branch for " t) {:type t :arg arg}))))
 
 (defn invoke-static
@@ -254,21 +262,30 @@
 
 (defn resolve-from-edn-var
   [deps type-category parameter-type]
-  (assert (simple-keyword? type-category))
+  (assert (keyword? type-category))
   (assert (symbol? parameter-type))
   (case type-category
     :self    (self-from-edn-sym parameter-type)
     :enum    (symbol (str (short-java-name parameter-type) "/valueOf"))
-    :peer    (peer-from-edn (get-in deps [:peer-mappings parameter-type]))
+    (:generic/peer :peer)    (peer-from-edn (get-in deps [:peer-mappings parameter-type]))
     :foreign (foreign-from-edn (get (:foreign-mappings deps) parameter-type) parameter-type)
     (:nested :sibling)  (symbol (nested-from-edn parameter-type))
-    :custom  (custom-from-edn (get (:custom-mappings deps) parameter-type) parameter-type)))
+    :custom  (custom-from-edn (get (:custom-mappings deps) parameter-type) parameter-type)
+    (throw (ex-info (str "resolve-from-edn-var could not match " type-category)
+                    {:deps deps :type-category type-category :parameter-type parameter-type}))))
 
 (defn scalar-from-edn
   [_deps parameter-type arg]
   (case parameter-type
     (byte java.lang.Byte)   (list 'byte arg)
+    (short java.lang.Short) (list 'short arg)
     (int java.lang.Integer) (list 'int arg)
+    (long java.lang.Long)   (list 'long arg)
+    (float java.lang.Float) (list 'float arg)
+    (double java.lang.Double) (list 'double arg)
+    (char java.lang.Char)   (list 'char arg)
+    java.math.BigInteger    (list 'biginteger arg)
+    java.math.BigDecimal    (list 'bigdec arg)
     arg))
 
 (defn convert-param-type-from-edn [deps parameter-type arg]
@@ -276,18 +293,34 @@
     (match type-category
       :self (list (self-from-edn-sym parameter-type) arg)
 
+      :native arg
+
       :generic arg
 
       :scalar (scalar-from-edn deps parameter-type arg)
 
       :enum (list (symbol (str (short-java-name parameter-type) "/valueOf")) arg)
 
-      [(:or :iterable :list) (:or :generic :scalar)] (list 'seq arg)
+      [:iterable :generic/self] (list 'map (self-from-edn-sym (:self deps)) arg)
 
+      [:iterable :generic/nested] (let [[_ [_ _ nested]] parameter-type
+                                        from-edn (symbol (nested-from-edn nested))]
+                                    (list 'map from-edn arg))
+
+      [(:or :iterable :list) (:or :generic :scalar :generic/scalar)] (list 'seq arg)
       [(:or :array :set :iterator :optional) (:or :generic :scalar)] arg
+
+      [:iterable :generic/peer] (let [[_ [generic extends-key element-type]] parameter-type
+                                      _ (assert (= '? generic))
+                                      _ (assert (= :extends extends-key))
+                                      [_  element-category] type-category
+                                      from-edn (resolve-from-edn-var deps element-category element-type)]
+                                  (list 'map from-edn arg))
 
       :custom (let [binding-ns (get (:custom-mappings deps) parameter-type)]
                 (invoke-custom-from-edn binding-ns parameter-type arg))
+      :support (let [binding-ns (get (:support-mappings deps) parameter-type)]
+                 (invoke-custom-from-edn binding-ns parameter-type arg))
       :foreign (let [binding-ns (get (:foreign-mappings deps) parameter-type)]
                  (invoke-foreign-from-edn binding-ns parameter-type arg))
       :peer (let [binding-ns (get (:peer-mappings deps) parameter-type)]
@@ -303,13 +336,13 @@
                             (invoke-foreign-from-edn binding-ns (first parameter-type) arg))
 
       [(:or :array :list :set :iterable)
-       (:or :peer :nested :sibling :foreign :custom :self :enum)] (let [[_ element-type] parameter-type
-                                                                        [_ element-category] type-category
-                                                                        from-edn (resolve-from-edn-var deps element-category element-type)
-                                                                        ls (list 'map from-edn arg)]
-                                                                    (if (= :array (first type-category))
-                                                                      (list 'into-array (symbol (short-java-name element-type)) ls)
-                                                                      ls))
+       (:or :peer :nested :sibling :foreign :custom :support :self :enum)] (let [[_ element-type] parameter-type
+                                                                                 [_ element-category] type-category
+                                                                                 from-edn (resolve-from-edn-var deps element-category element-type)
+                                                                                 ls (list 'map from-edn arg)]
+                                                                             (if (= :array (first type-category))
+                                                                               (list 'into-array (symbol (short-java-name element-type)) ls)
+                                                                               ls))
 
       [:map :scalar
        (:or :scalar :generic)] (let [K (second parameter-type)]
@@ -317,46 +350,52 @@
                                    `(~'into {} (~'map (~'fn [[~'k ~'v]] [(~'name ~'k) ~'v])) ~arg)
                                    arg))
 
-      [:map :scalar (:or :peer :foreign :custom :self)] (let [[_ key-type element-type] parameter-type
-                                                              [_ _ element-category] type-category
-                                                              from-edn (resolve-from-edn-var deps element-category element-type)
-                                                              k  (if (= key-type 'java.lang.String)
-                                                                   (list 'name 'k)
-                                                                   'k)]
-                                                          `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~(list from-edn 'v)])) ~arg))
+      [:map :scalar (:or :peer :foreign :custom :support :self :nested :sibling)] (let [[_ key-type element-type] parameter-type
+                                                                       [_ _ element-category] type-category
+                                                                       from-edn (resolve-from-edn-var deps element-category element-type)
+                                                                       k  (if (= key-type 'java.lang.String)
+                                                                            (list 'name 'k)
+                                                                            'k)]
+                                                                   `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~(list from-edn 'v)])) ~arg))
 
       [:map :scalar
        [(:or :array :list :set)
-        (:or :peer :foreign :nested :sibling :custom :self)]] (let [[_ key-type [_ element-type]] parameter-type
-                                                                    [_ _ [_ element-category]] type-category
-                                                                    from-edn (resolve-from-edn-var deps element-category element-type)
-                                                                    ls (list 'map from-edn 'v)
-                                                                    k  (if (= key-type 'java.lang.String)
-                                                                         (list 'name 'k)
-                                                                         'k)]
-                                                                `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~ls])) ~arg))
+        (:or :peer :foreign :nested :sibling :custom :support :self)]] (let [[_ key-type [_ element-type]] parameter-type
+                                                                             [_ _ [_ element-category]] type-category
+                                                                             from-edn (resolve-from-edn-var deps element-category element-type)
+                                                                             ls (list 'map from-edn 'v)
+                                                                             k  (if (= key-type 'java.lang.String)
+                                                                                  (list 'name 'k)
+                                                                                  'k)]
+                                                                         `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~ls])) ~arg))
 
-      [:optional (:or :peer :foreign :nested :sibling :custom)] (let [[_ element-type] parameter-type
-                                                                      [_ element-category] type-category
-                                                                      from-edn (resolve-from-edn-var deps element-category element-type)]
-                                                                  `(~'when ~arg
-                                                                     (~'java.util.Optional/of (~from-edn ~arg))))
+      [:optional (:or :peer :foreign :nested :sibling :custom :support)] (let [[_ element-type] parameter-type
+                                                                               [_ element-category] type-category
+                                                                               from-edn (resolve-from-edn-var deps element-category element-type)]
+                                                                           `(~'when ~arg
+                                                                              (~'java.util.Optional/of (~from-edn ~arg))))
 
       [:optional (:or :scalar :generic)] `(~'java.util.Optional/ofNullable ~arg)
 
+      #!----------------------------------------------------------------------------------------------------------------
       :else (throw (ex-info (str "could not resolve from-edn type-category: " type-category)
                             {:type-category type-category
                              :deps deps
                              :parameter-type parameter-type
                              :arg arg})))))
 
-(defn param-predicate-test [deps param-type arg]
+(defn from-edn-param-predicate-test [deps param-type arg]
   (match (categorize-type deps param-type)
+    :enum (let [vals (u/enum-values param-type)
+                _ (println param-type ": " vals)
+                schema (into [:enum] vals)]
+            `(g/valid? ~schema ~arg))
     (:or :scalar [:map :scalar :scalar]) (list (scalar->pred deps param-type) arg)
+    [:list :scalar] `(g/valid? [:sequential ~(scalar->pred deps (second param-type))] ~arg)
     [:iterable
-     (:or :foreign :custom :peer)] `(g/valid? [:sequential ~(u/schema-key deps (second param-type))] ~arg)
-    (:or :foreign :peer :custom :nested :sibling) `(g/valid? ~(u/schema-key deps param-type) ~arg)
-    (throw (Exception. (str "could not resolve type predicate: " (pr-str param-type))))))
+     (:or :foreign :custom :support :peer)] `(g/valid? [:sequential ~(u/fqcn->gcp-key (second param-type))] ~arg)
+    (:or :foreign :peer :custom :support :nested :sibling) `(g/valid? ~(u/fqcn->gcp-key param-type) ~arg)
+    :else (throw (Exception. (str "could not resolve type predicate: " (pr-str param-type) " with category " (categorize-type deps param-type))))))
 
 (defn invoke-static-method-via-map-keys-from-edn
   [deps class-sym {method-name :name :keys [parameters]}]
@@ -370,7 +409,9 @@
   `(~(symbol (str "." method-name)) ~instance
      ~@(map
          (fn [param]
-           (convert-param-type-from-edn deps (:type param) (list 'get 'arg (u/property-key method-name))))
+           (let [key (u/property-key method-name)]
+             ;; TODO force key derivation upstream into analysis and assert already present here
+             (convert-param-type-from-edn deps (:type param) (list 'get 'arg key))))
          parameters)))
 
 (defn invoke-method
@@ -389,7 +430,8 @@
      :peer (peer-to-edn (get-in deps [:peer-mappings parameter-type]))
      :foreign (foreign-to-edn (get (:foreign-mappings deps) parameter-type) parameter-type)
      (:nested :sibling) (symbol (nested-to-edn parameter-type))
-     :custom (custom-to-edn (get (:custom-mappings deps) parameter-type) parameter-type))))
+     :custom (custom-to-edn (get (:custom-mappings deps) parameter-type) parameter-type)
+     :support (custom-to-edn (get (:support-mappings deps) parameter-type) parameter-type))))
 
 (defn emit-invoke-getter-to-edn
   [deps {:keys [name returnType synthetic? field-name private?] :as method} instance]
@@ -405,15 +447,9 @@
         type-category (categorize-type deps returnType)]
     (match type-category
       (:or :scalar :generic) extraction
-
       :enum (list '.name extraction)
-
       :native (invoke-native-to-edn returnType extraction)
-
-      [(:or :list :array :iterable) (:or :generic :scalar)] (list 'seq extraction)
-
-      [(:or :set) (:or :generic :scalar)] extraction
-
+      :self (list (self-to-edn-sym returnType) extraction)
       :foreign (let [binding-ns (get (:foreign-mappings deps) returnType)]
                  (invoke-foreign-to-edn binding-ns returnType extraction))
       :peer (let [binding-ns (get (:peer-mappings deps) returnType)]
@@ -423,8 +459,13 @@
       :custom (let [binding-ns (get (:custom-mappings deps) returnType)]
                 (invoke-custom-to-edn binding-ns returnType extraction))
       :nested (invoke-nested-to-edn returnType extraction)
-      :self (list (self-to-edn-sym returnType) extraction)
 
+      [:list :generic/nested] (let [[_ [_ _ nested]] returnType
+                                    to-edn (resolve-to-edn-var deps :nested nested)]
+                                (list 'map to-edn extraction))
+
+      [(:or :list :array :iterable) (:or :generic :scalar)] (list 'seq extraction)
+      [(:or :set) (:or :generic :scalar)] extraction
       [:foreign :generic] (let [binding-ns (get (:foreign-mappings deps) (first returnType))]
                             (invoke-foreign-to-edn binding-ns (first returnType) extraction))
 
@@ -435,46 +476,46 @@
                                                     ls))
 
       [(:or :array :list :set :iterable)
-       (:or :custom :peer :nested :sibling :foreign :self)] (let [[_ element-type] returnType
-                                                                  [_ element-category] type-category
-                                                                  to-edn (resolve-to-edn-var deps element-category element-type)
-                                                                  ls     (list 'map to-edn extraction)]
-                                                              (if (= :set (first type-category))
-                                                                (list 'into #{} ls)
-                                                                ls))
+       (:or :custom :support :peer :nested :sibling :foreign :self)] (let [[_ element-type] returnType
+                                                                           [_ element-category] type-category
+                                                                           to-edn (resolve-to-edn-var deps element-category element-type)
+                                                                           ls     (list 'map to-edn extraction)]
+                                                                       (if (= :set (first type-category))
+                                                                         (list 'into #{} ls)
+                                                                         ls))
 
       [:map :scalar (:or :scalar :generic)] (if (= (second returnType) 'java.lang.String)
                                               `(~'into {} (~'map (~'fn [[~'k ~'v]] [(~'keyword ~'k) ~'v])) ~extraction)
                                               ~extraction)
 
       [:map :scalar
-       (:or :custom :peer :foreign :nested :sibling :self)] (let [[_ key-type element-type] returnType
-                                                                  [_ _ element-category] type-category
-                                                                  to-edn (resolve-to-edn-var deps element-category element-type)
-                                                                  k      (if (= key-type 'java.lang.String)
-                                                                           (list 'keyword 'k)
-                                                                           'k)]
-                                                              `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k (~to-edn ~'v)])) ~extraction))
+       (:or :custom :support :peer :foreign :nested :sibling :self)] (let [[_ key-type element-type] returnType
+                                                                           [_ _ element-category] type-category
+                                                                           to-edn (resolve-to-edn-var deps element-category element-type)
+                                                                           k      (if (= key-type 'java.lang.String)
+                                                                                    (list 'keyword 'k)
+                                                                                    'k)]
+                                                                       `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k (~to-edn ~'v)])) ~extraction))
 
       [:map :scalar
        [(:or :array :list :set)
-        (:or :custom :peer :foreign :nested :sibling :self)]] (let [[_ key-type [_ element-type]] returnType
-                                                                    [_ _ [_ element-category]] type-category
-                                                                    to-edn (resolve-to-edn-var deps element-category element-type)
-                                                                    ls     (if (= :set (get-in type-category [2 0]))
-                                                                             (list 'into #{} (list 'map to-edn 'v))
-                                                                             (list 'map to-edn 'v))
-                                                                    k      (if (= key-type 'java.lang.String)
-                                                                             (list 'keyword 'k)
-                                                                             'k)]
-                                                                `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~ls])) ~extraction))
+        (:or :custom :support :peer :foreign :nested :sibling :self)]] (let [[_ key-type [_ element-type]] returnType
+                                                                             [_ _ [_ element-category]] type-category
+                                                                             to-edn (resolve-to-edn-var deps element-category element-type)
+                                                                             ls     (if (= :set (get-in type-category [2 0]))
+                                                                                      (list 'into #{} (list 'map to-edn 'v))
+                                                                                      (list 'map to-edn 'v))
+                                                                             k      (if (= key-type 'java.lang.String)
+                                                                                      (list 'keyword 'k)
+                                                                                      'k)]
+                                                                         `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~ls])) ~extraction))
 
       [:optional
-       (:or :custom :peer :foreign :nested :sibling :self)] (let [[_ element-type] returnType
-                                                                  [_ element-category] type-category
-                                                                  to-edn (resolve-to-edn-var deps element-category element-type)]
-                                                              `(~'when (~'.isPresent ~extraction)
-                                                                 (~to-edn (~'.get ~extraction))))
+       (:or :custom :support :peer :foreign :nested :sibling :self)] (let [[_ element-type] returnType
+                                                                           [_ element-category] type-category
+                                                                           to-edn (resolve-to-edn-var deps element-category element-type)]
+                                                                       `(~'when (~'.isPresent ~extraction)
+                                                                          (~to-edn (~'.get ~extraction))))
 
       [:optional (:or :scalar :generic)] `(~'when (~'.isPresent ~extraction) (~'.get ~extraction))
 
@@ -488,10 +529,10 @@
       [:iterator (:or :scalar :generic)] (list 'iterator-seq extraction)
 
       [:iterator
-       (:or :custom :peer :foreign :nested :sibling :self)] (let [[_ element-type] returnType
-                                                                  [_ element-category] type-category
-                                                                  to-edn (resolve-to-edn-var deps element-category element-type)]
-                                                              (list 'map to-edn (list 'iterator-seq extraction)))
+       (:or :custom :support :peer :foreign :nested :sibling :self)] (let [[_ element-type] returnType
+                                                                           [_ element-category] type-category
+                                                                           to-edn (resolve-to-edn-var deps element-category element-type)]
+                                                                       (list 'map to-edn (list 'iterator-seq extraction)))
 
       ['com.google.api.gax.rpc.BidiStream :peer :peer] ::TODO
       ['com.google.cloud.RestorableState :self] ::TODO
@@ -510,14 +551,14 @@
 (defn static-factory-from-edn-body:single-method-single-param
   [{:keys [deps] [{[parameter] :parameters :as method}] :factory-methods} class-sym]
   (let [from-edn (partial convert-param-type-from-edn deps (:type parameter))]
-    (list 'if (param-predicate-test deps (:type parameter) 'arg)
+    (list 'if (from-edn-param-predicate-test deps (:type parameter) 'arg)
           (invoke-static class-sym (:name method) (from-edn 'arg))
           (invoke-static class-sym (:name method) (from-edn (list 'get 'arg (keyword (:name parameter))))))))
 
 (defn _static-factory-single-param-method-from-edn-cond-branches
   [{:keys [deps]} {[parameter] :parameters method-name :name} class-sym]
   (let [from-edn (partial convert-param-type-from-edn deps (:type parameter))]
-    [(param-predicate-test deps (:type parameter) 'arg)
+    [(from-edn-param-predicate-test deps (:type parameter) 'arg)
      (invoke-static class-sym method-name (from-edn 'arg))
      (list 'get 'arg (keyword (:name parameter)))
      (invoke-static class-sym method-name (from-edn (list 'get 'arg (keyword (:name parameter)))))]))
@@ -546,7 +587,7 @@
        (let [{[{param-type :type}] :parameters method-name :name} (first factory-methods)
              arg-conversion (convert-param-type-from-edn deps param-type 'arg)]
          (list 'if
-               (param-predicate-test deps param-type 'arg)
+               (from-edn-param-predicate-test deps param-type 'arg)
                (invoke-static class-sym method-name arg-conversion)
                body))
        body))))
@@ -588,32 +629,31 @@
     (defn-from-edn node body)))
 
 (defn- resolve-factory-method-getters [getters-by-key method]
-  (let [parameters (:parameters method)
-        getters (vals getters-by-key)]
+  (let [parameters (:parameters method)]
     (map
       (fn [{:keys [name type] :as param}]
         (let [param-key (keyword name)
-              exact-getter (get getters-by-key param-key)]
-          (if exact-getter
+              exact-getter (get getters-by-key param-key)
+              field-getter (when-let [fname (:field-name method)]
+                             (get getters-by-key (u/property-key fname)))]
+          (cond
+            exact-getter
             {:param param, :getter exact-getter, :instance-check? false}
-            (let [param-class (try (u/as-class type) (catch Exception _ nil))
-                  matching-getters (filter (fn [g]
-                                             (let [rt-class (try (u/as-class (:returnType g)) (catch Exception _ nil))]
-                                               (and rt-class (.isAssignableFrom rt-class param-class))))
-                                           getters)
-                  g (first matching-getters)]
-              (if g
-                {:param param, :getter g, :instance-check? true}
-                (throw (ex-info "No matching getter found for factory parameter" {:method method, :param param})))))))
+
+            (and field-getter (= 1 (count parameters)))
+            {:param param, :getter field-getter, :instance-check? true}
+
+            :else
+            (throw (ex-info "No matching getter found for factory parameter" {:method method, :param param})))))
       parameters)))
 
 (defn- static-factory-to-edn-body:cond [node]
   (let [deps (:deps node)
         getters-by-key (:getters-by-key node)
         factory-methods (:factory-methods node)
-        [intersected] (sort-by count > (sequence (comp (remove empty?) (filter intersecting-methods?)) (combo/subsets factory-methods)))
-        other (remove (set intersected) factory-methods)
-        methods (into (vec other) (sort-by (comp count :parameters) > intersected))
+        ;; sort by count DESC to ensure that the most specific factory is matched first,
+        ;; and zero-arg factories (fallbacks) are last.
+        methods (sort-by (comp count :parameters) > factory-methods)
         branches (reduce
                    (fn [acc method]
                      (try
@@ -622,12 +662,14 @@
                                           (fn [{:keys [param getter instance-check?]}]
                                             (let [getter-expr (list (symbol (str "." (:name getter))) 'arg)]
                                               (if instance-check?
-                                                `(and ~getter-expr (~'instance? ~(symbol (short-java-name (:type param))) ~getter-expr))
+                                                `(~'and ~getter-expr (~'instance? ~(symbol (short-java-name (:type param))) ~getter-expr))
                                                 getter-expr)))
                                           mappings)
-                             condition (if (= 1 (count conditions))
-                                         (first conditions)
-                                         `(and ~@conditions))
+                             condition (if (seq conditions)
+                                         (if (= 1 (count conditions))
+                                           (first conditions)
+                                           `(~'and ~@conditions))
+                                         true)
                              result (into {}
                                           (map
                                             (fn [{:keys [param getter]}]
@@ -745,6 +787,46 @@
                   payload-key (emit-invoke-getter-to-edn deps (get getters-by-key payload-key) 'arg)})))
 
 #!----------------------------------------------------------------------------------------------------------------------
+
+(defn to-edn-branch-test
+  "By default, calling instance.getter() in a test branch will use clojure's some? semantics
+   There are instances where we want more sophisticated truthiness before deciding we want to
+   convert the value to edn"
+  [deps {:keys [name returnType synthetic? field-name private?] :as method} arg]
+  (let [cat (categorize-type deps returnType)
+        invocation (cond
+                     synthetic?
+                     (list 'global/get-private-field arg field-name)
+
+                     private?
+                     (list 'global/invoke-private-method arg name)
+
+                     :else
+                     (list (symbol (str "." name)) arg))]
+    (if (vector? cat)
+      (case (first cat)
+        (:map :list) (list 'seq invocation)
+        (do
+          (println "WARN cond-test collection type TODO -> " cat " :: " returnType)
+          invocation))
+      (case returnType
+        java.lang.String (list 'some->> invocation (list 'not= ""))
+        com.google.protobuf.Value (list 'not= "KIND_NOT_SET" (list '.name (list '.getKindCase invocation)))
+        com.google.protobuf.ProtocolStringList (list 'seq invocation)
+        invocation))))
+
+(defn from-edn-key-branch-test
+  [deps {[{t :type}] :parameters :as setter} key instance]
+  (let [cat (categorize-type deps t)]
+    (if (vector? cat)
+      (case (first cat)
+        (:list :iterable :map) (list 'seq (list 'get instance key))
+        (do
+          (println "WARN from-edn-key-branch-test collection type TODO -> " cat " :: " t)
+          (list 'some? (list 'get instance key))))
+      (list 'some? (list 'get instance key)))))
+
+#!----------------------------------------------------------------------------------------------------------------------
 #! :accessor-with-builder
 
 (defn emit-accessor-with-builder-from-edn
@@ -753,14 +835,14 @@
         body `(~'let [~'builder ~(invoke-static-method-via-map-keys-from-edn deps class-sym newBuilder)]
                 ~@(map
                     (fn [[k method]]
-                      (list 'when (list 'some? (list 'get 'arg k))
+                      (list 'when (from-edn-key-branch-test deps method k 'arg)
                         (invoke-instance-method-from-edn deps method 'builder)))
-                    (:builder-setters-by-key node))
+                    (or (:builder-setters-by-key node) (:setters-by-key node)))
                 (~'.build ~'builder))]
     (defn-from-edn node body)))
 
 (defn emit-accessor-with-builder-to-edn
-  [{:keys [getters-by-key deps] :as node}]
+  [{:keys [getters-by-key has-methods-by-key deps] :as node}]
   (let [base (into (sorted-map)
                    (map
                      (fn [[key method]]
@@ -768,7 +850,9 @@
                    (select-keys getters-by-key (:keys/required node)))
         branches (mapcat
                    (fn [[key method]]
-                     (let [test   (invoke-method method 'arg)
+                     (let [test   (if-let [has-method (get has-methods-by-key key)]
+                                    (invoke-method has-method 'arg)
+                                    (to-edn-branch-test deps method 'arg))
                            to-edn (emit-invoke-getter-to-edn deps method 'arg)]
                        [test (list 'assoc key to-edn)]))
                    (apply dissoc getters-by-key (:keys/required node)))
@@ -817,8 +901,21 @@
                `(~'cond-> {}
                   ~@(mapcat
                       (fn [[k getter]]
-                        [(invoke-method getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
+                        [(to-edn-branch-test deps getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
                       getters-by-key))))
+
+(defn- emit-variant-read-only-to-edn
+  [{:keys [deps getters-by-key discriminator] :as node}]
+  (let [getters (dissoc getters-by-key :type)
+        base-map {:type discriminator}
+        body (if-some [optional-keys (not-empty getters)]
+               `(~'cond-> ~base-map
+                  ~@(mapcat
+                      (fn [[k getter]]
+                        [(to-edn-branch-test deps getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
+                      optional-keys))
+               base-map)]
+    (defn-to-edn node body)))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! :pojo
@@ -858,7 +955,7 @@
                `(~'cond-> ~base-map
                   ~@(mapcat
                       (fn [[k getter]]
-                        [(invoke-method getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
+                        [(to-edn-branch-test deps getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
                       optional-keys))
                base-map)]
     (defn-to-edn node body)))
@@ -877,7 +974,7 @@
                `(~'cond-> ~base-map
                   ~@(mapcat
                       (fn [[k getter]]
-                        [(invoke-method getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
+                        [(to-edn-branch-test deps getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
                       optional-keys))
                base-map)]
     (defn-to-edn node body)))
@@ -898,7 +995,7 @@
     (defn-from-edn node body)))
 
 (defn emit-variant-accessor-to-edn
-  [{:keys [getters-by-key deps discriminator] :as node}]
+  [{:keys [getters-by-key deps discriminator has-methods-by-key] :as node}]
   (let [base (into (sorted-map :type discriminator)
                    (map
                      (fn [[key method]]
@@ -906,7 +1003,9 @@
                    (select-keys getters-by-key (:keys/required node)))
         branches (mapcat
                    (fn [[key method]]
-                     (let [test   (invoke-method method 'arg)
+                     (let [test   (if-let [has-method (get has-methods-by-key key)]
+                                    (invoke-method has-method 'arg)
+                                    (to-edn-branch-test deps method 'arg))
                            to-edn (emit-invoke-getter-to-edn deps method 'arg)]
                        [test (list 'assoc key to-edn)]))
                    (apply dissoc getters-by-key (:keys/required node)))
@@ -936,12 +1035,16 @@
   [{:keys [deps getter-setters-by-key] :as node}]
   (let [branches (reduce
                    (fn [acc [k {{:as m} :getter}]]
-                     (let [test   (invoke-method m 'arg)
+                     (let [test (if-let [has-method (get-in node [:has-methods-by-key key])]
+                                  (invoke-method has-method 'arg)
+                                  (to-edn-branch-test deps m 'arg))
                            to-edn (emit-invoke-getter-to-edn deps m 'arg)]
                        (conj acc test (list 'assoc k to-edn))))
                    []
                    getter-setters-by-key)]
     (defn-to-edn node `(~'cond-> {} ~@branches))))
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defn emit-client-options-from-edn
   [{:keys [key->factory deps] :as node}]
@@ -955,7 +1058,7 @@
                                 (let [param (first parameters)
                                       converted (convert-param-type-from-edn deps (:type param) 'v)]
                                   `(~'conj ~'acc ~(invoke-static class-sym (:name method) converted)))
-                                `(if ~'v (conj ~'acc ~(invoke-static class-sym (:name method))) ~'acc))])
+                                `(~'if ~'v (conj ~'acc ~(invoke-static class-sym (:name method))) ~'acc))])
                          key->factory)
         branches-single (mapcat
                           (fn [[k {:keys [parameters] :as method}]]
@@ -963,7 +1066,7 @@
                                  (let [param (first parameters)
                                        converted (convert-param-type-from-edn deps (:type param) 'v)]
                                    `(~'reduced ~(invoke-static class-sym (:name method) converted)))
-                                 `(if ~'v (~'reduced ~(invoke-static class-sym (:name method))) ~'acc))])
+                                 `(~'if ~'v (~'reduced ~(invoke-static class-sym (:name method))) ~'acc))])
                           key->factory)
         body-array `(~'into-array ~class-sym
                       (~'reduce-kv
@@ -1027,6 +1130,80 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
+(defn emit-protobuf-message-from-edn
+  [{:keys [deps] :as node}]
+  (emit-accessor-with-builder-from-edn node))
+
+(defn emit-protobuf-message-to-edn
+  [{:keys [deps] :as node}]
+  (emit-accessor-with-builder-to-edn node))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn emit-union-protobuf-oneof-from-edn
+  [{:keys [deps newBuilder unions setters-by-key] :as node}]
+  (let [class-sym (class-sym node)
+        union-variant-keys (into #{}
+                                 (mapcat (fn [[_ {:keys [variants]}]] (keys variants)))
+                                 unions)
+        non-union-setters (apply dissoc setters-by-key union-variant-keys)
+        body `(~'let [~'builder ~(invoke-static-method-via-map-keys-from-edn deps class-sym newBuilder)]
+                ~@(map
+                    (fn [[k method]]
+                      (list 'when (from-edn-key-branch-test deps method k 'arg)
+                        (invoke-instance-method-from-edn deps method 'builder)))
+                    non-union-setters)
+                ~@(map
+                    (fn [[union-key {:keys [variants]}]]
+                      `(~'cond
+                         ~@(mapcat
+                             (fn [[variant-key _]]
+                               (let [method (get setters-by-key variant-key)]
+                                 [`(~'contains? ~'arg ~variant-key)
+                                  (invoke-instance-method-from-edn deps method 'builder)]))
+                             variants)))
+                    unions)
+                (~'.build ~'builder))]
+    (defn-from-edn node body)))
+
+(defn emit-union-protobuf-oneof-to-edn
+  [{:keys [getters-by-key deps unions keys/required] :as node}]
+  (let [union-variant-keys (into #{}
+                                 (mapcat (fn [[_ {:keys [variants]}]] (keys variants)))
+                                 unions)
+        non-union-getters  (apply dissoc getters-by-key union-variant-keys)
+        base (into (sorted-map)
+                   (map
+                     (fn [[key method]]
+                       [key (emit-invoke-getter-to-edn deps method 'arg)]))
+                   (select-keys non-union-getters required))
+        branches (mapcat
+                   (fn [[key method]]
+                     (let [test (if-let [has-method (get-in node [:has-methods-by-key key])]
+                                  (invoke-method has-method 'arg)
+                                  (to-edn-branch-test deps method 'arg))
+                           to-edn (emit-invoke-getter-to-edn deps method 'arg)]
+                       [test (list 'assoc key to-edn)]))
+                   (apply dissoc non-union-getters required))
+        body `(~'let [~'res (~'cond-> ~base ~@branches)
+                    ~@(mapcat
+                        (fn [[union-key {:keys [case-getter variants]}]]
+                          ['res `(~'case (.name (~(symbol (str "." case-getter)) ~'arg))
+                                   ~@(mapcat
+                                       (fn [[variant-key _]]
+                                         (let [method (get getters-by-key variant-key)
+                                               enum-name (u/camel-to-screaming-snake (name variant-key))
+                                               to-edn (emit-invoke-getter-to-edn deps method 'arg)]
+                                           [enum-name `(~'assoc ~'res ~variant-key ~to-edn)]))
+                                       variants)
+                                   ~'res)])
+                        unions)]
+                 ~'res)]
+    (defn-to-edn node body)))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+
 ; (defn- emit-resource-delegation [node deps class-name]
 ;  (let [super-dep (first deps)
 ;        super-alias (:alias super-dep)
@@ -1051,6 +1228,14 @@
 
     (:enum :string-enum :nested/enum :nested/string-enum)
     nil
+
+    (:protobuf-message :nested/protobuf-message)
+    [(emit-protobuf-message-from-edn node)
+     (emit-protobuf-message-to-edn node)]
+
+    (:union-protobuf-oneof :nested/union-protobuf-oneof)
+    [(emit-union-protobuf-oneof-from-edn node)
+     (emit-union-protobuf-oneof-to-edn node)]
 
     :nested/client-options
     [(emit-client-options-from-edn node)
@@ -1107,7 +1292,11 @@
     [(emit-pojo-from-edn node)
      (emit-nested-variant-pojo-to-edn node)]
 
-    (throw (Exception. (str "bindings unimplemented for category " category)))))
+    :nested/variant-read-only
+    [(emit-read-only-from-edn node)
+     (emit-variant-read-only-to-edn node)]
+
+    (throw (Exception. (str "bindings unimplemented for category " category " for class " (:fqcn node))))))
 
 (defn- emit-schema [node]
   (when-not (#{:client} (:category node))
@@ -1156,21 +1345,15 @@
      acc
      (:nested node))))
 
-(defn node->ns-sym [node]
-  ; (let [{:keys [class package]} (u/split-fqcn (:fqcn node))])
-  (symbol (str (u/package-to-ns (:package node)) "." (:className node))))
-
 (defn emit-ns-form
   ([node] (emit-ns-form node nil))
-  ([{:keys [package className nested] :as node
+  ([{:keys [nested] :as node
      {:keys [custom-mappings peer-mappings foreign-mappings]} :deps} metadata]
    (when-not (contains? node :require-types)
      (throw (ex-info "Missing :require-types in node during emission"
                      {:fqcn (:fqcn node) :category (:category node)})))
-   (let [ns-name        (node->ns-sym node)
-         self-fqcn      (str package "." className)
-         all-fqcns      (into (set (map str (:import-types node))) (map :fqcn nested))
-         all-fqcns      (conj all-fqcns self-fqcn)
+   (let [all-fqcns      (conj (into (set (map str (:import-types node))) (map :fqcn nested))
+                              (:fqcn node))
          imports        (group-imports all-fqcns)
          metadata       (merge (sorted-map) metadata (select-keys node [:doc :fqcn :file-git-sha]))
          requires       (reduce
@@ -1190,11 +1373,13 @@
                                          (conj acc [target-ns :as (alias target-ns)]))
                               :custom (let [target-ns (get custom-mappings t)]
                                         (conj acc [target-ns :as (alias target-ns)]))
+                              :support (let [target-ns (get-in node [:deps :support-mappings t])]
+                                         (conj acc [target-ns :as (alias target-ns)]))
                               (throw (ex-info (str "failed require resolution for " t " : " category) {:deps (:deps node)
                                                                                                        :require-types (:require-types node)}))))
                           (sorted-set '[gcp.global :as global])
                           (:require-types node))]
-     `(~'ns ~ns-name
+     `(~'ns ~(:gcp/ns node)
         ~metadata
         (:require ~@requires)
         (:import ~@imports)))))
@@ -1205,6 +1390,7 @@
   ([node] (compile-class-forms node nil))
   ([{:keys [category nested] :as node} metadata]
    (assert (contains? shared/categories category))
+   (assert (symbol? (:gcp/ns node)))
    (let [metadata          (merge (select-keys node [:fqcn :file-git-sha]) metadata)
          ns-form           (emit-ns-form node metadata)
          ;; TODO can remove this if nested is emitted in dependency order
@@ -1218,7 +1404,7 @@
          registry-entries  (collect-registry-entries node)
          registry-map      (into (sorted-map) registry-entries)
          registry-form     `(~'global/include-schema-registry!
-                              (~'with-meta ~registry-map {:gcp.global/name ~(str (node->ns-sym node))}))
+                              (~'with-meta ~registry-map {:gcp.global/name ~(str (:gcp/ns node))}))
          forms             (into [ns-form declare-form] nested-forms)]
      (remove nil? (conj forms from-edn to-edn schema registry-form)))))
 
@@ -1237,6 +1423,5 @@
                                          (fn [[_ d1 func type]] (str d1 "^" type " " func)))
                          ;; (defn func__ARGTAG__Type [arg] ...) -> (defn func [^Type arg] ...)
                          (string/replace #"(defn\s+)([\w:\$\-\.]+)(?:__ARGTAG__)([\w\$\./]+)(\s*\[\s*)arg"
-                                         (fn [[_ d1 func type d2]] (str d1 func d2 "^" type " arg")))))]     (str preamble
-                                                                                                               (string/join "\n\n"
-                                                                                                                            (map (comp fix-hints zp/zprint-str) forms))))))
+                                         (fn [[_ d1 func type d2]] (str d1 func d2 "^" type " arg")))))]
+     (str preamble (string/join "\n\n" (map (comp fix-hints zp/zprint-str) forms))))))

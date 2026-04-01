@@ -10,7 +10,7 @@
     [sci.core :as sci])
   (:import
     (clojure.lang ExceptionInfo)
-    (java.time LocalTime LocalDate LocalDateTime)
+    (java.time LocalTime LocalDate LocalDateTime OffsetDateTime Duration)
     (org.threeten.extra PeriodDuration)))
 
 (def *classes (atom {}))
@@ -48,18 +48,28 @@
        (swap! *classes assoc class-symbol array-class))
      `[:fn ~props (quote (~'fn [~'v] (~'instance? ~class-symbol ~'v)))])))
 
+;:float [:double {:min -3.4028235E38 :max 3.4028235E38}]
+;:byte [:int {:min -128 :max 127}]
+
 (def built-in-schemas
-  {:bigint (instance-schema java.math.BigInteger)
-   :bigdec 'decimal?
-   :re (instance-schema java.util.regex.Pattern)
-   :inst 'inst?
-   :float [:double {:min -3.4028235E38 :max 3.4028235E38}]
-   :byte [:int {:min -128 :max 127}]
-   :char 'char?
-   :Timestamp 'inst?
-   :Time      (instance-schema java.time.LocalTime)
-   :Date      (instance-schema java.time.LocalDate)
-   :DateTime  (instance-schema java.time.LocalDateTime)
+  {:bigint         (instance-schema java.math.BigInteger)
+   :bigdec         'decimal?
+   :regexp         (instance-schema java.util.regex.Pattern)
+   :inst           'inst?
+   :i32            [:int {:min -2147483648 :max 2147483647}]
+   :pi32           [:int {:min 0 :max 2147483647}]
+   :i64            :int
+   :pi64           [:int {:min 0}]
+   :f32            [:or (instance-schema java.lang.Float) [:double {:min -3.4028235E38 :max 3.4028235E38}]]
+   :f64            'float?
+   :byte           (instance-schema java.lang.Byte)
+   :char           'char?
+   :Timestamp      'inst?
+   :Time           (instance-schema java.time.LocalTime)
+   :Date           (instance-schema java.time.LocalDate)
+   :DateTime       (instance-schema java.time.LocalDateTime)
+   :OffsetDateTime (instance-schema java.time.OffsetDateTime)
+   :Duration       (instance-schema java.time.Duration)
    :PeriodDuration (instance-schema org.threeten.extra.PeriodDuration)})
 
 (defonce ^:dynamic *strict-mode* true)
@@ -157,46 +167,64 @@
                       {:bad bad
                        :registry-name registry-name})))))
 
+(defn schemas-equivalent? [form1 form2]
+  (cond
+    (and (instance? java.util.regex.Pattern form1)
+         (instance? java.util.regex.Pattern form2))
+    (= (str form1) (str form2))
+
+    (and (sequential? form1) (sequential? form2))
+    (and (= (count form1) (count form2))
+         (every? true? (map schemas-equivalent? form1 form2)))
+
+    (and (map? form1) (map? form2))
+    (and (= (count form1) (count form2))
+         (every? true? (map (fn [[k1 v1]]
+                              (schemas-equivalent? v1 (get form2 k1)))
+                            form1)))
+
+    :else
+    (= form1 form2)))
+
+(defn- written-res [schema opts]
+  (try
+    [nil (malli.edn/write-string schema opts)]
+    (catch Exception err
+      [err])))
+
+(defn- read-res [written opts]
+  (try
+    [nil (malli.edn/read-string written opts)]
+    (catch Exception e
+      [e])))
+
+(defn- safety-check-schema [schema opts]
+  (let [[err written :as res] (written-res schema opts)]
+    (if err
+      res
+      (let [[err recovered :as res] (read-res written opts)]
+        (if err
+          res
+          (let [same? (schemas-equivalent? (m/form (m/schema schema opts)) (m/form recovered))]
+            (if same?
+              [nil true]
+              [nil false])))))))
+
 (defn include-schema-registry! [registry]
   (if-let [{registry-name ::name} (meta registry)]
     (do
       (assert-registry-keys! registry registry-name)
       (let [candidate (clojure.core/merge (mr/schemas *registry*) registry)]
         (when-let [bad-pairs (not-empty
-                               (reduce (fn [acc [k schema]]
-                                         (let [opts      (assoc (mopts) :registry candidate)
-                                               written   (try
-                                                           (malli.edn/write-string schema opts)
-                                                           (catch Exception e
-                                                             (let [error-data (ex-data e)
-                                                                   error-type (:type error-data)]
-                                                               (cond
-                                                                 (and (= ::m/invalid-schema error-type)
-                                                                      (get-in error-data [:data :schema]))
-                                                                 (let [bad-schema (get-in error-data [:data :schema])]
-                                                                   (if-let [body (get candidate bad-schema)]
-                                                                     (throw (ex-info (str "invalid schema for key " bad-schema) {:key  bad-schema
-                                                                                                                                 :body body}))
-                                                                     (throw (ex-info (str "missing schema for key " bad-schema) {:key bad-schema}))))
-
-                                                                 (= ::m/invalid-ref error-type)
-                                                                 (throw (ex-info (str "invalid ref in schema for " k ": " (get-in error-data [:data :ref]))
-                                                                                 {:schema schema
-                                                                                  :data   error-data}))
-
-                                                                 :else
-                                                                 (throw (ex-info (str "error serializing schema for " k ": " (ex-message e))
-                                                                                 {:schema schema
-                                                                                  :data   error-data
-                                                                                  :cause  e}))))))
-                                               recovered (try
-                                                           (malli.edn/read-string written opts)
-                                                           (catch Exception e
-                                                             (throw (ex-info (str "error recovering serialized schema for " k)
-                                                                             {:schema schema
-                                                                              :cause  e}))))]
-                                           (when-not (= (m/form (m/schema schema opts)) (m/form recovered))
-                                             (assoc acc k schema)))) {} registry))]
+                               (reduce
+                                 (fn [acc [k schema]]
+                                   (let [opts (assoc (mopts) :registry candidate)
+                                         [err same?] (safety-check-schema schema opts)]
+                                     (if (or err (false? same?))
+                                       (assoc acc k {:schema schema :err err :same? same?})
+                                       acc)))
+                                 {}
+                                 registry))]
           (throw (ex-info (str "edn-unsafe schema entries in " registry-name) {:unsafe bad-pairs})))
         (alter-var-root #'*registry* (fn [_extant]
                                        (when (or *dbg* (System/getenv "GCP_DEBUG"))

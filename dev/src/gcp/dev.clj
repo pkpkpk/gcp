@@ -1,6 +1,7 @@
 (ns gcp.dev
   (:refer-clojure :exclude [compile])
   (:require
+   [clojure.core.match :refer [match]]
    [clojure.java.io :as io]
    [clojure.repl :refer :all]
    [clojure.string :as string]
@@ -10,7 +11,8 @@
    [gcp.dev.toolchain.emitter :as e]
    [gcp.dev.toolchain.fuzz :as fuzz]
    [gcp.dev.toolchain.malli :as m]
-   [gcp.dev.util :refer :all]
+   [gcp.dev.toolchain.shared :refer [categorize-type]]
+   [gcp.dev.util :as u :refer :all]
    [gcp.global :as g])
   (:import
    (java.io File)))
@@ -18,13 +20,72 @@
 #_(use :reload 'gcp.dev)
 #_(in-ns 'gcp.dev)
 
-(defn needs-sync? [pkg-like]
+(defn fetch-all-upstream
+  "Fetches all upstream commits and tags for a package's repository without updating local coordinates.
+   Useful for ensuring the local git cache is warm before running summary or patch operations."
+  [pkg-like]
+  (p/fetch-all-upstream pkg-like))
+
+(defn status
+  "Returns a map representing the current synchronization status of the package, including its 
+   current release, the latest upstream release, its local manifest, and git worktree status."
+  [pkg-like]
+  (p/status pkg-like))
+
+(defn needs-sync?
+  "Returns true if the package's current manifest version differs from the latest stable release
+   available upstream."
+  [pkg-like]
   (p/needs-sync? pkg-like))
 
-(defn lookup [fqcn]
+(defn sync-to-release
+  "Synchronizes the local package to the latest upstream release. Updates the internal manifest,
+   adjusts coordinates in deps.edn, and fetches the necessary sources into a git worktree."
+  [pkg-like]
+  (p/sync-to-release pkg-like))
+
+(defn needs-interpretation?
+  "Returns true if the summary contains changes to non-superficial files (e.g. source files),
+   indicating that semantic analysis of the update is required."
+  [pkg-like delta-map]
+  (p/needs-interpretation? pkg-like delta-map))
+
+(defn patch
+  "Returns a unified diff patch string for the non-superficial files (e.g. .java, .proto) 
+   found in the provided summary-map. Useful for semantic analysis by an LLM."
+  [pkg-like summary-map]
+  (p/patch pkg-like summary-map))
+
+(defn delta
+  "Returns a map of commits and all raw file changes between two revisions.
+   If only one coordinate is provided, compares current manifest release to it.
+   If no coordinates are provided, compares current manifest release to the latest stable release."
+  ([pkg-like]
+   (p/delta pkg-like))
+  ([pkg-like new-rev]
+   (p/delta pkg-like new-rev))
+  ([pkg-like old-rev new-rev]
+   (p/delta pkg-like old-rev new-rev)))
+
+(defn summary
+  "Returns a high-level summary of changes by computing the delta and filtering out superficial file changes.
+   Useful for identifying meaningful semantic updates."
+  ([pkg-like]
+   (p/summary pkg-like))
+  ([pkg-like new-rev]
+   (p/summary pkg-like new-rev))
+  ([pkg-like old-rev new-rev]
+   (p/summary pkg-like old-rev new-rev)))
+
+(defn lookup
+  "retrieve the parsed class node for a given fqcn
+   works for nested classes too"
+  [fqcn]
   (p/lookup-class fqcn))
 
-(defn deps [fqcn]
+(defn deps
+  "return all potential types used in a class"
+  [fqcn]
   (p/class-deps fqcn))
 
 (defn analyze [fqcn]
@@ -37,7 +98,7 @@
   (c/compile-to-string (analyze fqcn)))
 
 (defn compile-to-file [fqcn]
-  (let [node (analyze fqcn)
+  (let [node   (analyze fqcn)
         target (p/target-file fqcn)]
     (c/compile-to-file node target)))
 
@@ -47,12 +108,14 @@
   (let [[fqcn file] (if (instance? File arg)
                       [(p/target-file->fqcn arg) arg]
                       [arg (target-file arg)])
-        pkg-key (p/lookup-pkg-key fqcn)
-        pkg     (p/parse pkg-key)
-        custom? (contains? (:custom-namespace-mappings pkg) (symbol fqcn))]
-    (when-not custom?
-      (compile-to-file fqcn))
-    (fuzz/certify-file file)))
+        pkg-key (p/lookup-pkg-key fqcn)]
+    (if (contains? (p/packages) pkg-key)
+      (let [pkg     (p/parse pkg-key)
+            custom? (contains? (:custom-namespace-mappings pkg) (symbol fqcn))]
+        (when-not custom?
+          (compile-to-file fqcn))
+        (fuzz/certify-file file))
+      (println "Skipping certification for foreign type:" fqcn))))
 
 (defn certified? [fqcn]
   (let [target (target-file fqcn)]
@@ -61,11 +124,16 @@
       (fuzz/certified? target))))
 
 (defn delete [fqcn]
-  (io/delete-file (target-file fqcn) true))
+  (let [pkg-key (p/lookup-pkg-key fqcn)]
+    (if (contains? (p/packages) pkg-key)
+      (io/delete-file (target-file fqcn) true)
+      (println "Skipping deletion for foreign type:" fqcn))))
 
 (def manifest p/manifest)
 
 (defn clear-cache [] (p/clear-cache))
+
+(def api-types-by-category p/api-types-by-category)
 
 (defn remaining-by-category [pkg-key]
   (into (sorted-map)
@@ -76,15 +144,21 @@
                 [key remaining]))))
         (p/api-types-by-category pkg-key)))
 
+(defn graph [fqcn] (p/require-graph fqcn))
+
 (defn delete-graph [fqcn]
-  (let [nodes (keys (p/require-graph fqcn))]
-    (doseq [node nodes]
+  (let [order (p/topological-order fqcn)]
+    (doseq [node order]
       (delete node))))
 
 (defn certify-graph [fqcn]
   (let [order (p/topological-order fqcn)]
     (doseq [node order]
-      (certify node))))
+      (try
+        (certify node)
+        (catch Throwable t
+          (println "FAILED certifying " node)
+          (throw t))))))
 
 #!------------------------------------------------------------------------
 
@@ -94,31 +168,6 @@
    (some-> e ex-data :result :shrunk :smallest first)))
 
 #!------------------------------------------------------------------------
-
-;; TODO
-;; doc discovery! gen example, repair
-;; sugar single args for accessor with builder (JobId has no arg newBuilder but also .of(job) etc)
-;; *strict* mode disable, investigate malli instrumentation
-;; errors thrown! check ast! bq.query()
-;; IAM, sandbox, client
-;; doc strings
-;; examples
-;; fixture dataset
-
-(comment
-  (p/clear-cache)
-  (def bq (p/api-types-by-category :bigquery))
-  (def bq (remaining-by-category :bigquery))
-  (def global-by-category (p/global-api-types-by-category))
-  (get global-by-category :static-factory)
-
-  (reduce
-    (fn [acc {:keys [name parameters]}]
-      (if (contains? acc name)
-        (update-in acc [name] conj parameters)
-        (assoc acc name [parameters])))
-    (sorted-map)
-    (:methods (lookup "com.google.cloud.bigquery.BigQuery"))))
 
 (defn clean-method [m]
   (-> (dissoc m :doc :static? :private? :abstract?)
@@ -132,7 +181,7 @@
 (defn consolidate-signatures
   [methods]
   (assert (can-consolidate? methods))
-  (let [base (dissoc (first methods) :parameters)
+  (let [base       (dissoc (first methods) :parameters)
         signatures (vec (sort-by count < (map :parameters methods)))]
     (assoc base :signatures signatures)))
 
@@ -148,3 +197,91 @@
             (into acc method-group)))
         []
         method-groups))))
+
+(defn reduce-types
+  [acc t]
+  (if (symbol? t)
+    (conj acc t)
+    (match t
+      [(:or
+         :array
+         'java.util.List
+         'java.lang.Iterable
+         'com.google.api.gax.paging.Page
+         'com.google.api.core.ApiFuture
+         'com.google.common.util.concurrent.ListenableFuture) E] (reduce-types acc E)
+      ['java.util.Map (K :guard symbol?) (V :guard symbol?)] (conj acc K V)
+      [(:or 'com.google.api.gax.longrunning.OperationFuture) A B] (conj acc A B)
+
+      :else (throw (Exception. (str "unmatched shape: " t))))))
+
+(defn client-method-types
+  [client-fqcn]
+  (let [{:keys [category methods]} (lookup client-fqcn)
+        _       (assert (= :client category))
+        all     (reduce
+                  (fn [acc {:keys [returnType parameters] :as method}]
+                    (let [acc (reduce-types acc returnType)]
+                      (reduce reduce-types acc (map :type parameters))))
+                  #{}
+                  (remove #(string/ends-with? (:name %) "Callable") methods))
+        {:keys [package]} (u/split-fqcn client-fqcn)
+        native  (into (sorted-set) (filter gcp.dev.packages.package/native-types all))
+        peer    (into (sorted-set) (filter #(string/starts-with? % package) all))
+        foreign (into (sorted-set) (remove (clojure.set/union native peer
+                                                              gcp.dev.packages.package/scalars)) all)]
+    {:peer    peer
+     :foreign foreign
+     :native  native}))
+
+(defn user-types [& client-fqcns]
+  (let [ms    (map client-method-types client-fqcns)
+        {:keys [peer foreign native]} (apply (partial merge-with into) ms)
+        peers (into (sorted-set)
+                    (map #(if (u/nested-fqcn? %)
+                            (symbol (:parent-fqcn (u/split-fqcn %)))
+                            %))
+                    peer)]
+    (p/topological-order-many peers)))
+
+(comment
+
+  (def bq-user-types (user-types "com.google.cloud.bigquery.BigQuery"))
+  (def storage-user-types (user-types "com.google.cloud.storage.Storage"))
+
+  (def vertexai (p/parse :vertexai))
+  (def vertexai-user-types (user-types "com.google.cloud.vertexai.api.PredictionServiceClient"
+                                       #_ "com.google.cloud.vertexai.api.EndpointServiceClient"
+                                       #_ "com.google.cloud.vertexai.api.LlmUtilityServiceClient"
+                                       ))
+
+  (def pubsub (p/parse :pubsub))
+  (def pubsub-user-types (user-types  "com.google.cloud.pubsub.v1.TopicAdminClient"
+                                      "com.google.cloud.pubsub.v1.SubscriptionAdminClient"
+                                      ))
+
+  )
+
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+;; TODO
+;; doc discovery! gen example, repair
+;; sugar single args for accessor with builder (JobId has no arg newBuilder but also .of(job) etc)
+;; *strict* mode disable, investigate malli instrumentation
+;; errors thrown! check ast! bq.query()
+;; IAM, sandbox, client
+;; doc strings
+;; examples
+;; fixture dataset
+;; empty labels+resourceTags map checks before assoc :labels {} etc
+
+(comment
+
+  (def ups (get (api-types-by-category :vertexai) :union-protobuf-oneof))
+
+  (p/clear-cache)
+  (def bq (gcp.dev.packages/api-types-by-category :bigquery))
+  (def bq (remaining-by-category :bigquery))
+  (def global-by-category (p/global-api-types-by-category))
+  (get global-by-category :static-factory))

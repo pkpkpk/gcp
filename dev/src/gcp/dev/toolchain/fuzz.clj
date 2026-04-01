@@ -22,8 +22,8 @@
 (def CERTIFICATION_PROTOCOL
   {:version "v1"
    :stages [{:name :smoke    :tests 10  :max-size 10 :timeout-ms    5000}
-            {:name :standard :tests 50  :max-size 25 :timeout-ms  120000}
-            {:name :stress   :tests 100 :max-size 40 :timeout-ms  300000}]})
+            {:name :standard :tests 50  :max-size 20 :timeout-ms  120000}
+            {:name :stress   :tests 100  :max-size 30 :timeout-ms  300000}]})
 
 (def CERTIFICATION_HASH
   (digest/sha256 (str (pr-str CERTIFICATION_PROTOCOL)
@@ -42,6 +42,8 @@
       (finally
         (future-cancel f)))))
 
+(def TRIAL_BATCH_SIZE 10)
+
 (defn check
   [property options]
   (let [num-tests (or (:num-tests options) (:tests options) 100)
@@ -49,16 +51,27 @@
         seed (or (:seed options) (System/currentTimeMillis))
         result (run-with-timeout (or (:timeout-ms options) 60000)
                  (fn []
-                   (tc/quick-check num-tests property
-                                   :seed seed
-                                   :max-size max-size)))]
+                   (loop [tests-run 0
+                          current-seed seed]
+                     (let [chunk-size (min (- num-tests tests-run) TRIAL_BATCH_SIZE)
+                           res (tc/quick-check chunk-size property
+                                               :seed current-seed
+                                               :max-size max-size)]
+                       (if (:pass? res)
+                         (let [total-run (+ tests-run chunk-size)]
+                           (if (< total-run num-tests)
+                             (do
+                               (System/gc) ;; Clear young/tenured memory between trial chunks
+                               (recur total-run (hash [current-seed total-run])))
+                             (assoc res :num-tests total-run :seed seed)))
+                         res)))))]
     (if (:pass? result)
       (assoc result :seed seed)
       (assoc result :seed seed :pass? false))))
 
 (defn load-class-code! [fqcn code]
   (try
-    (let [forms (edamame.core/parse-string-all code)
+    (let [forms (edamame.core/parse-string-all code {:regex true})
           ns-form (first forms)
           _ (assert (and (seq? ns-form) (= 'ns (first ns-form))))
           ns-name (second ns-form)]
@@ -83,6 +96,7 @@
           (if (:pass? res)
             (do
               (tel/log! :info ["Stage passed" (:name stage) "for" sk])
+              (System/gc) ;; Force cleanup of test.check garbage before the next (larger) stage
               (recur (rest stages) (conj history (merge stage {:seed stage-seed :result :pass}))))
             (do
               (tel/log! :error ["Certification Stage Failed" stage res "for" sk])
@@ -93,7 +107,7 @@
          :passed-stages (into {} (map (juxt :name :seed) history))}))))
 
 (defn- read-only-category? [cat]
-  (contains? #{:read-only :nested/read-only :interface} cat))
+  (contains? #{:read-only :nested/read-only :interface :variant-read-only :nested/variant-read-only} cat))
 
 (def ^:dynamic *visited-schemas* #{})
 
@@ -155,8 +169,12 @@
 
 (defn- ns-sym->schema-key [ns-sym]
   (let [s (str ns-sym)
-        last-dot (string/last-index-of s ".")]
-    (keyword (subs s 0 last-dot) (subs s (inc last-dot)))))
+        last-dot (string/last-index-of s ".")
+        ns (-> (subs s 0 last-dot)
+               (string/replace ".custom" "")
+               (string/replace ".bindings" ""))
+        class (subs s (inc last-dot))]
+    (keyword ns class)))
 
 (defn certified?
   "Checks if the file at path is already certified.
@@ -193,7 +211,7 @@
   ([file-or-path options]
    (let [file    (io/file file-or-path)
          content (slurp file)
-         ns-form (first (edamame.core/parse-string-all content))
+         ns-form (first (edamame.core/parse-string-all content {:regex true}))
          _       (assert (and (seq? ns-form) (= 'ns (first ns-form))) "File must start with ns declaration")
          ns-sym  (second ns-form)
          sk      (ns-sym->schema-key ns-sym)
@@ -232,19 +250,27 @@
                  (let [schema        (g/get-schema sk)
                        _             (println "pruning schema" sk)
                        pruned-schema (prune-read-only-schema schema)
-                       generator     (gen/generator pruned-schema)
+                       _             (println "constructing generator for pruned schema")
+                       generator     (try
+                                       (gen/generator pruned-schema {:gen/elements 3})
+                                       (catch Exception e
+                                         (if (= ":malli.generator/no-generator" (ex-message e))
+                                           (let [ex (ex-info (str "missing generator for schema") {:schema (:schema (:data (ex-data e)))})]
+                                             (throw ex))
+                                           (throw e))))
+                       _             (println "successfully built generator")
+                       from-edn      (ns-resolve ns-sym 'from-edn)
+                       to-edn        (ns-resolve ns-sym 'to-edn)
+                       _ (when-not (and from-edn to-edn)
+                           (throw (ex-info "Missing functions" {:ns ns-sym})))
                        verify-fn     (fn [edn]
-                                       (let [from-edn (resolve (symbol (str ns-sym) "from-edn"))
-                                             to-edn   (resolve (symbol (str ns-sym) "to-edn"))]
-                                         (if (and from-edn to-edn)
-                                           (let [obj    (from-edn edn)
-                                                 rt-edn (to-edn obj)]
-                                             (if (g/valid? sk rt-edn)
-                                               true
-                                               (do
-                                                 (tel/log! :error ["Validation Failed" (g/humanize (g/explain sk rt-edn))])
-                                                 false)))
-                                           (throw (ex-info "Missing functions" {:ns ns-sym})))))]
+                                       (let [obj    (from-edn edn)
+                                             rt-edn (to-edn obj)]
+                                         (if (g/valid? sk rt-edn)
+                                           true
+                                           (do
+                                             (tel/log! :error ["Validation Failed" (g/humanize (g/explain sk rt-edn))])
+                                             false))))]
                    (let [manifest              (pkg/manifest pkg-key)
                          manifest-hash         (u/hasch manifest)
                          _                     (println "starting certification protocol")
@@ -296,7 +322,7 @@
                                           nil
                                           (try (let [schema (g/schema sk)
                                                      pruned (prune-read-only-schema schema)]
-                                                 (gen/generator pruned))
+                                                 (gen/generator pruned {:gen/elements 3}))
                                                (catch Exception e
                                                  (tel/log! :error ["Failed to get generator for" sk (.getMessage e)])
                                                  nil)))

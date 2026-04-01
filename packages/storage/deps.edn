@@ -1,4 +1,4 @@
 {:paths ["src"],
  :deps
- {com.google.cloud/google-cloud-storage {:mvn/version "2.62.1"},
+ {com.google.cloud/google-cloud-storage {:mvn/version "2.64.1"},
   gcp/global {:local/root "../global"}}}

@@ -1,4 +1,4 @@
 {:paths ["src" "test"],
  :deps
  {gcp/global {:local/root "../global"},
-  com.google.genai/google-genai {:mvn/version "1.38.0"}}}
+  com.google.genai/google-genai {:mvn/version "1.45.0"}}}

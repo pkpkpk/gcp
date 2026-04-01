@@ -1,8 +1,8 @@
 {:googleapis/mvn-org "com.google.cloud",
  :googleapis/mvn-artifact "google-cloud-pubsub",
- :googleapis/mvn-release "1.147.0",
+ :googleapis/mvn-release "1.150.0",
  :googleapis/repo "java-pubsub",
  :googleapis/git-repo "java-pubsub",
- :googleapis/git-tag "v1.147.0",
- :googleapis/git-sha "1676abcdbe470912d6bda9c732bcea366d1e9e50",
- :gcp/release "1.147.0-0"}
+ :googleapis/git-tag "v1.150.0",
+ :googleapis/git-sha "336726c7bcd3f95069b66910ab7a1d2d4619ba4d",
+ :gcp/release "1.150.0-0"}

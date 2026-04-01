@@ -16,7 +16,7 @@
 
 (defn relative-path [base f]
   (let [base-path (.getAbsolutePath (io/file base))
-        f-path (.getAbsolutePath (io/file f))]
+        f-path    (.getAbsolutePath (io/file f))]
     (if (string/starts-with? f-path base-path)
       (subs f-path (inc (count base-path)))
       f-path)))
@@ -61,6 +61,7 @@
   [type-name]
   (let [type-name (str type-name)]
     (or (string/ends-with? type-name "OrBuilder")
+        (string/ends-with? type-name "BuilderImpl")
         (string/ends-with? type-name "Callable")
         (string/ends-with? type-name "Serializer")
         (string/ends-with? type-name "UnusedPrivateParameter")
@@ -83,29 +84,48 @@
       (string/replace #"([a-z])([A-Z])" "$1_$2")
       string/upper-case))
 
-(defn property-name [method-name]
+(defn camel-to-pascal [s]
+  (if (empty? s)
+    ""
+    (str (string/upper-case (subs s 0 1)) (subs s 1))))
+
+(defn screaming-snake->pascal [s]
+  (->> (string/split s #"_")
+       (map (fn [p] (str (string/upper-case (subs p 0 1)) (string/lower-case (subs p 1)))))
+       (string/join "")))
+
+(defn lowercase-first [s]
+  (str (string/lower-case (subs s 0 1)) (subs s 1)))
+
+(defn clean-name [p]
+  (lowercase-first (string/replace p #"\_" "")))
+
+(defn _property-name [_name]
   (cond
-    (string/starts-with? method-name "get")
-    (let [s (subs method-name 3)]
+    (string/starts-with? _name "get")
+    (let [s (subs _name 3)]
       (if (seq s)
         (str (string/lower-case (subs s 0 1)) (subs s 1))
         ""))
-    (string/starts-with? method-name "is")
-    (let [s (subs method-name 2)]
+    (string/starts-with? _name "is")
+    (let [s (subs _name 2)]
       (if (seq s)
         (str (string/lower-case (subs s 0 1)) (subs s 1))
         ""))
-    (string/starts-with? method-name "set")
-    (let [s (subs method-name 3)]
+    (string/starts-with? _name "set")
+    (let [s (subs _name 3)]
       (if (seq s)
         (str (string/lower-case (subs s 0 1)) (subs s 1))
         ""))
-    (string/starts-with? method-name "addAll")
-    (let [s (subs method-name 6)]
+    (string/starts-with? _name "addAll")
+    (let [s (subs _name 6)]
       (if (seq s)
         (str (string/lower-case (subs s 0 1)) (subs s 1))
         ""))
-    :else method-name))
+    :else _name))
+
+(defn property-name [_name]
+  (clean-name (_property-name _name)))
 
 (defn property-key [parameter-or-parameter-name]
   (if (map? parameter-or-parameter-name)
@@ -113,41 +133,6 @@
     (do
       (assert (string? parameter-or-parameter-name))
       (keyword (property-name parameter-or-parameter-name)))))
-
-(def ^:private ns-mapping
-  {"artifactregistry" "artifact-registry"})
-
-(defn package-to-ns
-  ([package-name]
-   (package-to-ns package-name false))
-  ([package-name foreign?]
-   (let [pkg-str      (str package-name)
-         ;; Strip common prefixes: com.google.cloud, com.google.devtools, etc.
-         base         (if (string/starts-with? pkg-str "com.google.")
-                        (let [parts (string/split pkg-str #"\.")]
-                          (if (> (count parts) 3)
-                            (string/join "." (drop 3 parts))
-                            pkg-str))
-                        pkg-str)
-         ;; Apply mappings to the first segment of the base
-         base-parts   (string/split base #"\.")
-         mapped-first (get ns-mapping (first base-parts) (first base-parts))
-         ;; Construct strict hierarchy: gcp.bindings.<service>.<rest>
-         ;; e.g. com.google.cloud.bigquery -> gcp.bindings.bigquery
-         ;; e.g. com.google.cloud.bigquery.storage.v1 -> gcp.bindings.bigquery.storage.v1
-         root (if foreign? "gcp.foreign." "gcp.bindings.")
-         ns-str       (str root mapped-first
-                           (when (next base-parts)
-                             (str "." (string/join "." (rest base-parts)))))]
-     (symbol ns-str))))
-
-(defn binding-ns
-  [package-name package-prefixes fqcn]
-  (let [package-base (package-to-ns package-name)
-        [prefix] (filter #(string/starts-with? (str fqcn) %) (reverse (sort-by count package-prefixes)))
-        _ (assert (some? prefix))
-        postfix (subs (name fqcn) (count prefix))]
-    (symbol (str (name package-base) postfix))))
 
 (defn split-fqcn [fqcn]
   (let [fqcn (str fqcn)
@@ -168,67 +153,64 @@
   [fqcn]
   (contains? (split-fqcn fqcn) :nested))
 
-(defn fqcn->schema-key
-  ([fqcn]
-   (fqcn->schema-key fqcn false))
-  ([fqcn foreign?]
-   (let [{:keys [package class]} (split-fqcn fqcn)]
-     (keyword (name (package-to-ns package foreign?)) class))))
+(def ^:private ns-mapping
+  {"artifactregistry" "artifact-registry"})
 
-(defn custom-schema-key [custom-ns]
-  (let [{:keys [package class]} (split-fqcn (str custom-ns))]
-    (keyword package class)))
+;; -- foreign----
+; "com.google.cloud.RetryOption"
 
-(defn schema-key
-  [{:keys [custom-mappings foreign-mappings peer-mappings nested self sibling] :as deps} fqcn]
-  (assert (or (symbol? fqcn) (string? fqcn)))
-  (let [t (symbol fqcn)]
-    (cond
-      (= self t)
-      (fqcn->schema-key fqcn)
+(def drop-3-re
+  (re-pattern (str (string/join "|" ["com.google.cloud.vertexai"
+                                     "com.google.cloud.pubsub"
+                                     "com.google.cloud.storage"
+                                     "com.google.cloud.bigquery"]))))
 
-      (contains? nested t)
-      (fqcn->schema-key fqcn)
+(def drop-2-re
+  (re-pattern (str (string/join "|" ["com.google.pubsub"
+                                     "com.google.pubsub.v1"
+                                     "com.google.storage.control"
+                                     "com.google.api.services.bigquery"
+                                     "com.google.api.services.storage"]))))
 
-      (contains? sibling t)
-      (fqcn->schema-key fqcn)
+(defn- fqcn->gcp-prefix [fqcn]
+  (let [{:keys [package]} (split-fqcn fqcn)
+        pkg-parts (string/split package #"\.")
+        gcp-parts (cond
+                    (re-find drop-3-re package)
+                    (vec (drop 3 pkg-parts))
 
-      (contains? peer-mappings t)
-      (fqcn->schema-key fqcn)
+                    (re-find drop-2-re package)
+                    (vec (drop 2 pkg-parts))
 
-      (contains? foreign-mappings t)
-      (fqcn->schema-key fqcn true)
+                    :else
+                    (into ["foreign"] pkg-parts))]
+    (str "gcp." (string/join "." gcp-parts))))
 
-      (contains? custom-mappings t)
-      (let [{:keys [package class nested parent-fqcn] :as split} (split-fqcn fqcn)
-            target-ns (get custom-mappings t)
-            alias-name (last (string/split (name target-ns) #"\."))]
-        (if (nil? nested)
-          (if (= alias-name class)
-            (let [{:keys [package class]} (split-fqcn (str target-ns))]
-              (keyword package class))
-            (keyword (str target-ns) class))
-          (let [{parent-class :class} (split-fqcn parent-fqcn)]
-            (if (= alias-name parent-class)
-              (let [key-ns (string/join "." (butlast (string/split (str target-ns) #"\.")))]
-                (keyword key-ns class))
-              (throw (Exception. "TODO"))))))
+(defn fqcn->gcp-key [fqcn]
+  (let [{:keys [class]} (split-fqcn fqcn)]
+    (keyword (fqcn->gcp-prefix fqcn) class)))
 
-      :else
-      (throw (ex-info "could not resolve fqcn" {:deps deps :fqcn fqcn})))))
+(defn fqcn->gcp-ns [fqcn]
+  (let [{:keys [class]} (split-fqcn fqcn)]
+    (symbol (str (fqcn->gcp-prefix fqcn) "." class))))
 
-(defn infer-foreign-ns [fqcn]
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn infer-foreign-ns
+  [fqcn]
   (let [{:keys [package]} (split-fqcn fqcn)]
     (symbol (str "gcp.foreign." package))))
 
-(defn foreign-binding-exists? [ns-sym]
+(defn foreign-binding-exists?
+  [ns-sym]
   (boolean (io/resource (str (string/replace (name ns-sym) #"\." "/") ".clj"))))
 
-(defn foreign-vars [ns-sym]
+(defn foreign-vars
+  [ns-sym]
   (let [path (str (string/replace (name ns-sym) #"\." "/") ".clj")]
     (if-let [res (io/resource path)]
       (let [source (slurp res)
-            forms (edamame/parse-string-all source {:all true :auto-resolve {:current ns-sym}})]
+            forms (edamame/parse-string-all source {:all true :regex true :auto-resolve {:current ns-sym}})]
         (into #{}
               (comp (filter seq?)
                     (filter #(contains? #{'defn 'def} (first %)))
@@ -237,7 +219,7 @@
       (throw (ex-info (str "Foreign source missing: " path) {:ns ns-sym})))))
 
 (defn source-ns-meta [source]
-  (let [form (edamame/parse-string source {:all true})]
+  (let [form (edamame/parse-string source {:all true :regex true})]
     (when (and (seq? form) (= 'ns (first form)))
       (let [name-sym (second form)
             args (nnext form)
@@ -467,11 +449,21 @@
 (defn enum-values [fqcn]
   (when-not (enum? fqcn)
     (throw (Exception. (str fqcn " is not an enum"))))
-  (let [c (Class/forName (fqcn->java-name fqcn))]
-    (if (.isEnum c)
-      (->> (.getEnumConstants c)
-           (map #(.name %))
-           (remove #{"UNRECOGNIZED"}))
-      (let [values-method (.getMethod c "values" (into-array Class []))
-            values        (.invoke values-method nil (into-array Object []))]
-        (map #(.name %) (seq values))))))
+  (let [c      (Class/forName (fqcn->java-name fqcn))
+        values (if (.isEnum c)
+                 (->> (.getEnumConstants c)
+                      (map #(.name %))
+                      (remove #{"UNRECOGNIZED"}))
+                 (let [values-method (.getMethod c "values" (into-array Class []))
+                       values        (.invoke values-method nil (into-array Object []))]
+                   (map #(.name %) (seq values))))]
+    (if (seq values)
+      values
+      (->> (.getFields c)
+           (filter (fn [f]
+                     (let [mods (.getModifiers f)]
+                       (and (java.lang.reflect.Modifier/isPublic mods)
+                            (java.lang.reflect.Modifier/isStatic mods)
+                            (= (.getType f) c)))))
+           (map (fn [f] (.name (.get f nil))))
+           (distinct)))))

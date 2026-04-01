@@ -37,7 +37,7 @@
   (let [root (u/get-gcp-repo-root)
         path (str root "/packages/global/src/" (string/replace (name ns-sym) #"\." "/") ".clj")
         source (slurp path)
-        forms (edamame/parse-string-all source {:all true :auto-resolve {:current ns-sym}})]
+        forms (edamame/parse-string-all source {:all true :regex true :auto-resolve {:current ns-sym}})]
     (if (and (seq forms) (= 'ns (first (first forms))))
       (let [[ns-form & rest-forms] forms
             ;; ns-form is (ns name ?doc ?attr-map & args)

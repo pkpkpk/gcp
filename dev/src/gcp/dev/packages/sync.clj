@@ -3,6 +3,7 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.pprint :as pprint]
+   [clojure.string :as string]
    [clojure.tools.deps :as deps]
    [gcp.dev.packages.git :as git]
    [gcp.dev.packages.layout :as layout]
@@ -41,11 +42,13 @@
 #!---------------------------------------------------------------------------------------
 #! maven
 
-(defn latest-stable-release
+(defn- latest-stable-release-impl
   [pkg]
   (assert (map? pkg))
   (let [{:keys [googleapis/mvn-org googleapis/mvn-artifact]} pkg]
     (mvn/latest-stable-release mvn-org mvn-artifact)))
+
+(def latest-stable-release (memoize latest-stable-release-impl))
 
 #!----------------------------------------------------------------------------------------
 #! manifest.edn
@@ -134,9 +137,10 @@
             _ (tel/log! :info ["Syncing" (:name pkg) "to" latest-ver "in" repo-path])
             ;; Always fetch latest tags to ensure we have up-to-date info
             _ (git/fetch-all repo-path)
+            _ (tel/log! :info ["Finished fetching" repo-path])
             tag-pattern (:googleapis/tag-pattern pkg)
             git-tag (or (:pinned-tag pkg)
-                        (git/find-tag-for-artifact repo-path mvn-artifact latest-ver tag-pattern))
+                        (git/find-tag-for-artifact pkg repo-path mvn-artifact latest-ver tag-pattern))
             _ (when-not git-tag
                 (throw (ex-info "Could not find git tag for release" {:package (:name pkg) :version latest-ver :artifact mvn-artifact :pattern tag-pattern})))
             git-sha (git/rev-parse repo-path git-tag)]
@@ -208,11 +212,119 @@
      :manifest manifest
      :worktree w-status}))
 
+(defn fetch-all-upstream
+  "Fetches all upstream commits and tags for a package without updating coordinates."
+  [pkg]
+  (let [repo-path (layout/package-repo pkg)]
+    (tel/log! :info ["Starting upstream fetch for package" (:name pkg) "in repo" repo-path])
+    (let [start-time (System/currentTimeMillis)]
+      (git/fetch-all repo-path)
+      (tel/log! :info ["Completed upstream fetch for package" (:name pkg) "in" (- (System/currentTimeMillis) start-time) "ms"]))))
+
 (defn needs-sync?
   "Returns true if the package needs to be synced (i.e., latest release differs from current)."
   [pkg]
   (let [{:keys [release latest-release]} (status pkg)]
     (not= release latest-release)))
+
+(defn delta
+  "Returns a map containing commits and raw file changes between two revisions for a given package.
+   If only one coordinate is provided, compares current manifest release to it.
+   If no coordinates are provided, compares current manifest release to the latest stable release.
+   Does not perform network operations (like git fetch) - ensure the local repo is up-to-date."
+  ([pkg]
+   (let [manifest (load-manifest pkg)
+         current (or (:googleapis/git-sha manifest) (:googleapis/git-tag manifest))
+         latest-ver (latest-stable-release pkg)
+         repo-path (layout/package-repo pkg)
+         latest-tag (git/find-tag-for-artifact repo-path (:googleapis/mvn-artifact pkg) latest-ver (:googleapis/tag-pattern pkg))]
+     (if (and current latest-tag)
+       (delta pkg current latest-tag)
+       {:error "Could not determine current or latest tag for comparison"
+        :current current
+        :latest-tag latest-tag})))
+  ([pkg new-rev]
+   (let [manifest (load-manifest pkg)
+         current (or (:googleapis/git-sha manifest) (:googleapis/git-tag manifest))]
+     (if current
+       (delta pkg current new-rev)
+       {:error "Could not determine current tag for comparison"
+        :current current})))
+  ([pkg old-rev new-rev]
+   (let [repo-path (layout/package-repo pkg)
+         path (:googleapis/git-repo-root pkg)
+         commits (git/commits-between repo-path old-rev new-rev path)
+         files (git/diff-files repo-path old-rev new-rev path)]
+     {:package (:name pkg)
+      :old-rev old-rev
+      :new-rev new-rev
+      :commits commits
+      :files files})))
+
+(def superficial-patterns
+  [#"(?i)pom\.xml$"
+   #"(?i)readme\.md$"
+   #"(?i)changelog\.md$"
+   #"(?i)build\.gradle.*"
+   #"(?i)\.gitignore$"
+   #"(?i)\.yml$"
+   #"(?i)\.yaml$"
+   #"(?i)\.json$"
+   #"(?i)\.properties$"
+   #"(?i)\.cfg$"
+   #"(?i)versions\.txt$"
+   #"(?i)\.github/.*"
+   #"(?i)\.kokoro/.*"])
+
+(defn superficial-file?
+  "Returns true if the file path represents a superficial file or matches package-specific exclude patterns."
+  ([path] (superficial-file? nil path))
+  ([pkg path]
+   (let [patterns (if pkg
+                    (let [excludes (:exclude pkg [])]
+                      (into superficial-patterns
+                            (map (fn [ex]
+                                   (if (string? ex)
+                                     ;; Convert string exclude to case-insensitive regex, removing leading slash
+                                     (re-pattern (str "(?i)" (string/replace ex #"^/" "")))
+                                     ex))
+                                 excludes)))
+                    superficial-patterns)]
+     (boolean (some #(re-find % path) patterns)))))
+
+(defn needs-interpretation?
+  "Returns true if the summary contains changes to files that are NOT superficial."
+  [pkg delta-map]
+  (let [all-files (mapcat val (:files delta-map))]
+    (boolean (some #(not (superficial-file? pkg %)) all-files))))
+
+(defn- filter-superficial
+  [pkg delta-map]
+  (if (:error delta-map)
+    delta-map
+    (let [filtered-files (into {}
+                               (map (fn [[k v]]
+                                      [k (vec (remove #(superficial-file? pkg %) v))]))
+                               (:files delta-map))]
+      (assoc delta-map :files filtered-files))))
+
+(defn summary
+  "Returns a high-level summary of changes by computing the delta and filtering out superficial file changes.
+   Useful for identifying meaningful semantic updates."
+  ([pkg] (filter-superficial pkg (delta pkg)))
+  ([pkg new-rev] (filter-superficial pkg (delta pkg new-rev)))
+  ([pkg old-rev new-rev] (filter-superficial pkg (delta pkg old-rev new-rev))))
+
+(defn patch
+  "Returns the unified diff patch for non-superficial files in the summary map."
+  [pkg delta-map]
+  (let [all-files (mapcat val (:files delta-map))
+        important-files (remove #(superficial-file? pkg %) all-files)
+        repo-path (layout/package-repo pkg)
+        {:keys [old-rev new-rev]} delta-map]
+    (if (empty? important-files)
+      ""
+      (git/diff-patch repo-path old-rev new-rev important-files))))
 
 (defn sync-to-release
   [pkg]

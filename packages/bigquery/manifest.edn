@@ -1,8 +1,8 @@
 {:googleapis/mvn-org "com.google.cloud",
  :googleapis/mvn-artifact "google-cloud-bigquery",
- :googleapis/mvn-release "2.58.0",
+ :googleapis/mvn-release "2.62.0",
  :googleapis/repo "java-bigquery",
  :googleapis/git-repo "java-bigquery",
- :googleapis/git-tag "v2.58.0",
- :googleapis/git-sha "6ef476a22b15361b65eba6a0e881edd08efc8d6c",
- :gcp/release "2.58.0-0"}
+ :googleapis/git-tag "v2.60.0",
+ :googleapis/git-sha "31715ffaf0a8305b8bf3a3a8ddccbc6140a71312",
+ :gcp/release "2.62.0-0"}

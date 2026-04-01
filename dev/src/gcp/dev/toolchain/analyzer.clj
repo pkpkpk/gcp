@@ -1,14 +1,18 @@
 (ns gcp.dev.toolchain.analyzer
   (:require
-   [clojure.core.match :refer [match]]
-   [clojure.set :as set]
-   [clojure.string :as string]
-   [gcp.dev.toolchain.shared :as shared :refer [categorize-type]]
-   [gcp.dev.util :as u]
-   [taoensso.telemere :as tel]))
+    [clojure.core.match :refer [match]]
+    [clojure.set :as set]
+    [clojure.string :as string]
+    [gcp.dev.toolchain.shared :as shared :refer [categorize-type]]
+    [gcp.dev.util :as u]
+    [taoensso.telemere :as tel]))
 
-(defn- get-nested [node name]
+(def LOADED (str (java.time.Instant/now)))
+
+(defn get-nested [node name]
   (first (filter #(= (:className %) name) (:nested node))))
+
+(defn get-builder [node] (get-nested node "Builder"))
 
 (defn- public? [member]
   (not (:private? member)))
@@ -16,17 +20,15 @@
 (defn- static? [member]
   (:static? member))
 
-(defn- getters [node]
+(defn getters [node]
   (filter (fn [m]
             (and (not (static? m))
+                 (not (string/starts-with? (:name m) "has"))
                  (public? m)
-                 (empty? (:parameters m))
-                 (not (#{"getClass" "toString" "hashCode" "clone" "wait" "notify" "notifyAll" "toPb"} (:name m)))
-                 (not (string/starts-with? (:name m) "to")) ;; exclude conversions like toBuilder
-                 (not (string/includes? (:name m) "$"))))
+                 (empty? (:parameters m))))
           (:methods node)))
 
-(defn- setters
+(defn setters
   [{:keys [fqcn className] :as node}]
   (filter (fn [m]
             (and (not (static? m))
@@ -54,12 +56,29 @@
             [:list :self]) acc
           (:or :scalar :nested :sibling) acc
           [(:or :set :list :array) (:or :scalar :nested)] acc
-          [:map :scalar :scalar] acc
-          (:or :peer :custom) (update acc :requires assoc t cat)
+
+          (:or :peer :custom :support) (update acc :requires assoc t cat)
+
           :peer/nested (update acc :requires assoc t :peer/nested)
-          [:map :scalar (:or :peer :custom)] (update acc :requires assoc (nth t 2) (nth cat 2))
-          [:map :scalar [:list (:or :custom :peer)]] (update acc :requires assoc (get-in t [2 1]) (get-in cat [2 1]))
-          [(:or :iterable :list :array) (:or :peer :custom :peer/nested)] (update acc :requires assoc (second t) (second cat))
+
+          [:iterable :generic/peer] (let [[A B C] (second t)]
+                                      ;; "com.google.cloud.vertexai.api.Content"
+                                      ;; [:iterable :generic/peer] for type: [java.lang.Iterable [? :extends com.google.cloud.vertexai.api.Part]]
+                                      (assert (= '? A))
+                                      (assert (= :extends B))
+                                      (update acc :requires assoc C :peer))
+
+          [(:or :list :iterable) (:or :generic/self :generic/nested :generic/scalar)] acc
+
+          [:iterable :nested] acc
+          [:iterable :scalar] acc
+
+          [(:or :iterable :list :array) (:or :peer :custom :support :peer/nested)] (update acc :requires assoc (second t) (second cat))
+
+          [:map :scalar :nested] acc
+          [:map :scalar :scalar] acc
+          [:map :scalar (:or :peer :custom :support)] (update acc :requires assoc (nth t 2) (nth cat 2))
+          [:map :scalar [:list (:or :custom :peer :support)]] (update acc :requires assoc (get-in t [2 1]) (get-in cat [2 1]))
           #!-------------------------------------------------------------
           #! enums
           :enum (update acc :imports conj (symbol (u/fqcn->java-name t)))
@@ -70,11 +89,41 @@
           :foreign (-> acc
                        (update :requires assoc t :foreign)
                        (update :imports conj t))
-          [:foreign :generic] (update acc :imports conj (first t))
+
+          [:foreign (:or :self :generic)]
+          (-> acc
+              (update :requires assoc (first t) :foreign)
+              (update :imports conj (first t)))
+
+          ;; ex: [com.google.api.core.ApiFuture com.google.cloud.storage.BlobInfo]
+          [:foreign :peer] (-> acc
+                               (update :imports conj (first t) (second t))
+                               (update :requires assoc (first t) :foreign)
+                               (update :requires assoc (second t) :peer))
+
           [(:or :iterable :list :array) :foreign]
           (-> acc
               (update :requires assoc (second t) :foreign)
               (update :imports conj (second t)))
+
+          [(:or :iterable :list :array) :generic/foreign]
+          (let [[_ [_ _ foreign]] t]
+            (-> acc
+                (update :requires assoc foreign :foreign)
+                (update :imports conj foreign)))
+
+          [:foreign :foreign :foreign]
+          (let [[a b c] t]
+            (-> acc
+                (update :requires assoc a :foreign b :foreign c :foreign)
+                (update :imports conj a b c)))
+
+          [:foreign :peer :peer]
+          (let [[a b c] t]
+            (-> acc
+                (update :requires assoc a :foreign b :peer c :peer)
+                (update :imports conj a b c)))
+
           [:map :scalar :foreign]
           (-> acc
               (update :requires assoc (nth t 2) :foreign)
@@ -99,7 +148,7 @@
 (defn- basic-info
   [{:keys [category deps] :as node}]
   {:pre [(contains? shared/categories category)]}
-  (let [select (select-keys node [:fqcn :className :file-git-sha :package :category :doc :resource-identifier? :deps :gcp/key :discriminator :variant-mappings])
+  (let [select (select-keys node [:fqcn :className :file-git-sha :package :category :doc :resource-identifier? :deps :gcp/key :gcp/ns :discriminator :variant-mappings])
         nested (letfn [(rf [acc node]
                          (conj (reduce rf acc (:nested node))
                                (_analyze-class-node (assoc node :deps deps))))]
@@ -120,6 +169,11 @@
             (assert (= (count param-types) (count (into #{} param-types)))
                     (str "found ambiguous static factory methods for type " (:fqcn node) "; they need to be unique by arity count and type")))
         ;; Determine required parameters (intersection of all 'of' method parameters)
+        ;; WARNING: This currently only intersects based on literal parameter names.
+        ;; If different factory methods use different names for parameters that map to the same
+        ;; underlying field (e.g. 'of(View view)' vs 'of(Entity entity)'), the intersection will be empty.
+        ;; TO FIX: Map parameter names to their underlying property-keys (via field-name metadata)
+        ;; before performing the intersection to correctly identify required fields.
         required-params (if-some [param-names-seq (not-empty (map (fn [m] (set (map (comp keyword :name) (:parameters m)))) factory-methods))]
                           (apply clojure.set/intersection param-names-seq)
                           #{})
@@ -192,12 +246,13 @@
         _ (assert (= 'java.lang.String (:returnType discriminator-method)))
         discriminator-values (into #{}
                                    (comp
-                                     (remove :private?)
+                                     (filter :static?)
                                      (map :value))
                                    (:fields node))
         peer-variant-values (into (sorted-set) (keys variant-mappings))
         self-variant-values (set/difference discriminator-values peer-variant-values)
-        self-variant-mappings (loop [acc {} variants self-variant-values]
+        self-variant-mappings (loop [acc {}
+                                     variants self-variant-values]
                                 (if-let [t (first variants)]
                                   (let [method (reduce
                                                  (fn [_ {:keys [doc] :as method}]
@@ -211,7 +266,12 @@
         peer-types (into #{} (map symbol) (vals variant-mappings))
         {:keys [requires imports]} (classify-dependencies deps peer-types)
         {:keys [requires imports]} (merge-nested-deps {:requires requires :imports imports} (:nested base))]
-    (assert (= (count discriminator-values) (+ (count variant-mappings) (count self-variant-mappings))))
+    (when-not (= (count discriminator-values) (+ (count variant-mappings) (count self-variant-mappings)))
+      (throw (ex-info (str "concrete-union variants not all accounted for")
+                      {:fqcn                  (:fqcn node)
+                       :variant-mappings      variant-mappings
+                       :self-variant-mappings self-variant-mappings
+                       :discriminator-values  discriminator-values})))
     (cond->
       (assoc base :discriminator-values discriminator-values
                   :peer-variant-mappings variant-mappings
@@ -261,21 +321,50 @@
       :require-types requires
       :import-types imports)))
 
+(defn clean-getter [m] (dissoc m :parameters :abstract? :static?))
+(defn clean-setter [m] (dissoc m :abstract? :static? :private? :returnType))
+
 (defn getter-builder-setters-by-key
   [{:keys [deps] :as node}]
   (let [builder-node (get-nested node "Builder")
         fields-by-key (into (sorted-map)
                             (map
                               (fn [f]
-                                [(keyword (:name f)) f]))
+                                [(u/property-key (:name f)) f]))
                             (:fields node))
-        getters-by-key (into (sorted-map)
-                             (map
-                               (fn [m]
-                                 (let [k (keyword (or (:field-name m) (u/property-name (:name m))))
-                                       m (dissoc m :parameters :abstract? :static?)]
-                                   [k m])))
-                             (getters node))
+        getters-by-key (reduce-kv
+                         (fn [acc k gs]
+                           (assert (some? k))
+                           (cond
+                             (= 1 (count gs))
+                             (assoc acc k (clean-getter (first gs)))
+
+                             ;; a common pattern is to have underlying int field have a getXValue()=>int or getX()=>enum
+                             ;; ...we want the enum representation so we may use strings in edn
+                             ;; TODO its probably safer to look at types rather than lexically
+                             (and (= 2 (count gs)) (= 1 (count (filter #(string/ends-with? (:name %) "Value") gs))))
+                             (assoc acc k (clean-getter (first (remove #(string/ends-with? (:name %) "Value") gs))))
+
+                             true
+                             (let [;; multiple getters for same field, prefer returnType that matches field
+                                   ;; (typically the is where we select getListX => List<X> vs getX => X)
+                                   [selected-k getter] (reduce
+                                                (fn [_ getter]
+                                                  (let [fk (u/property-key (or (:field-name getter) (:name getter)))
+                                                        actual-type (get-in fields-by-key [fk :type])
+                                                        return-type (:returnType getter)]
+                                                    (if (= actual-type return-type)
+                                                      (reduced [fk getter])
+                                                      nil)))
+                                                nil gs)]
+                               (if getter
+                                 (assoc acc selected-k (clean-getter getter))
+                                 (do
+                                   (tel/log! :warn ["WARNING getter selection failed for field " k])
+                                   (assoc acc k (clean-getter (first gs))))))))
+                         (sorted-map)
+                         (group-by #(u/property-key (or (:field-name %) (:name %))) (getters node)))
+        _ (assert (every? some? (keys getters-by-key)))
         resolve-setter-param (fn [k param-type]
                                (if (and (vector? param-type)
                                         (= (first param-type) :type-parameter))
@@ -288,15 +377,21 @@
                                        param-type)
                                      actual))
                                  param-type))
-        builder-setters-by-key (reduce
-                                 (fn [acc [setter :as ss]]
-                                   (if (= 1 (count ss))
+        builder-setters-by-key (reduce-kv
+                                 (fn [acc k [setter :as ss]]
+                                   (cond
+                                     (= 1 (count ss))
                                      (let [_ (assert (= 1 (count (:parameters setter))))
-                                           k (keyword (u/property-name (:name setter)))
+                                           k (u/property-key (or (:field-name setter) (:name setter)))
                                            t (resolve-setter-param k (get-in setter [:parameters 0 :type]))]
                                        (assoc acc k (assoc-in setter [:parameters 0 :type] t)))
-                                     (let [;; in situations where there are multiple setters with same name,
-                                           ;; we choose the one where type aligns with underlying field;
+
+                                     (and (= 2 (count ss)) (= 1 (count (filter #(string/ends-with? (:name %) "Value") ss))))
+                                     (assoc acc k (first (remove #(string/ends-with? (:name %) "Value") ss)))
+
+                                     true
+                                     (let [;;  in situations where there are multiple setters with same name,
+                                           ;;  we choose the one where type aligns with underlying field;
                                            ;;  more likely to get bijective getter pairing
                                            ;; TODO consider synthetic [:or A B] here
                                            [k setter] (reduce
@@ -308,13 +403,16 @@
                                                               (reduced [k (assoc-in setter [:parameters 0 :type] resolved)])
                                                               nil)))
                                                         nil ss)]
-                                       (assert (some? setter))
+                                       (when-not (some? setter)
+                                         (throw (ex-info "failed to choose setter" {:fqcn (:fqcn node) :setters ss})))
                                        (assoc acc k setter))))
                                  (sorted-map)
-                                 (partition-by :name (map #(dissoc % :returnType :abstract? :static?)
-                                                          (remove #(:varArgs? (first (:parameters %))) (setters builder-node)))))
+                                 (group-by #(u/property-key (:or (:field-name %) (:name %)))
+                                           (map #(dissoc % :returnType :abstract? :static?)
+                                                (remove #(:varArgs? (first (:parameters %))) (setters builder-node)))))
         getters-by-key (reduce-kv
                          (fn [acc k {:keys [returnType name] :as m}]
+                           (assert (some? k))
                            (if (and (vector? returnType)
                                     (= (first returnType) :type-parameter))
                              (let [setter-type (get-in builder-setters-by-key [k :parameters 0 :type])
@@ -338,7 +436,9 @@
         candidates (sequence
                      (comp
                        (remove #(:varArgs? (last (get % :parameters))))
-                       (filter #(= (:name %) "newBuilder")))
+                       (filter #(= (:name %) "newBuilder"))
+                       (remove :private?)
+                       (remove :protected?))
                      (:methods node))
         candidate-stats (map (fn [m]
                                (let [mappings (:parameter-mappings m)
@@ -400,38 +500,50 @@
 
 (defn- analyze-accessor-with-builder
   [{:keys [deps] :as node}]
-  (let [base (basic-info node)
-        builder-node (get-nested node "Builder")
-        newBuilder (choose-newBuilder-method node)
-        newBuilder-keys (map u/property-key (:parameters newBuilder))
+  (let [base                              (basic-info node)
+        builder-node                      (get-nested node "Builder")
+        newBuilder                        (choose-newBuilder-method node)
         {:keys [getters-by-key setters-by-key]} (getter-builder-setters-by-key node)
-        param->key (fn [p-name]
-                     (if-let [setter (get (:parameter-mappings newBuilder) p-name)]
-                       (keyword (u/property-name setter))
-                       (keyword (u/property-name p-name))))
-        newBuilder (update newBuilder :parameters
-                           (fn [params]
-                             (mapv (fn [p]
-                                     (assoc p :key (param->key (:name p))))
-                                   params)))
-        required-keys (if (:autovalue? node)
-                        (into #{} (remove #(get-in getters-by-key [% :nullable?])) (keys getters-by-key))
-                        (mapv (comp param->key :name) (:parameters newBuilder)))
+        param->key                        (fn [p-name]
+                                            (if-let [setter (get (:parameter-mappings newBuilder) p-name)]
+                                              (keyword (u/property-name setter))
+                                              (keyword (u/property-name p-name))))
+        newBuilder                        (update newBuilder :parameters
+                                                  (fn [params]
+                                                    (mapv (fn [p]
+                                                            (assoc p :key (param->key (:name p))))
+                                                          params)))
+        ;;; Required === must be param to builder OR must be set by builder
+        ;;;   1) for autovalue they are all required unless marked nullable in getter
+        ;;;   2) default: builder params are required, rest are not
+        ;;;
+        ;;; Optional === could be set, but not required to be set.
+        ;;; Read-Only === can only be get, never set
+        ;;
+        [required-keys
+         builder-setters-by-key
+         optional-keys]                   (if (:autovalue? node)
+                                            (let [newBuilder-keys (into #{} (map :key (:parameters newBuilder)))
+                                                  settable-keys (set/union newBuilder-keys (set (keys setters-by-key)))
+                                                  required-keys (set/intersection settable-keys (into #{} (remove #(get-in getters-by-key [% :nullable?])) (keys getters-by-key)))
+                                                  builder-setters-by-key setters-by-key
+                                                  optional-keys (set/intersection settable-keys (into #{} (filter #(get-in getters-by-key [% :nullable?])) (keys getters-by-key)))]
+                                              [required-keys builder-setters-by-key optional-keys])
+                                            (let [required-keys (mapv (comp param->key :name) (:parameters newBuilder))
+                                                  builder-setters-by-key (apply dissoc setters-by-key required-keys)
+                                                  optional-keys (set/intersection (set (keys getters-by-key)) (set (keys builder-setters-by-key)))]
+                                              [required-keys builder-setters-by-key optional-keys]))
+        setter-types                      (reduce (fn [acc {:keys [parameters]}] (into acc (map :type parameters))) #{} (vals builder-setters-by-key))
+        #!--------------------------------------------------------------------------------------------------------------
         required-newBuilder-params-by-key (into {}
                                                 (map (fn [{:keys [name] :as parameter}]
                                                        [(param->key name) parameter]))
                                                 (:parameters newBuilder))
-        builder-setters-by-key (if (:autovalue? node)
-                                 setters-by-key
-                                 (apply dissoc setters-by-key required-keys))
-        read-only-keys (set/difference (set (keys getters-by-key)) (set required-keys) (set (keys builder-setters-by-key)))
-        optional-keys (if (:autovalue? node)
-                        (into #{} (filter #(get-in getters-by-key [% :nullable?])) (keys getters-by-key))
-                        (set/intersection (set (keys getters-by-key)) (set (keys builder-setters-by-key))))
-        new-builder-types (into #{} (map :type (:parameters newBuilder)))
-        getter-types (into #{} (map :returnType (vals getters-by-key)))
-        setter-types (reduce (fn [acc {:keys [parameters]}]
-                               (into acc (map :type parameters))) #{} (vals builder-setters-by-key))
+        read-only-keys                    (set/difference (set (keys getters-by-key))
+                                                          (set required-keys)
+                                                          (set optional-keys))
+        new-builder-types                 (into #{} (map :type (:parameters newBuilder)))
+        getter-types                      (into #{} (map :returnType (vals getters-by-key)))
         {:keys [requires imports]} (classify-dependencies deps (set/union new-builder-types getter-types setter-types))
         {:keys [requires imports]} (merge-nested-deps {:requires requires :imports imports} (:nested base))]
     (when (not= (set required-keys) (set/intersection (set required-keys) (set (keys getters-by-key))))
@@ -439,10 +551,23 @@
                                                                    :required-keys required-keys
                                                                    :getters (set (keys getters-by-key))
                                                                    :missing (set/difference (set required-keys) (set (keys getters-by-key)))})))
-    (assert (empty? (set/intersection (set required-keys) optional-keys)))
-    (assert (empty? (set/intersection (set required-keys) read-only-keys)))
-    (assert (empty? (set/intersection read-only-keys optional-keys)))
-    ;; TODO .hasX() and .XCount() methods for getter tests
+    (when-let [intersected (not-empty (set/intersection (set required-keys) optional-keys))]
+      (throw (ex-info "found intersection between required and optional keys" {:fqcn          (:fqcn node)
+                                                                               :required-keys required-keys
+                                                                               :optional-keys optional-keys
+                                                                               :intersection  intersected})))
+    (when-let [intersected (not-empty (set/intersection (set required-keys) read-only-keys))]
+      (throw (ex-info "found intersection between required & read-only keys" {:fqcn          (:fqcn node)
+                                                                              :required-keys required-keys
+                                                                              :optional-keys optional-keys
+                                                                              :read-only read-only-keys
+                                                                              :intersection  intersected})))
+    (when-let [intersected (not-empty (set/intersection read-only-keys optional-keys))]
+      (throw (ex-info "found intersection between read-only & optional keys" {:fqcn          (:fqcn node)
+                                                                              :required-keys required-keys
+                                                                              :optional-keys optional-keys
+                                                                              :read-only read-only-keys
+                                                                              :intersection  intersected})))
     (assoc base
       :newBuilder newBuilder
       :builder builder-node
@@ -556,10 +681,8 @@
                              (map
                                (fn [m]
                                  (let [key (u/property-key (:name m))]
-                                   (when (contains? m :field-name)
-                                     [key (dissoc m :parameters :abstract? :static?)]))))
-                             (getters node))
-        constructor-keys (apply set/union (keys constructors-by-keys))
+                                   [key (dissoc m :parameters :abstract? :static?)])))
+                             (getters node))        constructor-keys (apply set/union (keys constructors-by-keys))
         required-keys    (apply set/intersection (keys constructors-by-keys))
         read-only-keys   (set/difference (set (keys getters-by-key)) constructor-keys)
         constructor-types (into #{} (mapcat (fn [c] (map :type (:parameters c)))) constructors)
@@ -724,6 +847,339 @@
                 :import-types imports)))
 
 ;; -----------------------------------------------------------------------------
+
+(defn extract-protobuf-behavior [doc]
+  (when doc
+    (cond
+      (re-find #"\.google\.api\.field_behavior\) = ([^\]]+)" doc)
+      (let [b (second (re-find #"\.google\.api\.field_behavior\) = ([^\]]+)" doc))]
+        (cond
+          (string/includes? b "REQUIRED") :required
+          (string/includes? b "OUTPUT_ONLY") :read-only
+          (string/includes? b "OPTIONAL") :optional
+          :else :optional))
+      (re-find #"(?i)^<pre>\s*(?:<b>)?\s*Required\." doc) :required
+      (re-find #"(?i)^<pre>\s*(?:<b>)?\s*Output only\." doc) :read-only
+      (re-find #"(?i)^<pre>\s*(?:<b>)?\s*Optional\." doc) :optional
+      :else :optional)))
+
+(defn- protobuf-value-method? [m all-method-names]
+  (let [n (:name m)]
+    (and (string/ends-with? n "Value")
+         (not= n "getValue")
+         (let [base (subs n 0 (- (count n) 5))]
+           (contains? all-method-names base)))))
+
+(defn analyze-union-protobuf-oneof
+  [{:keys [deps nested] :as node}]
+  (let [base (basic-info node)
+        builder-node (get-builder node)
+        instance-methods (:methods node)
+        builder-methods (:methods builder-node)
+        all-instance-method-names (into #{} (map :name) instance-methods)
+        all-builder-method-names (into #{} (map :name) builder-methods)
+
+        newBuilder (first (filter #(and (= "newBuilder" (:name %)) (empty? (:parameters %))) (:methods node)))
+        _ (assert (some? newBuilder) "union protobuf missing no-arg newBuilder()")
+
+        ;; Ensure we only work with standard POJO-like accessors for non-union resolution
+        getters-list (getters node)
+        setters-list (setters builder-node)
+        case-enums (filter #(and (= :nested/enum (:category %))
+                                 (string/ends-with? (:className %) "Case"))
+                           nested)
+        unions (into (sorted-map)
+                     (for [enum-node case-enums
+                           :let [enum-name (:className enum-node)
+                                 union-key (u/property-key (subs enum-name 0 (- (count enum-name) 4)))
+                                 case-getter-name (str "get" enum-name)
+                                 case-values (remove #(string/ends-with? (:name %) "_NOT_SET") (:values enum-node))]]
+                       [union-key
+                        {:case-getter case-getter-name
+                         :variants (into (sorted-map)
+                                         (for [v-node case-values
+                                               :let [v-name (:name v-node)
+                                                     pascal (u/screaming-snake->pascal v-name)
+                                                     variant-key (u/property-key pascal)
+                                                     get-name (str "get" pascal)
+                                                     has-name (str "has" pascal)
+                                                     set-name (str "set" pascal)]]
+                                           [variant-key
+                                            (cond-> {}
+                                              (some #(= get-name (:name %)) instance-methods) (assoc :get get-name)
+                                              (some #(= has-name (:name %)) instance-methods) (assoc :has has-name)
+                                              (some #(= set-name (:name %)) builder-methods) (assoc :set set-name))]))}]))
+
+        ;; Create a lookup map for method names to union info
+        method-name->union-info (into {}
+                                      (for [[_union-key union-info] unions
+                                            [_variant-key variant-info] (:variants union-info)
+                                            [role method-name] variant-info]
+                                        [method-name {:key _union-key :variant _variant-key :role role}]))
+
+        ;; Add case-getters to the lookup map
+        method-name->union-info (into method-name->union-info
+                                      (for [[_union-key union-info] unions]
+                                        [(:case-getter union-info) {:key _union-key :role :case-getter}]))
+
+        label-methods (fn [methods]
+                        (map (fn [m]
+                               (if-let [union-info (get method-name->union-info (:name m))]
+                                 (assoc m :union union-info)
+                                 m))
+                             methods))
+
+        instance-methods' (label-methods instance-methods)
+        builder-methods' (label-methods builder-methods)
+
+        labeled-getters (label-methods getters-list)
+        labeled-setters (label-methods setters-list)
+
+        extract-key (fn [m]
+                      (let [n (:name m)
+                            base (cond
+                                   (string/starts-with? n "has") (subs n 3)
+                                   :else n)
+                            k (u/property-key base)
+                            ks (name k)]
+                        (cond
+                          (and (string/ends-with? ks "List") (> (count ks) 4)) (keyword (subs ks 0 (- (count ks) 4)))
+                          (and (string/ends-with? ks "Map") (> (count ks) 3)) (keyword (subs ks 0 (- (count ks) 3)))
+                          :else k)))
+
+        extract-setter-key (fn [m]
+                             (let [ks (name (u/property-key (:name m)))]
+                               (cond
+                                 (and (string/starts-with? (:name m) "set")
+                                      (string/ends-with? ks "List") (> (count ks) 4)) (keyword (subs ks 0 (- (count ks) 4)))
+                                 (and (string/starts-with? (:name m) "set")
+                                      (string/ends-with? ks "Map") (> (count ks) 3)) (keyword (subs ks 0 (- (count ks) 3)))
+                                 (string/starts-with? (:name m) "addAll")
+                                 (let [base (subs (:name m) 6)]
+                                   (keyword (u/property-name base)))
+                                 (string/starts-with? (:name m) "putAll")
+                                 (let [base (subs (:name m) 6)]
+                                   (keyword (u/property-name base)))
+                                 :else (keyword ks))))
+
+        ;; Group methods by key for consistent analysis
+        getters-by-key (into (sorted-map)
+                             (comp
+                               (filter #(and (:union %) (= :get (:role (:union %)))))
+                               (remove #(protobuf-value-method? % all-instance-method-names))
+                               (map (fn [m] [(:variant (:union m)) (clean-getter m)]))
+                               (remove #(#{:serializedSize :defaultInstance} (first %))))
+                             instance-methods')
+
+        ;; Non-union getters
+        non-union-getters-by-key (into (sorted-map)
+                                       (comp
+                                         (remove :union)
+                                         (filter #(or (string/starts-with? (:name %) "get")
+                                                      (string/starts-with? (:name %) "is")))
+                                         (remove #(string/ends-with? (:name %) "Count"))
+                                         (remove #(protobuf-value-method? % all-instance-method-names))
+                                         (map (fn [m] [(extract-key m) (clean-getter m)]))
+                                         (remove #(#{:serializedSize :defaultInstance} (first %))))
+                                       labeled-getters)
+
+        setters-by-key (into (sorted-map)
+                             (comp
+                               (filter #(and (:union %) (= :set (:role (:union %)))))
+                               (remove #(protobuf-value-method? % all-builder-method-names))
+                               (map (fn [m] [(:variant (:union m)) (clean-setter m)]))
+                               (remove #(#{:serializedSize :defaultInstance} (first %))))
+                             builder-methods')
+
+        non-union-setters-by-key (into (sorted-map)
+                                       (comp
+                                         (remove :union)
+                                         (filter #(or (string/starts-with? (:name %) "set")
+                                                      (string/starts-with? (:name %) "addAll")
+                                                      (string/starts-with? (:name %) "putAll")))
+                                         (remove #(protobuf-value-method? % all-builder-method-names))
+                                         (map (fn [m] [(extract-setter-key m) (clean-setter m)]))
+                                         (remove #(#{:serializedSize :defaultInstance} (first %))))
+                                       labeled-setters)
+
+        has-methods-by-key (into (sorted-map)
+                                 (comp
+                                   (filter #(and (:union %) (= :has (:role (:union %)))))
+                                   (remove #(protobuf-value-method? % all-instance-method-names))
+                                   (map (fn [m] [(:variant (:union m)) (clean-getter m)]))
+                                   (remove #(#{:serializedSize :defaultInstance} (first %))))
+                                 instance-methods')
+
+        non-union-has-methods-by-key (into (sorted-map)
+                                           (comp
+                                             (remove :union)
+                                             (filter #(and (not (:static? %))
+                                                           (empty? (:parameters %))
+                                                           (string/starts-with? (:name %) "has")))
+                                             (remove #(protobuf-value-method? % all-instance-method-names))
+                                             (map (fn [m] [(extract-key m) (clean-getter m)]))
+                                             (remove #(#{:serializedSize :defaultInstance} (first %))))
+                                           instance-methods')
+                                           
+        merged-has-methods (merge non-union-has-methods-by-key has-methods-by-key)
+
+        ;; Assertions
+        _ (doseq [[union-key union-info] unions
+                  [variant-key variant-methods] (:variants union-info)]
+            (assert (contains? getters-by-key variant-key)
+                    (str "Missing getter for union variant: " union-key "/" variant-key " in " (:className node)))
+            (assert (contains? setters-by-key variant-key)
+                    (str "Missing setter for union variant: " union-key "/" variant-key " in " (:className node))))
+
+        ;; Dependencies
+        getter-types (into #{} (map :returnType) (vals getters-by-key))
+        setter-types (into #{} (mapcat #(map :type (:parameters %)) (vals setters-by-key)))
+        non-union-getter-types (into #{} (map :returnType) (vals non-union-getters-by-key))
+        non-union-setter-types (into #{} (mapcat #(map :type (:parameters %)) (vals non-union-setters-by-key)))
+        has-method-types (into #{} (map :returnType) (vals has-methods-by-key))
+        non-union-has-method-types (into #{} (map :returnType) (vals non-union-has-methods-by-key))
+
+        all-types (set/union getter-types setter-types non-union-getter-types non-union-setter-types has-method-types non-union-has-method-types)
+
+        {:keys [requires imports]} (merge-nested-deps (classify-dependencies deps all-types)
+                                                      (:nested base))
+
+        merged-getters (merge non-union-getters-by-key getters-by-key)
+
+        behaviors (reduce-kv (fn [acc k m]
+                               (let [behavior (or (extract-protobuf-behavior (:doc m)) :optional)]
+                                 (update acc behavior (fnil conj #{}) k)))
+                             {:required #{} :optional #{} :read-only #{}}
+                             merged-getters)
+
+        required-keys (:required behaviors)
+        read-only-keys (:read-only behaviors)
+        optional-keys (set/difference (set (keys merged-getters)) required-keys read-only-keys)
+
+        merged-setters (merge non-union-setters-by-key setters-by-key)
+        _ (assert (empty? (set/difference required-keys (set (keys merged-setters))))
+                  (str "union protobuf is missing setters for required properties: " (set/difference required-keys (set (keys merged-setters)))))
+        _ (assert (empty? (set/difference optional-keys (set (keys merged-setters))))
+                  (str "union protobuf is missing setters for optional properties: " (set/difference optional-keys (set (keys merged-setters)))))]
+
+    (assoc base
+      :unions unions
+      :newBuilder newBuilder
+      :methods instance-methods'
+      :builder (assoc (basic-info builder-node) :methods builder-methods')
+      :getters-by-key merged-getters
+      :setters-by-key merged-setters
+      :has-methods-by-key merged-has-methods
+      :keys/required required-keys
+      :keys/optional optional-keys
+      :keys/read-only read-only-keys
+      :require-types requires
+      :import-types imports)))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defn analyze-protobuf-message
+  [{:keys [deps] :as node}]
+  (let [base (basic-info node)
+        builder-node (get-builder node)
+        all-method-names (into #{} (map :name) (:methods node))
+        all-builder-method-names (into #{} (map :name) (:methods builder-node))
+        newBuilder (first (filter #(and (= "newBuilder" (:name %)) (empty? (:parameters %))) (:methods node)))
+        _ (assert (some? newBuilder) "protobuf message missing no-arg newBuilder()")
+        
+        extract-key (fn [m]
+                      (let [n (:name m)
+                            base (cond
+                                   (string/starts-with? n "has") (subs n 3)
+                                   :else n)
+                            k (u/property-key base)
+                            ks (name k)]
+                        (cond
+                          (and (string/ends-with? ks "List") (> (count ks) 4)) (keyword (subs ks 0 (- (count ks) 4)))
+                          (and (string/ends-with? ks "Map") (> (count ks) 3)) (keyword (subs ks 0 (- (count ks) 3)))
+                          :else k)))
+                          
+        extract-setter-key (fn [m]
+                             (let [ks (name (u/property-key (:name m)))]
+                               (cond
+                                 (and (string/starts-with? (:name m) "set")
+                                      (string/ends-with? ks "List") (> (count ks) 4)) (keyword (subs ks 0 (- (count ks) 4)))
+                                 (and (string/starts-with? (:name m) "set")
+                                      (string/ends-with? ks "Map") (> (count ks) 3)) (keyword (subs ks 0 (- (count ks) 3)))
+                                 (string/starts-with? (:name m) "addAll")
+                                 (let [base (subs (:name m) 6)]
+                                   (keyword (u/property-name base)))
+                                 (string/starts-with? (:name m) "putAll")
+                                 (let [base (subs (:name m) 6)]
+                                   (keyword (u/property-name base)))
+                                 :else (keyword ks))))
+                          
+        getters-by-key (into (sorted-map)
+                             (comp
+                               (filter #(or (string/starts-with? (:name %) "get")
+                                            (string/starts-with? (:name %) "is")))
+                               (remove #(string/ends-with? (:name %) "Count"))
+                               (remove #(protobuf-value-method? % all-method-names))
+                               (map (fn [m] [(extract-key m) (clean-getter m)]))
+                               (remove #(#{:serializedSize :defaultInstance} (first %))))
+                             (getters node))
+                             
+        setters-by-key (into (sorted-map)
+                             (comp
+                               (filter #(or (string/starts-with? (:name %) "set")
+                                            (string/starts-with? (:name %) "addAll")
+                                            (string/starts-with? (:name %) "putAll")))
+                               (remove #(protobuf-value-method? % all-builder-method-names))
+                               (map (fn [m] [(extract-setter-key m) (clean-setter m)]))
+                               (remove #(#{:serializedSize :defaultInstance} (first %))))
+                             (setters builder-node))
+
+        has-methods-by-key (into (sorted-map)
+                                 (comp
+                                   (filter #(and (not (:static? %))
+                                                 (empty? (:parameters %))
+                                                 (string/starts-with? (:name %) "has")))
+                                   (remove #(protobuf-value-method? % all-method-names))
+                                   (map (fn [m] [(extract-key m) (clean-getter m)]))
+                                   (remove #(#{:serializedSize :defaultInstance} (first %))))
+                                 (:methods node))
+
+        getter-types (into #{} (map :returnType) (vals getters-by-key))
+        setter-types (into #{} (mapcat #(map :type (:parameters %)) (vals setters-by-key)))
+        has-method-types (into #{} (map :returnType) (vals has-methods-by-key))
+        all-types (set/union getter-types setter-types has-method-types)
+        {:keys [requires imports]} (merge-nested-deps (classify-dependencies deps all-types) (:nested base))
+        
+        behaviors (reduce-kv (fn [acc k m]
+                               (let [behavior (or (extract-protobuf-behavior (:doc m)) :optional)]
+                                 (update acc behavior (fnil conj #{}) k)))
+                             {:required #{} :optional #{} :read-only #{}}
+                             getters-by-key)
+        
+        ;; Ensure required and optional are disjoint, etc.
+        required-keys (:required behaviors)
+        read-only-keys (:read-only behaviors)
+        optional-keys (set/difference (set (keys getters-by-key)) required-keys read-only-keys)
+        
+        _ (assert (empty? (set/difference required-keys (set (keys setters-by-key))))
+                  (str "protobuf message is missing setters for required properties: " (set/difference required-keys (set (keys setters-by-key)))))
+        _ (assert (empty? (set/difference optional-keys (set (keys setters-by-key))))
+                  (str "protobuf message is missing setters for optional properties: " (set/difference optional-keys (set (keys setters-by-key)))))]
+        
+    (assoc base
+      :newBuilder newBuilder
+      :builder (assoc (basic-info builder-node) :methods (:methods builder-node))
+      :getters-by-key getters-by-key
+      :setters-by-key setters-by-key
+      :has-methods-by-key has-methods-by-key
+      :keys/required required-keys
+      :keys/optional optional-keys
+      :keys/read-only read-only-keys
+      :require-types requires
+      :import-types imports)))
+
+
+;; -----------------------------------------------------------------------------
 ;; Analyzer
 ;; -----------------------------------------------------------------------------
 
@@ -731,6 +1187,8 @@
   [{:keys [category] :as node}]
   {:post [(= category (:category %)) (contains? % :className)]}
   (case category
+    (:protobuf-message :nested/protobuf-message)          (analyze-protobuf-message node)
+    (:union-protobuf-oneof :nested/union-protobuf-oneof)  (analyze-union-protobuf-oneof node)
     (:mutable-pojo :nested/mutable-pojo) (analyze-mutable-pojo node)
     :accessor-with-builder (analyze-accessor-with-builder node)
     :client                (basic-info node)

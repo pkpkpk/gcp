@@ -1,4 +1,4 @@
-{:paths ["src"],
+{:paths ["src/main" "src/custom" "src/bindings"]
  :deps
- {com.google.cloud/google-cloud-bigquery {:mvn/version "2.58.0"},
+ {com.google.cloud/google-cloud-bigquery {:mvn/version "2.62.0"},
   gcp/global {:local/root "../global"}}}

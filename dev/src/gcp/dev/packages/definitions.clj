@@ -4,18 +4,19 @@
    [gcp.dev.packages.layout :as layout]))
 
 (def global
-  {:name         'gcp.global
-   :lib          'com.github.pkpkpk/gcp.global
-   :description  "global malli registry & utilities for gcp bindings"
-   :package-root (io/file layout/packages-root "global")
-   :src-root     (io/file layout/packages-root "global" "src")})
+  {:name             'gcp.global
+   :lib              'com.github.pkpkpk/gcp.global
+   :description      "global malli registry & utilities for gcp bindings"
+   :package-prefixes #{"gcp.global"}
+   :package-root     (io/file layout/packages-root "global")
+   :src-root         (io/file layout/packages-root "global" "src")})
 
 (def foreign
-  {:name         'gcp.foreign
-   :lib          'com.github.pkpkpk/gcp.foreign
-   :description  "bindings for transitive foreign types using in gcp bindings"
-   :package-root (io/file layout/packages-root "foreign")
-   :src-root     (io/file layout/packages-root "foreign" "src")
+  {:name             'gcp.foreign
+   :description      "bindings for transitive foreign types using in gcp bindings"
+   :package-prefixes #{"com.google.protobuf" "com.google.type" "com.google.rpc" "com.google.iam" "com.google.auth" "com.google.api" "com.google.cloud" "com.google.gson" "io.opentelemetry" "org.threeten"}
+   :package-root     (io/file layout/packages-root "global")
+   :src-root         (io/file layout/packages-root "global" "src")
    :mappings     '{com.google.cloud.MonitoredResource                                  gcp.foreign.com.google.cloud
                    com.google.cloud.MonitoredResourceDescriptor                        gcp.foreign.com.google.cloud
                    com.google.cloud.Policy                                             gcp.foreign.com.google.cloud
@@ -87,34 +88,22 @@
                    com.google.iam.v1.SetIamPolicyRequest                               gcp.foreign.com.google.iam.v1
                    com.google.iam.v1.TestIamPermissionsRequest                         gcp.foreign.com.google.iam.v1
                    com.google.iam.v1.TestIamPermissionsResponse                        gcp.foreign.com.google.iam.v1
+
                    com.google.auth.Credentials                                         gcp.foreign.com.google.auth
+                   com.google.auth.ServiceAccountSigner                                gcp.foreign.com.google.auth
 
                    com.google.protobuf.Timestamp                                       gcp.foreign.com.google.protobuf
                    com.google.protobuf.ByteString                                      gcp.foreign.com.google.protobuf
                    com.google.protobuf.Any                                             gcp.foreign.com.google.protobuf
+                   com.google.protobuf.NullValue                                       gcp.foreign.com.google.protobuf
                    com.google.protobuf.Struct                                          gcp.foreign.com.google.protobuf
                    com.google.protobuf.Value                                           gcp.foreign.com.google.protobuf
                    com.google.protobuf.ProtocolStringList                              gcp.foreign.com.google.protobuf
                    com.google.protobuf.Duration                                        gcp.foreign.com.google.protobuf
-                   com.google.protobuf.CodedInputStream                                gcp.foreign.com.google.protobuf
-                   com.google.protobuf.CodedOutputStream                               gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Descriptors                                     gcp.foreign.com.google.protobuf
-                   com.google.protobuf.ExtensionRegistryLite                           gcp.foreign.com.google.protobuf
-                   com.google.protobuf.GeneratedMessageV3                              gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Message                                         gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Parser                                          gcp.foreign.com.google.protobuf
-                   com.google.protobuf.UnknownFieldSet                                 gcp.foreign.com.google.protobuf
                    com.google.protobuf.BoolValue                                       gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Descriptors.EnumValueDescriptor                 gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Descriptors.FieldDescriptor                     gcp.foreign.com.google.protobuf
                    com.google.protobuf.Empty                                           gcp.foreign.com.google.protobuf
-                   com.google.protobuf.FieldMask                                       gcp.foreign.com.google.protobuf
                    com.google.protobuf.LazyStringArrayList                             gcp.foreign.com.google.protobuf
                    com.google.protobuf.ListValue                                       gcp.foreign.com.google.protobuf
-                   com.google.protobuf.MapField                                        gcp.foreign.com.google.protobuf
-                   com.google.protobuf.RepeatedFieldBuilderV3                          gcp.foreign.com.google.protobuf
-                   com.google.protobuf.SingleFieldBuilderV3                            gcp.foreign.com.google.protobuf
-                   com.google.protobuf.Value.Builder                                   gcp.foreign.com.google.protobuf
 
                    io.opentelemetry.api.OpenTelemetry                                  gcp.foreign.io.opentelemetry.api
                    io.opentelemetry.api.common.Attributes                              gcp.foreign.io.opentelemetry.api.common
@@ -123,97 +112,23 @@
                    org.threeten.extra.PeriodDuration                                   gcp.foreign.org.threeten.extra
                    org.threeten.bp.Duration                                            gcp.foreign.org.threeten.bp}})
 
-(def artifact-registry
-  {:name                     'gcp.artifact-registry
-   :lib                      'com.github.pkpkpk/gcp.artifact-registry
-   :description              "edn bindings for the google-cloud-artifact-registry sdk"
-   :package-root             (io/file layout/packages-root "artifact-registry")
-   :type                     :static
-   :discovery-url            "https://artifactregistry.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org       "com.google.cloud"
-   :googleapis/mvn-artifact  "google-cloud-artifact-registry"
-   :googleapis/git-repo      "google-cloud-java"
-   :googleapis/git-repo-root "java-artifact-registry"
-   ; :pinned-version           "1.4.0"
-   :api-roots                ["com.google.devtools.artifactregistry.v1.ArtifactRegistryClient"
-                              "com.google.devtools.artifactregistry.v1.ArtifactRegistrySettings"]
-   :include                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1"
-                              "/proto-google-cloud-artifact-registry-v1/src/main/java/com/google/devtools/artifactregistry/v1"]
-   :exclude                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1/stub"]
-   :package-prefixes          #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
-
-(def monitoring
-  {:name                     'gcp.monitoring
-   :lib                      'com.github.pkpkpk/gcp.monitoring
-   :description              "edn bindings for the google-cloud-monitoring sdk"
-   :package-root             (io/file layout/packages-root "monitoring")
-   :type                     :static
-   :discovery-url            "https://monitoring.googleapis.com/$discovery/rest?version=v3"
-   :googleapis/mvn-org       "com.google.cloud"
-   :googleapis/mvn-artifact  "google-cloud-monitoring"
-   :googleapis/git-repo      "google-cloud-java"
-   :googleapis/git-repo-root "java-monitoring"
-   :api-roots                ["com.google.cloud.monitoring.v3.AlertPolicyServiceClient"
-                              "com.google.cloud.monitoring.v3.AlertPolicyServiceSettings"
-                              "com.google.cloud.monitoring.v3.GroupServiceClient"
-                              "com.google.cloud.monitoring.v3.GroupServiceSettings"
-                              "com.google.cloud.monitoring.v3.MetricServiceClient"
-                              "com.google.cloud.monitoring.v3.MetricServiceSettings"
-                              "com.google.cloud.monitoring.v3.NotificationChannelServiceClient"
-                              "com.google.cloud.monitoring.v3.NotificationChannelServiceSettings"
-                              "com.google.cloud.monitoring.v3.QueryServiceClient"
-                              "com.google.cloud.monitoring.v3.QueryServiceSettings"
-                              "com.google.cloud.monitoring.v3.ServiceMonitoringServiceClient"
-                              "com.google.cloud.monitoring.v3.ServiceMonitoringServiceSettings"
-                              "com.google.cloud.monitoring.v3.SnoozeServiceClient"
-                              "com.google.cloud.monitoring.v3.SnoozeServiceSettings"
-                              "com.google.cloud.monitoring.v3.UptimeCheckServiceClient"
-                              "com.google.cloud.monitoring.v3.UptimeCheckServiceSettings"]
-   :include                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3"
-                              "/proto-google-cloud-monitoring-v3/src/main/java/com/google/monitoring/v3"]
-   :exclude                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3/stub"]
-   :package-prefixes         #{"com.google.cloud.monitoring" "com.google.monitoring" "com.google.monitoring.v3"}})
-
-(def vertexai
-  {:name                     'gcp.vertexai
-   :lib                      'com.github.pkpkpk/gcp.vertexai
-   :description              "edn bindings for the google-cloud-vertexai sdk"
-   :package-root             (io/file layout/packages-root "vertexai")
-   :type                     :static
-   :discovery-url            "https://aiplatform.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org       "com.google.cloud"
-   :googleapis/mvn-artifact  "google-cloud-vertexai"
-   :googleapis/git-repo      "google-cloud-java"
-   :googleapis/git-repo-root "java-vertexai"
-   :api-roots                ["com.google.cloud.vertexai.VertexAI"
-                              "com.google.cloud.vertexai.api.LlmUtilityServiceSettings"
-                              "com.google.cloud.vertexai.api.PredictionServiceSettings"
-                              "com.google.cloud.vertexai.api.EndpointServiceSettings"]
-   :include                  ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/VertexAI.java"
-                              "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api"
-                              "/proto-google-cloud-vertexai-v1/src/main/java/com/google/cloud/vertexai/api"]
-   :exclude                  ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api/stub"]
-   :package-prefixes          #{"com.google.cloud.vertexai" "com.google.vertexai"}})
+#!----------------------------------------------------------------------------------------------------------------------
+#! api-services (support classes bundled with respective user package)
 
 (def bigquery-services
   {:name                      'gcp.bigquery-services
    :lib                       'com.github.pkpkpk/gcp.bigquery-services
    :description               "edn bindings for the google-api-services-bigquery model"
    :package-root              (io/file layout/packages-root "bigquery-services")
+   :bindings-target-root      (io/file layout/packages-root "bigquery/src/bindings")
    :type                      :static
-   :discovery-url             "https://bigquery.googleapis.com/$discovery/rest?version=v2"
    :googleapis/mvn-org        "com.google.apis"
    :googleapis/mvn-artifact   "google-api-services-bigquery"
    :googleapis/git-repo       "google-api-java-client-services"
    ;; This repository does not use git tags for releases; pin to main to allow sync-to-release to function.
-   :custom-namespace-mappings '{com.google.api.services.bigquery.model.QueryParameterValue gcp.services.bigquery.custom
-                                com.google.api.services.bigquery.model.RangeValue gcp.services.bigquery.custom}
+   :custom-namespace-mappings '{com.google.api.services.bigquery.model.QueryParameterValue gcp.api.services.bigquery.custom
+                                com.google.api.services.bigquery.model.RangeValue gcp.api.services.bigquery.custom}
    :pinned-tag                "main"
-   ; :api-roots                 ["com.google.api.services.bigquery.model.TrainingRun"
-   ;                            "com.google.api.services.bigquery.model.QueryParameter"
-   ;                            "com.google.api.services.bigquery.model.EncryptionConfiguration"
-   ;                            "com.google.api.services.bigquery.model.ExternalDataConfiguration"
-   ;                            "com.google.api.services.bigquery.model.UserDefinedFunctionResource"]
    :include                   ["/clients/google-api-services-bigquery/v2/2.0.0"]
    :package-prefixes          #{"com.google.api.services.bigquery"}})
 
@@ -222,6 +137,7 @@
    :lib                       'com.github.pkpkpk/gcp.bigquery
    :description               "edn bindings for the google-cloud-bigquery sdk"
    :package-root              (io/file layout/packages-root "bigquery")
+   :bindings-target-root      (io/file layout/packages-root "bigquery/src/bindings")
    :type                      :static
    :discovery-url             "https://bigquery.googleapis.com/$discovery/rest?version=v2"
    :googleapis/mvn-org        "com.google.cloud"
@@ -253,14 +169,11 @@
                                 com.google.cloud.bigquery.StandardSQLTypeName                      gcp.bigquery.custom.StandardSQL
                                 com.google.cloud.bigquery.StandardSQLTableType                     gcp.bigquery.custom.StandardSQL
                                 com.google.cloud.bigquery.BigQueryRetryConfig                      gcp.bigquery.custom.BigQueryRetryConfig
-                                com.google.cloud.bigquery.BigQueryOptions                          gcp.bigquery.custom.BigQueryOptions
-                                ; com.google.api.services.bigquery.model.EncryptionConfiguration     gcp.bindings.services.bigquery.model
-                                ; com.google.api.services.bigquery.model.ExternalDataConfiguration   gcp.foreign.com.google.api.services.bigquery.model
-                                com.google.api.services.bigquery.model.QueryParameter              gcp.bindings.services.bigquery.model.QueryParameter
-                                com.google.api.services.bigquery.model.TrainingRun                 gcp.bindings.services.bigquery.model.TrainingRun}
-   ; :opaque-types              #{"com.google.cloud.bigquery.Option"}
+                                com.google.cloud.bigquery.BigQueryOptions                          gcp.bigquery.custom.BigQueryOptions}
+   :support-packages          [:bigquery-services]
    :exempt-types              #{"com.google.cloud.bigquery.FieldValueList"
                                 "com.google.cloud.bigquery.TableDataWriteChannel"
+                                "com.google.cloud.bigquery.BigQueryBaseService"
                                 "com.google.cloud.bigquery.BigQueryRetryAlgorithm"
                                 "com.google.cloud.bigquery.BigQueryRetryHelper"
                                 "com.google.cloud.bigquery.BigQueryFactory"
@@ -271,8 +184,158 @@
                                 "com.google.cloud.bigquery.LegacySQLTypeName"}
    :include                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery"]
    :exclude                   ["/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/spi"
-                               "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"]
+                               "/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/testing"
+                               "google-cloud-bigquery-jdbc"]
    :package-prefixes          #{"com.google.cloud.bigquery"}})
+
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(def storage
+  {:name                    'gcp.storage
+   :lib                     'com.github.pkpkpk/gcp.storage
+   :description             "edn bindings for the google-cloud-storage sdk"
+   :package-root            (io/file layout/packages-root "storage")
+   :type                    :static
+   :discovery-url           "https://storage.googleapis.com/$discovery/rest?version=v1"
+   :googleapis/mvn-org      "com.google.cloud"
+   :googleapis/mvn-artifact "google-cloud-storage"
+   :googleapis/git-repo     "java-storage"
+   :support-packages        [:storage-services]
+   :api-roots               ["com.google.cloud.storage.Storage"
+                             "com.google.cloud.storage.StorageOptions"]
+   :include                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage"
+                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/multipartupload/model"
+                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/transfermanager"]
+   :custom-namespace-mappings '{com.google.cloud.storage.PostPolicyV4 gcp.storage.custom.PostPolicyV4
+                                com.google.cloud.storage.Cors gcp.storage.custom.Cors}
+   :exempt-types            #{"com.google.cloud.storage.ApiFutureUtils"
+                              "com.google.cloud.storage.Backoff"
+                              "com.google.cloud.storage.BlobInfo.ImmutableEmptyMap"
+                              "com.google.cloud.storage.BidiWriteCtx"
+                              "com.google.cloud.storage.BufferedReadableByteChannelSession"
+                              "com.google.cloud.storage.BufferedWritableByteChannelSession"
+                              "com.google.cloud.storage.ChannelSession"
+                              "com.google.cloud.storage.OpenTelemetryBootstrappingUtils"
+                              "com.google.cloud.storage.StorageV2ProtoUtils"
+                              "com.google.cloud.storage.WriteCtx"
+                              "com.google.cloud.storage.UnbufferedWritableByteChannelSession"
+                              "com.google.cloud.storage.UnbufferedReadableByteChannelSession"
+                              "com.google.cloud.storage.Conversions"
+                              "com.google.cloud.storage.RecoveryFileManager"
+                              "com.google.cloud.storage.HttpContentRange"
+                              "com.google.cloud.storage.Retrying"
+                              "com.google.cloud.storage.ThroughputSink"
+                              "com.google.cloud.storage.UnifiedOpts"
+                              "com.google.cloud.storage.multipartupload.model.ListMultipartUploadsResponse.CommonPrefixHelper"
+                              "com.google.cloud.storage.ParallelCompositeUploadBlobWriteSessionConfig.PartMetadataFieldDecoratorInstance"}
+   :exclude                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage/ZeroCopySupport.java"
+                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
+                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/testing"]
+   :package-prefixes         #{"com.google.cloud.storage"}})
+
+
+(def storage-services
+  {:name                      'gcp.storage-services
+   :lib                       'com.github.pkpkpk/gcp.storage-services
+   :description               "edn bindings for the google-api-services-storage model"
+   :package-root              (io/file layout/packages-root "storage-services")
+   :type                      :static
+   :googleapis/mvn-org        "com.google.apis"
+   :googleapis/mvn-artifact   "google-api-services-storage"
+   :googleapis/git-repo       "google-api-java-client-services"
+   ;; This repository does not use git tags for releases; pin to main to allow sync-to-release to function.
+   :pinned-tag                "main"
+   :include                   ["/clients/google-api-services-storage/v2/2.0.0"]
+   :package-prefixes          #{"com.google.api.services.storage"}})
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(def artifact-registry
+  {:name                     'gcp.artifact-registry
+   :lib                      'com.github.pkpkpk/gcp.artifact-registry
+   :description              "edn bindings for the google-cloud-artifact-registry sdk"
+   :package-root             (io/file layout/packages-root "artifact-registry")
+   :type                     :static
+   :monorepo?                true
+   :discovery-url            "https://artifactregistry.googleapis.com/$discovery/rest?version=v1"
+   :googleapis/mvn-org       "com.google.cloud"
+   :googleapis/mvn-artifact  "google-cloud-artifact-registry"
+   :googleapis/git-repo      "google-cloud-java"
+   :googleapis/git-repo-root "java-artifact-registry"
+   ; :pinned-version           "1.4.0"
+   :api-roots                ["com.google.devtools.artifactregistry.v1.ArtifactRegistryClient"
+                              "com.google.devtools.artifactregistry.v1.ArtifactRegistrySettings"]
+   :include                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1"
+                              "/proto-google-cloud-artifact-registry-v1/src/main/java/com/google/devtools/artifactregistry/v1"]
+   :exclude                  ["/google-cloud-artifact-registry/src/main/java/com/google/devtools/artifactregistry/v1/stub"]
+   :package-prefixes          #{"com.google.devtools.artifactregistry" "com.google.cloud.artifactregistry"}})
+
+(def monitoring
+  {:name                     'gcp.monitoring
+   :lib                      'com.github.pkpkpk/gcp.monitoring
+   :description              "edn bindings for the google-cloud-monitoring sdk"
+   :package-root             (io/file layout/packages-root "monitoring")
+   :type                     :static
+   :monorepo?                true
+   :discovery-url            "https://monitoring.googleapis.com/$discovery/rest?version=v3"
+   :googleapis/mvn-org       "com.google.cloud"
+   :googleapis/mvn-artifact  "google-cloud-monitoring"
+   :googleapis/git-repo      "google-cloud-java"
+   :googleapis/git-repo-root "java-monitoring"
+   :api-roots                ["com.google.cloud.monitoring.v3.AlertPolicyServiceClient"
+                              "com.google.cloud.monitoring.v3.AlertPolicyServiceSettings"
+                              "com.google.cloud.monitoring.v3.GroupServiceClient"
+                              "com.google.cloud.monitoring.v3.GroupServiceSettings"
+                              "com.google.cloud.monitoring.v3.MetricServiceClient"
+                              "com.google.cloud.monitoring.v3.MetricServiceSettings"
+                              "com.google.cloud.monitoring.v3.NotificationChannelServiceClient"
+                              "com.google.cloud.monitoring.v3.NotificationChannelServiceSettings"
+                              "com.google.cloud.monitoring.v3.QueryServiceClient"
+                              "com.google.cloud.monitoring.v3.QueryServiceSettings"
+                              "com.google.cloud.monitoring.v3.ServiceMonitoringServiceClient"
+                              "com.google.cloud.monitoring.v3.ServiceMonitoringServiceSettings"
+                              "com.google.cloud.monitoring.v3.SnoozeServiceClient"
+                              "com.google.cloud.monitoring.v3.SnoozeServiceSettings"
+                              "com.google.cloud.monitoring.v3.UptimeCheckServiceClient"
+                              "com.google.cloud.monitoring.v3.UptimeCheckServiceSettings"]
+   :include                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3"
+                              "/proto-google-cloud-monitoring-v3/src/main/java/com/google/monitoring/v3"]
+   :exclude                  ["/google-cloud-monitoring/src/main/java/com/google/cloud/monitoring/v3/stub"]
+   :package-prefixes         #{"com.google.cloud.monitoring" "com.google.monitoring" "com.google.monitoring.v3"}})
+
+(def vertexai
+  {:name                    'gcp.vertexai
+   :lib                     'com.github.pkpkpk/gcp.vertexai
+   :description             "edn bindings for the google-cloud-vertexai sdk"
+   :package-root            (io/file layout/packages-root "vertexai")
+   :type                    :static
+   :discovery-url           "https://aiplatform.googleapis.com/$discovery/rest?version=v1"
+   :googleapis/mvn-org      "com.google.cloud"
+   :googleapis/mvn-artifact "google-cloud-vertexai"
+   :googleapis/git-repo     "java-vertexai"
+   :api-roots               ["com.google.cloud.vertexai.VertexAI"
+                             "com.google.cloud.vertexai.api.LlmUtilityServiceSettings"
+                             "com.google.cloud.vertexai.api.PredictionServiceSettings"
+                             "com.google.cloud.vertexai.api.EndpointServiceSettings"
+                             "com.google.cloud.vertexai.genai.Client"]
+   :include                 ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/VertexAI.java"
+                             "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api"
+                             "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/genai"
+                             "/proto-google-cloud-vertexai-v1/src/main/java/com/google/cloud/vertexai/api"]
+   :exclude                 ["/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/api/stub"
+                             "/google-cloud-vertexai/src/main/java/com/google/cloud/vertexai/generativeai"]
+   :exempt-types            #{"com.google.cloud.vertexai.api.PredictionServiceClient.ListLocationsPagedResponse"
+                              "com.google.cloud.vertexai.api.EndpointServiceClient.ListEndpointsPagedResponse"
+                              "com.google.cloud.vertexai.api.EndpointServiceClient.ListLocationsPagedResponse"
+                              "com.google.cloud.vertexai.api.LlmUtilityServiceClient.ListLocationsPagedResponse"
+                              "com.google.cloud.vertexai.api.PredictionServiceSettings"
+                              "com.google.cloud.vertexai.api.EndpointServiceSettings"
+                              "com.google.cloud.vertexai.api.LlmUtilityServiceSettings"
+                              "com.google.cloud.vertexai.api.stub.PredictionServiceStub"
+                              "com.google.cloud.vertexai.api.stub.EndpointServiceStub"
+                              "com.google.cloud.vertexai.api.stub.LlmUtilityServiceStub"}
+   :package-prefixes        #{"com.google.cloud.vertexai"}})
 
 (def genai
   {:name                    'gcp.genai
@@ -285,8 +348,8 @@
    :googleapis/mvn-artifact "google-genai"
    :googleapis/git-repo     "java-genai"
    :api-roots               ["com.google.genai.Client"]
-   :package-prefixes         #{"com.google.genai"}
-   :include                 ["/src/main/java/com/google/genai"]})
+   :include                 ["/src/main/java/com/google/genai"]
+   :package-prefixes         #{"com.google.genai"}})
 
 (def logging
   {:name                    'gcp.logging
@@ -300,13 +363,13 @@
    :googleapis/git-repo     "java-logging"
    :api-roots               ["com.google.cloud.logging.Logging"
                              "com.google.cloud.logging.LoggingOptions"]
-   :package-prefixes         #{"com.google.cloud.logging" "com.google.logging"}
    :include                 ["/google-cloud-logging/src/main/java/com/google/cloud/logging"
                              "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2"
                              "/proto-google-cloud-logging-v2/src/main/java/com/google/logging/v2"]
    :exclude                 ["/google-cloud-logging/src/main/java/com/google/cloud/logging/spi"
                              "/google-cloud-logging/src/main/java/com/google/cloud/logging/testing"
-                             "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2/stub"]})
+                             "/google-cloud-logging/src/main/java/com/google/cloud/logging/v2/stub"]
+   :package-prefixes         #{"com.google.cloud.logging" "com.google.logging"}})
 
 (def pubsub
   {:name                    'gcp.pubsub
@@ -331,25 +394,6 @@
                              "/proto-google-cloud-pubsub-v1/src/main/java/com/google/pubsub/v1"]
    :exclude                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1/stub"]})
 
-(def storage
-  {:name                    'gcp.storage
-   :lib                     'com.github.pkpkpk/gcp.storage
-   :description             "edn bindings for the google-cloud-storage sdk"
-   :package-root            (io/file layout/packages-root "storage")
-   :type                    :static
-   :discovery-url           "https://storage.googleapis.com/$discovery/rest?version=v1"
-   :googleapis/mvn-org      "com.google.cloud"
-   :googleapis/mvn-artifact "google-cloud-storage"
-   :googleapis/git-repo     "java-storage"
-   :api-roots               ["com.google.cloud.storage.Storage"
-                             "com.google.cloud.storage.StorageOptions"]
-   :include                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/multipartupload/model"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/transfermanager"]
-   :exclude                 ["/google-cloud-storage/src/main/java/com/google/cloud/storage/ZeroCopySupport.java"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/spi"
-                             "/google-cloud-storage/src/main/java/com/google/cloud/storage/testing"]
-   :package-prefixes         #{"com.google.cloud.storage"}})
 
 (def storage-control
   {:name                    'gcp.storage-control
@@ -367,12 +411,15 @@
    :exclude                 ["/google-cloud-storage-control/src/main/java/com/google/storage/control/v2/stub"]
    :package-prefixes         #{"com.google.storage.control"}})
 
-(def packages
+#!----------------------------------------------------------------------------------------------------------------------
+
+(def pkg-key->package
   {:vertexai vertexai
    :bigquery bigquery
    :bigquery-services bigquery-services
    :pubsub pubsub
    :storage storage
+   :storage-services storage-services
    :storage-control storage-control
    :logging logging
    :genai genai

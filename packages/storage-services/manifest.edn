@@ -1,0 +1,8 @@
+{:googleapis/mvn-org "com.google.apis",
+ :googleapis/mvn-artifact "google-api-services-storage",
+ :googleapis/mvn-release "v1-rev20260204-2.0.0",
+ :googleapis/repo "google-api-java-client-services",
+ :googleapis/git-repo "google-api-java-client-services",
+ :googleapis/git-tag "main",
+ :googleapis/git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c",
+ :gcp/release "v1-rev20260204-2.0.0-0"}

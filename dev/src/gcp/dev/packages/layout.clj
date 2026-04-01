@@ -36,3 +36,11 @@
         wt)
       (throw (ex-info (str "Worktree not found for package " (:name pkg) ". Run sync-to-release first.")
                       {:worktree wt :package (:name pkg)})))))
+
+(defn package-bindings-root
+  "Returns the root directory where generated bindings should be written.
+   Defaults to (io/file package-root \"src\") if :bindings-target-root is not set."
+  [pkg]
+  (assert (map? pkg))
+  (or (:bindings-target-root pkg)
+      (io/file (:package-root pkg) "src")))
