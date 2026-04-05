@@ -86,6 +86,22 @@
            :revision new-revision
            :version (str current-sdk-version "." new-revision)})))))
 
+(defn pom [pkg version global-version deps-map]
+  (let [package-root (:package-root pkg)
+        project-deps (-> (:deps deps-map)
+                         (dissoc 'gcp/global)
+                         (assoc (:lib defs/global) {:mvn/version global-version}))
+        project (assoc deps-map :deps project-deps)
+        basis (b/create-basis {:project project :dir (.getPath package-root)})
+        src-dirs (mapv #(.getPath (io/file package-root %)) (:paths project))]
+    {:src-dirs src-dirs
+     :lib      (:lib pkg)
+     :version  version
+     :basis    basis
+     :pom-data (util/pom-template {:version     version
+                                   :description (:description pkg)
+                                   :url         "https://github.com/pkpkpk/gcp"})}))
+
 (defn build-package [pkg]
   (let [global-version (global/build)
         package-root (:package-root pkg)
@@ -106,19 +122,7 @@
       (do
         (println "Package" (:name pkg) "up to date:" version)
         version)
-      (let [project-deps (-> (:deps deps-map)
-                             (dissoc 'gcp/global)
-                             (assoc (:lib defs/global) {:mvn/version global-version}))
-            project (assoc deps-map :deps project-deps)
-            basis (b/create-basis {:project project :dir (.getPath package-root)})
-            src-dirs (mapv #(.getPath (io/file package-root %)) (:paths project))
-            p {:src-dirs src-dirs
-               :lib      (:lib pkg)
-               :version  version
-               :basis    basis
-               :pom-data (util/pom-template {:version     version
-                                             :description (:description pkg)
-                                             :url         "https://github.com/pkpkpk/gcp"})}]
+      (let [p (pom pkg version global-version deps-map)]
         (if dirty?
           (println "Building DIRTY package version:" version "(state will not be updated)")
           (println "Building" (:name pkg) "package version:" version))
