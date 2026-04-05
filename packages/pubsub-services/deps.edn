@@ -1,0 +1,6 @@
+{:paths ["src"],
+ :deps
+ {com.google.apis/google-api-services-pubsub
+  {:mvn/version "v1-rev20260310-2.0.0"},
+  gcp/global {:local/root "../global"},
+  gcp/foreign {:local/root "../foreign"}}}

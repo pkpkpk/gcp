@@ -1,4 +1,4 @@
-{:path ["src/bindings" "src/custom" "src/main"],
+{:paths ["src/bindings" "src/custom" "src/main"],
  :deps
  {com.google.cloud/google-cloud-pubsub {:mvn/version "1.150.0"},
   gcp/global {:local/root "../global"}}}

@@ -12,8 +12,16 @@
 (defn storage []
   (core/build-package defs/storage))
 
+(defn vertexai []
+  (core/build-package defs/vertexai))
+
+(defn pubsub []
+  (core/build-package defs/pubsub))
+
 (defn all []
   (let [gv (global)]
     {:global gv
      :bigquery (bigquery)
-     :storage (storage)}))
+     :storage (storage)
+     :vertexai (vertexai)
+     :pubsub (pubsub)}))

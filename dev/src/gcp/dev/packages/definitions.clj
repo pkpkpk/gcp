@@ -280,11 +280,25 @@
                              "com.google.cloud.pubsub.v1.Subscriber"
                              "com.google.cloud.pubsub.v1.Publisher"]
    :package-prefixes         #{"com.google.cloud.pubsub" "com.google.pubsub" "com.google.pubsub.v1"}
+   :support-packages        [:pubsub-services]
    :include                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1"
                              "/proto-google-cloud-pubsub-v1/src/main/java/com/google/pubsub/v1"]
    :exclude                 ["/google-cloud-pubsub/src/main/java/com/google/cloud/pubsub/v1/stub"]})
 
-(def pubsub-api-services {})
+(def pubsub-services
+  {:name                      'gcp.pubsub-services
+   :lib                       'com.github.pkpkpk/gcp.pubsub-services
+   :description               "edn bindings for the google-api-services-pubsub model"
+   :package-root              (io/file layout/packages-root "pubsub-services")
+   :bindings-target-root      (io/file layout/packages-root "pubsub/src/bindings")
+   :state-root                (io/file layout/state-root "pubsub-services")
+   :type                      :static
+   :googleapis/mvn-org        "com.google.apis"
+   :googleapis/mvn-artifact   "google-api-services-pubsub"
+   :googleapis/git-repo       "google-api-java-client-services"
+   :pinned-tag                "main"
+   :include                   ["/clients/google-api-services-pubsub/v1/2.0.0"]
+   :package-prefixes          #{"com.google.api.services.pubsub"}})
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! gcp.vertexai
@@ -441,6 +455,7 @@
    :bigquery bigquery
    :bigquery-services bigquery-services
    :pubsub pubsub
+   :pubsub-services pubsub-services
    :storage storage
    :storage-services storage-services
    :storage-control storage-control
