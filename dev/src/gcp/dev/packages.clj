@@ -1,10 +1,12 @@
 (ns gcp.dev.packages
   (:require
+   [babashka.fs :as fs]
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as string]
    [edamame.core :as eda]
    [gcp.dev.packages.definitions :as defs]
+   [gcp.dev.packages.layout :as layout]
    [gcp.dev.packages.maven :as mvn]
    [gcp.dev.packages.package :as pkg]
    [gcp.dev.packages.sync :as sync]
@@ -46,6 +48,15 @@
   []
   (doseq [pkg-key (keys (packages))]
     (update-package-deps pkg-key)))
+
+(defn delete-bindings
+  "Deletes the entire contents of the package's bindings-target-root directory."
+  [pkg-like]
+  (let [pkg (as-pkg pkg-like)
+        root (io/file (layout/package-bindings-root pkg) "gcp")]
+    (when (fs/exists? root)
+      (println "Deleting bindings root:" (str root))
+      (fs/delete-tree root))))
 
 (defn status [pkg-like]
   (sync/status (as-pkg pkg-like)))
@@ -93,7 +104,7 @@
   "Reads the manifest.edn file for the given package.
    Returns the manifest map or nil if not found."
   [pkg-like]
-  (let [root (package-root pkg-like)
+  (let [root (:state-root (as-pkg pkg-like))
         manifest-file (io/file root "manifest.edn")]
     (when (.exists manifest-file)
       (edn/read-string (slurp manifest-file)))))
@@ -154,8 +165,11 @@
                         (not (string/includes? path "services"))) :bigquery
                    (and (string/includes? path "bigquery")
                         (string/includes? path "services")) :bigquery-services
+                   (and (string/includes? path "storage")
+                        (not (string/includes? path "services"))) :storage
+                   (and (string/includes? path "storage")
+                        (string/includes? path "services")) :storage-services
                    (string/includes? path "vertexai") :vertexai
-                   (string/includes? path "storage") :storage
                    (string/includes? path "pubsub") :pubsub
                    true
                    (throw (Exception. "TODO")))]
@@ -250,39 +264,55 @@
 
 (defn require-graph-many [fqcns]
   (let [visited (atom {})
-        foreign (atom (sorted-set))]
-    (letfn [(visit [curr]
+        foreign (atom (sorted-set))
+        pkg-cache (atom {})]
+    (letfn [(get-parsed-pkg [pkg-key]
+              (if-let [pkg (get @pkg-cache pkg-key)]
+                pkg
+                (let [pkg (parse pkg-key)
+                      ns->fqcn (pkg/package-ns->fqcn pkg)
+                      pkg (assoc pkg :ns->fqcn ns->fqcn)]
+                  (swap! pkg-cache assoc pkg-key pkg)
+                  pkg)))
+            (visit [curr]
               (let [curr-fqcn (str curr)
                     pkg-key (lookup-pkg-key curr-fqcn)]
                 (when-not (contains? @visited curr-fqcn)
                   (if-not (contains? (packages) pkg-key)
                     (do (swap! visited assoc curr-fqcn #{})
                         (swap! foreign conj curr-fqcn))
-                    (let [pkg (parse pkg-key)
+                    (let [pkg (get-parsed-pkg pkg-key)
                           custom-ns (get (:custom-namespace-mappings pkg) (symbol curr-fqcn))
                           exempt? (contains? (:exempt-types pkg) curr-fqcn)
                           requires (cond
                                      exempt? #{}
                                      custom-ns
+                                     ;; For custom handwritten bindings, we STRICTLY rely on the parsed Clojure :require graph.
+                                     ;; Including Java-level class-deps here would re-introduce the circular dependencies
+                                     ;; (e.g., Field <-> FieldList) that the handwritten files are specifically designed to sever.
                                      (let [rel-path (str (string/replace (name custom-ns) "." "/") ".clj")
-                                           file (io/file (:package-root pkg) "src" rel-path)]
-                                       (if (.exists file)
-                                         (let [content (slurp file)
-                                               ns-form (eda/parse-string content)
-                                               reqs (when (and (seq? ns-form) (= 'ns (first ns-form)))
-                                                      (->> ns-form
-                                                           (drop 2)
-                                                           (filter #(and (seq? %) (= :require (first %))))
-                                                           first
-                                                           rest))
-                                               ns-syms (map #(if (coll? %) (first %) %) reqs)]
-                                           (->> ns-syms
-                                                (keep (fn [ns-sym]
-                                                        (let [req-rel-path (str (string/replace (name ns-sym) "." "/") ".clj")
-                                                              req-file (io/file (:package-root pkg) "src" req-rel-path)]
-                                                          (target-file->fqcn pkg req-file))))
-                                                (into (sorted-set))))
-                                         #{}))
+                                           ;; use io/resource to seamlessly find the file whether it's in src/ or src/custom/
+                                           res (io/resource rel-path)
+                                           clj-deps (if res
+                                                      (let [content (slurp res)
+                                                            ns-form (eda/parse-string content)
+                                                            reqs (when (and (seq? ns-form) (= 'ns (first ns-form)))
+                                                                   (->> ns-form
+                                                                        (drop 2)
+                                                                        (filter #(and (seq? %) (= :require (first %))))
+                                                                        first
+                                                                        rest))
+                                                            ns-syms (map #(if (coll? %) (first %) %) reqs)
+                                                            ;; Check all packages (including support packages like bigquery-services)
+                                                            ;; so we can correctly resolve transitive targets (like QueryParameter).
+                                                            all-pkgs (map get-parsed-pkg (keys (packages)))]
+                                                        (->> ns-syms
+                                                             (keep (fn [ns-sym]
+                                                                     (some (fn [p] (get (:ns->fqcn p) ns-sym))
+                                                                           all-pkgs)))
+                                                             (into (sorted-set))))
+                                                      #{})]
+                                       clj-deps)
                                      :else
                                      (let [node (analyze-class curr-fqcn)]
                                        (doseq [[dep-fqcn type] (:require-types node)]
@@ -300,8 +330,10 @@
 (defn require-graph [fqcn]
   (:graph (require-graph-many [fqcn])))
 
-(defn topological-order [fqcn]
-  (let [graph (require-graph fqcn)
+(defn topological-order-many
+  [fqcns]
+  (let [fqcns (m/coerce [:seqable [:or :string symbol?]] fqcns)
+        {:keys [graph]} (require-graph-many fqcns)
         visited (atom #{})
         visiting (atom #{})
         stack (atom [])]
@@ -330,51 +362,5 @@
                                      (contains? (:exempt-types pkg) node))))
                           false))))))))
 
-(defn topological-order-many
-  [fqcns]
-  (let [fqcns (m/coerce [:seqable [:or :string symbol?]] fqcns)
-        {:keys [graph foreign]} (require-graph-many fqcns)
-        visited (atom #{})
-        visiting (atom #{})
-        stack (atom [])
-        ;; Assuming all roots belong to the same primary package
-        root-pkg-key (when (seq fqcns) (lookup-pkg-key (first fqcns)))
-        root-pkg (when root-pkg-key (parse root-pkg-key))
-        support-pkg-keys (set (:support-packages root-pkg))]
-    (letfn [(visit [node]
-              (if (contains? @visiting node)
-                (throw (ex-info "Circular dependency detected" {:node node :visiting @visiting}))
-                (when-not (contains? @visited node)
-                  (swap! visiting conj node)
-                  (doseq [dep (get graph node)]
-                    (visit dep))
-                  (swap! visiting disj node)
-                  (swap! visited conj node)
-                  (swap! stack conj node))))]
-      (doseq [node (sort (keys graph))]
-        (visit node))
-      (let [pkg-seq (volatile! [])
-            support-seq (volatile! [])
-            custom-seq (volatile! [])]
-        (doseq [node (reverse (distinct (reverse
-                                          (map #(if (u/nested-fqcn? %)
-                                                  (:parent-fqcn (u/split-fqcn %))
-                                                  %)
-                                               @stack))))]
-          (when-let [pkg-key (lookup-pkg-key node)]
-            (cond
-              (contains? (:custom-namespace-mappings root-pkg) (symbol node))
-              (vswap! custom-seq conj node)
-
-              (contains? (:exempt-types root-pkg) node)
-              nil
-
-              (contains? support-pkg-keys pkg-key)
-              (vswap! support-seq conj node)
-
-              :else
-              (vswap! pkg-seq conj node))))
-        {:pkg-sequence @pkg-seq
-         :support-sequence @support-seq
-         :custom-sequence @custom-seq
-         :foreign-sequence (vec foreign)}))))
+(defn topological-order [fqcn]
+  (topological-order-many [fqcn]))

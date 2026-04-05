@@ -1,8 +1,8 @@
 (ns gcp.dev.toolchain.malli
   "Convert analyzer AST nodes into malli schemas"
   (:require
-   [clojure.core.match :refer [match]]
-   [clojure.math.combinatorics :as combo]
+    [clojure.core.match :refer [match]]
+    [clojure.math.combinatorics :as combo]
    [clojure.set :as set]
    [clojure.string :as string]
    [gcp.dev.toolchain.shared :as shared :refer [categorize-type]]
@@ -47,6 +47,7 @@
     java.time.Duration :Duration
     java.math.BigDecimal :bigdec
     java.math.BigInteger :bigint
+    java.nio.file.Path :any
     (throw (Exception. (str "could not resolve scalar type: " (pr-str t))))))
 
 (defn- enum-values [fqcn]
@@ -111,6 +112,7 @@
       [:array :self] (list 'gcp.global/instance-schema (symbol (str (name (second t)) "/1")))
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       :native (list 'gcp.global/instance-schema (symbol (name t)))
+      [(:or :iterable :list :array) :native] (list 'gcp.global/instance-schema (symbol (str (name (second t)) "/1")))
       [:array :native] (list 'gcp.global/instance-schema (symbol (str (name (second t)) "/1")))
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       [:map :scalar
@@ -140,46 +142,66 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
+(defn assert-getter-setter-agree!
+  [deps getter setter parent-category parent-fqcn]
+  (let [returnType (:returnType getter)
+        setterType (get-in setter [:parameters 0 :type])]
+    (when-not (or (= returnType setterType)
+                  (= (type-schema deps returnType) (type-schema deps setterType))
+                  (if-not (and (ident? returnType) (ident? setterType))
+                    false
+                    (let [ret (u/as-class returnType)
+                          set(u/as-class setterType)]
+                      (or (isa? ret set)
+                          (isa? set ret)))))
+      (if (= :client parent-category)
+        (println "WARNING: getter/setter type mismatch for" (:name getter) "in" parent-fqcn
+                 "getter-return:" returnType "setter-param:" setterType ". Preferring setter.")
+        (throw (ex-info "expected return-type to equal parameter type"
+                        {:getter              getter
+                         :getter-return-schema (type-schema deps (:returnType getter))
+                         :setter              setter
+                         :setter-argument-schema (type-schema deps (get-in setter [:parameters 0 :type]))}))))))
+
 (defn- accessor-with-builder-schema
-  [{:keys [deps] :as node}]
+  [{:keys [deps parent-category fqcn] :as node}]
   (let [opts             (common-opts node)
         required-fields  (reduce
                            (fn [acc k]
-                             ;; these are fields passed to constructor (no setter)
-                             ;; but recovered via getter
                              (let [{:keys [doc returnType] :as getter} (get-in node [:getters-by-key k])
                                    {:as setter} (get-in node [:builder-setters-by-key k])
                                    _ (assert (some? getter) (str "missing required :getters-by-key " k))
+                                   _ (when setter (assert-getter-setter-agree! deps getter setter parent-category fqcn))
+                                   schema-type (if (and (= :client parent-category) setter)
+                                                 (get-in setter [:parameters 0 :type])
+                                                 returnType)
                                    opts (cond-> {:getter-doc doc}
-                                                (some? setter) (assoc :setter-doc (:doc setter)))]
-                               (assoc acc k {:opts opts :schema (type-schema deps returnType)})))
+                                          (some? setter) (assoc :setter-doc (:doc setter)))]
+                               (assoc acc k {:opts opts :schema (type-schema deps schema-type)})))
                            (sorted-map)
                            (:keys/required node))
         optional-fields  (reduce
                            (fn [acc k]
-                             ;; fields set in builder & recoverable w/ getter
-                             (let [getter (g/coerce map? (get-in node [:getters-by-key k]))
-                                   setter (g/coerce map? (get-in node [:builder-setters-by-key k]))
-                                   _ (when (not= (type-schema deps (:returnType getter))
-                                                 (type-schema deps (get-in setter [:parameters 0 :type])))
-                                       (throw (ex-info "expected return-type to equal parameter type"
-                                                       {:getter              getter
-                                                        :getter-return-schema (type-schema deps (:returnType getter))
-                                                        :setter              setter
-                                                        :setter-argument-schema (type-schema deps (get-in setter [:parameters 0 :type]))})))
+                             (let [{:keys [doc returnType] :as getter} (get-in node [:getters-by-key k])
+                                   {:as setter} (get-in node [:builder-setters-by-key k])
+                                   _ (assert (some? getter) (str "missing optional :getters-by-key " k))
+                                   _ (when setter (assert-getter-setter-agree! deps getter setter parent-category fqcn))
+                                   schema-type (if (and (= :client parent-category) setter)
+                                                 (get-in setter [:parameters 0 :type])
+                                                 returnType)
                                    opts (cond-> {:optional true}
-                                          (get getter :doc) (assoc :getter-doc (get getter :doc))
-                                          (get setter :doc) (assoc :setter-doc (get setter :doc)))]
-                               (assoc acc k {:opts opts :schema (type-schema deps (:returnType getter))})))
+                                          doc (assoc :getter-doc doc)
+                                          (some? setter) (assoc :setter-doc (:doc setter)))]
+                               (assoc acc k {:opts opts :schema (type-schema deps schema-type)})))
                            (sorted-map)
                            (:keys/optional node))
         read-only-fields (reduce
                            (fn [acc k]
-                             ;; unsettable fields only available via getter
-                             (let [getter (g/coerce map? (get-in node [:getters-by-key k]))
+                             (let [{:keys [doc returnType] :as getter} (get-in node [:getters-by-key k])
+                                   _ (assert (some? getter) (str "missing read-only :getters-by-key " k))
                                    opts (cond-> {:optional true :read-only? true}
-                                          (get getter :doc) (assoc :getter-doc (get getter :doc)))]
-                               (assoc acc k {:opts opts :schema (type-schema deps (:returnType getter))})))
+                                          doc (assoc :getter-doc doc))]
+                               (assoc acc k {:opts opts :schema (type-schema deps returnType)})))
                            (sorted-map)
                            (:keys/read-only node))
         fields           (into (sorted-map) (merge required-fields optional-fields read-only-fields))]
@@ -336,7 +358,7 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn variant-accessor-schema
-  [{:keys [deps discriminator keys/required keys/optional keys/read-only] :as node}]
+  [{:keys [deps discriminator keys/required keys/optional keys/read-only parent-category fqcn] :as node}]
   (let [base [:map (common-opts node)
               [:type [:= discriminator]]]
         required-fields (map
@@ -344,24 +366,26 @@
                             (let [{:keys [doc returnType] :as getter} (get-in node [:getters-by-key k])
                                   {:as setter} (get-in node [:setters-by-key k])
                                   _ (assert (some? getter) (str "missing required :getters-by-key " k))
+                                  _ (when setter (assert-getter-setter-agree! deps getter setter parent-category fqcn))
+                                  schema-type (if (and (= :client parent-category) setter)
+                                                (get-in setter [:parameters 0 :type])
+                                                returnType)
                                   opts (cond-> {:getter-doc doc}
                                                (some? setter) (assoc :setter-doc (:doc setter)))]
-                              [k opts (type-schema deps returnType)]))
+                              [k opts (type-schema deps schema-type)]))
                           required)
         optional-fields (map
                           (fn [k]
                             (let [getter (g/coerce map? (get-in node [:getters-by-key k]))
                                   setter (g/coerce map? (get-in node [:setters-by-key k]))
-                                  ;; TODO resolve w/ bound *pkg* or something?
-                                  ;_ (when (not= (type-schema deps (:returnType getter))
-                                  ;              (type-schema deps (get-in setter [:parameters 0 :type])))
-                                  ;    (throw (ex-info "expected return-type to equal parameter type"
-                                  ;                    {:getter              getter
-                                  ;                     :setter              setter})))
+                                  _ (when setter (assert-getter-setter-agree! deps getter setter parent-category fqcn))
+                                  schema-type (if (and (= :client parent-category) setter)
+                                                (get-in setter [:parameters 0 :type])
+                                                (:returnType getter))
                                   opts (cond-> {:optional true}
                                                (get getter :doc) (assoc :getter-doc (get getter :doc))
                                                (get setter :doc) (assoc :setter-doc (get setter :doc)))]
-                              [k opts (type-schema deps (:returnType getter))]))
+                              [k opts (type-schema deps schema-type)]))
                           optional)
         read-only-fields (map
                            (fn [k]
@@ -431,13 +455,16 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn mutable-pojo-schema
-  [{:keys [getter-setters-by-key deps] :as node}]
+  [{:keys [getter-setters-by-key deps parent-category fqcn] :as node}]
   (let [opts (common-opts node)
         fields (reduce
                  (fn [acc [k {:keys [getter setter]}]]
                    (let [returnType (get getter :returnType)
-                         _ (assert (= returnType (get-in setter [:parameters 0 :type])))
-                         schema (type-schema deps returnType)
+                         _ (assert-getter-setter-agree! deps getter setter parent-category fqcn)
+                         schema-type (if (and (= :client parent-category) setter)
+                                       (get-in setter [:parameters 0 :type])
+                                       returnType)
+                         schema (type-schema deps schema-type)
                          props {:getter-doc (get getter :doc)
                                 :setter-doc (get setter :doc)
                                 :optional true}]
@@ -587,6 +614,28 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
+(defn- factory-schema
+  [{:keys [factory-methods deps] :as node}]
+  (let [opts (common-opts node)
+        methods (map
+                  (fn [{:keys [name parameters doc]}]
+                    (let [m-opts (cond-> {:closed true} doc (assoc :doc doc))
+                          k (keyword name)]
+                      (if (empty? parameters)
+                        [:map m-opts [k :nil]]
+                        (let [p-schemas (mapv (fn [p] (type-schema deps (:type p))) parameters)
+                              schema (if (= 1 (count p-schemas))
+                                       (first p-schemas)
+                                       (into [:vector] p-schemas))]
+                          [:map m-opts [k schema]]))))
+                  factory-methods)]
+    (if (= 1 (count methods))
+      (let [[_ m-props & m-body] (first methods)]
+        (into [:map (merge opts m-props)] m-body))
+      (into [:or opts] methods))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
 (defn ->schema
   [{:keys [category] :as node}]
   {:pre   [(contains? shared/categories category)]
@@ -625,4 +674,5 @@
     :nested/variant-read-only (variant-read-only-schema node)
     (:collection-wrapper
       :nested/collection-wrapper) (collection-wrapper-schema node)
+    (:factory :nested/factory) (factory-schema node)
     (throw (Exception. (str "->schema unimplemented for category " category)))))

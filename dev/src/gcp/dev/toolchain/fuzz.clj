@@ -8,7 +8,6 @@
    [clojure.test.check.properties :as prop]
    [gcp.dev.digest :as digest]
    [gcp.dev.packages :as pkg]
-   [gcp.dev.toolchain.emitter :as emitter]
    [gcp.dev.toolchain.fuzz.generators :as fg]
    [gcp.dev.util :as u]
    [gcp.gen :as gen]
@@ -109,29 +108,38 @@
 (defn- read-only-category? [cat]
   (contains? #{:read-only :nested/read-only :interface :variant-read-only :nested/variant-read-only} cat))
 
+(defn- write-only-category? [cat]
+  (contains? #{:factory :nested/factory} cat))
+
 (def ^:dynamic *visited-schemas* #{})
 
 (defn- prune-read-only-walker [schema _ children options]
   (let [type (m/type schema)
-        props (m/properties schema)
-        form (m/form schema options)]
+        props (g/properties schema)
+        form (m/form schema options)
+        cat (:gcp/category props)]
     (cond
-      (read-only-category? (:gcp/category props)) ::pruned
+      (or (read-only-category? cat)
+          (write-only-category? cat)) ::pruned
 
       (keyword? form)
-      (if (read-only-category? (:gcp/category (g/properties form)))
-        ::pruned
-        (if (*visited-schemas* form)
-          schema
-          (if-let [child (g/get-schema form)]
-            (binding [*visited-schemas* (conj *visited-schemas* form)]
-              (m/walk child prune-read-only-walker options))
-            schema)))
+      (let [k-props (g/properties form)]
+        (if (or (read-only-category? (:gcp/category k-props))
+                (write-only-category? (:gcp/category k-props)))
+          ::pruned
+          (if (*visited-schemas* form)
+            schema
+            (if-let [child (g/get-schema form)]
+              (binding [*visited-schemas* (conj *visited-schemas* form)]
+                (m/walk child prune-read-only-walker options))
+              schema))))
 
       (= :ref type)
-      (let [key (if (map? (second form)) (nth form 2) (second form))]
+      (let [key (if (map? (second form)) (nth form 2) (second form))
+            k-props (g/properties key)]
         (if (and (keyword? key)
-                 (read-only-category? (:gcp/category (g/properties key))))
+                 (or (read-only-category? (:gcp/category k-props))
+                     (write-only-category? (:gcp/category k-props))))
           ::pruned
           (if (*visited-schemas* key)
             schema
@@ -158,6 +166,7 @@
         (m/into-schema type props children options)))))
 
 (defn prune-read-only-schema [schema]
+  (assert (some? schema) "schema cannot be nil")
   (try
     (binding [*visited-schemas* #{}]
       (let [res (m/walk schema prune-read-only-walker (g/mopts))]
@@ -229,28 +238,65 @@
            (println "requiring " ns-sym)
            (require :reload ns-sym)
            (println "successfully required " ns-sym)
-           (let [sk-props (g/properties sk)
+           (let [node          (pkg/analyze-class fqcn)
+                 category      (:category node)
+                 sk-props      (g/properties sk)
                  top-level-cat (:gcp/category sk-props)]
-             (if (read-only-category? top-level-cat)
+             (cond
+               (read-only-category? top-level-cat)
                (do
                  (tel/log! :info ["Skipping certification for read-only file" file])
-                 (let [manifest (pkg/manifest pkg-key)
-                       manifest-hash (u/hasch manifest)
-                       results {:protocol-hash CERTIFICATION_HASH
-                                :base-seed 0
-                                :timestamp (str (Instant/now))
-                                :skipped true
-                                :reason :read-only
-                                :manifest manifest-hash}
+                 (let [manifest       (pkg/manifest pkg-key)
+                       manifest-hash  (u/hasch manifest)
+                       results        {:protocol-hash CERTIFICATION_HASH
+                                       :base-seed     0
+                                       :timestamp     (str (Instant/now))
+                                       :skipped       true
+                                       :reason        :read-only
+                                       :manifest      manifest-hash}
                        sorted-results (into (sorted-map) results)
                        updated-source (u/update-ns-metadata content :gcp.dev/certification sorted-results)]
                    (spit file updated-source)
                    sorted-results))
+
+               (write-only-category? top-level-cat)
+               (do
+                 (tel/log! :info ["Skipping certification for write-only file" file])
+                 (let [manifest       (pkg/manifest pkg-key)
+                       manifest-hash  (u/hasch manifest)
+                       results        {:protocol-hash CERTIFICATION_HASH
+                                       :base-seed     0
+                                       :timestamp     (str (Instant/now))
+                                       :skipped       true
+                                       :reason        :write-only
+                                       :manifest      manifest-hash}
+                       sorted-results (into (sorted-map) results)
+                       updated-source (u/update-ns-metadata content :gcp.dev/certification sorted-results)]
+                   (spit file updated-source)
+                   sorted-results))
+
+               (= :client category)
+               (do
+                 (tel/log! :info ["Skipping certification for client file" file])
+                 (let [manifest       (pkg/manifest pkg-key)
+                       manifest-hash  (u/hasch manifest)
+                       results        {:protocol-hash CERTIFICATION_HASH
+                                       :base-seed     0
+                                       :timestamp     (str (Instant/now))
+                                       :skipped       true
+                                       :reason        :client
+                                       :manifest      manifest-hash}
+                       sorted-results (into (sorted-map) results)
+                       updated-source (u/update-ns-metadata content :gcp.dev/certification sorted-results)]
+                   (spit file updated-source)
+                   sorted-results))
+
+               :else
                (binding [g/*registry* (fg/test-registry)]
                  (let [schema        (g/get-schema sk)
-                       _             (println "pruning schema" sk)
+                       ;_             (println "pruning schema" sk)
                        pruned-schema (prune-read-only-schema schema)
-                       _             (println "constructing generator for pruned schema")
+                       ;_             (println "constructing generator for pruned schema")
                        generator     (try
                                        (gen/generator pruned-schema {:gen/elements 3})
                                        (catch Exception e
@@ -258,7 +304,7 @@
                                            (let [ex (ex-info (str "missing generator for schema") {:schema (:schema (:data (ex-data e)))})]
                                              (throw ex))
                                            (throw e))))
-                       _             (println "successfully built generator")
+                       ;_             (println "successfully built generator")
                        from-edn      (ns-resolve ns-sym 'from-edn)
                        to-edn        (ns-resolve ns-sym 'to-edn)
                        _ (when-not (and from-edn to-edn)

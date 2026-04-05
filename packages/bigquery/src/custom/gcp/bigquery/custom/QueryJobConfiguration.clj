@@ -28,6 +28,9 @@
     :gcp/key      :gcp.bigquery/QueryJobConfiguration.Priority}
    "INTERACTIVE" "BATCH"])
 
+(defn ^QueryJobConfiguration$Priority Priority-from-edn [arg] (QueryJobConfiguration$Priority/valueOf arg))
+(defn ^String Priority-to-edn [^QueryJobConfiguration$Priority arg] (.name arg))
+
 (def QueryJobConfiguration$JobCreationMode-schema
   [:enum
    {:closed       true,
@@ -36,6 +39,9 @@
     :gcp/key      :gcp.bigquery/QueryJobConfiguration.JobCreationMode}
    "JOB_CREATION_MODE_UNSPECIFIED" "JOB_CREATION_REQUIRED"
    "JOB_CREATION_OPTIONAL"])
+
+(defn ^QueryJobConfiguration$JobCreationMode JobCreationMode-from-edn [arg] (QueryJobConfiguration$JobCreationMode/valueOf arg))
+(defn ^String JobCreationMode-to-edn [^QueryJobConfiguration$JobCreationMode arg] (.name arg))
 
 (defn ^QueryJobConfiguration from-edn
   [arg]

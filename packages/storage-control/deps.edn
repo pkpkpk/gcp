@@ -1,5 +1,0 @@
-{:paths ["src"],
- :deps
- {com.google.cloud/google-cloud-storage-control
-  {:mvn/version "2.62.1"},
-  org.clojure/clojure {:mvn/version "1.12.0"}}}

@@ -1,4 +1,4 @@
-{:paths ["src"],
+{:paths ["src/bindings" "src/custom" "src/main"],
  :deps
  {com.google.cloud/google-cloud-vertexai {:mvn/version "1.49.0"},
   gcp/global {:local/root "../global"}}}

@@ -57,7 +57,7 @@
   "Returns the path to the manifest.edn file for a given package."
   [pkg]
   (assert (map? pkg))
-  (io/file (:package-root pkg) "manifest.edn"))
+  (io/file (:state-root pkg) "manifest.edn"))
 
 (defn load-manifest
   "Loads the manifest.edn for a package, returning nil if it doesn't exist."

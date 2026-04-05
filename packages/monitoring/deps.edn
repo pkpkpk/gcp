@@ -1,4 +1,0 @@
-{:path ["src"],
- :deps
- {com.google.cloud/google-cloud-monitoring {:mvn/version "3.85.0"},
-  gcp/global {:local/root "../global"}}}

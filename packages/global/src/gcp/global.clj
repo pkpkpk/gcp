@@ -87,44 +87,11 @@
    ::m/sci-options {:classes    @*classes
                     :namespaces sci-namespaces}})
 
-(defn to-vec [v]
-  (cond
-    (nil? v) []
-    (sequential? v) (vec v)
-    :else [v]))
-
-(defn get-private-field
-  [obj field-name]
-  (loop [clazz (class obj)]
-    (if-not clazz
-      (throw (NoSuchFieldException. (str "Field " field-name " not found in class hierarchy.")))
-      (if-let [f (try
-                   (.getDeclaredField clazz field-name)
-                   (catch NoSuchFieldException _ nil))]
-        (do
-          (.setAccessible f true)
-          (.get f obj))
-        (recur (.getSuperclass clazz))))))
-
-(defn invoke-private-method
-  "Invokes a no-arg private or package-private method on obj."
-  [obj method-name]
-  (loop [clazz (class obj)]
-    (if-not clazz
-      (throw (NoSuchMethodException. (str "Method " method-name " not found in class hierarchy.")))
-      (if-let [m (try
-                   (.getDeclaredMethod clazz method-name (into-array Class []))
-                   (catch NoSuchMethodException _ nil))]
-        (do
-          (.setAccessible m true)
-          (.invoke m obj (object-array 0)))
-        (recur (.getSuperclass clazz))))))
-
 (defn get-all-schemas [] (mr/schemas *registry*))
 
 (defn get-schema [key] (get (mr/schemas *registry*) key))
 
-(defn schema-key?
+(defn- schema-key?
   "Returns true if k is a keyword shaped like :gcp.vertexai.v1.api/Schema.
    Rejects pseudo-qualifiers that don't have a namespace."
   [k]
@@ -133,7 +100,7 @@
        (some? (name k))
        (pos? (count (re-seq #"\." (namespace k))))))
 
-(defn assert-schema-key!
+(defn- assert-schema-key!
   "Throws a helpful error when a schema registry key is not a qualified keyword.
    This catches dotted keys like :gcp.vertexai.v1.api.Schema early."
   [k]
@@ -148,7 +115,7 @@
                        :hint         "rename the key and update [:ref ...] sites accordingly"}))))
   k)
 
-(defn assert-registry-keys!
+(defn- assert-registry-keys!
   "Validates registry keys before attempting Malli EDN roundtrip/compile.
    Strings are allowed (Malli refs can be strings), but keyword keys must be qualified."
   [registry registry-name]
@@ -167,7 +134,7 @@
                       {:bad bad
                        :registry-name registry-name})))))
 
-(defn schemas-equivalent? [form1 form2]
+(defn- schemas-equivalent? [form1 form2]
   (cond
     (and (instance? java.util.regex.Pattern form1)
          (instance? java.util.regex.Pattern form2))
@@ -237,13 +204,6 @@
 (defn register-schema! [key schema]
   (assert-schema-key! key)
   (include-schema-registry! (with-meta {key schema} {::name (str key)})))
-
-(defn assert-disjoint-keys! [registries]
-  (let [all-keys (mapcat keys registries)
-        freqs (frequencies all-keys)
-        clashes (->> freqs (filter #(> (val %) 1)) (map key) set)]
-    (when (seq clashes)
-      (throw (ex-info "overlapping keys" {:keys clashes})))))
 
 (defn valid? [?schema value]
   (try
@@ -334,27 +294,37 @@
   [schema1 schema2]
   (mu/merge schema1 schema2 (mopts)))
 
-#!-----------------------------------------------------------------------------
+#!----------------------------------------------------------------------------------------------------------------------
 
-;; TODO some clients are tied to projects, have stateful thread pools + connections
-;;  (ie pubsub admins etc) those clients will need .shutdown() .waitForShutdown() .shutdownNow()
-;;  etc as part of Lifecycle/GC/TTL systems
+(defn to-vec [v]
+  (cond
+    (nil? v) []
+    (sequential? v) (vec v)
+    :else [v]))
 
-;; schema-key -> args -> instance
-(defonce *client-cache (atom {}))
+(defn get-private-field
+  [obj field-name]
+  (loop [clazz (class obj)]
+    (if-not clazz
+      (throw (NoSuchFieldException. (str "Field " field-name " not found in class hierarchy.")))
+      (if-let [f (try
+                   (.getDeclaredField clazz field-name)
+                   (catch NoSuchFieldException _ nil))]
+        (do
+          (.setAccessible f true)
+          (.get f obj))
+        (recur (.getSuperclass clazz))))))
 
-(defn get-client [key opts] (get-in @*client-cache [key opts]))
-
-(defn put-client! [key opts client] (swap! *client-cache assoc-in [key opts] client))
-
-(defn client [key opts]
-  (or (get-client key opts)
-      (if-let [from-edn (:from-edn (properties key))]
-        (let [client (if (fn? from-edn)
-                       (from-edn opts)
-                       (if (qualified-symbol? from-edn)
-                         ((requiring-resolve from-edn) opts)
-                         (throw (ex-info ":from-edn must be function or qualified symbol" {:key key}))))]
-          (put-client! key opts client)
-          client)
-        (throw (Exception. (str "missing :from-edn in schema for key " key))))))
+(defn invoke-private-method
+  "Invokes a no-arg private or package-private method on obj."
+  [obj method-name]
+  (loop [clazz (class obj)]
+    (if-not clazz
+      (throw (NoSuchMethodException. (str "Method " method-name " not found in class hierarchy.")))
+      (if-let [m (try
+                   (.getDeclaredMethod clazz method-name (into-array Class []))
+                   (catch NoSuchMethodException _ nil))]
+        (do
+          (.setAccessible m true)
+          (.invoke m obj (object-array 0)))
+        (recur (.getSuperclass clazz))))))

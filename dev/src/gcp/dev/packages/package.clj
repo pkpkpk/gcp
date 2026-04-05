@@ -219,18 +219,25 @@
       (merge (assoc pkg-ast :type :parsed)
              (select-keys pkg forwarded-keys)))))
 
+(defn fqcn->target-ns
+  "Determines the target Clojure namespace for a given FQCN.
+   Accounts for handwritten custom overrides (which may reside in a different namespace structure)
+   before falling back to the standard generated namespace layout."
+  [pkg fqcn]
+  (let [fqcn (str fqcn)]
+    (if-let [custom-ns (get (:custom-namespace-mappings pkg) (symbol fqcn))]
+      (if (string/ends-with? (str custom-ns) (str "." (:class (u/split-fqcn fqcn))))
+        custom-ns
+        (symbol (str (name custom-ns) "." (:class (u/split-fqcn fqcn)))))
+      (u/fqcn->gcp-ns fqcn))))
+
 (defn ^File fqcn->target-file
   "Determines the output file path for a given FQCN."
   [pkg node-or-fqcn]
   (assert (map? pkg))
   (if (map? node-or-fqcn)
     (fqcn->target-file pkg (:fqcn node-or-fqcn))
-    (let [fqcn (m/coerce string? node-or-fqcn)
-          target-ns (if-let [custom-ns (get (:custom-namespace-mappings pkg) (symbol fqcn))]
-                      (if (string/ends-with? (str custom-ns) (str "." (:class (u/split-fqcn fqcn))))
-                        custom-ns
-                        (symbol (str (name custom-ns) "." (:class (u/split-fqcn fqcn)))))
-                      (u/fqcn->gcp-ns fqcn))
+    (let [target-ns (fqcn->target-ns pkg node-or-fqcn)
           rel-path (str (string/replace (str target-ns) "." "/") ".clj")
           bindings-root (layout/package-bindings-root pkg)]
       (io/file bindings-root rel-path))))
@@ -248,6 +255,16 @@
             (reduced fqcn))))
       nil
       (:class/by-fqcn pkg))))
+
+(defn package-ns->fqcn
+  "Builds a reverse-lookup map from target Clojure namespace symbols to FQCN strings.
+   Crucial for resolving the dependencies declared in the :require blocks of handwritten custom files."
+  [pkg]
+  (reduce-kv
+    (fn [acc fqcn _]
+      (assoc acc (fqcn->target-ns pkg fqcn) fqcn))
+    {}
+    (:class/by-fqcn pkg)))
 
 ;; -------------------------------------------------------------------------
 
@@ -366,6 +383,8 @@
                      com.google.api.gax.rpc.ErrorDetails
                      com.google.api.pathtemplate.PathTemplate
                      com.google.auth.oauth2.GoogleCredentials
+                     com.google.cloud.ServiceOptions.Builder
+                     com.google.cloud.ServiceDefaults
                      com.google.cloud.grpc.BaseGrpcServiceException
                      com.google.cloud.grpc.GrpcTransportOptions
                      com.google.cloud.http.BaseHttpServiceException

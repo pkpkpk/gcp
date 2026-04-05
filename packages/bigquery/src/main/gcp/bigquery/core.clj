@@ -47,8 +47,8 @@
   {::clientable
    [:or
     (g/instance-schema com.google.cloud.bigquery.BigQuery)
-    :gcp.bigquery.custom/BigQueryOptions
-    [:map [:bigquery [:or :gcp.bigquery.custom/BigQueryOptions (g/instance-schema com.google.cloud.bigquery.BigQuery)]]]]
+    :gcp.bigquery/BigQueryOptions
+    [:map [:bigquery [:or :gcp.bigquery/BigQueryOptions (g/instance-schema com.google.cloud.bigquery.BigQuery)]]]]
 
    ::DatasetList
    [:map {:closed true :doc "call record for bq.listDatasets()"}
@@ -260,13 +260,13 @@
    [:map {:closed true :doc "call record for bq.insertAll(insertAllRequest)"}
     [:op [:= ::InsertAll]]
     [:bigquery {:optional true} [:ref ::clientable]]
-    [:insertAllRequest :gcp.bigquery.custom/InsertAllRequest]]
+    [:insertAllRequest :gcp.bigquery/InsertAllRequest]]
 
    ::Query
    [:map {:closed true :doc "call record for bq.query(configuration)"}
     [:op [:= ::Query]]
     [:bigquery {:optional true} [:ref ::clientable]]
-    [:configuration :gcp.bigquery.custom/QueryJobConfiguration]
+    [:configuration :gcp.bigquery/QueryJobConfiguration]
     [:jobId {:optional true} :gcp.bigquery/JobId]
     [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
 
@@ -274,7 +274,7 @@
    [:map {:closed true :doc "call record for bq.queryWithTimeout(configuration, timeoutMs)"}
     [:op [:= ::QueryWithTimeout]]
     [:bigquery {:optional true} [:ref ::clientable]]
-    [:configuration :gcp.bigquery.custom/QueryJobConfiguration]
+    [:configuration :gcp.bigquery/QueryJobConfiguration]
     [:timeoutMs :int]
     [:jobId {:optional true} :gcp.bigquery/JobId]
     [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
@@ -558,17 +558,17 @@
 
 (def ^:private insert-all-args-schema
   [:altn
-   [:arity-1 [:catn [:insertAllRequest :gcp.bigquery.custom/InsertAllRequest]]]
+   [:arity-1 [:catn [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]
    [:arity-2 [:altn
-              [:client-request [:catn [:clientable ::clientable] [:insertAllRequest :gcp.bigquery.custom/InsertAllRequest]]]
-              [:table-rows     [:catn [:tableId :gcp.bigquery/TableId] [:rows [:sequential {:min 1} :gcp.bigquery.custom/InsertAllRequest$RowToInsert]]]]]]
+              [:client-request [:catn [:clientable ::clientable] [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]
+              [:table-rows     [:catn [:tableId :gcp.bigquery/TableId] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]]
    [:arity-3 [:altn
-              [:client-table-rows  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:rows [:sequential {:min 1} :gcp.bigquery.custom/InsertAllRequest$RowToInsert]]]]
-              [:dataset-table-rows [:catn [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery.custom/InsertAllRequest$RowToInsert]]]]]]
+              [:client-table-rows  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
+              [:dataset-table-rows [:catn [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]]
    [:arity-4 [:altn
-              [:client-dataset-table-rows  [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery.custom/InsertAllRequest$RowToInsert]]]]
-              [:project-dataset-table-rows [:catn [:project string?] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery.custom/InsertAllRequest$RowToInsert]]]]]]
-   [:arity-5 [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery.custom/InsertAllRequest$RowToInsert]]]]])
+              [:client-dataset-table-rows  [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
+              [:project-dataset-table-rows [:catn [:project string?] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]]
+   [:arity-5 [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]])
 
 (defn ->InsertAll [args]
   (let [schema (g/schema insert-all-args-schema)
@@ -1050,16 +1050,16 @@
 
 (def ^:private query-args-schema
   [:altn
-   [:arity-1 [:catn [:configuration :gcp.bigquery.custom/QueryJobConfiguration]]]
+   [:arity-1 [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]
    [:arity-2 [:altn
-              [:client-config [:catn [:clientable ::clientable] [:configuration :gcp.bigquery.custom/QueryJobConfiguration]]]
-              [:config-job    [:catn [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
-              [:config-opts   [:catn [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+              [:client-config [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration]]]
+              [:config-job    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
+              [:config-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
    [:arity-3 [:altn
-              [:client-config-job  [:catn [:clientable ::clientable] [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
-              [:client-config-opts [:catn [:clientable ::clientable] [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-              [:config-job-opts    [:catn [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
-   [:arity-4 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+              [:client-config-job  [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
+              [:client-config-opts [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+              [:config-job-opts    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+   [:arity-4 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->Query [args]
   (let [schema (g/schema query-args-schema)
@@ -1079,11 +1079,11 @@
    [:arity-1 [:catn [:query string?]]]
    [:arity-2 [:altn
               [:client-query       [:catn [:clientable ::clientable] [:query string?]]]
-              [:query-seq-params   [:catn [:query string?] [:positionalParameters [:sequential :gcp.bigquery.custom/QueryParameterValue]]]]
-              [:query-map-params   [:catn [:query string?] [:namedParameters [:map-of [:or simple-keyword? [:string {:min 1}]] :gcp.bigquery.custom/QueryParameterValue]]]]]]
+              [:query-seq-params   [:catn [:query string?] [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
+              [:query-map-params   [:catn [:query string?] [:namedParameters [:map-of [:or simple-keyword? [:string {:min 1}]] :gcp.bigquery/QueryParameterValue]]]]]]
    [:arity-3 [:altn
-              [:client-query-seq-params [:catn [:clientable ::clientable] [:query string?] [:positionalParameters [:sequential :gcp.bigquery.custom/QueryParameterValue]]]]
-              [:client-query-map-params [:catn [:clientable ::clientable] [:query string?] [:namedParameters [:map-of [:or simple-keyword? [:string {:min 1}]] :gcp.bigquery.custom/QueryParameterValue]]]]]]])
+              [:client-query-seq-params [:catn [:clientable ::clientable] [:query string?] [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
+              [:client-query-map-params [:catn [:clientable ::clientable] [:query string?] [:namedParameters [:map-of [:or simple-keyword? [:string {:min 1}]] :gcp.bigquery/QueryParameterValue]]]]]]])
 
 (defn ->Q [args]
   (let [schema (g/schema q-args-schema)
@@ -1100,11 +1100,11 @@
 
 (def ^:private query-with-timeout-args-schema
   [:altn
-   [:arity-3 [:catn [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int]]]
+   [:arity-3 [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int]]]
    [:arity-4 [:altn
-              [:client-config-job-timeout [:catn [:clientable ::clientable] [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int]]]
-              [:config-job-timeout-opts   [:catn [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
-   [:arity-5 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery.custom/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+              [:client-config-job-timeout [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int]]]
+              [:config-job-timeout-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+   [:arity-5 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->QueryWithTimeout [args]
   (let [schema (g/schema query-with-timeout-args-schema)
@@ -1194,6 +1194,8 @@
         opts (BQ/DatasetDeleteOption-Array-from-edn opts)]
     (.delete client datasetId opts)))
 
+#!----------------------------------------------------------------------------------------------------------------------
+
 (defmethod execute! ::TableList [{:keys [bigquery datasetId opts]}]
   (let [client (client bigquery)
         datasetId (DatasetId/from-edn datasetId)
@@ -1218,6 +1220,12 @@
         opts (BQ/TableOption-Array-from-edn opts)]
     (Table/to-edn (.update client tableInfo opts))))
 
+(defmethod execute! ::TableGet [{:keys [bigquery tableId opts]}]
+  (let [client (client bigquery)
+        tableId (TableId/from-edn tableId)
+        opts (BQ/TableOption-Array-from-edn opts)]
+    (Table/to-edn (.getTable client tableId opts))))
+
 (defmethod execute! ::TableDelete [{:keys [bigquery tableId]}]
   (let [client (client bigquery)
         tableId (TableId/from-edn tableId)]
@@ -1227,6 +1235,45 @@
   (let [client (client bigquery)
         request (custom/InsertAllRequest-from-edn request)]
     (InsertAllResponse/to-edn (.insertAll client request))))
+
+(defmethod execute! ::TableListData [{:keys [bigquery tableId schema opts]}]
+  (let [client (client bigquery)
+        tableId (TableId/from-edn tableId)
+        opts (BQ/TableDataListOption-Array-from-edn opts)
+        res (if-some [schema (some-> schema Schema/from-edn)]
+              (.listTableData client tableId schema opts)
+              (.listTableData client tableId opts))]
+    (custom/TableResult-to-edn res)))
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defmethod execute! ::JobList [{:keys [bigquery opts]}]
+  (let [client (client bigquery)
+        opts (BQ/JobListOption-Array-from-edn opts)
+        res (.listJobs client opts)]
+    (map Job/to-edn (seq (.iterateAll res)))))
+
+(defmethod execute! ::JobCancel [{:keys [bigquery jobId]}]
+  (let [client (client bigquery)
+        jobId (JobId/from-edn jobId)]
+    (.cancel client jobId)))
+
+(defmethod execute! ::JobCreate [{:keys [bigquery jobInfo opts]}]
+  (let [client (client bigquery)
+        jobInfo (JobInfo/from-edn jobInfo)
+        opts (BQ/JobOption-Array-from-edn opts)]
+    (Job/to-edn (.create client jobInfo opts))))
+
+(defmethod execute! ::JobGet [{:keys [bigquery jobId opts]}]
+  (let [client (client bigquery)
+        jobId (JobId/from-edn jobId)
+        opts (BQ/JobOption-Array-from-edn opts)]
+    (Job/to-edn (.getJob client jobId opts))))
+
+(defmethod execute! ::JobDelete [{:keys [bigquery jobId]}]
+  (let [client (client bigquery)
+        jobId (JobId/from-edn jobId)]
+    (.delete client jobId)))
 
 (defmethod execute! ::Query [{:keys [bigquery configuration jobId opts]}]
   (let [client (client bigquery)
@@ -1246,55 +1293,7 @@
         opts (BQ/JobOption-Array-from-edn opts)]
     (.queryWithTimeout client configuration jobId timeoutMs opts)))
 
-(defmethod execute! ::ConnectionCreate [{:keys [bigquery connectionSettings]}]
-  (let [client (client bigquery)]
-    (if connectionSettings
-      (.createConnection client (ConnectionSettings/from-edn connectionSettings))
-      (.createConnection client))))
-
-(defmethod execute! ::Writer [{:keys [bigquery jobId writeChannelConfiguration]}]
-  (let [client (client bigquery)
-        writeChannelConfiguration (WriteChannelConfiguration/from-edn writeChannelConfiguration)]
-    (if jobId
-      (.writer client (JobId/from-edn jobId) writeChannelConfiguration)
-      (.writer client writeChannelConfiguration))))
-
-(defmethod execute! ::TableListData [{:keys [bigquery tableId schema opts]}]
-  (let [client (client bigquery)
-        tableId (TableId/from-edn tableId)
-        opts (BQ/TableDataListOption-Array-from-edn opts)
-        res (if-some [schema (some-> schema Schema/from-edn)]
-              (.listTableData client tableId schema opts)
-              (.listTableData client tableId opts))]
-    (custom/TableResult-to-edn res)))
-
-(defmethod execute! ::JobList [{:keys [bigquery opts]}]
-  (let [client (client bigquery)
-        opts (BQ/JobListOption-Array-from-edn opts)
-        res (.listJobs client opts)]
-    (map Job/to-edn (seq (.iterateAll res)))))
-
-(defmethod execute! ::JobCreate [{:keys [bigquery jobInfo opts]}]
-  (let [client (client bigquery)
-        jobInfo (JobInfo/from-edn jobInfo)
-        opts (BQ/JobOption-Array-from-edn opts)]
-    (Job/to-edn (.create client jobInfo opts))))
-
-(defmethod execute! ::JobGet [{:keys [bigquery jobId opts]}]
-  (let [client (client bigquery)
-        jobId (JobId/from-edn jobId)
-        opts (BQ/JobOption-Array-from-edn opts)]
-    (Job/to-edn (.getJob client jobId opts))))
-
-(defmethod execute! ::JobDelete [{:keys [bigquery jobId]}]
-  (let [client (client bigquery)
-        jobId (JobId/from-edn jobId)]
-    (.delete client jobId)))
-
-(defmethod execute! ::JobCancel [{:keys [bigquery jobId]}]
-  (let [client (client bigquery)
-        jobId (JobId/from-edn jobId)]
-    (.cancel client jobId)))
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defmethod execute! ::RoutineList [{:keys [bigquery datasetId opts]}]
   (let [client (client bigquery)
@@ -1309,22 +1308,24 @@
         opts (BQ/RoutineOption-Array-from-edn opts)]
     (Routine/to-edn (.create client routineInfo opts))))
 
-(defmethod execute! ::RoutineGet [{:keys [bigquery routineId opts]}]
-  (let [client (client bigquery)
-        routineId (RoutineId/from-edn routineId)
-        opts (BQ/RoutineOption-Array-from-edn opts)]
-    (Routine/to-edn (.getRoutine client routineId opts))))
-
 (defmethod execute! ::RoutineUpdate [{:keys [bigquery routineInfo opts]}]
   (let [client (client bigquery)
         routineInfo (RoutineInfo/from-edn routineInfo)
         opts (BQ/RoutineOption-Array-from-edn opts)]
     (Routine/to-edn (.update client routineInfo opts))))
 
+(defmethod execute! ::RoutineGet [{:keys [bigquery routineId opts]}]
+  (let [client (client bigquery)
+        routineId (RoutineId/from-edn routineId)
+        opts (BQ/RoutineOption-Array-from-edn opts)]
+    (Routine/to-edn (.getRoutine client routineId opts))))
+
 (defmethod execute! ::RoutineDelete [{:keys [bigquery routineId]}]
   (let [client (client bigquery)
         routineId (RoutineId/from-edn routineId)]
     (.delete client routineId)))
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defmethod execute! ::ModelList [{:keys [bigquery datasetId opts]}]
   (let [client (client bigquery)
@@ -1333,22 +1334,24 @@
         res (.listModels client datasetId opts)]
     (map Model/to-edn (seq (.iterateAll res)))))
 
-(defmethod execute! ::ModelGet [{:keys [bigquery modelId opts]}]
-  (let [client (client bigquery)
-        modelId (ModelId/from-edn modelId)
-        opts (BQ/ModelOption-Array-from-edn opts)]
-    (Model/to-edn (.getModel client modelId opts))))
-
 (defmethod execute! ::ModelUpdate [{:keys [bigquery modelInfo opts]}]
   (let [client (client bigquery)
         modelInfo (ModelInfo/from-edn modelInfo)
         opts (BQ/ModelOption-Array-from-edn opts)]
     (Model/to-edn (.update client modelInfo opts))))
 
+(defmethod execute! ::ModelGet [{:keys [bigquery modelId opts]}]
+  (let [client (client bigquery)
+        modelId (ModelId/from-edn modelId)
+        opts (BQ/ModelOption-Array-from-edn opts)]
+    (Model/to-edn (.getModel client modelId opts))))
+
 (defmethod execute! ::ModelDelete [{:keys [bigquery modelId]}]
   (let [client (client bigquery)
         modelId (ModelId/from-edn modelId)]
     (.delete client modelId)))
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defmethod execute! ::GetIamPolicy [{:keys [bigquery tableId opts]}]
   (let [client (client bigquery)
@@ -1370,3 +1373,17 @@
         opts (BQ/IAMOption-Array-from-edn opts)]
     (vec (.testIamPermissions client tableId permissions opts))))
 
+#!----------------------------------------------------------------------------------------------------------------------
+
+(defmethod execute! ::ConnectionCreate [{:keys [bigquery connectionSettings]}]
+  (let [client (client bigquery)]
+    (if connectionSettings
+      (.createConnection client (ConnectionSettings/from-edn connectionSettings))
+      (.createConnection client))))
+
+(defmethod execute! ::Writer [{:keys [bigquery jobId writeChannelConfiguration]}]
+  (let [client (client bigquery)
+        writeChannelConfiguration (WriteChannelConfiguration/from-edn writeChannelConfiguration)]
+    (if jobId
+      (.writer client (JobId/from-edn jobId) writeChannelConfiguration)
+      (.writer client writeChannelConfiguration))))

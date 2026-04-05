@@ -126,12 +126,19 @@
 (defn delete [fqcn]
   (let [pkg-key (p/lookup-pkg-key fqcn)]
     (if (contains? (p/packages) pkg-key)
-      (io/delete-file (target-file fqcn) true)
+      (let [pkg     (p/parse pkg-key)
+            custom? (contains? (:custom-namespace-mappings pkg) (symbol fqcn))]
+        (if custom?
+          (println "Skipping deletion for custom type:" fqcn)
+          (io/delete-file (target-file fqcn) true)))
       (println "Skipping deletion for foreign type:" fqcn))))
 
 (def manifest p/manifest)
 
 (defn clear-cache [] (p/clear-cache))
+
+(defn delete-bindings [pkg-key]
+  (p/delete-bindings pkg-key))
 
 (def api-types-by-category p/api-types-by-category)
 
@@ -146,13 +153,13 @@
 
 (defn graph [fqcn] (p/require-graph fqcn))
 
-(defn delete-graph [fqcn]
-  (let [order (p/topological-order fqcn)]
+(defn delete-graph [& fqcns]
+  (let [order (p/topological-order-many fqcns)]
     (doseq [node order]
       (delete node))))
 
-(defn certify-graph [fqcn]
-  (let [order (p/topological-order fqcn)]
+(defn certify-graph [& fqcns]
+  (let [order (p/topological-order-many fqcns)]
     (doseq [node order]
       (try
         (certify node)
@@ -170,7 +177,7 @@
 #!------------------------------------------------------------------------
 
 (defn clean-method [m]
-  (-> (dissoc m :doc :static? :private? :abstract?)
+  (-> (dissoc m :doc :static? :private? :abstract? :beta? :parameter-mappings)
       (update :parameters (fn [ps] (mapv #(dissoc % :varArgs?) ps)))))
 
 (defn can-consolidate?
@@ -184,19 +191,6 @@
   (let [base       (dissoc (first methods) :parameters)
         signatures (vec (sort-by count < (map :parameters methods)))]
     (assoc base :signatures signatures)))
-
-(defn aggregate-methods [arg]
-  (if (string? arg)
-    (aggregate-methods (lookup arg))
-    (let [methods       (map clean-method (:methods arg))
-          method-groups (partition-by :name (sort-by :name methods))]
-      (reduce
-        (fn [acc method-group]
-          (if (can-consolidate? method-group)
-            (conj acc (consolidate-signatures method-group))
-            (into acc method-group)))
-        []
-        method-groups))))
 
 (defn reduce-types
   [acc t]
@@ -244,7 +238,84 @@
                     peer)]
     (p/topological-order-many peers)))
 
+(defn unsafe-errors []
+  (into (sorted-map)
+        (for [[k {:keys [err]}] (:unsafe (ex-data (ex-cause *e)))]
+          [k (ex-data err)])))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! bigquery
+
 (comment
+  (delete-bindings :bigquery)
+
+  (client-method-types "com.google.cloud.bigquery.BigQuery")
+
+  (def bq-user-types (user-types "com.google.cloud.bigquery.BigQuery"))
+
+  (certify-graph "com.google.cloud.bigquery.JobInfo"
+                 "com.google.cloud.bigquery.TableInfo"
+                 "com.google.cloud.bigquery.ModelInfo"
+                 "com.google.cloud.bigquery.DatasetInfo"
+                 "com.google.cloud.bigquery.RoutineInfo"
+                 "com.google.cloud.bigquery.Connection"
+                 "com.google.cloud.bigquery.ConnectionSettings"
+                 "com.google.cloud.bigquery.InsertAllResponse"
+                 "com.google.cloud.bigquery.WriteChannelConfiguration"
+                 "com.google.cloud.bigquery.DataFormatOptions" ; TODO this needs to be discoverable;  req'd by BQO (custom) only
+                 "com.google.cloud.bigquery.BigQuery"
+                 )
+
+  (require :reload 'gcp.bigquery.core 'gcp.bigquery.aux '[gcp.bigquery :as bq])
+  )
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! storage
+
+(comment
+  (delete-bindings :storage)
+
+
+
+  (client-method-types "com.google.cloud.storage.Storage")
+
+  (def storage-user-types (user-types "com.google.cloud.storage.Storage"))
+
+  (def storage-by-category (gcp.dev.packages/api-types-by-category :storage))
+
+  (certify-graph "com.google.cloud.storage.BlobInfo"
+                 "com.google.cloud.storage.BucketInfo"
+                 "com.google.cloud.storage.NotificationInfo" ;<---TODO fix certification
+                 )
+
+  (require :reload 'gcp.storage.core 'gcp.storage.aux '[gcp.storage :as storage])
+
+  )
+
+#!----------------------------------------------------------------------------------------------------------------------
+
+;; TODO
+;; doc discovery! gen example, repair
+;; sugar single args for accessor with builder (JobId has no arg newBuilder but also .of(job) etc)
+;; *strict* mode disable, investigate malli instrumentation
+;; errors thrown! check ast! bq.query()
+;; IAM, sandbox, client
+;; doc strings
+;; examples
+;; fixture dataset
+;; empty labels+resourceTags map checks before assoc :labels {} etc
+
+;; inline nested/peer enums... see ConnectionSettings requiring custom.QueryJobConfiguration Priority/to-edn+from-edn etc
+
+(comment
+
+  clojure.core/isa?
+  clojure.core/parents
+  clojure.core/bases
+  clojure.core/supers
+  clojure.core/ancestors
+  clojure.core/descendants
+  clojure.core/derive
 
   (def bq-user-types (user-types "com.google.cloud.bigquery.BigQuery"))
   (def storage-user-types (user-types "com.google.cloud.storage.Storage"))
@@ -260,25 +331,6 @@
                                       "com.google.cloud.pubsub.v1.SubscriptionAdminClient"
                                       ))
 
-  )
-
-
-#!----------------------------------------------------------------------------------------------------------------------
-
-;; TODO
-;; doc discovery! gen example, repair
-;; sugar single args for accessor with builder (JobId has no arg newBuilder but also .of(job) etc)
-;; *strict* mode disable, investigate malli instrumentation
-;; errors thrown! check ast! bq.query()
-;; IAM, sandbox, client
-;; doc strings
-;; examples
-;; fixture dataset
-;; empty labels+resourceTags map checks before assoc :labels {} etc
-
-(comment
-
-  (def ups (get (api-types-by-category :vertexai) :union-protobuf-oneof))
 
   (p/clear-cache)
   (def bq (gcp.dev.packages/api-types-by-category :bigquery))

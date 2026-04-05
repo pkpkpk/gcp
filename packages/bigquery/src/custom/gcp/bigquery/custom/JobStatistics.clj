@@ -8,9 +8,8 @@
             gcp.bigquery.SearchStats
             gcp.bigquery.TableId
             gcp.bigquery.TimelineSample
-            gcp.bindings.services.bigquery.model.QueryParameter
-            [gcp.global :as g]
-            [gcp.global :as global])
+            gcp.api.services.bigquery.model.QueryParameter
+            [gcp.global :as g])
   (:import (com.google.cloud.bigquery JobStatistics
                                       JobStatistics$CopyStatistics
                                       JobStatistics$ExtractStatistics
@@ -49,7 +48,7 @@
    [:sessionId :string]])
 
 (defn base-to-edn [^JobStatistics arg]
-  {:post [(global/strict! :gcp.bigquery/JobStatistics %)]}
+  {:post [(g/strict! :gcp.bigquery/JobStatistics %)]}
   {:creationTime (.getCreationTime arg)
    :endTime (.getEndTime arg)
    :numChildJobs (.getNumChildJobs arg)
@@ -199,7 +198,7 @@
    [:metadataCacheStats {:doc "Statistics for metadata caching in BigLake tables"} :gcp.bigquery/MetadataCacheStats]
    [:numDmlAffectedTables {:doc "The number of rows affected by a DML statement. Present only for DML statements INSERT, UPDATE or DELETE"} :int]
    [:queryParameters {:doc "Standard SQL only: Returns a list of undeclared query parameters detected during a dry run validation"}
-    :gcp.bindings.services.bigquery.model/QueryParameter]
+    :gcp.api.services.bigquery.model/QueryParameter]
    [:queryPlan {:doc "Returns the query plan as a list of stages or null if a query plan is not available. Each stage involves a number of steps that read from data sources, perform a series of transformations on the input, and emit an output to a future stage (or the final result). The query plan is available for a completed query job and is retained for 7 days."}
     [:sequential :gcp.bigquery/QueryStage]]
    [:referencedTables {:doc "Referenced tables for the job. Queries that reference more than 50 tables will not have a complete list"}
@@ -252,7 +251,7 @@
 
 (defn from-edn [arg] (throw (Exception. "JobStatistics is read-only")))
 
-(global/include-schema-registry!
+(g/include-schema-registry!
   (with-meta {:gcp.bigquery/JobStatistics.SessionInfo JobStatistics$SessionInfo-schema
               :gcp.bigquery/JobStatistics.QueryStatistics JobStatistics$QueryStatistics-schema
               :gcp.bigquery/JobStatistics schema}

@@ -37,6 +37,27 @@
       (throw (ex-info (str "Git command failed: " (string/join " " command-args))
                       {:dir dir :args args :exit exit})))))
 
+(defn current-branch
+  "Returns the name of the current git branch."
+  [repo-path]
+  (try
+    (run-git repo-path "branch" "--show-current")
+    (catch Exception _ nil)))
+
+(defn dirty?
+  "Returns true if the git repository at repo-path has uncommitted changes
+   OR if the current branch is not 'main'.
+   Optionally scopes the uncommitted changes check to a specific path within the repo."
+  ([repo-path]
+   (dirty? repo-path nil))
+  ([repo-path path]
+   (if (not= "main" (current-branch repo-path))
+     true
+     (let [args (cond-> ["status" "--porcelain"]
+                  path (conj "--" path))
+           out (apply run-git repo-path args)]
+       (not (string/blank? out))))))
+
 (defn fetch
   "Fetches updates from the remote."
   [repo-path]

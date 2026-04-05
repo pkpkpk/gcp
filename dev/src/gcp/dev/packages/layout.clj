@@ -4,8 +4,10 @@
    [gcp.dev.util :as u]))
 
 (defonce googleapis-root (u/get-googleapis-repos-path))
-(defonce packages-root (io/file (u/get-gcp-repo-root) "packages"))
-(defonce worktrees-root (io/file googleapis-root "__WORKTREE__"))
+(defonce gcp-repo-root (u/get-gcp-repo-root))
+(def packages-root (io/file gcp-repo-root "packages"))
+(def state-root (io/file gcp-repo-root "dev/state"))
+(def worktrees-root (io/file googleapis-root "__WORKTREE__"))
 
 (defn package-worktree
   "Returns the File pointing to the worktree for a package.

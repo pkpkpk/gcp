@@ -17,9 +17,9 @@
            "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExtractJobConfiguration"]}
   extract-table
   ([table format compression dst & opts]
-   (let [table (if (g/valid? :gcp.bigquery.v2/TableId table)
+   (let [table (if (g/valid? :gcp.bigquery/TableId table)
                  table
-                 (if (g/valid? :gcp.bigquery.v2/TableInfo table)
+                 (if (g/valid? :gcp.bigquery/TableInfo table)
                    (get table :tableId)
                    (throw (ex-info "must provide valid tableId" {:table table
                                                                  :format format
@@ -34,12 +34,12 @@
                                                                       :dst dst
                                                                       :opts opts}))))
          configuration (cond-> {:type            "EXTRACT"
-                                :sourceTable     (g/coerce :gcp.bigquery.v2/TableId table)
+                                :sourceTable     (g/coerce :gcp.bigquery/TableId table)
                                 :format          format
                                 :destinationUris dst}
                                compression (assoc :compression compression))]
      (bq/create-job {:bigquery (:bigquery table) ;; if Table, use same client
-                     :jobInfo  {:configuration (g/coerce :gcp.bigquery.v2/ExtractJobConfiguration configuration)}
+                     :jobInfo  {:configuration (g/coerce :gcp.bigquery/ExtractJobConfiguration configuration)}
                      :options  (not-empty opts)}))))
 
 (defn extract-parquet
@@ -54,18 +54,18 @@
 
 (defn clone-table
   ([source destination]
-   (let [source-tables (if (g/valid? [:sequential :gcp.bigquery.v2/TableId] source)
+   (let [source-tables (if (g/valid? [:sequential :gcp.bigquery/TableId] source)
                          source
-                         (if (g/valid? :gcp.bigquery.v2/TableId source)
+                         (if (g/valid? :gcp.bigquery/TableId source)
                            [source]
-                           (if (g/valid? :gcp.bigquery.v2/TableInfo source)
+                           (if (g/valid? :gcp.bigquery/TableInfo source)
                              [(:tableId source)]
-                             (if (g/valid? [:sequential :gcp.bigquery.v2/TableInfo] source)
+                             (if (g/valid? [:sequential :gcp.bigquery/TableInfo] source)
                                (mapv :tableId source)
                                (throw (ex-info "cannot create clone source"
                                                {:source      source
                                                 :destination destination}))))))
-         destination-table (if (g/valid? :gcp.bigquery.v2/TableId destination)
+         destination-table (if (g/valid? :gcp.bigquery/TableId destination)
                              destination
                              (if (string? destination)
                                (if (= 1 (count source-tables))
@@ -78,17 +78,17 @@
                                                {:source source
                                                 :destination destination}))))
          configuration {:type "COPY"
-                        :sourceTables     (g/coerce [:sequential :gcp.bigquery.v2/TableId] source-tables)
-                        :destinationTable (g/coerce :gcp.bigquery.v2/TableId destination-table)
+                        :sourceTables     (g/coerce [:sequential :gcp.bigquery/TableId] source-tables)
+                        :destinationTable (g/coerce :gcp.bigquery/TableId destination-table)
                         :operationType    "CLONE",
                         :writeDisposition "WRITE_EMPTY"}]
-     (bq/create-job {:jobInfo {:configuration (g/coerce :gcp.bigquery.v2/CopyJobConfiguration configuration)}})))
+     (bq/create-job {:jobInfo {:configuration (g/coerce :gcp.bigquery/CopyJobConfiguration configuration)}})))
   ([sourceDataset sourceTable destinationDataset]
-   (let [source (g/coerce :gcp.bigquery.v2/TableId {:dataset sourceDataset :table sourceTable})]
+   (let [source (g/coerce :gcp.bigquery/TableId {:dataset sourceDataset :table sourceTable})]
      (clone-table source destinationDataset)))
   ([sourceDataset sourceTable destinationDataset destinationTable]
-   (let [source (g/coerce :gcp.bigquery.v2/TableId {:dataset sourceDataset :table sourceTable})
-         destination (g/coerce :gcp.bigquery.v2/TableId {:dataset destinationDataset :table destinationTable})]
+   (let [source (g/coerce :gcp.bigquery/TableId {:dataset sourceDataset :table sourceTable})
+         destination (g/coerce :gcp.bigquery/TableId {:dataset destinationDataset :table destinationTable})]
      (clone-table source destination))))
 
 (defn- filename-without-ext [f]
@@ -102,7 +102,7 @@
   ([dataset table file]
    (load-local-file dataset table file {:type "CSV"}))
   ([dataset table file formatOptions]
-   (g/coerce :gcp.bigquery.v2/FormatOptions formatOptions)
+   (g/coerce :gcp.bigquery/FormatOptions formatOptions)
    (let [file (io/file file)
          _ (assert (.exists file))
          cfg {:destinationTable {:dataset dataset :table table}

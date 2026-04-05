@@ -68,7 +68,7 @@
                  'com.google.common.collect.ImmutableSet) E]    [:set (categorize-type deps E)]
            [(:or 'java.util.Map
                  'com.google.common.collect.ImmutableMap) K V]  [:map (categorize-type deps K) (categorize-type deps V)]
-           ['java.lang.Iterable E]                              [:iterable (categorize-type deps E)]
+           [(:or 'java.lang.Iterable 'java.util.Collection) E]  [:iterable (categorize-type deps E)]
            ['java.util.Iterator E]                              [:iterator (categorize-type deps E)]
            ['java.util.Optional E]                              [:optional (categorize-type deps E)]
            ['? :extends T]                                      (keyword "generic" (name (categorize-type deps T)))

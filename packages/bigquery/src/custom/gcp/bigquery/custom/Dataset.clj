@@ -1,6 +1,5 @@
 (ns gcp.bigquery.custom.Dataset
   (:require [gcp.global :as global]
-            ;[gcp.bigquery.v2.BigQuery]
             [gcp.bigquery.DatasetInfo :as DatasetInfo])
   (:import (com.google.cloud.bigquery Dataset)))
 

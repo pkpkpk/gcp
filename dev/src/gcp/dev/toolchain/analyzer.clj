@@ -50,7 +50,7 @@
       (let [cat (categorize-type deps t)]
         (match cat
           ;; TODO do we want to require a native binding ns?
-          (:or :native [:array :native]) acc
+          (:or :native [:array :native] [:list :native] [:iterable :native]) acc
           (:or :self
             [:map :scalar :self]
             [:list :self]) acc
@@ -148,10 +148,13 @@
 (defn- basic-info
   [{:keys [category deps] :as node}]
   {:pre [(contains? shared/categories category)]}
-  (let [select (select-keys node [:fqcn :className :file-git-sha :package :category :doc :resource-identifier? :deps :gcp/key :gcp/ns :discriminator :variant-mappings])
-        nested (letfn [(rf [acc node]
-                         (conj (reduce rf acc (:nested node))
-                               (_analyze-class-node (assoc node :deps deps))))]
+  (let [select (select-keys node [:fqcn :className :file-git-sha :package :category :parent-category :doc :resource-identifier? :deps :gcp/key :gcp/ns :discriminator :variant-mappings])
+        parent-cat (or (:parent-category node) category)
+        nested (letfn [(rf [acc child-node]
+                         (conj (reduce rf acc (:nested child-node))
+                               (_analyze-class-node (assoc child-node 
+                                                           :deps deps
+                                                           :parent-category parent-cat))))]
                  (reduce rf [] (:nested node)))
         {:keys [requires imports]} (merge-nested-deps {:requires {} :imports #{}} nested)]
     (cond-> (assoc (into (sorted-map) select)
@@ -1183,6 +1186,22 @@
 ;; Analyzer
 ;; -----------------------------------------------------------------------------
 
+(defn analyze-factory [{:keys [deps] :as node}]
+  (let [base (basic-info node)
+        static-methods (sequence (comp (remove #(:varArgs? (last (:parameters %))))
+                                       (filter :static?)
+                                       (remove :private?))
+                                 (:methods node))
+        factory-methods (vec (sort-by #(count (:parameters %)) < static-methods))
+        methods-by-name (group-by :name factory-methods)
+        method-types (into #{} (mapcat (fn [m] (map :type (:parameters m)))) factory-methods)
+        {:keys [requires imports]} (classify-dependencies deps method-types)
+        {:keys [requires imports]} (merge-nested-deps {:requires requires :imports imports} (:nested base))]
+    (assoc base :factory-methods factory-methods
+                :methods-by-name methods-by-name
+                :require-types requires
+                :import-types imports)))
+
 (defn _analyze-class-node
   [{:keys [category] :as node}]
   {:post [(= category (:category %)) (contains? % :className)]}
@@ -1193,7 +1212,7 @@
     :accessor-with-builder (analyze-accessor-with-builder node)
     :client                (basic-info node)
     :collection-wrapper    (analyze-collection-wrapper node)
-    :factory               (basic-info node)
+    :factory               (analyze-factory node)
     :functional-interface  (basic-info node)
     :interface             (analyze-interface node)
     :pojo                  (analyze-pojo node)
@@ -1214,7 +1233,7 @@
     :nested/client                     (basic-info node)
     :nested/collection-wrapper         (analyze-collection-wrapper node)
     (:nested/enum :nested/string-enum) (analyze-enum node)
-    :nested/factory                    (basic-info node)
+    :nested/factory                    (analyze-factory node)
     :nested/pojo                       (analyze-pojo node)
     :nested/read-only                  (analyze-read-only node)
     :nested/client-options             (analyze-client-options node)

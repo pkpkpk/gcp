@@ -7,7 +7,7 @@
 
 (defn ^QueryParameterValue QueryParameterValue-from-edn
   [arg]
-  (g/strict! :gcp.api.services.bigquery/QueryParameterValue arg)
+  (g/strict! :gcp.api.services.bigquery.model/QueryParameterValue arg)
   (let [o (new QueryParameterValue)]
     (when (some? (get arg :arrayValues))
       (.setArrayValues o (map QueryParameterValue-from-edn (get arg :arrayValues))))
@@ -23,7 +23,7 @@
 
 (defn QueryParameterValue-to-edn
   [^QueryParameterValue arg]
-  {:post [(g/strict! :gcp.api.services.bigquery/QueryParameterValue %)]}
+  {:post [(g/strict! :gcp.api.services.bigquery.model/QueryParameterValue %)]}
   (cond-> {}
     (.getArrayValues arg)  (assoc :arrayValues (map QueryParameterValue-to-edn (.getArrayValues arg)))
     (.getRangeValue arg)   (assoc :rangeValue (RangeValue-to-edn (.getRangeValue arg)))
@@ -40,27 +40,27 @@
     :fqcn "com.google.api.services.bigquery.model.QueryParameterValue"
     :doc "The value of a query parameter. This is the Java data model class that specifies how to parse/serialize into the JSON that is transmitted over HTTP when working with the BigQuery API. For a detailed explanation see:\n<a href=\"https://developers.google.com/api-client-library/java/google-http-java-client/json\">https://developers.google.com/api-client-library/java/google-http-java-client/json</a>",
     :gcp/category :mutable-pojo,
-    :gcp/key :gcp.api.services.bigquery/QueryParameterValue}
+    :gcp/key :gcp.api.services.bigquery.model/QueryParameterValue}
    [:arrayValues
     {:getter-doc
      "Optional. The array values, if this is an array type.\n\n@return value or {@code null} for none",
      :setter-doc
      "Optional. The array values, if this is an array type.\n\n@param arrayValues arrayValues or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} [:ref :gcp.api.services.bigquery/QueryParameterValue]]]
+    [:sequential {:min 1} [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]]
    [:rangeValue
     {:getter-doc
      "Optional. The range value, if this is a range type.\n\n@return value or {@code null} for none",
      :setter-doc
      "Optional. The range value, if this is a range type.\n\n@param rangeValue rangeValue or {@code null} for none",
-     :optional true} [:ref :gcp.api.services.bigquery/RangeValue]]
+     :optional true} [:ref :gcp.api.services.bigquery.model/RangeValue]]
    [:structValues
     {:getter-doc
      "The struct field values.\n\n@return value or {@code null} for none",
      :setter-doc
      "The struct field values.\n\n@param structValues structValues or {@code null} for none",
      :optional true}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:ref :gcp.api.services.bigquery/QueryParameterValue]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]] [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]]
    [:value
     {:getter-doc
      "Optional. The value of this value, if a simple scalar type.\n\n@return value or {@code null} for none",
@@ -71,7 +71,7 @@
 #!------------------------------------------------------------------------------------------
 
 (defn ^RangeValue RangeValue-from-edn [arg]
-  (g/strict! :gcp.api.services.bigquery/RangeValue arg)
+  (g/strict! :gcp.api.services.bigquery.model/RangeValue arg)
   (let [o (new RangeValue)]
     (when (some? (get arg :end))
       (.setEnd o (QueryParameterValue-from-edn (get arg :end))))
@@ -81,7 +81,7 @@
 
 (defn RangeValue-to-edn
   [^RangeValue arg]
-  {:post [(g/strict! :gcp.api.services.bigquery/RangeValue %)]}
+  {:post [(g/strict! :gcp.api.services.bigquery.model/RangeValue %)]}
   (cond-> {}
           (.getEnd arg) (assoc :end (QueryParameterValue-to-edn (.getEnd arg)))
           (.getStart arg) (assoc :start (QueryParameterValue-to-edn (.getStart arg)))))
@@ -93,21 +93,21 @@
     :fqcn "com.google.api.services.bigquery.model.RangeValue"
     :doc "Represents the value of a range. This is the Java data model class that specifies how to parse/serialize into the JSON that is transmitted over HTTP when working with the BigQuery API. For a detailed explanation see:\n<a href=\"https://developers.google.com/api-client-library/java/google-http-java-client/json\">https://developers.google.com/api-client-library/java/google-http-java-client/json</a>\n</p>\n\n@author Google, Inc.",
     :gcp/category :mutable-pojo,
-    :gcp/key :gcp.api.services.bigquery/RangeValue}
+    :gcp/key :gcp.api.services.bigquery.model/RangeValue}
    [:end
     {:getter-doc "Optional. The end value of the range. A missing value represents an unbounded end.\n\n@return value or {@code null} for none",
      :setter-doc "Optional. The end value of the range. A missing value represents an unbounded end.\n\n@param end end or {@code null} for none",
      :optional true}
-    [:ref :gcp.api.services.bigquery/QueryParameterValue]]
+    [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]
    [:start
     {:getter-doc "Optional. The start value of the range. A missing value represents an unbounded start.\n\n@return value or {@code null} for none",
      :setter-doc "Optional. The start value of the range. A missing value represents an unbounded start.\n\n@param start start or {@code null} for none",
      :optional true}
-    [:ref :gcp.api.services.bigquery/QueryParameterValue]]])
+    [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]])
 
 #!------------------------------------------------------------------------------------------
 
 (g/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery/QueryParameterValue QueryParameterValue-schema
-              :gcp.api.services.bigquery/RangeValue RangeValue-schema}
+  (with-meta {:gcp.api.services.bigquery.model/QueryParameterValue QueryParameterValue-schema
+              :gcp.api.services.bigquery.model/RangeValue RangeValue-schema}
              {::g/name "gcp.services.bigquery.custom"}))

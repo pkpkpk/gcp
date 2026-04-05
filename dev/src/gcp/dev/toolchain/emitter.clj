@@ -85,6 +85,7 @@
     java.lang.Double  float?
     java.lang.Object  object?
     java.util.UUID    uuid?
+    java.nio.file.Path some?
     int     int?
     long    int?
     byte    int?
@@ -307,8 +308,8 @@
                                         from-edn (symbol (nested-from-edn nested))]
                                     (list 'map from-edn arg))
 
-      [(:or :iterable :list) (:or :generic :scalar :generic/scalar)] (list 'seq arg)
-      [(:or :array :set :iterator :optional) (:or :generic :scalar)] arg
+      [(:or :iterable :list) (:or :generic :scalar :generic/scalar :native)] (list 'seq arg)
+      [(:or :array :set :iterator :optional) (:or :generic :scalar :native)] arg
 
       [:iterable :generic/peer] (let [[_ [generic extends-key element-type]] parameter-type
                                       _ (assert (= '? generic))
@@ -390,8 +391,10 @@
                 _ (println param-type ": " vals)
                 schema (into [:enum] vals)]
             `(g/valid? ~schema ~arg))
+    :native (list (scalar->pred deps param-type) arg)
     (:or :scalar [:map :scalar :scalar]) (list (scalar->pred deps param-type) arg)
     [:list :scalar] `(g/valid? [:sequential ~(scalar->pred deps (second param-type))] ~arg)
+    [(:or :list :iterable) :native] (list 'sequential? arg)
     [:iterable
      (:or :foreign :custom :support :peer)] `(g/valid? [:sequential ~(u/fqcn->gcp-key (second param-type))] ~arg)
     (:or :foreign :peer :custom :support :nested :sibling) `(g/valid? ~(u/fqcn->gcp-key param-type) ~arg)
@@ -615,6 +618,56 @@
                         (conj acc condition call))))
         failure (list 'ex-info "failed to match edn for static-factory cond body" {:arg 'arg :key key})]
     `(~'cond ~@(conj (reduce branch-rf [] methods) true failure))))
+
+(defn- emit-factory-from-edn
+  [{:keys [methods-by-name deps] :as node}]
+  (let [class-sym (class-sym node)
+        branches (mapcat
+                   (fn [[method-name methods]]
+                     (let [k (keyword method-name)
+                           call (if (= 1 (count methods))
+                                  (let [{:keys [parameters]} (first methods)]
+                                    (if (empty? parameters)
+                                      (invoke-static class-sym method-name)
+                                      (let [args (if (= 1 (count parameters))
+                                                   [(convert-param-type-from-edn deps (get-in parameters [0 :type]) `(~'get ~'arg ~k))]
+                                                   (map-indexed (fn [i p]
+                                                                  (convert-param-type-from-edn deps (:type p) `(~'nth (~'get ~'arg ~k) ~i)))
+                                                                parameters))]
+                                        (apply invoke-static class-sym method-name args))))
+                                  (let [overloads (sort-by (comp count :parameters) < methods)
+                                        body (reduce
+                                               (fn [else-branch {:keys [parameters] :as m}]
+                                                 (let [arg-form `(~'get ~'arg ~k)
+                                                       call (let [args (if (= 1 (count parameters))
+                                                                         [(convert-param-type-from-edn deps (get-in parameters [0 :type]) arg-form)]
+                                                                         (map-indexed (fn [i p]
+                                                                                        (convert-param-type-from-edn deps (:type p) `(~'nth ~arg-form ~i)))
+                                                                                      parameters))]
+                                                              (apply invoke-static class-sym method-name args))]
+                                                   (if (empty? parameters)
+                                                     call ;; should not happen in overloads usually
+                                                     (let [pred (if (= 1 (count parameters))
+                                                                  (from-edn-param-predicate-test deps (get-in parameters [0 :type]) arg-form)
+                                                                  `(and (vector? ~arg-form) (= ~(count parameters) (count ~arg-form))))]
+                                                       (if (= else-branch :fail)
+                                                         call
+                                                         `(~'if ~pred ~call ~else-branch))))))
+                                               :fail
+                                               (reverse overloads))]
+                                    body))]
+                       [k call]))
+                   methods-by-name)]
+    (defn-from-edn node
+                   (if (= 2 (count branches))
+                     (let [[k call] branches]
+                       `(~'when (~'contains? ~'arg ~k) ~call))
+                     `(~'case (~'first (~'keys ~'arg))
+                        ~@branches)))))
+
+(defn- emit-factory-to-edn [node] nil)
+
+#!----------------------------------------------------------------------------------------------------------------------
 
 (defn- emit-static-factory-from-edn
   [{:keys [deps factory-methods strategy] :as node}]
@@ -1218,85 +1271,90 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 (defn emit-class-bindings
-  [{:keys [category] :as node}]
-  (case category
-    :nested/builder
-    nil
+  [{:keys [category parent-category] :as node}]
+  (let [to-edn? (not= :client parent-category)]
+    (case category
+      :nested/builder
+      nil
 
-    :client
-    nil
+      :client
+      nil
 
-    (:enum :string-enum :nested/enum :nested/string-enum)
-    nil
+      (:enum :string-enum :nested/enum :nested/string-enum)
+      nil
 
-    (:protobuf-message :nested/protobuf-message)
-    [(emit-protobuf-message-from-edn node)
-     (emit-protobuf-message-to-edn node)]
+      (:protobuf-message :nested/protobuf-message)
+      [(emit-protobuf-message-from-edn node)
+       (when to-edn? (emit-protobuf-message-to-edn node))]
 
-    (:union-protobuf-oneof :nested/union-protobuf-oneof)
-    [(emit-union-protobuf-oneof-from-edn node)
-     (emit-union-protobuf-oneof-to-edn node)]
+      (:union-protobuf-oneof :nested/union-protobuf-oneof)
+      [(emit-union-protobuf-oneof-from-edn node)
+       (when to-edn? (emit-union-protobuf-oneof-to-edn node))]
 
-    :nested/client-options
-    [(emit-client-options-from-edn node)
-     (emit-client-options-to-edn node)]
+      :nested/client-options
+      [(emit-client-options-from-edn node)
+       (when to-edn? (emit-client-options-to-edn node))]
 
-    (:static-variants :nested/static-variants)
-    [(emit-static-variants-from-edn node)
-     (emit-static-variants-to-edn node)]
+      (:static-variants :nested/static-variants)
+      [(emit-static-variants-from-edn node)
+       (when to-edn? (emit-static-variants-to-edn node))]
 
-    ; (:static-utilities :nested/static-utilities)
-    ; nil
+      ; (:static-utilities :nested/static-utilities)
+      ; nil
 
-    (:mutable-pojo :nested/mutable-pojo)
-    [(emit-mutable-pojo-from-edn node)
-     (emit-mutable-pojo-to-edn node)]
+      (:mutable-pojo :nested/mutable-pojo)
+      [(emit-mutable-pojo-from-edn node)
+       (when to-edn? (emit-mutable-pojo-to-edn node))]
 
-    :collection-wrapper
-    [(emit-collection-wrapper-from-edn node)
-     (emit-collection-wrapper-to-edn node)]
+      :collection-wrapper
+      [(emit-collection-wrapper-from-edn node)
+       (when to-edn? (emit-collection-wrapper-to-edn node))]
 
-    (:accessor-with-builder  :nested/accessor-with-builder)
-    [(emit-accessor-with-builder-from-edn node)
-     (emit-accessor-with-builder-to-edn node)]
+      (:accessor-with-builder  :nested/accessor-with-builder)
+      [(emit-accessor-with-builder-from-edn node)
+       (when to-edn? (emit-accessor-with-builder-to-edn node))]
 
-    :variant-accessor
-    [(emit-variant-accessor-from-edn node)
-     (emit-variant-accessor-to-edn node)]
+      :variant-accessor
+      [(emit-variant-accessor-from-edn node)
+       (when to-edn? (emit-variant-accessor-to-edn node))]
 
-    (:union-tagged :nested/union-tagged)
-    [(emit-union-tagged-from-edn node)
-     (emit-union-tagged-to-edn node)]
+      (:union-tagged :nested/union-tagged)
+      [(emit-union-tagged-from-edn node)
+       (when to-edn? (emit-union-tagged-to-edn node))]
 
-    (:static-factory :nested/static-factory)
-    [(emit-static-factory-from-edn node)
-     (emit-static-factory-to-edn node)]
+      (:static-factory :nested/static-factory)
+      [(emit-static-factory-from-edn node)
+       (when to-edn? (emit-static-factory-to-edn node))]
 
-    (:union-abstract :nested/union-abstract)
-    [(emit-union-abstract-from-edn node)
-     (emit-union-abstract-to-edn node)]
+      (:union-abstract :nested/union-abstract)
+      [(emit-union-abstract-from-edn node)
+       (when to-edn? (emit-union-abstract-to-edn node))]
 
-    (:union-concrete :nested/union-concrete)
-    [(emit-union-concrete-from-edn node)
-     (emit-union-concrete-to-edn node)]
+      (:union-concrete :nested/union-concrete)
+      [(emit-union-concrete-from-edn node)
+       (when to-edn? (emit-union-concrete-to-edn node))]
 
-    (:interface :read-only :nested/read-only)
-    [(emit-read-only-from-edn node)
-     (emit-read-only-to-edn node)]
+      (:interface :read-only :nested/read-only)
+      [(emit-read-only-from-edn node)
+       (when to-edn? (emit-read-only-to-edn node))]
 
-    (:pojo :nested/pojo)
-    [(emit-pojo-from-edn node)
-     (emit-pojo-to-edn   node)]
+      (:pojo :nested/pojo)
+      [(emit-pojo-from-edn node)
+       (when to-edn? (emit-pojo-to-edn   node))]
 
-    :nested/variant-pojo
-    [(emit-pojo-from-edn node)
-     (emit-nested-variant-pojo-to-edn node)]
+      :nested/variant-pojo
+      [(emit-pojo-from-edn node)
+       (when to-edn? (emit-nested-variant-pojo-to-edn node))]
 
-    :nested/variant-read-only
-    [(emit-read-only-from-edn node)
-     (emit-variant-read-only-to-edn node)]
+      :nested/variant-read-only
+      [(emit-read-only-from-edn node)
+       (when to-edn? (emit-variant-read-only-to-edn node))]
 
-    (throw (Exception. (str "bindings unimplemented for category " category " for class " (:fqcn node))))))
+      (:factory :nested/factory)
+      [(emit-factory-from-edn node)
+       (when to-edn? (emit-factory-to-edn node))]
+
+      (throw (Exception. (str "bindings unimplemented for category " category " for class " (:fqcn node)))))))
 
 (defn- emit-schema [node]
   (when-not (#{:client} (:category node))
