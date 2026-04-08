@@ -873,6 +873,16 @@
          (let [base (subs n 0 (- (count n) 5))]
            (contains? all-method-names base)))))
 
+(defn- protobuf-bytes-method? [m all-method-names]
+  (let [n (:name m)]
+    (and (string/ends-with? n "Bytes")
+         (let [base (subs n 0 (- (count n) 5))]
+           (contains? all-method-names base)))))
+
+(defn- redundant-protobuf-method? [m names]
+  (or (protobuf-value-method? m names)
+      (protobuf-bytes-method? m names)))
+
 (defn analyze-union-protobuf-oneof
   [{:keys [deps nested] :as node}]
   (let [base (basic-info node)
@@ -969,7 +979,7 @@
         getters-by-key (into (sorted-map)
                              (comp
                                (filter #(and (:union %) (= :get (:role (:union %)))))
-                               (remove #(protobuf-value-method? % all-instance-method-names))
+                               (remove #(redundant-protobuf-method? % all-instance-method-names))
                                (map (fn [m] [(:variant (:union m)) (clean-getter m)]))
                                (remove #(#{:serializedSize :defaultInstance} (first %))))
                              instance-methods')
@@ -981,7 +991,7 @@
                                          (filter #(or (string/starts-with? (:name %) "get")
                                                       (string/starts-with? (:name %) "is")))
                                          (remove #(string/ends-with? (:name %) "Count"))
-                                         (remove #(protobuf-value-method? % all-instance-method-names))
+                                         (remove #(redundant-protobuf-method? % all-instance-method-names))
                                          (map (fn [m] [(extract-key m) (clean-getter m)]))
                                          (remove #(#{:serializedSize :defaultInstance} (first %))))
                                        labeled-getters)
@@ -989,7 +999,7 @@
         setters-by-key (into (sorted-map)
                              (comp
                                (filter #(and (:union %) (= :set (:role (:union %)))))
-                               (remove #(protobuf-value-method? % all-builder-method-names))
+                               (remove #(redundant-protobuf-method? % all-builder-method-names))
                                (map (fn [m] [(:variant (:union m)) (clean-setter m)]))
                                (remove #(#{:serializedSize :defaultInstance} (first %))))
                              builder-methods')
@@ -1000,7 +1010,7 @@
                                          (filter #(or (string/starts-with? (:name %) "set")
                                                       (string/starts-with? (:name %) "addAll")
                                                       (string/starts-with? (:name %) "putAll")))
-                                         (remove #(protobuf-value-method? % all-builder-method-names))
+                                         (remove #(redundant-protobuf-method? % all-builder-method-names))
                                          (map (fn [m] [(extract-setter-key m) (clean-setter m)]))
                                          (remove #(#{:serializedSize :defaultInstance} (first %))))
                                        labeled-setters)
@@ -1008,7 +1018,7 @@
         has-methods-by-key (into (sorted-map)
                                  (comp
                                    (filter #(and (:union %) (= :has (:role (:union %)))))
-                                   (remove #(protobuf-value-method? % all-instance-method-names))
+                                   (remove #(redundant-protobuf-method? % all-instance-method-names))
                                    (map (fn [m] [(:variant (:union m)) (clean-getter m)]))
                                    (remove #(#{:serializedSize :defaultInstance} (first %))))
                                  instance-methods')
@@ -1019,7 +1029,7 @@
                                              (filter #(and (not (:static? %))
                                                            (empty? (:parameters %))
                                                            (string/starts-with? (:name %) "has")))
-                                             (remove #(protobuf-value-method? % all-instance-method-names))
+                                             (remove #(redundant-protobuf-method? % all-instance-method-names))
                                              (map (fn [m] [(extract-key m) (clean-getter m)]))
                                              (remove #(#{:serializedSize :defaultInstance} (first %))))
                                            instance-methods')
@@ -1122,7 +1132,7 @@
                                (filter #(or (string/starts-with? (:name %) "get")
                                             (string/starts-with? (:name %) "is")))
                                (remove #(string/ends-with? (:name %) "Count"))
-                               (remove #(protobuf-value-method? % all-method-names))
+                               (remove #(redundant-protobuf-method? % all-method-names))
                                (map (fn [m] [(extract-key m) (clean-getter m)]))
                                (remove #(#{:serializedSize :defaultInstance} (first %))))
                              (getters node))
@@ -1132,7 +1142,7 @@
                                (filter #(or (string/starts-with? (:name %) "set")
                                             (string/starts-with? (:name %) "addAll")
                                             (string/starts-with? (:name %) "putAll")))
-                               (remove #(protobuf-value-method? % all-builder-method-names))
+                               (remove #(redundant-protobuf-method? % all-builder-method-names))
                                (map (fn [m] [(extract-setter-key m) (clean-setter m)]))
                                (remove #(#{:serializedSize :defaultInstance} (first %))))
                              (setters builder-node))
@@ -1142,7 +1152,7 @@
                                    (filter #(and (not (:static? %))
                                                  (empty? (:parameters %))
                                                  (string/starts-with? (:name %) "has")))
-                                   (remove #(protobuf-value-method? % all-method-names))
+                                   (remove #(redundant-protobuf-method? % all-method-names))
                                    (map (fn [m] [(extract-key m) (clean-getter m)]))
                                    (remove #(#{:serializedSize :defaultInstance} (first %))))
                                  (:methods node))

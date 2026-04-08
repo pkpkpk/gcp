@@ -589,27 +589,18 @@
         fields           (merge required-fields optional-fields read-only-fields)
         fields-vec       (reduce-kv (fn [acc k {:keys [opts schema]}]
                                       (conj acc [k opts schema])) [] fields)
-        map-schema       (into [:map (assoc opts :closed true)]
+        map-schema       (into [:map opts]
                                fields-vec)
-        ;; Build the [:or ...] for each union, requiring exactly one of the variant fields
-        union-schemas    (map
-                           (fn [[union-key {:keys [variants discriminator-method]}]]
-                             (let [variant-maps (for [[variant-key _] variants
-                                                      :let [getter (get-in node [:getters-by-key variant-key])
-                                                            setter (get-in node [:setters-by-key variant-key])
-                                                            doc (:doc getter)
-                                                            schema (type-schema deps (or (:returnType getter)
-                                                                                         (get-in setter [:parameters 0 :type])))
-                                                            v-opts (cond-> {:optional true}
-                                                                     doc (assoc :getter-doc doc)
-                                                                     (some? setter) (assoc :setter-doc (:doc setter)))]]
-                                                  [:map
-                                                   [variant-key v-opts schema]])]
-                               (into [:or] variant-maps)))
-                           unions)]
-    (if (seq union-schemas)
+        union-constraints (map
+                            (fn [[union-key {:keys [variants discriminator-method]}]]
+                              (let [variant-keys (set (keys variants))]
+                                [:fn {:error/message (str "Only one of these keys may be present: " variant-keys)}
+                                 (list 'quote
+                                       (list 'fn ['m] `(~'<= (~'count (~'filter (~'set (~'keys ~'m)) ~variant-keys)) 1)))]))
+                            unions)]
+    (if (seq union-constraints)
       (let [[props base-map] (hoist-props map-schema)]
-        (into [:and props base-map] union-schemas))
+        (into [:and props base-map] union-constraints))
       map-schema)))
 
 #!----------------------------------------------------------------------------------------------------------------------

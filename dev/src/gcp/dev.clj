@@ -275,8 +275,6 @@
 (comment
   (delete-bindings :storage)
 
-
-
   (client-method-types "com.google.cloud.storage.Storage")
 
   (def storage-user-types (user-types "com.google.cloud.storage.Storage"))
@@ -289,6 +287,171 @@
                  )
 
   (require :reload 'gcp.storage.core 'gcp.storage.aux '[gcp.storage :as storage])
+
+  )
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! vertexai
+
+(comment
+  (delete-bindings :vertexai)
+
+  "com.google.cloud.vertexai.api.PredictionServiceClient"
+  "com.google.cloud.vertexai.api.EndpointServiceClient"
+  "com.google.cloud.vertexai.api.LlmUtilityServiceClient"
+  "com.google.cloud.vertexai.VertexAI"
+
+  (map clean-method (:methods (lookup "com.google.vertexai.api.PredictionServiceClient")))
+
+  (certify-graph "com.google.cloud.vertexai.api.GenerateContentRequest"
+                 "com.google.cloud.vertexai.api.GenerateContentResponse"
+
+                 "com.google.cloud.vertexai.api.PredictRequest"
+                 "com.google.cloud.vertexai.api.PredictResponse"
+                 "com.google.cloud.vertexai.api.EndpointName"
+                 "com.google.cloud.vertexai.api.RawPredictRequest"
+                 "com.google.cloud.vertexai.api.DirectPredictResponse"
+                 "com.google.cloud.vertexai.api.DirectPredictRequest"
+
+                 "com.google.cloud.vertexai.api.EmbedContentRequest"
+                 "com.google.cloud.vertexai.api.EmbedContentResponse"
+
+                 "com.google.cloud.vertexai.api.ExplainRequest"
+                 "com.google.cloud.vertexai.api.ExplainResponse"
+                 "com.google.cloud.vertexai.api.PredictionServiceClient.ListLocationsPagedResponse"
+
+                 ;;; --- LlmUtilityService --------------------------------
+                 "com.google.cloud.vertexai.api.CountTokensRequest"
+                 "com.google.cloud.vertexai.api.CountTokensResponse"
+
+                 )
+
+   #_ com.google.api.HttpBody
+   #_ com.google.cloud.location.GetLocationRequest
+   #_ com.google.cloud.location.Location
+   #_ com.google.cloud.location.ListLocationsRequest
+   #_ com.google.iam.v1.Policy
+   #_ com.google.iam.v1.TestIamPermissionsResponse
+   #_ com.google.iam.v1.GetIamPolicyRequest
+   #_ com.google.iam.v1.TestIamPermissionsRequest
+
+  )
+
+(comment
+
+  (
+   {:name "predict",
+    :returnType com.google.cloud.vertexai.api.PredictResponse,
+    :parameters [{:name "endpoint", :type com.google.cloud.vertexai.api.EndpointName}
+                 {:name "instances", :type [java.util.List com.google.protobuf.Value]}
+                 {:name "parameters", :type com.google.protobuf.Value}]}
+   {:name "predict",
+    :returnType com.google.cloud.vertexai.api.PredictResponse,
+    :parameters [{:name "endpoint", :type java.lang.String}
+                 {:name "instances", :type [java.util.List com.google.protobuf.Value]}
+                 {:name "parameters", :type com.google.protobuf.Value}]}
+   {:name "predict",
+    :returnType com.google.cloud.vertexai.api.PredictResponse,
+    :parameters [{:name "request", :type com.google.cloud.vertexai.api.PredictRequest}]}
+
+
+   {:name "rawPredict",
+    :returnType com.google.api.HttpBody,
+    :parameters [{:name "endpoint", :type com.google.cloud.vertexai.api.EndpointName}
+                 {:name "httpBody", :type com.google.api.HttpBody}]}
+   {:name "rawPredict",
+    :returnType com.google.api.HttpBody,
+    :parameters [{:name "endpoint", :type java.lang.String} {:name "httpBody", :type com.google.api.HttpBody}]}
+   {:name "rawPredict",
+    :returnType com.google.api.HttpBody,
+    :parameters [{:name "request", :type com.google.cloud.vertexai.api.RawPredictRequest}]}
+
+   {:name "directPredict",
+    :returnType com.google.cloud.vertexai.api.DirectPredictResponse,
+    :parameters [{:name "request", :type com.google.cloud.vertexai.api.DirectPredictRequest}]}
+   {:name "directRawPredict",
+    :returnType com.google.cloud.vertexai.api.DirectRawPredictResponse,
+    :parameters [{:name "request", :type com.google.cloud.vertexai.api.DirectRawPredictRequest}]}
+
+   {:name "explain",
+    :returnType com.google.cloud.vertexai.api.ExplainResponse,
+    :parameters [{:name "endpoint", :type com.google.cloud.vertexai.api.EndpointName}
+                 {:name "instances", :type [java.util.List com.google.protobuf.Value]}
+                 {:name "parameters", :type com.google.protobuf.Value}
+                 {:name "deployedModelId", :type java.lang.String}]}
+   {:name "explain",
+    :returnType com.google.cloud.vertexai.api.ExplainResponse,
+    :parameters [{:name "endpoint", :type java.lang.String}
+                 {:name "instances", :type [java.util.List com.google.protobuf.Value]}
+                 {:name "parameters", :type com.google.protobuf.Value}
+                 {:name "deployedModelId", :type java.lang.String}]}
+   {:name "explain",
+    :returnType com.google.cloud.vertexai.api.ExplainResponse,
+    :parameters [{:name "request", :type com.google.cloud.vertexai.api.ExplainRequest}]}
+
+   {:name "embedContent",
+    :returnType com.google.cloud.vertexai.api.EmbedContentResponse,
+    :parameters [{:name "model", :type com.google.cloud.vertexai.api.EndpointName}
+                 {:name "content", :type com.google.cloud.vertexai.api.Content}]}
+   {:name "embedContent",
+    :returnType com.google.cloud.vertexai.api.EmbedContentResponse,
+    :parameters [{:name "model", :type java.lang.String} {:name "content", :type com.google.cloud.vertexai.api.Content}]}
+   {:name "embedContent",
+    :returnType com.google.cloud.vertexai.api.EmbedContentResponse,
+    :parameters [{:name "request", :type com.google.cloud.vertexai.api.EmbedContentRequest}]}
+
+   {:name "listLocations",
+    :returnType com.google.cloud.vertexai.api.PredictionServiceClient.ListLocationsPagedResponse,
+    :parameters [{:name "request", :type com.google.cloud.location.ListLocationsRequest}]}
+   {:name "getLocation",
+    :returnType com.google.cloud.location.Location,
+    :parameters [{:name "request", :type com.google.cloud.location.GetLocationRequest}]}
+
+   {:name "setIamPolicy",
+    :returnType com.google.iam.v1.Policy,
+    :parameters [{:name "request", :type com.google.iam.v1.SetIamPolicyRequest}]}
+   {:name "getIamPolicy",
+    :returnType com.google.iam.v1.Policy,
+    :parameters [{:name "request", :type com.google.iam.v1.GetIamPolicyRequest}]}
+   {:name "testIamPermissions",
+    :returnType com.google.iam.v1.TestIamPermissionsResponse,
+    :parameters [{:name "request", :type com.google.iam.v1.TestIamPermissionsRequest}]}
+
+
+
+
+
+
+   {:name "create",
+    :throws [java.io.IOException],
+    :returnType com.google.cloud.vertexai.api.PredictionServiceClient,
+    :parameters []}
+   {:name "create",
+    :throws [java.io.IOException],
+    :field-name "settings",
+    :returnType com.google.cloud.vertexai.api.PredictionServiceClient,
+    :parameters [{:name "settings", :type com.google.cloud.vertexai.api.PredictionServiceSettings}]}
+   {:name "create",
+    :field-name "settings",
+    :returnType com.google.cloud.vertexai.api.PredictionServiceClient,
+    :parameters [{:name "stub", :type com.google.cloud.vertexai.api.stub.PredictionServiceStub}]}
+   {:name "getSettings",
+    :returnType com.google.cloud.vertexai.api.PredictionServiceSettings,
+    :parameters [],
+    :field-name "settings"}
+   {:name "getStub",
+    :returnType com.google.cloud.vertexai.api.stub.PredictionServiceStub,
+    :parameters [],
+    :field-name "stub"}
+   {:name "close", :returnType void, :parameters [], :field-name "stub"}
+   {:name "shutdown", :returnType void, :parameters [], :field-name "stub"}
+   {:name "isShutdown", :returnType boolean, :parameters [], :field-name "stub"}
+   {:name "isTerminated", :returnType boolean, :parameters [], :field-name "stub"}
+   {:name "shutdownNow", :returnType void, :parameters [], :field-name "stub"}
+   {:name "awaitTermination",
+    :returnType boolean,
+    :parameters [{:name "duration", :type long} {:name "unit", :type java.util.concurrent.TimeUnit}],
+    :throws [com.google.cloud.vertexai.api.InterruptedException]})
 
   )
 
@@ -306,6 +469,8 @@
 ;; empty labels+resourceTags map checks before assoc :labels {} etc
 
 ;; inline nested/peer enums... see ConnectionSettings requiring custom.QueryJobConfiguration Priority/to-edn+from-edn etc
+
+;; make java.nio.ByteBuffer global type ::ByteBuffer w/ :gen/return etc
 
 (comment
 

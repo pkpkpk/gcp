@@ -719,6 +719,7 @@
                            (string/starts-with? methodName "clear")
                            (string/starts-with? methodName "remove")
                            (string/starts-with? methodName "merge")
+                           (string/ends-with? methodName "Callable")
                            (and (string/starts-with? methodName "add")
                                 (not (string/starts-with? methodName "addAll")))
                            (string/includes? methodName "$")
