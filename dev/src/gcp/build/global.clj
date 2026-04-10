@@ -19,6 +19,11 @@
 (defn- current-hash []
   (util/hash-dir [src-root (io/file package-root "deps.edn")]))
 
+(defn needs-deploy? []
+  (let [state (current-state)
+        new-hash (current-hash)]
+    (not= (:hash state) new-hash)))
+
 (defn- next-version []
   (str (.format (java.time.LocalDateTime/now)
                 (java.time.format.DateTimeFormatter/ofPattern "yyyy.MM.dd.HHmmss"))))
