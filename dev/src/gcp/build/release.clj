@@ -47,7 +47,7 @@
        (throw (ex-info "Must be on main branch to release." {})))
     
     (let [status-out (or (try (git/run-git repo-root "status" "--porcelain") (catch Exception e "")) "")]
-      (let [lines (string/split-lines status-out)
+      (let [lines (remove string/blank? (string/split-lines status-out))
             ;; Filter out any lines that are in dev/state/
             relevant-lines (remove #(string/includes? % " dev/state/") lines)]
          (when (seq relevant-lines)
