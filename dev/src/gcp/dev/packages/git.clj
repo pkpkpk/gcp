@@ -23,7 +23,7 @@
        (.start))
      result#))
 
-(defn- run-git
+(defn run-git
   [dir & args]
   (let [command-args (cons "git" args)
         proc-builder (doto (ProcessBuilder. ^java.util.List command-args)
@@ -237,3 +237,19 @@
                    latest)))))))))
 
 (def find-tag-for-artifact (memoize find-tag-for-artifact-impl))
+
+(defn commit-states
+  "Stages the dev/state directory and commits with the given message."
+  [repo-path message]
+  (run-git repo-path "add" "dev/state/")
+  (run-git repo-path "commit" "-m" message))
+
+(defn tag
+  "Creates a lightweight git tag."
+  [repo-path tag-name]
+  (run-git repo-path "tag" tag-name))
+
+(defn push-release
+  "Pushes the main branch and tags to the origin remote."
+  [repo-path]
+  (run-git repo-path "push" "origin" "main" "--tags"))

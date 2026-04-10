@@ -1,6 +1,7 @@
 (ns gcp.build
   (:require [gcp.build.core :as core]
             [gcp.build.global :as global]
+            [gcp.build.release :as release]
             [gcp.dev.packages.definitions :as defs]))
 
 (defn global []
@@ -25,3 +26,18 @@
      :storage (storage)
      :vertexai (vertexai)
      :pubsub (pubsub)}))
+
+(defn release-bigquery []
+  (release/release-all [defs/bigquery]))
+
+(defn release-storage []
+  (release/release-all [defs/storage]))
+
+(defn release-vertexai []
+  (release/release-all [defs/vertexai]))
+
+(defn release-pubsub []
+  (release/release-all [defs/pubsub]))
+
+(defn release-all []
+  (release/release-all [defs/bigquery defs/storage defs/vertexai defs/pubsub]))
