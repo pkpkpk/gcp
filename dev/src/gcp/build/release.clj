@@ -14,11 +14,15 @@
         rel-path (dev-util/relative-path repo-root package-root)]
     (if (git/dirty? repo-root rel-path)
       (throw (ex-info "Cannot deploy global: directory is dirty or not on main branch." {:package "global"}))
-      (let [version (global/build)
+      (let [needs-deploy? (global/needs-deploy?)
+            version (global/build)
             p (global/pom version)]
-        (println "Deploying global version:" version)
-        (util/deploy p)
-        {:package "gcp.global" :version version}))))
+        (if needs-deploy?
+          (do
+            (println "Deploying global version:" version)
+            (util/deploy p))
+          (println "Global package up to date, skipping Clojars deploy:" version))
+        {:package "gcp.global" :version version :deployed? needs-deploy?}))))
 
 (defn deploy-wrapper [pkg]
   (let [repo-root (dev-util/get-gcp-repo-root)
@@ -28,15 +32,26 @@
       (throw (ex-info (str "Cannot deploy " (:name pkg) ": directory is dirty or not on main branch.") {:package (:name pkg)}))
       (let [deps-file (io/file package-root "deps.edn")
             deps-map (read-string (slurp deps-file))
-            global-version (global/build)
+            sdk-dep (symbol (str (:googleapis/mvn-org pkg) "/" (:googleapis/mvn-artifact pkg)))
+            sdk-version (get-in deps-map [:deps sdk-dep :mvn/version])
+            pkg-hash (core/current-hash pkg deps-map)
+            state (core/current-state pkg)
+            version-info (core/determine-version state sdk-version pkg-hash false)
+            needs-deploy? (:needs-deploy? version-info)
             version (core/build-package pkg)
-            p (core/pom pkg version global-version deps-map)]
-        (if (string/ends-with? version "-DIRTY")
-           (throw (ex-info (str "Refusing to deploy DIRTY version of " (:name pkg)) {:package (:name pkg) :version version}))
-           (do
-             (println "Deploying" (:name pkg) "version:" version)
-             (util/deploy p)
-             {:package (name (:name pkg)) :version version}))))))
+            p (core/pom pkg version (global/build) deps-map)]
+        (cond
+          (string/ends-with? version "-DIRTY")
+          (throw (ex-info (str "Refusing to deploy DIRTY version of " (:name pkg)) {:package (:name pkg) :version version}))
+
+          needs-deploy?
+          (do
+            (println "Deploying" (:name pkg) "version:" version)
+            (util/deploy p))
+
+          :else
+          (println "Package" (:name pkg) "up to date, skipping Clojars deploy:" version))
+        {:package (name (:name pkg)) :version version :deployed? needs-deploy?}))))
 
 (defn release-all [packages]
   (let [repo-root (dev-util/get-gcp-repo-root)]
@@ -55,26 +70,31 @@
 
     ;; 2. Deploy global first
     (let [global-info (deploy-global)
-          deployed-info (atom [global-info])]
+          initial-info (if (:deployed? global-info) [global-info] [])
+          deployed-info (atom initial-info)]
       
       ;; 3. Deploy requested wrapper packages
       (doseq [pkg packages]
-         (swap! deployed-info conj (deploy-wrapper pkg)))
+         (let [info (deploy-wrapper pkg)]
+           (when (:deployed? info)
+             (swap! deployed-info conj info))))
       
-      ;; 4. Commit dev/state/
-      (let [msg-parts (map (fn [{:keys [package version]}] (str package "-" version)) @deployed-info)
-            commit-msg (str "deploy " (string/join ", " msg-parts))]
-        (println "Committing state files with message:" commit-msg)
-        (git/commit-states repo-root commit-msg)
-        
-        ;; 5. Tag repository
-        (doseq [{:keys [package version]} @deployed-info]
-          (let [tag-name (str package "-" version)]
-            (println "Creating tag:" tag-name)
-            (git/tag repo-root tag-name)))
-        
-        ;; 6. Push to origin
-        (println "Pushing branch and tags to origin...")
-        (git/push-release repo-root)
-        
-        (println "Release complete!")))))
+      (if (empty? @deployed-info)
+        (println "Nothing new to deploy. All packages are up to date.")
+        ;; 4. Commit dev/state/
+        (let [msg-parts (map (fn [{:keys [package version]}] (str package "-" version)) @deployed-info)
+              commit-msg (str "deploy " (string/join ", " msg-parts))]
+          (println "Committing state files with message:" commit-msg)
+          (git/commit-states repo-root commit-msg)
+          
+          ;; 5. Tag repository
+          (doseq [{:keys [package version]} @deployed-info]
+            (let [tag-name (str package "-" version)]
+              (println "Creating tag:" tag-name)
+              (git/tag repo-root tag-name)))
+          
+          ;; 6. Push to origin
+          (println "Pushing branch and tags to origin...")
+          (git/push-release repo-root)
+          
+          (println "Release complete!"))))))
