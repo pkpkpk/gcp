@@ -1,11 +1,12 @@
-(ns
-  ^{:doc "convenience functions that sugar top-level api functions"}
-  gcp.bigquery.aux
-  (:require [clojure.java.io :as io]
-            [gcp.bigquery :as bq]
-            [gcp.global :as g])
-  (:import (com.google.cloud.bigquery Job)
-           (java.nio.channels Channels)))
+(ns gcp.bigquery.aux
+  {:doc "convenience functions that sugar top-level api functions"}
+  (:require
+   [clojure.java.io :as io]
+   [gcp.bigquery :as bq]
+   [gcp.global :as g])
+  (:import
+   (com.google.cloud.bigquery Job)
+   (java.nio.channels Channels)))
 
 (defn get-schema [dataset table]
   (when-let [T (bq/get-table dataset table)]
@@ -80,7 +81,7 @@
          configuration {:type "COPY"
                         :sourceTables     (g/coerce [:sequential :gcp.bigquery/TableId] source-tables)
                         :destinationTable (g/coerce :gcp.bigquery/TableId destination-table)
-                        :operationType    "CLONE",
+                        :operationType    "CLONE"
                         :writeDisposition "WRITE_EMPTY"}]
      (bq/create-job {:jobInfo {:configuration (g/coerce :gcp.bigquery/CopyJobConfiguration configuration)}})))
   ([sourceDataset sourceTable destinationDataset]
@@ -112,12 +113,11 @@
      (try
        (let [writer (bq/writer jobId cfg)
              stream (Channels/newOutputStream writer)
-             _(io/copy (slurp file) stream)
-             _(.close stream)
-             ;job (.getJob (bq/client) jobId)
-             ;completed (.wait(For Job)
-             ]
-         ;(if (nil? completed)
+             _ (io/copy (slurp file) stream)
+             _ (.close stream)]
+             ; job (.getJob (bq/client) jobId)
+             ; completed (.wait(For Job)
+         ; (if (nil? completed)
          ;  (println "Job DNE")
          ;  completed)
          (bq/get-job jobId))))))

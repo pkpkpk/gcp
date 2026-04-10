@@ -1,5 +1,6 @@
 (ns gcp.bigquery
-  (:require [gcp.bigquery.core :as bqc]))
+  (:require
+   [gcp.bigquery.core :as bqc]))
 
 (def client bqc/client)
 
@@ -82,7 +83,15 @@
 (defn query-with-timeout [& args]
   (bqc/execute! (bqc/->QueryWithTimeout (vec args))))
 
-(defn q [& args]
+(defn q
+  "Sugar for executing a SQL string with optional query parameters.
+   For more options use gcp.bigquery/query
+   Args:
+     (sql)
+     (sql, [:sequential :positional :params])
+     (sql, {:map-of \"named-parameters\"})
+   Return: a lazy list of maps"
+  [& args]
   (bqc/execute! (bqc/->Q (vec args))))
 
 #!-----------------------------------------------------------------------------

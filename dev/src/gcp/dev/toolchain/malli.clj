@@ -324,7 +324,7 @@
   (into [:map (common-opts node)]
         (map
           (fn [[k {:keys [returnType doc]}]]
-            (let [opts  (cond-> {:read-only? true} doc (assoc :doc doc))
+            (let [opts  (cond-> {:read-only? true :optional true} doc (assoc :doc doc))
                   schema (type-schema deps returnType)]
               [k opts schema])))
         (:getters-by-key node)))

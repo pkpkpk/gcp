@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-02T11:55:46.143757871Z"}}
+      :timestamp "2026-04-09T22:56:40.295399681Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery TimelineSample TimelineSample$Builder]))
 
@@ -42,24 +42,29 @@
     :gcp/key :gcp.bigquery/TimelineSample}
    [:activeUnits
     {:read-only? true,
+     :optional true,
      :doc "Returns the total number of work units currently being processed."}
     :i64]
    [:completedUnits
     {:read-only? true,
+     :optional true,
      :doc "Returns the total number of work units completed by this query."}
     :i64]
    [:elapsedMs
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the sample time as milliseconds elapsed since the start of query execution."}
     :i64]
    [:pendingUnits
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the number of work units remaining for the currently active stages."}
     :i64]
    [:slotMillis
     {:read-only? true,
+     :optional true,
      :doc "Returns the cumulative slot-milliseconds consumed by the query."}
     :i64]])
 

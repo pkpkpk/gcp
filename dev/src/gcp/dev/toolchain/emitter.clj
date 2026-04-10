@@ -954,7 +954,8 @@
                `(~'cond-> {}
                   ~@(mapcat
                       (fn [[k getter]]
-                        [(to-edn-branch-test deps getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
+                        [(to-edn-branch-test deps getter 'arg)
+                         (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
                       getters-by-key))))
 
 (defn- emit-variant-read-only-to-edn

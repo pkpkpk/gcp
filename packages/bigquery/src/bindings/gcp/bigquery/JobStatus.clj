@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-02T11:55:48.142032915Z"}}
+      :timestamp "2026-04-09T22:56:38.768214974Z"}}
   (:require [gcp.bigquery.BigQueryError :as BigQueryError]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery JobStatus JobStatus$State]))
@@ -49,16 +49,19 @@
     :gcp/key :gcp.bigquery/JobStatus}
    [:error
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the final error result of the job. If present, indicates that the job has completed and\nwas unsuccessful.\n\n@see <a href=\"https://cloud.google.com/bigquery/troubleshooting-errors\">Troubleshooting\n    Errors</a>"}
     :gcp.bigquery/BigQueryError]
    [:executionErrors
     {:read-only? true,
+     :optional true,
      :doc
        "Returns all errors encountered during the running of the job. Errors here do not necessarily\nmean that the job has completed or was unsuccessful.\n\n@see <a href=\"https://cloud.google.com/bigquery/troubleshooting-errors\">Troubleshooting\n    Errors</a>"}
     [:sequential {:min 1} :gcp.bigquery/BigQueryError]]
    [:state
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the state of the job. A {@link State#PENDING} job is waiting to be executed. A {@link\nState#RUNNING} is being executed. A {@link State#DONE} job has completed either succeeding or\nfailing. If failed {@link #getError()} will be non-null."}
     [:enum {:closed true} "PENDING" "RUNNING" "DONE"]]])

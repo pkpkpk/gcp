@@ -319,8 +319,8 @@
   [^Field arg]
   {:post [(g/strict! :gcp.bigquery/Field %)]}
   (cond-> {:name (.getName arg),
-           :subFields (map Field-to-edn (.getSubFields arg)),
            :type (.name (.getType arg))}
+          (seq (.getSubFields arg))        (assoc :subFields (map Field-to-edn (.getSubFields arg)))
           (.getCollation arg)              (assoc :collation (.getCollation arg))
           (.getDefaultValueExpression arg) (assoc :defaultValueExpression (.getDefaultValueExpression arg))
           (.getDescription arg)            (assoc :description (.getDescription arg))

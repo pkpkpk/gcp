@@ -208,8 +208,9 @@
           (.getWriteDisposition arg) (assoc :writeDisposition
                                             (.name (.getWriteDisposition arg)))))
 
-(def fields
-  [[:type [:= "QUERY"]]
+(def map-schema
+  [:map {:closed true}
+   [:type [:= "QUERY"]]
    [:allowLargeResults
     {:optional true,
      :getter-doc
@@ -382,38 +383,32 @@
      :setter-doc
      "Sets the action that should occur if the destination table already exists.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.query.writeDisposition\">\n    Write Disposition</a>"}
     [:enum {:closed true} "WRITE_TRUNCATE" "WRITE_TRUNCATE_DATA" "WRITE_APPEND"
-     "WRITE_EMPTY"]]])
+     "WRITE_EMPTY"]]
+   ;;-------------------------
+   [:namedParameters
+    {:optional true
+     :getter-doc "Returns the named query parameters to use for the query.",
+     :setter-doc "Sets the query parameters to a set of named query parameters to use in the query.\n\n<p>The set of query parameters must either be all positional or all named parameters. Named\nparameters are denoted using an @ prefix, e.g. @myParam for a parameter named \"myParam\".\n\n<p>Additionally, useLegacySql must be set to false; query parameters cannot be used with\nlegacy SQL.\n\n<p>The values parameter can be set to null to clear out the named parameters so that\npositional parameters can be used instead."}
+    [:map-of [:or 'simple-keyword? [:string {:min 1}]]
+     :gcp.bigquery/QueryParameterValue]]
+   [:positionalParameters
+    {:optional true
+     :getter-doc "Returns the positional query parameters to use for the query.",
+     :setter-doc "Sets the query parameters to a list of positional query parameters to use in the query.\n\n<p>The set of query parameters must either be all positional or all named parameters.\nPositional parameters are denoted in the query with a question mark (?).\n\n<p>Additionally, useLegacySql must be set to false; query parameters cannot be used with\nlegacy SQL.\n\n<p>The values parameter can be set to null to clear out the positional parameters so that\nnamed parameters can be used instead."}
+    [:sequential :gcp.bigquery/QueryParameterValue]]])
 
-(def named-schema
-  (into [:map {:closed true}
-         [:namedParameters
-          {:getter-doc "Returns the named query parameters to use for the query.",
-           :setter-doc "Sets the query parameters to a set of named query parameters to use in the query.\n\n<p>The set of query parameters must either be all positional or all named parameters. Named\nparameters are denoted using an @ prefix, e.g. @myParam for a parameter named \"myParam\".\n\n<p>Additionally, useLegacySql must be set to false; query parameters cannot be used with\nlegacy SQL.\n\n<p>The values parameter can be set to null to clear out the named parameters so that\npositional parameters can be used instead."}
-          [:map-of [:or 'simple-keyword? [:string {:min 1}]]
-           :gcp.bigquery/QueryParameterValue]]]
-        fields))
-
-(def positional-schema
-  (into [:map {:closed true}
-         [:positionalParameters
-          {:getter-doc "Returns the positional query parameters to use for the query.",
-           :setter-doc "Sets the query parameters to a list of positional query parameters to use in the query.\n\n<p>The set of query parameters must either be all positional or all named parameters.\nPositional parameters are denoted in the query with a question mark (?).\n\n<p>Additionally, useLegacySql must be set to false; query parameters cannot be used with\nlegacy SQL.\n\n<p>The values parameter can be set to null to clear out the positional parameters so that\nnamed parameters can be used instead."}
-          [:sequential :gcp.bigquery/QueryParameterValue]]]
-        fields))
-
-(def no-params-schema
-  (into [:map {:closed true}] fields))
 
 (def schema
-  [:or
-   {:closed true,
-    :doc
-    "Google BigQuery Query Job configuration. A Query Job runs a query against BigQuery data. Query\njob configurations have {@link JobConfiguration.Type#QUERY} type.",
+  [:and
+   {:doc "Google BigQuery Query Job configuration. A Query Job runs a query against BigQuery data. Query job configurations have {@link JobConfiguration.Type#QUERY} type.",
     :gcp/category :variant-accessor,
     :gcp/key :gcp.bigquery/QueryJobConfiguration}
-   named-schema
-   positional-schema
-   no-params-schema])
+   map-schema
+   [:fn
+    {:error/message ":namedParameters + :positionalParameters are exclusive to each-other"}
+    '(fn [m]
+       (not (and (contains? m :namedParameters)
+                 (contains? m :positionalParameters))))]])
 
 (g/include-schema-registry!
   (with-meta {:gcp.bigquery/QueryJobConfiguration schema,

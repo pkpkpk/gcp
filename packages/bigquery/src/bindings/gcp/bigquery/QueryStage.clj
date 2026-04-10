@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-02T11:55:44.247229176Z"}}
+      :timestamp "2026-04-09T22:56:39.563034165Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery QueryStage QueryStage$Builder
             QueryStage$QueryStep]))
@@ -42,11 +42,13 @@
     :gcp/key :gcp.bigquery/QueryStage.QueryStep}
    [:name
     {:read-only? true,
+     :optional true,
      :doc
        "Returns a machine-readable name for the operation.\n\n@see <a href=\"https://cloud.google.com/bigquery/query-plan-explanation#steps_metadata\">Steps\n    Metadata</a>"}
     [:string {:min 1}]]
    [:substeps
     {:read-only? true,
+     :optional true,
      :doc "Returns a list of human-readable stage descriptions."}
     [:sequential {:min 1} [:string {:min 1}]]]])
 
@@ -111,136 +113,167 @@
     :gcp/key :gcp.bigquery/QueryStage}
    [:completedParallelInputs
     {:read-only? true,
+     :optional true,
      :doc "Returns the number of parallel input segments completed."} :i64]
    [:computeMsAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the average worker spent on CPU-bound tasks."}
     :i64]
    [:computeMsMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the slowest worker spent on CPU-bound tasks."}
     :i64]
    [:computeRatioAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the average worker spent CPU-bound, divided by the longest time spent by any\nworker in any segment."}
     :f64]
    [:computeRatioMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the slowest worker spent CPU-bound, divided by the longest time spent by any\nworker in any segment."}
     :f64]
    [:endMs
     {:read-only? true,
+     :optional true,
      :doc "Returns the stage end time represented as milliseconds since epoch."}
     :i64]
    [:generatedId
     {:read-only? true,
+     :optional true,
      :doc
        "Returns a unique, server-generated ID for the stage within its plan."}
     :i64]
    [:inputStages
     {:read-only? true,
+     :optional true,
      :doc "Returns a list of the stage IDs that are inputs to this stage."}
     [:sequential {:min 1} :i64]]
    [:name
-    {:read-only? true, :doc "Returns a human-readable name for the stage."}
-    [:string {:min 1}]]
+    {:read-only? true,
+     :optional true,
+     :doc "Returns a human-readable name for the stage."} [:string {:min 1}]]
    [:parallelInputs
     {:read-only? true,
+     :optional true,
      :doc "Returns the number of parallel input segments to be processed."}
     :i64]
    [:readMsAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the average worker spent reading input."}
     :i64]
    [:readMsMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the slowest worker spent reading input."}
     :i64]
    [:readRatioAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the average worker spent reading input data, divided by the longest time spent\nby any worker in any segment."}
     :f64]
    [:readRatioMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the slowest worker spent reading input data, divided by the longest time spent\nby any worker in any segment."}
     :f64]
    [:recordsRead
     {:read-only? true,
+     :optional true,
      :doc "Returns the number of rows (top-level records) read by the stage."}
     :i64]
    [:recordsWritten
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the number of rows (top-level records) written by the stage."}
     :i64]
    [:shuffleOutputBytes
     {:read-only? true,
+     :optional true,
      :doc "Returns the total number of bytes written to shuffle."} :i64]
    [:shuffleOutputBytesSpilled
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the total number of bytes writtedn to shuffle and spilled to disk."}
     :i64]
    [:slotMs
-    {:read-only? true, :doc "Returns the slot-milliseconds used by the stage."}
-    :i64]
+    {:read-only? true,
+     :optional true,
+     :doc "Returns the slot-milliseconds used by the stage."} :i64]
    [:startMs
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the stage start time represented as milliseconds since epoch."}
     :i64]
-   [:status {:read-only? true, :doc "Returns the current status for the stage."}
-    [:string {:min 1}]]
+   [:status
+    {:read-only? true,
+     :optional true,
+     :doc "Returns the current status for the stage."} [:string {:min 1}]]
    [:steps
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the list of steps within the stage in dependency order (approximately chronological)."}
     [:sequential {:min 1} [:ref :gcp.bigquery/QueryStage.QueryStep]]]
    [:waitMsAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the average worker spent waiting to be scheduled."}
     :i64]
    [:waitMsMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the slowest worker spent waiting to be scheduled."}
     :i64]
    [:waitRatioAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the average worker spent waiting to be scheduled, divided by the longest time\nspent by any worker in any segment."}
     :f64]
    [:waitRatioMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the slowest worker spent waiting to be scheduled, divided by the longest time\nspent by any worker in any segment."}
     :f64]
    [:writeMsAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the average worker spent writing output."}
     :i64]
    [:writeMsMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time in milliseconds the slowest worker spent writing output."}
     :i64]
    [:writeRatioAvg
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the average worker spent writing output data, divided by the longest time\nspent by any worker in any segment."}
     :f64]
    [:writeRatioMax
     {:read-only? true,
+     :optional true,
      :doc
        "Returns the time the slowest worker spent writing output data, divided by the longest time\nspent by any worker in any segment."}
     :f64]])
