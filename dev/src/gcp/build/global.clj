@@ -29,14 +29,16 @@
                 (java.time.format.DateTimeFormatter/ofPattern "yyyy.MM.dd.HHmmss"))))
 
 (defn pom [version]
-  (let [basis (b/create-basis {:project (.getPath (io/file package-root "deps.edn"))})]
-    {:src-dirs [(.getPath src-root)]
-     :lib      lib
-     :version  version
-     :basis    basis
-     :pom-data (util/pom-template {:version     version
-                                   :description (:description defs/global)
-                                   :url         "https://github.com/pkpkpk/gcp"})}))
+  (let [basis (b/create-basis {:project (.getPath (io/file package-root "deps.edn"))})
+        target-root (.getPath (io/file package-root "target"))]
+    {:src-dirs    [(.getPath src-root)]
+     :lib         lib
+     :version     version
+     :basis       basis
+     :target-root target-root
+     :pom-data    (util/pom-template {:version     version
+                                      :description (:description defs/global)
+                                      :url         "https://github.com/pkpkpk/gcp"})}))
 
 (defn build []
   (let [new-hash (current-hash)

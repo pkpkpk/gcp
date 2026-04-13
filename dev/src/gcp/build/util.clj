@@ -39,11 +39,13 @@
     [:tag (str "v" version)]]])
 
 (defn jar
-  [{:keys [src-dirs class-dir lib version]
-    :or {class-dir "target/classes"}
+  [{:keys [src-dirs target-root lib version]
+    :or {target-root "target"}
     :as pom}]
-  (let [jar-file (format "target/%s-%s.jar" (name lib) version)
-        pom (assoc pom :class-dir class-dir)]
+  (let [class-dir (str target-root "/classes")
+        jar-file  (format "%s/%s-%s.jar" target-root (name lib) version)
+        pom       (assoc pom :class-dir class-dir)]
+    (b/delete {:path target-root})
     (b/write-pom pom)
     (b/copy-dir {:src-dirs   src-dirs
                  :target-dir class-dir})
@@ -51,25 +53,31 @@
             :jar-file  jar-file})))
 
 (defn install-local
-  [{:keys [lib version] :as pom}]
-  (let [jar-file (format "target/%s-%s.jar" (name lib) version)
-        pom-file (b/pom-path (assoc pom :class-dir "target/classes"))]
-    (b/install {:basis    (:basis pom)
-                :lib      lib
-                :class-dir "target/classes"
-                :version  version
-                :jar-file jar-file
-                :pom-file pom-file})))
+  [{:keys [lib version target-root]
+    :or {target-root "target"}
+    :as pom}]
+  (let [class-dir (str target-root "/classes")
+        jar-file  (format "%s/%s-%s.jar" target-root (name lib) version)
+        pom-file  (b/pom-path (assoc pom :class-dir class-dir))]
+    (b/install {:basis     (:basis pom)
+                :lib       lib
+                :class-dir class-dir
+                :version   version
+                :jar-file  jar-file
+                :pom-file  pom-file})))
 
 (defn deploy
-  [{:keys [lib version] :as pom}]
+  [{:keys [lib version target-root]
+    :or {target-root "target"}
+    :as pom}]
   (assert (some? (System/getenv "CLOJARS_USERNAME")))
   (assert (some? (System/getenv "CLOJARS_PASSWORD")))
-  (let [jar-file (format "target/%s-%s.jar" (name lib) version)]
+  (let [class-dir (str target-root "/classes")
+        jar-file  (format "%s/%s-%s.jar" target-root (name lib) version)]
     (assert (.exists (io/file jar-file)))
     (dd/deploy {:artifact  jar-file
                 :installer :remote
-                :pom-file  (b/pom-path (assoc pom :class-dir "target/classes"))})))
+                :pom-file  (b/pom-path (assoc pom :class-dir class-dir))})))
 
 (comment
   (defn pom [{:keys [description lib sdk-version]}]

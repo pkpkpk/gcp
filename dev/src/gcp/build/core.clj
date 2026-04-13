@@ -93,14 +93,16 @@
                          (assoc (:lib defs/global) {:mvn/version global-version}))
         project (assoc deps-map :deps project-deps)
         basis (b/create-basis {:project project :dir (.getPath package-root)})
-        src-dirs (mapv #(.getPath (io/file package-root %)) (:paths project))]
-    {:src-dirs src-dirs
-     :lib      (:lib pkg)
-     :version  version
-     :basis    basis
-     :pom-data (util/pom-template {:version     version
-                                   :description (:description pkg)
-                                   :url         "https://github.com/pkpkpk/gcp"})}))
+        src-dirs (mapv #(.getPath (io/file package-root %)) (:paths project))
+        target-root (.getPath (io/file package-root "target"))]
+    {:src-dirs    src-dirs
+     :lib         (:lib pkg)
+     :version     version
+     :basis       basis
+     :target-root target-root
+     :pom-data    (util/pom-template {:version     version
+                                      :description (:description pkg)
+                                      :url         "https://github.com/pkpkpk/gcp"})}))
 
 (defn build-package [pkg]
   (let [global-version (global/build)
