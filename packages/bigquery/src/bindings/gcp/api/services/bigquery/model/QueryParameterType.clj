@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.QueryParameterType"
    :gcp.dev/certification
-     {:base-seed 1775130934171
+     {:base-seed 1776499424390
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130934171 :standard 1775130934172 :stress 1775130934173}
+        {:smoke 1776499424390 :standard 1776499424391 :stress 1776499424392}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:35.596670209Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:46.319888185Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model QueryParameterType
             QueryParameterType$StructTypes]))
@@ -74,7 +74,7 @@
     (when (some? (get arg :rangeElementType))
       (.setRangeElementType o (from-edn (get arg :rangeElementType))))
     (when (some? (get arg :structTypes))
-      (.setStructTypes o (map StructTypes-from-edn (get arg :structTypes))))
+      (.setStructTypes o (mapv StructTypes-from-edn (get arg :structTypes))))
     (when (some? (get arg :timestampPrecision))
       (.setTimestampPrecision o (long (get arg :timestampPrecision))))
     (when (some? (get arg :type)) (.setType o (get arg :type)))
@@ -90,7 +90,7 @@
       (.getRangeElementType arg) (assoc :rangeElementType
                                    (to-edn (.getRangeElementType arg)))
       (seq (.getStructTypes arg))
-        (assoc :structTypes (map StructTypes-to-edn (.getStructTypes arg)))
+        (assoc :structTypes (mapv StructTypes-to-edn (.getStructTypes arg)))
       (.getTimestampPrecision arg) (assoc :timestampPrecision
                                      (.getTimestampPrecision arg))
       (some->> (.getType arg)

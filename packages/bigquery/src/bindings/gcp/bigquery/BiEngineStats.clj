@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BiEngineStats"
    :gcp.dev/certification
-     {:base-seed 1775130939439
+     {:base-seed 1776499430760
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130939439 :standard 1775130939440 :stress 1775130939441}
+        {:smoke 1776499430760 :standard 1776499430761 :stress 1776499430762}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:40.623467587Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:52.109503076Z"}}
   (:require [gcp.bigquery.BiEngineReason :as BiEngineReason]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery BiEngineStats BiEngineStats$Builder]))
@@ -26,7 +26,7 @@
       (.setBiEngineMode builder (get arg :biEngineMode)))
     (when (seq (get arg :biEngineReasons))
       (.setBiEngineReasons builder
-                           (map BiEngineReason/from-edn
+                           (mapv BiEngineReason/from-edn
                              (get arg :biEngineReasons))))
     (.build builder)))
 
@@ -39,7 +39,7 @@
                (not= ""))
         (assoc :biEngineMode (.getBiEngineMode arg))
       (seq (.getBiEngineReasons arg)) (assoc :biEngineReasons
-                                        (map BiEngineReason/to-edn
+                                        (mapv BiEngineReason/to-edn
                                           (.getBiEngineReasons arg))))))
 
 (def schema

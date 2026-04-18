@@ -11,7 +11,7 @@
         "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-09T22:56:38.768214974Z"}}
+      :timestamp "2026-04-18T08:03:59.493597521Z"}}
   (:require [gcp.bigquery.BigQueryError :as BigQueryError]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery JobStatus JobStatus$State]))
@@ -36,7 +36,7 @@
     (cond-> {}
       (.getError arg) (assoc :error (BigQueryError/to-edn (.getError arg)))
       (seq (.getExecutionErrors arg)) (assoc :executionErrors
-                                        (map BigQueryError/to-edn
+                                        (mapv BigQueryError/to-edn
                                           (.getExecutionErrors arg)))
       (.getState arg) (assoc :state (.name (.getState arg))))))
 

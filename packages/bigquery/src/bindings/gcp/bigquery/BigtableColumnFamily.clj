@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BigtableColumnFamily"
    :gcp.dev/certification
-     {:base-seed 1775130842459
+     {:base-seed 1776499329398
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130842459 :standard 1775130842460 :stress 1775130842461}
+        {:smoke 1776499329398 :standard 1776499329399 :stress 1776499329400}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:54:03.697324269Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:02:10.885542862Z"}}
   (:require [gcp.bigquery.BigtableColumn :as BigtableColumn]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigtableColumnFamily
@@ -24,7 +24,7 @@
   (global/strict! :gcp.bigquery/BigtableColumnFamily arg)
   (let [builder (BigtableColumnFamily/newBuilder)]
     (when (seq (get arg :columns))
-      (.setColumns builder (map BigtableColumn/from-edn (get arg :columns))))
+      (.setColumns builder (mapv BigtableColumn/from-edn (get arg :columns))))
     (when (some? (get arg :encoding))
       (.setEncoding builder (get arg :encoding)))
     (when (some? (get arg :familyID))
@@ -38,7 +38,7 @@
   [^BigtableColumnFamily arg]
   {:post [(global/strict! :gcp.bigquery/BigtableColumnFamily %)]}
   (when arg
-    (cond-> {:columns (map BigtableColumn/to-edn (.getColumns arg)),
+    (cond-> {:columns (mapv BigtableColumn/to-edn (.getColumns arg)),
              :encoding (.getEncoding arg),
              :familyID (.getFamilyID arg),
              :onlyReadLatest (.getOnlyReadLatest arg),

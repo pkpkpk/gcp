@@ -11,7 +11,7 @@
         "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-09T22:56:38.436308735Z"}}
+      :timestamp "2026-04-18T08:05:14.916257396Z"}}
   (:require [gcp.bigquery.BigQueryError :as BigQueryError]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery InsertAllResponse]))
@@ -31,7 +31,7 @@
       (seq (.getInsertErrors arg))
         (assoc :insertErrors
           (into {}
-                (map (fn [[k v]] [k (map BigQueryError/to-edn v)]))
+                (map (fn [[k v]] [k (mapv BigQueryError/to-edn v)]))
                 (.getInsertErrors arg))))))
 
 (def schema

@@ -5,13 +5,13 @@
    :file-git-sha "5cfdf855fa0cf206660fd89743cbaabf3afa75a3"
    :fqcn "com.google.cloud.bigquery.LoadJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1775130923288
+     {:base-seed 1776499414747
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130923288 :standard 1775130923289 :stress 1775130923290}
+        {:smoke 1776499414747 :standard 1776499414748 :stress 1776499414749}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:24.918895599Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:36.459422477Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.CsvOptions :as CsvOptions]
@@ -52,7 +52,7 @@
       (.setColumnNameCharacterMap builder (get arg :columnNameCharacterMap)))
     (when (some? (get arg :connectionProperties))
       (.setConnectionProperties builder
-                                (map ConnectionProperty/from-edn
+                                (mapv ConnectionProperty/from-edn
                                   (get arg :connectionProperties))))
     (when (some? (get arg :createDisposition))
       (.setCreateDisposition builder
@@ -105,7 +105,7 @@
       (.setSchema builder (Schema/from-edn (get arg :schema))))
     (when (some? (get arg :schemaUpdateOptions))
       (.setSchemaUpdateOptions builder
-                               (map JobInfo$SchemaUpdateOption/valueOf
+                               (mapv JobInfo$SchemaUpdateOption/valueOf
                                  (get arg :schemaUpdateOptions))))
     (when (some? (get arg :sourceColumnMatch))
       (.setSourceColumnMatch builder
@@ -143,7 +143,7 @@
                (not= ""))
         (assoc :columnNameCharacterMap (.getColumnNameCharacterMap arg))
       (seq (.getConnectionProperties arg)) (assoc :connectionProperties
-                                             (map ConnectionProperty/to-edn
+                                             (mapv ConnectionProperty/to-edn
                                                (.getConnectionProperties arg)))
       (.getCreateDisposition arg) (assoc :createDisposition
                                     (.name (.getCreateDisposition arg)))
@@ -191,7 +191,7 @@
         (assoc :reservation (.getReservation arg))
       (.getSchema arg) (assoc :schema (Schema/to-edn (.getSchema arg)))
       (seq (.getSchemaUpdateOptions arg)) (assoc :schemaUpdateOptions
-                                            (map (fn [e] (.name e))
+                                            (mapv (fn [e] (.name e))
                                               (.getSchemaUpdateOptions arg)))
       (.getSourceColumnMatch arg) (assoc :sourceColumnMatch
                                     (.name (.getSourceColumnMatch arg)))

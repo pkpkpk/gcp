@@ -5,13 +5,13 @@
    :file-git-sha "3e97f7c0c4676fcdda0862929a69bbabc69926f2"
    :fqcn "com.google.cloud.bigquery.CopyJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1775130918462
+     {:base-seed 1776499409649
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130918462 :standard 1775130918463 :stress 1775130918464}
+        {:smoke 1776499409649 :standard 1776499409650 :stress 1776499409651}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:19.735377792Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:31.058076823Z"}}
   (:require [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
@@ -26,7 +26,7 @@
   (global/strict! :gcp.bigquery/CopyJobConfiguration arg)
   (let [builder (CopyJobConfiguration/newBuilder
                   (TableId/from-edn (get arg :destinationTable))
-                  (map TableId/from-edn (get arg :sourceTables)))]
+                  (mapv TableId/from-edn (get arg :sourceTables)))]
     (when (some? (get arg :createDisposition))
       (.setCreateDisposition builder
                              (JobInfo$CreateDisposition/valueOf
@@ -59,7 +59,7 @@
   {:post [(global/strict! :gcp.bigquery/CopyJobConfiguration %)]}
   (when arg
     (cond-> {:destinationTable (TableId/to-edn (.getDestinationTable arg)),
-             :sourceTables (map TableId/to-edn (.getSourceTables arg)),
+             :sourceTables (mapv TableId/to-edn (.getSourceTables arg)),
              :type "COPY"}
       (.getCreateDisposition arg) (assoc :createDisposition
                                     (.name (.getCreateDisposition arg)))

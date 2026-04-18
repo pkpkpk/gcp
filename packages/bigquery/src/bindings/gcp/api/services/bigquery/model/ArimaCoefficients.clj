@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ArimaCoefficients"
    :gcp.dev/certification
-     {:base-seed 1775130873833
+     {:base-seed 1776499364341
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130873833 :standard 1775130873834 :stress 1775130873835}
+        {:smoke 1776499364341 :standard 1776499364342 :stress 1776499364343}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:54:35.031956460Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:02:45.673729501Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model ArimaCoefficients]))
 

@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.ColumnReference"
    :gcp.dev/certification
-     {:base-seed 1775130899792
+     {:base-seed 1776499391340
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130899792 :standard 1775130899793 :stress 1775130899794}
+        {:smoke 1776499391340 :standard 1776499391341 :stress 1776499391342}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:01.123927985Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:12.660332969Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery ColumnReference ColumnReference$Builder]))
 

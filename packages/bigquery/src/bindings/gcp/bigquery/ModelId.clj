@@ -4,13 +4,13 @@
    :file-git-sha "c3548a2f521b19761c844c0b24fc8caab541aba7"
    :fqcn "com.google.cloud.bigquery.ModelId"
    :gcp.dev/certification
-     {:base-seed 1775130920083
+     {:base-seed 1776499411356
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130920083 :standard 1775130920084 :stress 1775130920085}
+        {:smoke 1776499411356 :standard 1776499411357 :stress 1776499411358}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:21.177734979Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:32.687826662Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery ModelId]))
 

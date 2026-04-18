@@ -11,7 +11,7 @@
         "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-09T22:56:39.563034165Z"}}
+      :timestamp "2026-04-18T08:03:55.842491038Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery QueryStage QueryStage$Builder
             QueryStage$QueryStep]))
@@ -94,7 +94,7 @@
                (not= ""))
         (assoc :status (.getStatus arg))
       (seq (.getSteps arg)) (assoc :steps
-                              (map QueryStep-to-edn (.getSteps arg)))
+                              (mapv QueryStep-to-edn (.getSteps arg)))
       (.getWaitMsAvg arg) (assoc :waitMsAvg (.getWaitMsAvg arg))
       (.getWaitMsMax arg) (assoc :waitMsMax (.getWaitMsMax arg))
       (.getWaitRatioAvg arg) (assoc :waitRatioAvg (.getWaitRatioAvg arg))

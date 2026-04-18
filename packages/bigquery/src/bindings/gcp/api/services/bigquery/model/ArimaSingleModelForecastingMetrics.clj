@@ -6,13 +6,13 @@
    :fqcn
      "com.google.api.services.bigquery.model.ArimaSingleModelForecastingMetrics"
    :gcp.dev/certification
-     {:base-seed 1775130971117
+     {:base-seed 1776499459919
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130971117 :standard 1775130971118 :stress 1775130971119}
+        {:smoke 1776499459919 :standard 1776499459920 :stress 1776499459921}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:12.417750052Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:21.387027127Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaFittingMetrics :as
              ArimaFittingMetrics]
             [gcp.api.services.bigquery.model.ArimaOrder :as ArimaOrder]

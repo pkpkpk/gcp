@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :client
       :skipped true
-      :timestamp "2026-04-02T11:54:52.123074061Z"}}
+      :timestamp "2026-04-18T08:03:03.373335072Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery Connection]))
 

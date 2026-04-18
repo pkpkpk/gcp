@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.TimePartitioning"
    :gcp.dev/certification
-     {:base-seed 1775130867349
+     {:base-seed 1776499356727
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130867349 :standard 1775130867350 :stress 1775130867351}
+        {:smoke 1776499356727 :standard 1776499356728 :stress 1776499356729}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:54:28.450625948Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:02:38.225221057Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery TimePartitioning TimePartitioning$Builder
             TimePartitioning$Type]))
@@ -59,8 +59,8 @@
    [:expirationMs
     {:optional true,
      :getter-doc
-       "Returns the number of milliseconds for which to keep the storage for a partition. When expired,\nthe storage for the partition is reclaimed. If null, the partion does not expire."}
-    :i64]
+       "Returns the number of milliseconds for which to keep the storage for a partition. When expired,\nthe storage for the partition is reclaimed. If null, the partion does not expire.",
+     :setter-doc nil} :i64]
    [:field
     {:optional true,
      :read-only? true,
@@ -70,8 +70,8 @@
    [:requirePartitionFilter
     {:optional true,
      :getter-doc
-       "If set to true, queries over this table require a partition filter (that can be used for\npartition elimination) to be specified."}
-    :boolean]
+       "If set to true, queries over this table require a partition filter (that can be used for\npartition elimination) to be specified.",
+     :setter-doc nil} :boolean]
    [:type {:getter-doc "Returns the time partitioning type."}
     [:enum {:closed true} "DAY" "HOUR" "MONTH" "YEAR"]]])
 

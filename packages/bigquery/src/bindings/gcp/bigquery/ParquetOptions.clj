@@ -4,13 +4,13 @@
    :file-git-sha "a335927e16d0907d62e584f08fa8393daae40354"
    :fqcn "com.google.cloud.bigquery.ParquetOptions"
    :gcp.dev/certification
-     {:base-seed 1775130850655
+     {:base-seed 1776499339268
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130850655 :standard 1775130850656 :stress 1775130850657}
+        {:smoke 1776499339268 :standard 1776499339269 :stress 1776499339270}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:54:11.882605112Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:02:21.191728876Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery ParquetOptions ParquetOptions$Builder]))
 

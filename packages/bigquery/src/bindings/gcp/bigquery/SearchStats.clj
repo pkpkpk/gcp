@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.SearchStats"
    :gcp.dev/certification
-     {:base-seed 1775130944582
+     {:base-seed 1776499436086
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130944582 :standard 1775130944583 :stress 1775130944584}
+        {:smoke 1776499436086 :standard 1776499436087 :stress 1776499436088}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:45.781661422Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:57.394438835Z"}}
   (:require [gcp.bigquery.IndexUnusedReason :as IndexUnusedReason]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery SearchStats SearchStats$Builder]))
@@ -23,7 +23,7 @@
   (let [builder (SearchStats/newBuilder)]
     (when (seq (get arg :indexUnusedReasons))
       (.setIndexUnusedReasons builder
-                              (map IndexUnusedReason/from-edn
+                              (mapv IndexUnusedReason/from-edn
                                 (get arg :indexUnusedReasons))))
     (when (some? (get arg :indexUsageMode))
       (.setIndexUsageMode builder (get arg :indexUsageMode)))
@@ -35,7 +35,7 @@
   (when arg
     (cond-> {}
       (seq (.getIndexUnusedReasons arg)) (assoc :indexUnusedReasons
-                                           (map IndexUnusedReason/to-edn
+                                           (mapv IndexUnusedReason/to-edn
                                              (.getIndexUnusedReasons arg)))
       (some->> (.getIndexUsageMode arg)
                (not= ""))

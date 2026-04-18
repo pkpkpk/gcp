@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
       :reason :client
       :skipped true
-      :timestamp "2026-04-02T11:56:49.513096451Z"}}
+      :timestamp "2026-04-18T08:05:00.721496963Z"}}
   (:require [gcp.bigquery.custom.BigQueryRetryConfig :as BigQueryRetryConfig]
             [gcp.foreign.com.google.cloud :as cloud]
             [gcp.global :as global])
@@ -175,7 +175,8 @@
             :fields (conj acc
                           (BigQuery$DatasetOption/fields
                             (into-array BigQuery$DatasetField
-                                        (map BigQuery$DatasetField/valueOf v))))
+                                        (mapv BigQuery$DatasetField/valueOf
+                                          v))))
             :accessPolicyVersion
               (conj acc (BigQuery$DatasetOption/accessPolicyVersion (int v)))
             :datasetView (conj acc
@@ -195,7 +196,7 @@
         (case k
           :fields (reduced (BigQuery$DatasetOption/fields
                              (into-array BigQuery$DatasetField
-                                         (map BigQuery$DatasetField/valueOf
+                                         (mapv BigQuery$DatasetField/valueOf
                                            v))))
           :accessPolicyVersion
             (reduced (BigQuery$DatasetOption/accessPolicyVersion (int v)))
@@ -423,7 +424,7 @@
             :fields (conj acc
                           (BigQuery$TableOption/fields
                             (into-array BigQuery$TableField
-                                        (map BigQuery$TableField/valueOf v))))
+                                        (mapv BigQuery$TableField/valueOf v))))
             :autodetectSchema (conj acc
                                     (BigQuery$TableOption/autodetectSchema v))
             :tableMetadataView (conj acc
@@ -440,7 +441,7 @@
         (case k
           :fields (reduced (BigQuery$TableOption/fields
                              (into-array BigQuery$TableField
-                                         (map BigQuery$TableField/valueOf v))))
+                                         (mapv BigQuery$TableField/valueOf v))))
           :autodetectSchema (reduced (BigQuery$TableOption/autodetectSchema v))
           :tableMetadataView (reduced (BigQuery$TableOption/tableMetadataView
                                         (BigQuery$TableMetadataView/valueOf v)))
@@ -513,18 +514,18 @@
 (do (defn ^BigQuery$ModelOption/1 ModelOption-Array-from-edn
       [arg]
       (global/strict! :gcp.bigquery/BigQuery.ModelOption arg)
-      (into-array BigQuery$ModelOption
-                  (reduce-kv
-                    (fn [acc k v]
-                      (case k
-                        :fields (conj acc
-                                      (BigQuery$ModelOption/fields
-                                        (into-array
-                                          BigQuery$ModelField
-                                          (map BigQuery$ModelField/valueOf v))))
-                        acc))
-                    []
-                    arg)))
+      (into-array
+        BigQuery$ModelOption
+        (reduce-kv (fn [acc k v]
+                     (case k
+                       :fields (conj acc
+                                     (BigQuery$ModelOption/fields
+                                       (into-array
+                                         BigQuery$ModelField
+                                         (mapv BigQuery$ModelField/valueOf v))))
+                       acc))
+                   []
+                   arg)))
     (defn ^BigQuery$ModelOption ModelOption-from-edn
       [arg]
       (global/strict! :gcp.bigquery/BigQuery.ModelOption arg)
@@ -533,7 +534,8 @@
                      :fields (reduced (BigQuery$ModelOption/fields
                                         (into-array
                                           BigQuery$ModelField
-                                          (map BigQuery$ModelField/valueOf v))))
+                                          (mapv BigQuery$ModelField/valueOf
+                                            v))))
                      acc))
                  nil
                  arg)))
@@ -555,34 +557,35 @@
        "LOCATION" "MODEL_REFERENCE" "TRAINING_RUNS" "LABEL_COLUMNS"
        "FEATURE_COLUMNS" "TYPE"]]]]])
 
-(do
-  (defn ^BigQuery$RoutineOption/1 RoutineOption-Array-from-edn
-    [arg]
-    (global/strict! :gcp.bigquery/BigQuery.RoutineOption arg)
-    (into-array BigQuery$RoutineOption
-                (reduce-kv
-                  (fn [acc k v]
-                    (case k
-                      :fields (conj acc
-                                    (BigQuery$RoutineOption/fields
-                                      (into-array
-                                        BigQuery$RoutineField
-                                        (map BigQuery$RoutineField/valueOf v))))
-                      acc))
-                  []
-                  arg)))
-  (defn ^BigQuery$RoutineOption RoutineOption-from-edn
-    [arg]
-    (global/strict! :gcp.bigquery/BigQuery.RoutineOption arg)
-    (reduce-kv (fn [acc k v]
-                 (case k
-                   :fields (reduced (BigQuery$RoutineOption/fields
-                                      (into-array
-                                        BigQuery$RoutineField
-                                        (map BigQuery$RoutineField/valueOf v))))
-                   acc))
-               nil
-               arg)))
+(do (defn ^BigQuery$RoutineOption/1 RoutineOption-Array-from-edn
+      [arg]
+      (global/strict! :gcp.bigquery/BigQuery.RoutineOption arg)
+      (into-array BigQuery$RoutineOption
+                  (reduce-kv (fn [acc k v]
+                               (case k
+                                 :fields
+                                   (conj acc
+                                         (BigQuery$RoutineOption/fields
+                                           (into-array
+                                             BigQuery$RoutineField
+                                             (mapv BigQuery$RoutineField/valueOf
+                                               v))))
+                                 acc))
+                             []
+                             arg)))
+    (defn ^BigQuery$RoutineOption RoutineOption-from-edn
+      [arg]
+      (global/strict! :gcp.bigquery/BigQuery.RoutineOption arg)
+      (reduce-kv (fn [acc k v]
+                   (case k
+                     :fields (reduced (BigQuery$RoutineOption/fields
+                                        (into-array
+                                          BigQuery$RoutineField
+                                          (mapv BigQuery$RoutineField/valueOf
+                                            v))))
+                     acc))
+                 nil
+                 arg)))
 
 (def RoutineOption-schema
   [:maybe
@@ -670,7 +673,7 @@
             :stateFilter (conj acc
                                (BigQuery$JobListOption/stateFilter
                                  (into-array JobStatus$State
-                                             (map JobStatus$State/valueOf v))))
+                                             (mapv JobStatus$State/valueOf v))))
             :minCreationTime
               (conj acc (BigQuery$JobListOption/minCreationTime (long v)))
             :maxCreationTime
@@ -681,7 +684,7 @@
             :fields (conj acc
                           (BigQuery$JobListOption/fields
                             (into-array BigQuery$JobField
-                                        (map BigQuery$JobField/valueOf v))))
+                                        (mapv BigQuery$JobField/valueOf v))))
             acc))
         []
         arg)))
@@ -694,7 +697,8 @@
           :allUsers (if v (reduced (BigQuery$JobListOption/allUsers)) acc)
           :stateFilter (reduced (BigQuery$JobListOption/stateFilter
                                   (into-array JobStatus$State
-                                              (map JobStatus$State/valueOf v))))
+                                              (mapv JobStatus$State/valueOf
+                                                v))))
           :minCreationTime (reduced (BigQuery$JobListOption/minCreationTime
                                       (long v)))
           :maxCreationTime (reduced (BigQuery$JobListOption/maxCreationTime
@@ -704,7 +708,7 @@
           :parentJobId (reduced (BigQuery$JobListOption/parentJobId v))
           :fields (reduced (BigQuery$JobListOption/fields
                              (into-array BigQuery$JobField
-                                         (map BigQuery$JobField/valueOf v))))
+                                         (mapv BigQuery$JobField/valueOf v))))
           acc))
       nil
       arg)))
@@ -771,14 +775,14 @@
             :fields (conj acc
                           (BigQuery$JobOption/fields
                             (into-array BigQuery$JobField
-                                        (map BigQuery$JobField/valueOf v))))
+                                        (mapv BigQuery$JobField/valueOf v))))
             :bigQueryRetryConfig (conj acc
                                        (BigQuery$JobOption/bigQueryRetryConfig
                                          (BigQueryRetryConfig/from-edn v)))
             :retryOptions (conj acc
                                 (BigQuery$JobOption/retryOptions
                                   (into-array RetryOption
-                                              (map cloud/RetryOption-from-edn
+                                              (mapv cloud/RetryOption-from-edn
                                                 v))))
             acc))
         []
@@ -791,12 +795,12 @@
         (case k
           :fields (reduced (BigQuery$JobOption/fields
                              (into-array BigQuery$JobField
-                                         (map BigQuery$JobField/valueOf v))))
+                                         (mapv BigQuery$JobField/valueOf v))))
           :bigQueryRetryConfig (reduced (BigQuery$JobOption/bigQueryRetryConfig
                                           (BigQueryRetryConfig/from-edn v)))
           :retryOptions (reduced (BigQuery$JobOption/retryOptions
                                    (into-array RetryOption
-                                               (map cloud/RetryOption-from-edn
+                                               (mapv cloud/RetryOption-from-edn
                                                  v))))
           acc))
       nil

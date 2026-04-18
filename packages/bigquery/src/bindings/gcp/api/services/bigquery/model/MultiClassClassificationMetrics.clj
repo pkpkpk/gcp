@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.MultiClassClassificationMetrics"
    :gcp.dev/certification
-     {:base-seed 1775130987863
+     {:base-seed 1776499477988
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130987863 :standard 1775130987864 :stress 1775130987865}
+        {:smoke 1776499477988 :standard 1776499477989 :stress 1776499477990}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:29.117406497Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:39.284355659Z"}}
   (:require [gcp.api.services.bigquery.model.AggregateClassificationMetrics :as
              AggregateClassificationMetrics]
             [gcp.api.services.bigquery.model.ConfusionMatrix :as
@@ -35,7 +35,7 @@
           (get arg :aggregateClassificationMetrics))))
     (when (some? (get arg :confusionMatrixList))
       (.setConfusionMatrixList o
-                               (map ConfusionMatrix/from-edn
+                               (mapv ConfusionMatrix/from-edn
                                  (get arg :confusionMatrixList))))
     o))
 
@@ -51,7 +51,7 @@
           (AggregateClassificationMetrics/to-edn
             (.getAggregateClassificationMetrics arg)))
       (seq (.getConfusionMatrixList arg)) (assoc :confusionMatrixList
-                                            (map ConfusionMatrix/to-edn
+                                            (mapv ConfusionMatrix/to-edn
                                               (.getConfusionMatrixList arg))))))
 
 (def schema

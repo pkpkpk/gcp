@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.ViewDefinition"
    :gcp.dev/certification
-     {:base-seed 1775130907907
+     {:base-seed 1776499398133
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130907907 :standard 1775130907908 :stress 1775130907909}
+        {:smoke 1776499398133 :standard 1776499398134 :stress 1776499398135}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:09.769429671Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:19.780667355Z"}}
   (:require [gcp.bigquery.Schema :as Schema]
             [gcp.bigquery.UserDefinedFunction :as UserDefinedFunction]
             [gcp.global :as global])
@@ -29,7 +29,7 @@
       (.setUseLegacySql builder (get arg :useLegacySql)))
     (when (some? (get arg :userDefinedFunctions))
       (.setUserDefinedFunctions builder
-                                (map UserDefinedFunction/from-edn
+                                (mapv UserDefinedFunction/from-edn
                                   (get arg :userDefinedFunctions))))
     (.build builder)))
 
@@ -42,7 +42,7 @@
       (.useLegacySql arg) (assoc :useLegacySql (.useLegacySql arg))
       (seq (.getUserDefinedFunctions arg))
         (assoc :userDefinedFunctions
-          (map UserDefinedFunction/to-edn (.getUserDefinedFunctions arg))))))
+          (mapv UserDefinedFunction/to-edn (.getUserDefinedFunctions arg))))))
 
 (def schema
   [:map

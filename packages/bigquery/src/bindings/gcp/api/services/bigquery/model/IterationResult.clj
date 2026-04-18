@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.IterationResult"
    :gcp.dev/certification
-     {:base-seed 1775130887926
+     {:base-seed 1776499377198
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130887926 :standard 1775130887927 :stress 1775130887928}
+        {:smoke 1776499377198 :standard 1776499377199 :stress 1776499377200}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:54:49.110972056Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:02:58.761173552Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaResult :as ArimaResult]
             [gcp.api.services.bigquery.model.ClusterInfo :as ClusterInfo]
             [gcp.api.services.bigquery.model.PrincipalComponentInfo :as
@@ -28,7 +28,7 @@
     (when (some? (get arg :arimaResult))
       (.setArimaResult o (ArimaResult/from-edn (get arg :arimaResult))))
     (when (some? (get arg :clusterInfos))
-      (.setClusterInfos o (map ClusterInfo/from-edn (get arg :clusterInfos))))
+      (.setClusterInfos o (mapv ClusterInfo/from-edn (get arg :clusterInfos))))
     (when (some? (get arg :durationMs))
       (.setDurationMs o (long (get arg :durationMs))))
     (when (some? (get arg :evalLoss))
@@ -37,7 +37,7 @@
       (.setLearnRate o (double (get arg :learnRate))))
     (when (some? (get arg :principalComponentInfos))
       (.setPrincipalComponentInfos o
-                                   (map PrincipalComponentInfo/from-edn
+                                   (mapv PrincipalComponentInfo/from-edn
                                      (get arg :principalComponentInfos))))
     (when (some? (get arg :trainingLoss))
       (.setTrainingLoss o (double (get arg :trainingLoss))))
@@ -51,13 +51,14 @@
       (.getArimaResult arg) (assoc :arimaResult
                               (ArimaResult/to-edn (.getArimaResult arg)))
       (seq (.getClusterInfos arg))
-        (assoc :clusterInfos (map ClusterInfo/to-edn (.getClusterInfos arg)))
+        (assoc :clusterInfos (mapv ClusterInfo/to-edn (.getClusterInfos arg)))
       (.getDurationMs arg) (assoc :durationMs (.getDurationMs arg))
       (.getEvalLoss arg) (assoc :evalLoss (.getEvalLoss arg))
       (.getLearnRate arg) (assoc :learnRate (.getLearnRate arg))
       (seq (.getPrincipalComponentInfos arg))
         (assoc :principalComponentInfos
-          (map PrincipalComponentInfo/to-edn (.getPrincipalComponentInfos arg)))
+          (mapv PrincipalComponentInfo/to-edn
+            (.getPrincipalComponentInfos arg)))
       (.getTrainingLoss arg) (assoc :trainingLoss (.getTrainingLoss arg)))))
 
 (def schema

@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.RoutineInfo"
    :gcp.dev/certification
-     {:base-seed 1775131013752
+     {:base-seed 1776499505821
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775131013752 :standard 1775131013753 :stress 1775131013754}
+        {:smoke 1776499505821 :standard 1776499505822 :stress 1776499505823}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:55.284838322Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:05:08.321771407Z"}}
   (:require [gcp.bigquery.RemoteFunctionOptions :as RemoteFunctionOptions]
             [gcp.bigquery.RoutineArgument :as RoutineArgument]
             [gcp.bigquery.RoutineId :as RoutineId]
@@ -28,7 +28,7 @@
                                                                  :routineId)))]
     (when (seq (get arg :arguments))
       (.setArguments builder
-                     (map RoutineArgument/from-edn (get arg :arguments))))
+                     (mapv RoutineArgument/from-edn (get arg :arguments))))
     (when (some? (get arg :body)) (.setBody builder (get arg :body)))
     (when (some? (get arg :dataGovernanceType))
       (.setDataGovernanceType builder (get arg :dataGovernanceType)))
@@ -60,7 +60,7 @@
   (when arg
     (cond-> {:routineId (RoutineId/to-edn (.getRoutineId arg))}
       (seq (.getArguments arg))
-        (assoc :argumentList (map RoutineArgument/to-edn (.getArguments arg)))
+        (assoc :argumentList (mapv RoutineArgument/to-edn (.getArguments arg)))
       (some->> (.getBody arg)
                (not= ""))
         (assoc :body (.getBody arg))

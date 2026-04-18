@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.TableConstraints"
    :gcp.dev/certification
-     {:base-seed 1775130903358
+     {:base-seed 1776499394610
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130903358 :standard 1775130903359 :stress 1775130903360}
+        {:smoke 1776499394610 :standard 1776499394611 :stress 1776499394612}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:04.759440544Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:15.903821100Z"}}
   (:require [gcp.bigquery.ForeignKey :as ForeignKey]
             [gcp.bigquery.PrimaryKey :as PrimaryKey]
             [gcp.global :as global])
@@ -25,7 +25,7 @@
   (let [builder (TableConstraints/newBuilder)]
     (when (seq (get arg :foreignKeys))
       (.setForeignKeys builder
-                       (map ForeignKey/from-edn (get arg :foreignKeys))))
+                       (mapv ForeignKey/from-edn (get arg :foreignKeys))))
     (when (some? (get arg :primaryKey))
       (.setPrimaryKey builder (PrimaryKey/from-edn (get arg :primaryKey))))
     (.build builder)))
@@ -36,7 +36,7 @@
   (when arg
     (cond-> {}
       (seq (.getForeignKeys arg))
-        (assoc :foreignKeys (map ForeignKey/to-edn (.getForeignKeys arg)))
+        (assoc :foreignKeys (mapv ForeignKey/to-edn (.getForeignKeys arg)))
       (.getPrimaryKey arg) (assoc :primaryKey
                              (PrimaryKey/to-edn (.getPrimaryKey arg))))))
 

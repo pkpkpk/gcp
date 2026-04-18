@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.ModelInfo"
    :gcp.dev/certification
-     {:base-seed 1775131004827
+     {:base-seed 1776499496623
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775131004827 :standard 1775131004828 :stress 1775131004829}
+        {:smoke 1776499496623 :standard 1776499496624 :stress 1776499496625}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:46.464454005Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:58.203633973Z"}}
   (:require [gcp.api.services.bigquery.model.TrainingRun :as TrainingRun]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.ModelId :as ModelId]
@@ -57,13 +57,13 @@
         (assoc :etag (.getEtag arg))
       (.getExpirationTime arg) (assoc :expirationTime (.getExpirationTime arg))
       (seq (.getFeatureColumns arg)) (assoc :featureColumnList
-                                       (map StandardSQL/StandardSQLField-to-edn
+                                       (mapv StandardSQL/StandardSQLField-to-edn
                                          (.getFeatureColumns arg)))
       (some->> (.getFriendlyName arg)
                (not= ""))
         (assoc :friendlyName (.getFriendlyName arg))
       (seq (.getLabelColumns arg)) (assoc :labelColumnList
-                                     (map StandardSQL/StandardSQLField-to-edn
+                                     (mapv StandardSQL/StandardSQLField-to-edn
                                        (.getLabelColumns arg)))
       (seq (.getLabels arg))
         (assoc :labels
@@ -77,7 +77,7 @@
                (not= ""))
         (assoc :modelType (.getModelType arg))
       (seq (.getTrainingRuns arg)) (assoc :trainingRunList
-                                     (map TrainingRun/to-edn
+                                     (mapv TrainingRun/to-edn
                                        (.getTrainingRuns arg))))))
 
 (def schema
@@ -98,7 +98,7 @@
      :getter-doc "Returns the user description of the model.",
      :setter-doc "Sets the user description for this model."}
     [:string {:min 1}]]
-   [:encryptionConfiguration {:optional true}
+   [:encryptionConfiguration {:optional true, :setter-doc nil}
     :gcp.bigquery/EncryptionConfiguration]
    [:etag
     {:optional true,

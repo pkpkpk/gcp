@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.ConnectionSettings"
    :gcp.dev/certification
-     {:base-seed 1775130870517
+     {:base-seed 1776499360620
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130870517 :standard 1775130870518 :stress 1775130870519}
+        {:smoke 1776499360620 :standard 1776499360621 :stress 1776499360622}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:54:33.178982056Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:02:43.713741963Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.DatasetId :as DatasetId]
@@ -39,7 +39,7 @@
       (.setClustering builder (Clustering/from-edn (get arg :clustering))))
     (when (seq (get arg :connectionProperties))
       (.setConnectionProperties builder
-                                (map ConnectionProperty/from-edn
+                                (mapv ConnectionProperty/from-edn
                                   (get arg :connectionProperties))))
     (when (some? (get arg :createDisposition))
       (.setCreateDisposition builder
@@ -86,7 +86,7 @@
       (.setRequestTimeout builder (long (get arg :requestTimeout))))
     (when (seq (get arg :schemaUpdateOptions))
       (.setSchemaUpdateOptions builder
-                               (map JobInfo$SchemaUpdateOption/valueOf
+                               (mapv JobInfo$SchemaUpdateOption/valueOf
                                  (get arg :schemaUpdateOptions))))
     (when (seq (get arg :tableDefinitions))
       (.setTableDefinitions
@@ -107,7 +107,7 @@
       (.setUseReadAPI builder (get arg :useReadAPI)))
     (when (seq (get arg :userDefinedFunctions))
       (.setUserDefinedFunctions builder
-                                (map UserDefinedFunction/from-edn
+                                (mapv UserDefinedFunction/from-edn
                                   (get arg :userDefinedFunctions))))
     (when (some? (get arg :writeDisposition))
       (.setWriteDisposition builder
@@ -125,7 +125,7 @@
       (.getClustering arg) (assoc :clustering
                              (Clustering/to-edn (.getClustering arg)))
       (seq (.getConnectionProperties arg)) (assoc :connectionProperties
-                                             (map ConnectionProperty/to-edn
+                                             (mapv ConnectionProperty/to-edn
                                                (.getConnectionProperties arg)))
       (.getCreateDisposition arg) (assoc :createDisposition
                                     (.name (.getCreateDisposition arg)))
@@ -158,7 +158,7 @@
                                       (.getRangePartitioning arg)))
       (.getRequestTimeout arg) (assoc :requestTimeout (.getRequestTimeout arg))
       (seq (.getSchemaUpdateOptions arg)) (assoc :schemaUpdateOptions
-                                            (map (fn [e] (.name e))
+                                            (mapv (fn [e] (.name e))
                                               (.getSchemaUpdateOptions arg)))
       (seq (.getTableDefinitions arg))
         (assoc :tableDefinitions
@@ -174,7 +174,7 @@
       (.getUseQueryCache arg) (assoc :useQueryCache (.getUseQueryCache arg))
       (.getUseReadAPI arg) (assoc :useReadAPI (.getUseReadAPI arg))
       (seq (.getUserDefinedFunctions arg)) (assoc :userDefinedFunctions
-                                             (map UserDefinedFunction/to-edn
+                                             (mapv UserDefinedFunction/to-edn
                                                (.getUserDefinedFunctions arg)))
       (.getWriteDisposition arg) (assoc :writeDisposition
                                    (.name (.getWriteDisposition arg))))))

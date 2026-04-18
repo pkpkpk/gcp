@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.DatasetInfo"
    :gcp.dev/certification
-     {:base-seed 1775131017231
+     {:base-seed 1776499511815
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775131017231 :standard 1775131017232 :stress 1775131017233}
+        {:smoke 1776499511815 :standard 1776499511816 :stress 1776499511817}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:58.596928898Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:05:14.518496831Z"}}
   (:require [gcp.bigquery.Acl :as Acl]
             [gcp.bigquery.DatasetId :as DatasetId]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
@@ -27,7 +27,7 @@
   (let [builder (DatasetInfo/newBuilder (DatasetId/from-edn (get arg
                                                                  :datasetId)))]
     (when (seq (get arg :acl))
-      (.setAcl builder (map Acl/from-edn (get arg :acl))))
+      (.setAcl builder (mapv Acl/from-edn (get arg :acl))))
     (when (some? (get arg :defaultCollation))
       (.setDefaultCollation builder (get arg :defaultCollation)))
     (when (some? (get arg :defaultEncryptionConfiguration))
@@ -69,7 +69,7 @@
   {:post [(global/strict! :gcp.bigquery/DatasetInfo %)]}
   (when arg
     (cond-> {:datasetId (DatasetId/to-edn (.getDatasetId arg))}
-      (seq (.getAcl arg)) (assoc :acl (map Acl/to-edn (.getAcl arg)))
+      (seq (.getAcl arg)) (assoc :acl (mapv Acl/to-edn (.getAcl arg)))
       (.getCreationTime arg) (assoc :creationTime (.getCreationTime arg))
       (some->> (.getDefaultCollation arg)
                (not= ""))
@@ -191,7 +191,8 @@
    [:labels
     {:optional true,
      :getter-doc
-       "Return a map for labels applied to the dataset.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/labeling-datasets\">Labeling Datasets</a>"}
+       "Return a map for labels applied to the dataset.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/labeling-datasets\">Labeling Datasets</a>",
+     :setter-doc nil}
     [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
    [:lastModified
     {:optional true,

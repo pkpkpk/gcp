@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.ForeignKey"
    :gcp.dev/certification
-     {:base-seed 1775130901572
+     {:base-seed 1776499393014
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130901572 :standard 1775130901573 :stress 1775130901574}
+        {:smoke 1776499393014 :standard 1776499393015 :stress 1776499393016}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:02.891139771Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:14.336949816Z"}}
   (:require [gcp.bigquery.ColumnReference :as ColumnReference]
             [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
@@ -24,7 +24,7 @@
   (let [builder (ForeignKey/newBuilder)]
     (when (seq (get arg :columnReferences))
       (.setColumnReferences builder
-                            (map ColumnReference/from-edn
+                            (mapv ColumnReference/from-edn
                               (get arg :columnReferences))))
     (when (some? (get arg :name)) (.setName builder (get arg :name)))
     (when (some? (get arg :referencedTable))
@@ -38,7 +38,7 @@
   (when arg
     (cond-> {}
       (seq (.getColumnReferences arg)) (assoc :columnReferences
-                                         (map ColumnReference/to-edn
+                                         (mapv ColumnReference/to-edn
                                            (.getColumnReferences arg)))
       (some->> (.getName arg)
                (not= ""))

@@ -4,13 +4,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.JobId"
    :gcp.dev/certification
-     {:base-seed 1775130932250
+     {:base-seed 1776499422130
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130932250 :standard 1775130932251 :stress 1775130932252}
+        {:smoke 1776499422130 :standard 1776499422131 :stress 1776499422132}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:33.402569056Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:43.740982554Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery JobId JobId$Builder]))
 
@@ -50,18 +50,18 @@
    [:job
     {:optional true,
      :getter-doc
-       "Returns the job's id.\n\n<p>The server returns null job id for dry-run queries."}
-    [:string {:min 1}]]
+       "Returns the job's id.\n\n<p>The server returns null job id for dry-run queries.",
+     :setter-doc nil} [:string {:min 1}]]
    [:location
     {:optional true,
      :getter-doc
-       "Returns the job's location.\n\n<p>When sending requests, the location must be specified for jobs whose location not \"US\" or\n\"EU\"."}
-    [:string {:min 1}]]
+       "Returns the job's location.\n\n<p>When sending requests, the location must be specified for jobs whose location not \"US\" or\n\"EU\".",
+     :setter-doc nil} [:string {:min 1}]]
    [:project
     {:optional true,
      :getter-doc
-       "Returns job's project id.\n\n<p>When sending requests with null project, the client will attempt to infer the project name\nfrom the environment."}
-    [:string {:min 1}]]])
+       "Returns job's project id.\n\n<p>When sending requests with null project, the client will attempt to infer the project name\nfrom the environment.",
+     :setter-doc nil} [:string {:min 1}]]])
 
 (global/include-schema-registry! (with-meta {:gcp.bigquery/JobId schema}
                                    {:gcp.global/name "gcp.bigquery.JobId"}))

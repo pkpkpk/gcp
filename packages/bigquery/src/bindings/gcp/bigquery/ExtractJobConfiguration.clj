@@ -5,13 +5,13 @@
    :file-git-sha "3e97f7c0c4676fcdda0862929a69bbabc69926f2"
    :fqcn "com.google.cloud.bigquery.ExtractJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1775130921653
+     {:base-seed 1776499413013
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130921653 :standard 1775130921654 :stress 1775130921655}
+        {:smoke 1776499413013 :standard 1776499413014 :stress 1776499413015}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:22.884468400Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:34.430106036Z"}}
   (:require [gcp.bigquery.ModelId :as ModelId]
             [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])

@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ConfusionMatrix"
    :gcp.dev/certification
-     {:base-seed 1775130985885
+     {:base-seed 1776499476219
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130985885 :standard 1775130985886 :stress 1775130985887}
+        {:smoke 1776499476219 :standard 1776499476220 :stress 1776499476221}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:27.087657246Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:37.515385533Z"}}
   (:require [gcp.api.services.bigquery.model.Row :as Row]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model ConfusionMatrix]))
@@ -25,7 +25,7 @@
     (when (some? (get arg :confidenceThreshold))
       (.setConfidenceThreshold o (double (get arg :confidenceThreshold))))
     (when (some? (get arg :rows))
-      (.setRows o (map Row/from-edn (get arg :rows))))
+      (.setRows o (mapv Row/from-edn (get arg :rows))))
     o))
 
 (defn to-edn
@@ -35,7 +35,7 @@
     (cond-> {}
       (.getConfidenceThreshold arg) (assoc :confidenceThreshold
                                       (.getConfidenceThreshold arg))
-      (seq (.getRows arg)) (assoc :rows (map Row/to-edn (.getRows arg))))))
+      (seq (.getRows arg)) (assoc :rows (mapv Row/to-edn (.getRows arg))))))
 
 (def schema
   [:map

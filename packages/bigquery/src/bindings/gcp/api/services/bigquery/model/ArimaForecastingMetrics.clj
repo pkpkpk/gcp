@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ArimaForecastingMetrics"
    :gcp.dev/certification
-     {:base-seed 1775130978427
+     {:base-seed 1776499468789
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130978427 :standard 1775130978428 :stress 1775130978429}
+        {:smoke 1776499468789 :standard 1776499468790 :stress 1776499468791}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:19.661701239Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:30.172662056Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaFittingMetrics :as
              ArimaFittingMetrics]
             [gcp.api.services.bigquery.model.ArimaOrder :as ArimaOrder]
@@ -28,18 +28,18 @@
   (let [o (new ArimaForecastingMetrics)]
     (when (some? (get arg :arimaFittingMetrics))
       (.setArimaFittingMetrics o
-                               (map ArimaFittingMetrics/from-edn
+                               (mapv ArimaFittingMetrics/from-edn
                                  (get arg :arimaFittingMetrics))))
     (when (some? (get arg :arimaSingleModelForecastingMetrics))
       (.setArimaSingleModelForecastingMetrics
         o
-        (map ArimaSingleModelForecastingMetrics/from-edn
+        (mapv ArimaSingleModelForecastingMetrics/from-edn
           (get arg :arimaSingleModelForecastingMetrics))))
     (when (some? (get arg :hasDrift))
       (.setHasDrift o (seq (get arg :hasDrift))))
     (when (some? (get arg :nonSeasonalOrder))
       (.setNonSeasonalOrder o
-                            (map ArimaOrder/from-edn
+                            (mapv ArimaOrder/from-edn
                               (get arg :nonSeasonalOrder))))
     (when (some? (get arg :seasonalPeriods))
       (.setSeasonalPeriods o (seq (get arg :seasonalPeriods))))
@@ -55,15 +55,15 @@
   (when arg
     (cond-> {}
       (seq (.getArimaFittingMetrics arg)) (assoc :arimaFittingMetrics
-                                            (map ArimaFittingMetrics/to-edn
+                                            (mapv ArimaFittingMetrics/to-edn
                                               (.getArimaFittingMetrics arg)))
       (seq (.getArimaSingleModelForecastingMetrics arg))
         (assoc :arimaSingleModelForecastingMetrics
-          (map ArimaSingleModelForecastingMetrics/to-edn
+          (mapv ArimaSingleModelForecastingMetrics/to-edn
             (.getArimaSingleModelForecastingMetrics arg)))
       (seq (.getHasDrift arg)) (assoc :hasDrift (seq (.getHasDrift arg)))
       (seq (.getNonSeasonalOrder arg)) (assoc :nonSeasonalOrder
-                                         (map ArimaOrder/to-edn
+                                         (mapv ArimaOrder/to-edn
                                            (.getNonSeasonalOrder arg)))
       (seq (.getSeasonalPeriods arg)) (assoc :seasonalPeriods
                                         (seq (.getSeasonalPeriods arg)))

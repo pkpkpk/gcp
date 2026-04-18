@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BigQueryError"
    :gcp.dev/certification
-     {:base-seed 1775130946476
+     {:base-seed 1776499437916
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130946476 :standard 1775130946477 :stress 1775130946478}
+        {:smoke 1776499437916 :standard 1776499437917 :stress 1776499437918}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:55:47.684069149Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:03:59.217125371Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigQueryError]))
 
@@ -20,39 +20,46 @@
 (defn ^BigQueryError from-edn
   [arg]
   (global/strict! :gcp.bigquery/BigQueryError arg)
-  (cond
-    (and (contains? arg :debugInfo)
-         (contains? arg :reason)
-         (contains? arg :location)
-         (contains? arg :message))
-      (new BigQueryError
-           (get arg :reason)
-           (get arg :location)
-           (get arg :message)
-           (get arg :debugInfo))
-    (and (contains? arg :reason)
-         (contains? arg :location)
-         (contains? arg :message))
-      (new BigQueryError
-           (get arg :reason)
-           (get arg :location)
-           (get arg :message))
-    :else
-      (throw
-        (ex-info
-          "No matching constructor found for com.google.cloud.bigquery.BigQueryError"
-          {:arg arg}))))
+  (let [provided-ctor-keys (clojure.set/intersection (set (keys arg))
+                                                     #{:debugInfo :reason
+                                                       :location :message})]
+    (cond
+      (and (clojure.set/subset? provided-ctor-keys
+                                #{:reason :location :message}))
+        (new BigQueryError
+             (get arg :reason)
+             (get arg :location)
+             (get arg :message))
+      (and (clojure.set/subset? provided-ctor-keys
+                                #{:debugInfo :reason :location :message}))
+        (new BigQueryError
+             (get arg :reason)
+             (get arg :location)
+             (get arg :message)
+             (get arg :debugInfo))
+      :else
+        (throw
+          (ex-info
+            "No matching constructor found for com.google.cloud.bigquery.BigQueryError"
+            {:arg arg})))))
 
 (defn to-edn
   [^BigQueryError arg]
   {:post [(global/strict! :gcp.bigquery/BigQueryError %)]}
   (when arg
-    (cond-> {:reason (.getReason arg),
-             :location (.getLocation arg),
-             :message (.getMessage arg)}
+    (cond-> {}
       (some->> (.getDebugInfo arg)
                (not= ""))
-        (assoc :debugInfo (.getDebugInfo arg)))))
+        (assoc :debugInfo (.getDebugInfo arg))
+      (some->> (.getLocation arg)
+               (not= ""))
+        (assoc :location (.getLocation arg))
+      (some->> (.getMessage arg)
+               (not= ""))
+        (assoc :message (.getMessage arg))
+      (some->> (.getReason arg)
+               (not= ""))
+        (assoc :reason (.getReason arg)))))
 
 (def schema
   [:map
@@ -62,14 +69,16 @@
     :gcp/category :pojo,
     :gcp/key :gcp.bigquery/BigQueryError}
    [:debugInfo {:optional true} [:string {:min 1}]]
-   [:location {:doc "Returns where the error occurred, if present."}
+   [:location
+    {:doc "Returns where the error occurred, if present.", :optional true}
     [:string {:min 1}]]
-   [:message {:doc "Returns a human-readable description of the error."}
+   [:message
+    {:doc "Returns a human-readable description of the error.", :optional true}
     [:string {:min 1}]]
    [:reason
     {:doc
-       "Returns short error code that summarizes the error.\n\n@see <a href=\"https://cloud.google.com/bigquery/troubleshooting-errors\">Troubleshooting\n    Errors</a>"}
-    [:string {:min 1}]]])
+       "Returns short error code that summarizes the error.\n\n@see <a href=\"https://cloud.google.com/bigquery/troubleshooting-errors\">Troubleshooting\n    Errors</a>",
+     :optional true} [:string {:min 1}]]])
 
 (global/include-schema-registry! (with-meta {:gcp.bigquery/BigQueryError schema}
                                    {:gcp.global/name

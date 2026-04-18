@@ -5,13 +5,13 @@
    :file-git-sha "6dcc90053353422ae766e531413b3ecc65b8b155"
    :fqcn "com.google.cloud.bigquery.DataFormatOptions"
    :gcp.dev/certification
-     {:base-seed 1775130974665
+     {:base-seed 1776499464054
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775130974665 :standard 1775130974666 :stress 1775130974667}
+        {:smoke 1776499464054 :standard 1776499464055 :stress 1776499464056}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:15.855117505Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:25.848338812Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery DataFormatOptions
             DataFormatOptions$Builder

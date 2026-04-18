@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ClusteringMetrics"
    :gcp.dev/certification
-     {:base-seed 1775130976502
+     {:base-seed 1776499466591
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775130976502 :standard 1775130976503 :stress 1775130976504}
+        {:smoke 1776499466591 :standard 1776499466592 :stress 1776499466593}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:17.786421312Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:28.292476756Z"}}
   (:require [gcp.api.services.bigquery.model.Cluster :as Cluster]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model ClusteringMetrics]))
@@ -23,7 +23,7 @@
   (global/strict! :gcp.api.services.bigquery.model/ClusteringMetrics arg)
   (let [o (new ClusteringMetrics)]
     (when (some? (get arg :clusters))
-      (.setClusters o (map Cluster/from-edn (get arg :clusters))))
+      (.setClusters o (mapv Cluster/from-edn (get arg :clusters))))
     (when (some? (get arg :daviesBouldinIndex))
       (.setDaviesBouldinIndex o (double (get arg :daviesBouldinIndex))))
     (when (some? (get arg :meanSquaredDistance))
@@ -37,7 +37,7 @@
   (when arg
     (cond-> {}
       (seq (.getClusters arg)) (assoc :clusters
-                                 (map Cluster/to-edn (.getClusters arg)))
+                                 (mapv Cluster/to-edn (.getClusters arg)))
       (.getDaviesBouldinIndex arg) (assoc :daviesBouldinIndex
                                      (.getDaviesBouldinIndex arg))
       (.getMeanSquaredDistance arg) (assoc :meanSquaredDistance

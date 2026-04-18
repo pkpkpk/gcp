@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.TrainingRun"
    :gcp.dev/certification
-     {:base-seed 1775131002736
+     {:base-seed 1776499494781
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1775131002736 :standard 1775131002737 :stress 1775131002738}
+        {:smoke 1776499494781 :standard 1776499494782 :stress 1776499494783}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:56:44.456105600Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:04:56.334615107Z"}}
   (:require
     [gcp.api.services.bigquery.model.DataSplitResult :as DataSplitResult]
     [gcp.api.services.bigquery.model.EvaluationMetrics :as EvaluationMetrics]
@@ -29,7 +29,7 @@
   (let [o (new TrainingRun)]
     (when (some? (get arg :classLevelGlobalExplanations))
       (.setClassLevelGlobalExplanations o
-                                        (map GlobalExplanation/from-edn
+                                        (mapv GlobalExplanation/from-edn
                                           (get arg
                                                :classLevelGlobalExplanations))))
     (when (some? (get arg :dataSplitResult))
@@ -45,7 +45,7 @@
         o
         (GlobalExplanation/from-edn (get arg :modelLevelGlobalExplanation))))
     (when (some? (get arg :results))
-      (.setResults o (map IterationResult/from-edn (get arg :results))))
+      (.setResults o (mapv IterationResult/from-edn (get arg :results))))
     (when (some? (get arg :startTime)) (.setStartTime o (get arg :startTime)))
     (when (some? (get arg :trainingOptions))
       (.setTrainingOptions o
@@ -66,7 +66,8 @@
     (cond-> {}
       (seq (.getClassLevelGlobalExplanations arg))
         (assoc :classLevelGlobalExplanations
-          (map GlobalExplanation/to-edn (.getClassLevelGlobalExplanations arg)))
+          (mapv GlobalExplanation/to-edn
+            (.getClassLevelGlobalExplanations arg)))
       (.getDataSplitResult arg) (assoc :dataSplitResult
                                   (DataSplitResult/to-edn (.getDataSplitResult
                                                             arg)))
@@ -77,7 +78,7 @@
         (assoc :modelLevelGlobalExplanation
           (GlobalExplanation/to-edn (.getModelLevelGlobalExplanation arg)))
       (seq (.getResults arg)) (assoc :results
-                                (map IterationResult/to-edn (.getResults arg)))
+                                (mapv IterationResult/to-edn (.getResults arg)))
       (some->> (.getStartTime arg)
                (not= ""))
         (assoc :startTime (.getStartTime arg))

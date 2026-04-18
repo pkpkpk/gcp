@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.TableInfo"
    :gcp.dev/certification
-     {:base-seed 1775131021051
+     {:base-seed 1776499516948
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1775131021051 :standard 1775131021052 :stress 1775131021053}
+        {:smoke 1776499516948 :standard 1776499516949 :stress 1776499516950}
       :protocol-hash
-        "f27f34d24f3d81b3e05f9de655c6ce1de28b53e620c5f9c1978cbce793727f86"
-      :timestamp "2026-04-02T11:57:03.658971856Z"}}
+        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+      :timestamp "2026-04-18T08:05:19.280838739Z"}}
   (:require [gcp.bigquery.CloneDefinition :as CloneDefinition]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.TableConstraints :as TableConstraints]
@@ -130,13 +130,15 @@
       "Google BigQuery table information. Use {@link StandardTableDefinition} to create simple BigQuery\ntable. Use {@link ViewDefinition} to create a BigQuery view. Use {@link ExternalTableDefinition}\nto create a BigQuery a table backed by external data.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/tables\">Managing Tables</a>",
     :gcp/category :accessor-with-builder,
     :gcp/key :gcp.bigquery/TableInfo}
-   [:cloneDefinition {:optional true} :gcp.bigquery/CloneDefinition]
+   [:cloneDefinition {:optional true, :setter-doc nil}
+    :gcp.bigquery/CloneDefinition]
    [:creationTime
     {:optional true,
      :read-only? true,
      :getter-doc
        "Returns the time when this table was created, in milliseconds since the epoch."}
-    :i64] [:defaultCollation {:optional true} [:string {:min 1}]]
+    :i64]
+   [:defaultCollation {:optional true, :setter-doc nil} [:string {:min 1}]]
    [:definition {:getter-doc "Returns the table definition."}
     :gcp.bigquery/TableDefinition]
    [:description
@@ -144,7 +146,7 @@
      :getter-doc "Returns a user-friendly description for the table.",
      :setter-doc "Sets a user-friendly description for the table."}
     [:string {:min 1}]]
-   [:encryptionConfiguration {:optional true}
+   [:encryptionConfiguration {:optional true, :setter-doc nil}
     :gcp.bigquery/EncryptionConfiguration]
    [:etag
     {:optional true,
@@ -238,8 +240,8 @@
    [:requirePartitionFilter
     {:optional true,
      :getter-doc
-       "Returns true if a partition filter (that can be used for partition elimination) is required for\nqueries over this table."}
-    :boolean]
+       "Returns true if a partition filter (that can be used for partition elimination) is required for\nqueries over this table.",
+     :setter-doc nil} :boolean]
    [:resourceTags
     {:optional true,
      :getter-doc "Return a map for resource tags applied to the table.",
@@ -251,7 +253,8 @@
      :getter-doc
        "Returns an URL that can be used to access the resource again. The returned URL can be used for\nget or update requests."}
     [:string {:min 1}]]
-   [:tableConstraints {:optional true} :gcp.bigquery/TableConstraints]
+   [:tableConstraints {:optional true, :setter-doc nil}
+    :gcp.bigquery/TableConstraints]
    [:tableId {:getter-doc "Returns the table identity."}
     :gcp.bigquery/TableId]])
 
