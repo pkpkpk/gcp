@@ -62,7 +62,27 @@
 #!-----------------------------------------------------------------------------
 #! JOBS https://cloud.google.com/bigquery/docs/jobs-overview
 
-(defn list-jobs [& args]
+(defn list-jobs
+  "Returns a lazy sequence of all jobs in the project.
+
+   WARNING: BigQuery retains job history for 6 months. In active projects, this sequence
+   can contain hundreds of thousands of entries. Use pagination or filters to avoid
+   performance issues.
+
+   Arities:
+   1-arity: () | (opts) | (client)
+   2-arity: (client opts)
+
+   opts (:gcp.bigquery/BigQuery.JobListOption map):
+     :allUsers        - boolean, whether to list jobs from all users (requires IAM permission)
+     :maxResults      - long, maximum number of jobs to return per page
+     :pageToken       - string, for manual pagination
+     :stateFilter     - string/enum: \"DONE\", \"PENDING\", \"RUNNING\"
+     :minCreationTime - long (ms), filters jobs created after this time
+     :maxCreationTime - long (ms), filters jobs created before this time
+     
+   Returns: A lazy sequence of :gcp.bigquery/Job"
+  [& args]
   (bqc/execute! (bqc/->JobList (vec args))))
 
 (defn ^boolean cancel-job [& args]
@@ -76,6 +96,21 @@
 
 (defn ^boolean delete-job [& args]
   (bqc/execute! (bqc/->JobDelete (vec args))))
+
+(defn wait-for
+  "Blocks until the job completes.
+   1-arity: (jobId) | (callRecordMap)
+   2-arity: (jobId opts) | (client jobId)
+   3-arity: (client jobId opts)
+   
+   opts is a map that can contain:
+     :retryOptions        - sequential list of RetryOption EDN maps
+     :bigQueryRetryConfig - BigQueryRetryConfig EDN map"
+  [& args]
+  (bqc/execute! (bqc/->JobWaitFor (vec args))))
+
+(defn ^boolean done? [& args]
+  (bqc/execute! (bqc/->JobIsDone (vec args))))
 
 (defn query [& args]
   (bqc/execute! (bqc/->Query (vec args))))

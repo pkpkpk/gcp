@@ -1,12 +1,14 @@
 (ns gcp.bigquery.custom.BigQueryOptions
-  {:file-git-sha "6dcc90053353422ae766e531413b3ecc65b8b155",
-   :fqcn         "com.google.cloud.bigquery.BigQueryOptions"}
-  (:require [gcp.bigquery.DataFormatOptions :as DataFormatOptions]
-            [gcp.global :as g])
-  (:import [com.google.cloud.bigquery BigQuery BigQueryOptions QueryJobConfiguration$JobCreationMode]
-           io.opentelemetry.api.trace.Tracer
-           com.google.cloud.TransportOptions
-           com.google.api.gax.retrying.ResultRetryAlgorithm))
+  {:file-git-sha "6dcc90053353422ae766e531413b3ecc65b8b155"
+   :fqcn "com.google.cloud.bigquery.BigQueryOptions"}
+  (:require
+   [gcp.bigquery.DataFormatOptions :as DataFormatOptions]
+   [gcp.global :as g])
+  (:import
+   (com.google.api.gax.retrying ResultRetryAlgorithm)
+   (com.google.cloud TransportOptions)
+   (com.google.cloud.bigquery BigQuery BigQueryOptions QueryJobConfiguration$JobCreationMode)
+   (io.opentelemetry.api.trace Tracer)))
 
 (defn ^BigQueryOptions from-edn
   ([]
@@ -66,30 +68,30 @@
 
 (def schema
   [:or
-   {:closed       true,
-    :doc          nil,
-    :gcp/category :accessor-with-builder,
+   {:closed       true
+    :doc          nil
+    :gcp/category :accessor-with-builder
     :gcp/key      :gcp.bigquery/BigQueryOptions}
    (g/instance-schema com.google.cloud.bigquery.BigQueryOptions)
    [:maybe
-    [:map
+    [:map {:closed true}
      [:dataFormatOptions
-      {:optional   true,
+      {:optional   true
        :setter-doc "Set the format options for the BigQuery data types\n\n@param dataFormatOptions Configuration of the formatting options"}
       :gcp.bigquery/DataFormatOptions]
      [:defaultJobCreationMode {:optional true, :read-only? true}
       [:enum "JOB_CREATION_MODE_UNSPECIFIED" "JOB_CREATION_REQUIRED" "JOB_CREATION_OPTIONAL"]]
      [:enableOpenTelemetryTracing
-      {:optional   true,
-       :getter-doc "Returns whether this BigQuery instance has OpenTelemetry tracing enabled\n\n@return true if tracing is enabled, false if not",
+      {:optional   true
+       :getter-doc "Returns whether this BigQuery instance has OpenTelemetry tracing enabled\n\n@return true if tracing is enabled, false if not"
        :setter-doc "Enables OpenTelemetry tracing functionality for this BigQuery instance\n\n@param enableOpenTelemetryTracing enables OpenTelemetry tracing if true"}
       :boolean]
      [:location
       {:optional true}
       [:string {:min 1}]]
      [:openTelemetryTracer
-      {:optional   true,
-       :getter-doc "Returns the OpenTelemetry tracer used by this BigQuery instance\n\n@return OpenTelemetry tracer object or {@code null} if not set",
+      {:optional   true
+       :getter-doc "Returns the OpenTelemetry tracer used by this BigQuery instance\n\n@return OpenTelemetry tracer object or {@code null} if not set"
        :setter-doc "Sets the OpenTelemetry tracer for this BigQuery instance to be tracer. @param tracer OpenTelemetry tracer to be used"}
       (g/instance-schema io.opentelemetry.api.trace.Tracer)]
      [:resultRetryAlgorithm

@@ -1,8 +1,9 @@
 (ns gcp.build
-  (:require [gcp.build.core :as core]
-            [gcp.build.global :as global]
-            [gcp.build.release :as release]
-            [gcp.dev.packages.definitions :as defs]))
+  (:require
+   [gcp.build.core :as core]
+   [gcp.build.global :as global]
+   [gcp.build.release :as release]
+   [gcp.dev.packages.definitions :as defs]))
 
 (defn global []
   (global/build))

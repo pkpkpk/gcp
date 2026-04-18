@@ -14,7 +14,7 @@
    [clojure.set :as set]
    [clojure.string :as string]
    [gcp.dev.toolchain.malli :as m]
-   [gcp.dev.toolchain.shared :as shared :refer [categorize-type intersecting-methods?]]
+   [gcp.dev.toolchain.shared :as shared :refer [categorize-type intersecting-methods? primitive?]]
    [gcp.dev.util :as u]
    [gcp.global :as g]
    [zprint.core :as zp]))
@@ -302,11 +302,11 @@
 
       :enum (list (symbol (str (short-java-name parameter-type) "/valueOf")) arg)
 
-      [:iterable :generic/self] (list 'map (self-from-edn-sym (:self deps)) arg)
+      [:iterable :generic/self] (list 'mapv (self-from-edn-sym (:self deps)) arg)
 
       [:iterable :generic/nested] (let [[_ [_ _ nested]] parameter-type
                                         from-edn (symbol (nested-from-edn nested))]
-                                    (list 'map from-edn arg))
+                                    (list 'mapv from-edn arg))
 
       [(:or :iterable :list) (:or :generic :scalar :generic/scalar :native)] (list 'seq arg)
       [(:or :array :set :iterator :optional) (:or :generic :scalar :native)] arg
@@ -316,7 +316,7 @@
                                       _ (assert (= :extends extends-key))
                                       [_  element-category] type-category
                                       from-edn (resolve-from-edn-var deps element-category element-type)]
-                                  (list 'map from-edn arg))
+                                  (list 'mapv from-edn arg))
 
       :custom (let [binding-ns (get (:custom-mappings deps) parameter-type)]
                 (invoke-custom-from-edn binding-ns parameter-type arg))
@@ -340,7 +340,7 @@
        (:or :peer :nested :sibling :foreign :custom :support :self :enum)] (let [[_ element-type] parameter-type
                                                                                  [_ element-category] type-category
                                                                                  from-edn (resolve-from-edn-var deps element-category element-type)
-                                                                                 ls (list 'map from-edn arg)]
+                                                                                 ls (list 'mapv from-edn arg)]
                                                                              (if (= :array (first type-category))
                                                                                (list 'into-array (symbol (short-java-name element-type)) ls)
                                                                                ls))
@@ -352,19 +352,19 @@
                                    arg))
 
       [:map :scalar (:or :peer :foreign :custom :support :self :nested :sibling)] (let [[_ key-type element-type] parameter-type
-                                                                       [_ _ element-category] type-category
-                                                                       from-edn (resolve-from-edn-var deps element-category element-type)
-                                                                       k  (if (= key-type 'java.lang.String)
-                                                                            (list 'name 'k)
-                                                                            'k)]
-                                                                   `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~(list from-edn 'v)])) ~arg))
+                                                                                        [_ _ element-category] type-category
+                                                                                        from-edn (resolve-from-edn-var deps element-category element-type)
+                                                                                        k  (if (= key-type 'java.lang.String)
+                                                                                             (list 'name 'k)
+                                                                                             'k)]
+                                                                                    `(~'into {} (~'map (~'fn [[~'k ~'v]] [~k ~(list from-edn 'v)])) ~arg))
 
       [:map :scalar
        [(:or :array :list :set)
         (:or :peer :foreign :nested :sibling :custom :support :self)]] (let [[_ key-type [_ element-type]] parameter-type
                                                                              [_ _ [_ element-category]] type-category
                                                                              from-edn (resolve-from-edn-var deps element-category element-type)
-                                                                             ls (list 'map from-edn 'v)
+                                                                             ls (list 'mapv from-edn 'v)
                                                                              k  (if (= key-type 'java.lang.String)
                                                                                   (list 'name 'k)
                                                                                   'k)]
@@ -465,7 +465,7 @@
 
       [:list :generic/nested] (let [[_ [_ _ nested]] returnType
                                     to-edn (resolve-to-edn-var deps :nested nested)]
-                                (list 'map to-edn extraction))
+                                (list 'mapv to-edn extraction))
 
       [(:or :list :array :iterable) (:or :generic :scalar)] (list 'seq extraction)
       [(:or :set) (:or :generic :scalar)] extraction
@@ -473,7 +473,7 @@
                             (invoke-foreign-to-edn binding-ns (first returnType) extraction))
 
       [(:or :array :list :set :iterable) :enum] (let [to-edn '(fn [e] (.name e))
-                                                      ls     (list 'map to-edn extraction)]
+                                                      ls     (list 'mapv to-edn extraction)]
                                                   (if (= :set (first type-category))
                                                     (list 'into #{} ls)
                                                     ls))
@@ -482,7 +482,7 @@
        (:or :custom :support :peer :nested :sibling :foreign :self)] (let [[_ element-type] returnType
                                                                            [_ element-category] type-category
                                                                            to-edn (resolve-to-edn-var deps element-category element-type)
-                                                                           ls     (list 'map to-edn extraction)]
+                                                                           ls     (list 'mapv to-edn extraction)]
                                                                        (if (= :set (first type-category))
                                                                          (list 'into #{} ls)
                                                                          ls))
@@ -506,8 +506,8 @@
                                                                              [_ _ [_ element-category]] type-category
                                                                              to-edn (resolve-to-edn-var deps element-category element-type)
                                                                              ls     (if (= :set (get-in type-category [2 0]))
-                                                                                      (list 'into #{} (list 'map to-edn 'v))
-                                                                                      (list 'map to-edn 'v))
+                                                                                      (list 'into #{} (list 'mapv to-edn 'v))
+                                                                                      (list 'mapv to-edn 'v))
                                                                              k      (if (= key-type 'java.lang.String)
                                                                                       (list 'keyword 'k)
                                                                                       'k)]
@@ -535,7 +535,7 @@
        (:or :custom :support :peer :foreign :nested :sibling :self)] (let [[_ element-type] returnType
                                                                            [_ element-category] type-category
                                                                            to-edn (resolve-to-edn-var deps element-category element-type)]
-                                                                       (list 'map to-edn (list 'iterator-seq extraction)))
+                                                                       (list 'mapv to-edn (list 'iterator-seq extraction)))
 
       ['com.google.api.gax.rpc.BidiStream :peer :peer] ::TODO
       ['com.google.cloud.RestorableState :self] ::TODO
@@ -928,7 +928,7 @@
   (let [body (if unwrap
                (emit-invoke-getter-to-edn deps unwrap 'arg)
                (let [to-edn (resolve-to-edn-var deps element-type)]
-                 (list 'map to-edn 'arg)))]
+                 (list 'mapv to-edn 'arg)))]
     (defn-to-edn node body)))
 
 #!----------------------------------------------------------------------------------------------------------------------
@@ -972,9 +972,9 @@
     (defn-to-edn node body)))
 
 #!----------------------------------------------------------------------------------------------------------------------
-#! :pojo
+#! :nested/pojo
 
-(defn emit-pojo-from-edn
+(defn emit-nested-pojo-from-edn
   [{:keys [constructors-by-keys deps] :as node}]
   (let [class-sym (class-sym node)
         sorted-ctors (sort-by (comp count key) > constructors-by-keys)
@@ -998,7 +998,7 @@
                                                              {:arg ~'arg}))]))]
     (defn-from-edn node `(~'cond ~@final-branches))))
 
-(defn emit-pojo-to-edn
+(defn emit-nested-pojo-to-edn
   [{:keys [getters-by-key deps keys/required] :as node}]
   (let [base-map  (into {}
                         (map
@@ -1014,6 +1014,33 @@
                base-map)]
     (defn-to-edn node body)))
 
+#!----------------------------------------------------------------------------------------------------------------------
+#! :nested/variant-pojo
+
+(defn emit-nested-variant-pojo-from-edn
+  [{:keys [constructors-by-keys deps] :as node}]
+  (let [class-sym (class-sym node)
+        sorted-ctors (sort-by (comp count key) > constructors-by-keys)
+        branches (mapcat
+                   (fn [[keyset {:keys [parameters]}]]
+                     (let [condition (if (empty? keyset)
+                                       true
+                                       (if (= 1 (count keyset))
+                                         `(~'contains? ~'arg ~(first keyset))
+                                         `(~'and ~@(map (fn [k] `(~'contains? ~'arg ~k)) keyset))))
+                           args (map (fn [{:keys [name type]}]
+                                       (convert-param-type-from-edn deps type `(~'get ~'arg ~(keyword name))))
+                                     parameters)
+                           body `(~'new ~class-sym ~@args)]
+                       [condition body]))
+                   sorted-ctors)
+        has-fallback? (true? (first (take-last 2 branches)))
+        final-branches (if has-fallback?
+                         branches
+                         (concat branches [:else `(~'throw (~'ex-info ~(str "No matching constructor found for " (:fqcn node))
+                                                             {:arg ~'arg}))]))]
+    (defn-from-edn node `(~'cond ~@final-branches))))
+
 (defn emit-nested-variant-pojo-to-edn
   [{:keys [getters-by-key deps keys/required discriminator] :as node}]
   (let [getters (dissoc getters-by-key :type)
@@ -1025,6 +1052,51 @@
                               (select-keys getters required-keys))
                    :type discriminator)
         body (if-some [optional-keys (not-empty (apply dissoc getters required-keys))]
+               `(~'cond-> ~base-map
+                  ~@(mapcat
+                      (fn [[k getter]]
+                        [(to-edn-branch-test deps getter 'arg) (list 'assoc k (emit-invoke-getter-to-edn deps getter 'arg))])
+                      optional-keys))
+               base-map)]
+    (defn-to-edn node body)))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! :pojo
+
+(defn emit-pojo-from-edn
+  [{:keys [constructors-by-keys deps] :as node}]
+  (let [class-sym (class-sym node)
+        all-ctor-keys (if (seq constructors-by-keys)
+                        (apply clojure.set/union (keys constructors-by-keys))
+                        #{})
+        sorted-ctors (sort-by (comp count key) < constructors-by-keys)
+        branches (mapcat
+                   (fn [[keyset {:keys [parameters]}]]
+                     (let [primitive-keys (into [] (comp (filter (comp primitive? :type)) (map (comp keyword :name))) parameters)
+                           condition `(~'and
+                                        ~@(map (fn [k] `(~'contains? ~'arg ~k)) primitive-keys)
+                                        (~'clojure.set/subset? ~'provided-ctor-keys ~keyset))
+                           args (map (fn [{:keys [name type]}]
+                                       (convert-param-type-from-edn deps type `(~'get ~'arg ~(keyword name))))
+                                     parameters)
+                           body `(~'new ~class-sym ~@args)]
+                       [condition body]))
+                   sorted-ctors)
+        final-branches (concat branches [:else `(~'throw (~'ex-info ~(str "No matching constructor found for " (:fqcn node))
+                                                             {:arg ~'arg}))])
+        cond-form `(~'cond ~@final-branches)
+        body-form `(~'let [~'provided-ctor-keys (~'clojure.set/intersection (~'set (~'keys ~'arg)) ~all-ctor-keys)]
+                     ~cond-form)]
+    (defn-from-edn node body-form)))
+
+(defn emit-pojo-to-edn
+  [{:keys [getters-by-key deps keys/required] :as node}]
+  (let [base-map  (into {}
+                        (map
+                          (fn [[field-key getter]]
+                            [field-key (emit-invoke-getter-to-edn deps getter 'arg)]))
+                        (select-keys getters-by-key required))
+        body (if-some [optional-keys (not-empty (apply dissoc getters-by-key required))]
                `(~'cond-> ~base-map
                   ~@(mapcat
                       (fn [[k getter]]
@@ -1240,23 +1312,22 @@
                        [test (list 'assoc key to-edn)]))
                    (apply dissoc non-union-getters required))
         body `(~'let [~'res (~'cond-> ~base ~@branches)
-                    ~@(mapcat
-                        (fn [[union-key {:keys [case-getter variants]}]]
-                          ['res `(~'case (.name (~(symbol (str "." case-getter)) ~'arg))
-                                   ~@(mapcat
-                                       (fn [[variant-key _]]
-                                         (let [method (get getters-by-key variant-key)
-                                               enum-name (u/camel-to-screaming-snake (name variant-key))
-                                               to-edn (emit-invoke-getter-to-edn deps method 'arg)]
-                                           [enum-name `(~'assoc ~'res ~variant-key ~to-edn)]))
-                                       variants)
-                                   ~'res)])
-                        unions)]
-                 ~'res)]
+                      ~@(mapcat
+                          (fn [[union-key {:keys [case-getter variants]}]]
+                            ['res `(~'case (.name (~(symbol (str "." case-getter)) ~'arg))
+                                     ~@(mapcat
+                                         (fn [[variant-key _]]
+                                           (let [method (get getters-by-key variant-key)
+                                                 enum-name (u/camel-to-screaming-snake (name variant-key))
+                                                 to-edn (emit-invoke-getter-to-edn deps method 'arg)]
+                                             [enum-name `(~'assoc ~'res ~variant-key ~to-edn)]))
+                                         variants)
+                                     ~'res)])
+                          unions)]
+                ~'res)]
     (defn-to-edn node body)))
 
 #!----------------------------------------------------------------------------------------------------------------------
-
 
 ; (defn- emit-resource-delegation [node deps class-name]
 ;  (let [super-dep (first deps)
@@ -1339,14 +1410,17 @@
       [(emit-read-only-from-edn node)
        (when to-edn? (emit-read-only-to-edn node))]
 
-      (:pojo :nested/pojo)
-      [(emit-pojo-from-edn node)
-       (when to-edn? (emit-pojo-to-edn   node))]
+      (:pojo)
+       [(emit-pojo-from-edn node)
+        (when to-edn? (emit-pojo-to-edn   node))]
+
+      (:nested/pojo)
+      [(emit-nested-pojo-from-edn node)
+       (when to-edn? (emit-nested-pojo-to-edn node))]
 
       :nested/variant-pojo
-      [(emit-pojo-from-edn node)
+      [(emit-nested-variant-pojo-from-edn node)
        (when to-edn? (emit-nested-variant-pojo-to-edn node))]
-
       :nested/variant-read-only
       [(emit-read-only-from-edn node)
        (when to-edn? (emit-variant-read-only-to-edn node))]

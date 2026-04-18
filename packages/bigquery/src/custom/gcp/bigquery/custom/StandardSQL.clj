@@ -1,6 +1,8 @@
 (ns gcp.bigquery.custom.StandardSQL
-  (:require [gcp.global :as g])
-  (:import (com.google.cloud.bigquery StandardSQLDataType StandardSQLField StandardSQLStructType StandardSQLTableType StandardSQLTypeName)))
+  (:require
+   [gcp.global :as g])
+  (:import
+   (com.google.cloud.bigquery StandardSQLDataType StandardSQLField StandardSQLStructType StandardSQLTableType StandardSQLTypeName)))
 
 (declare StandardSQLDataType-from-edn StandardSQLDataType-to-edn)
 

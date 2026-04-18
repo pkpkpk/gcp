@@ -1,25 +1,18 @@
 (ns gcp.bigquery.custom.JobStatistics
-  (:require gcp.bigquery.BiEngineStats
-            gcp.bigquery.DmlStats
-            gcp.bigquery.MetadataCacheStats
-            gcp.bigquery.QueryStage
-            gcp.bigquery.RoutineId
-            [gcp.bigquery.Schema :as Schema]
-            gcp.bigquery.SearchStats
-            gcp.bigquery.TableId
-            gcp.bigquery.TimelineSample
-            gcp.api.services.bigquery.model.QueryParameter
-            [gcp.global :as g])
-  (:import (com.google.cloud.bigquery JobStatistics
-                                      JobStatistics$CopyStatistics
-                                      JobStatistics$ExtractStatistics
-                                      JobStatistics$LoadStatistics
-                                      JobStatistics$QueryStatistics
-                                      JobStatistics$QueryStatistics$ExportDataStats
-                                      JobStatistics$ReservationUsage
-                                      JobStatistics$ScriptStatistics
-                                      JobStatistics$ScriptStatistics$ScriptStackFrame
-                                      JobStatistics$SessionInfo)))
+  (:require
+   [gcp.api.services.bigquery.model.QueryParameter]
+   [gcp.bigquery.BiEngineStats]
+   [gcp.bigquery.DmlStats]
+   [gcp.bigquery.MetadataCacheStats]
+   [gcp.bigquery.QueryStage]
+   [gcp.bigquery.RoutineId]
+   [gcp.bigquery.Schema :as Schema]
+   [gcp.bigquery.SearchStats]
+   [gcp.bigquery.TableId]
+   [gcp.bigquery.TimelineSample]
+   [gcp.global :as g])
+  (:import
+   (com.google.cloud.bigquery JobStatistics JobStatistics$CopyStatistics JobStatistics$ExtractStatistics JobStatistics$LoadStatistics JobStatistics$QueryStatistics JobStatistics$QueryStatistics$ExportDataStats JobStatistics$ReservationUsage JobStatistics$ScriptStatistics JobStatistics$ScriptStatistics$ScriptStackFrame JobStatistics$SessionInfo)))
 
 (defn ReservationUsage-to-edn
   [^JobStatistics$ReservationUsage arg]

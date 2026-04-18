@@ -451,8 +451,7 @@
                      com.google.protobuf.UnknownFieldSet
                      com.google.protobuf.Value.Builder
                      com.google.protobuf.RepeatedFieldBuilder
-                     com.google.protobuf.SingleFieldBuilder
-                     })
+                     com.google.protobuf.SingleFieldBuilder})
 
 (def scalars
   '#{void java.lang.Void
@@ -492,8 +491,7 @@
      java.util.Map.Entry})
 
 (def native-types
-  '#{
-     #!----------------------------------------
+  '#{#!----------------------------------------
      #! time
      java.time.format.DateTimeFormatter
      #!----------------------------------------

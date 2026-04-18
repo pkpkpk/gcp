@@ -16,7 +16,9 @@
    [gcp.bigquery.TableInfo :as TableInfo]
    [gcp.bigquery.WriteChannelConfiguration :as WriteChannelConfiguration]
    [gcp.bigquery.custom :as custom]
+   [gcp.bigquery.custom.BigQueryException :as BigQueryException]
    [gcp.bigquery.custom.BigQueryOptions :as BQO]
+   [gcp.bigquery.custom.BigQueryRetryConfig :as BigQueryRetryConfig]
    [gcp.bigquery.custom.Dataset :as Dataset]
    [gcp.bigquery.custom.Job :as Job]
    [gcp.bigquery.custom.Model :as Model]
@@ -28,7 +30,8 @@
    [malli.core :as m]
    [malli.util :as mu])
   (:import
-   (com.google.cloud.bigquery BigQuery)))
+   (com.google.cloud RetryOption)
+   (com.google.cloud.bigquery BigQuery BigQuery$JobField BigQuery$JobOption JobStatus$State)))
 
 (defonce ^:dynamic *client* nil)
 
@@ -206,6 +209,18 @@
 
    ::JobDelete
    [:map {:closed true :doc "call record for bq.delete(jobId)"}
+    [:bigquery {:optional true} [:ref ::clientable]]
+    [:jobId :gcp.bigquery/JobId]]
+
+   ::JobWaitFor
+   [:map {:closed true :doc "call record for job.waitFor()"}
+    [:bigquery {:optional true} [:ref ::clientable]]
+    [:jobId :gcp.bigquery/JobId]
+    [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]]
+    [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]
+
+   ::JobIsDone
+   [:map {:closed true :doc "call record for job.isDone()"}
     [:bigquery {:optional true} [:ref ::clientable]]
     [:jobId :gcp.bigquery/JobId]]
 
@@ -734,8 +749,8 @@
    [:arity-1-map [:catn [:callRecord ::JobGet]]]
    [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
    [:arity-2 [:altn
-              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]
-              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]]]
    [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->JobGet [args]
@@ -756,7 +771,9 @@
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobDelete]]]
    [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
-   [:arity-2 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]])
+   [:arity-2 [:altn
+              [:job-id [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]]]])
 
 (defn ->JobDelete [args]
   (let [schema (g/schema delete-job-args-schema)
@@ -770,6 +787,53 @@
             {:op       ::JobDelete
              :bigquery clientable
              :jobId    resolved-job-id}))))))
+
+(def ^:private wait-for-job-args-schema
+  [:altn
+   [:arity-1-map [:catn [:callRecord ::JobWaitFor]]]
+   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+   [:arity-2 [:altn
+              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]
+              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]])
+
+(defn ->JobWaitFor [args]
+  (let [schema (g/schema wait-for-job-args-schema)
+        parsed (m/parse schema args)]
+    (if (= ::m/invalid parsed)
+      (throw (ex-info "Invalid arguments to wait-for-job" {:args args :explain (g/explain schema args)}))
+      (let [{:keys [clientable jobId opts callRecord]} (extract-parse-values parsed)]
+        (if callRecord
+          (assoc callRecord :op ::JobWaitFor)
+          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+            (cond-> {:op       ::JobWaitFor
+                     :bigquery clientable
+                     :jobId    resolved-job-id}
+              (:retryOptions opts) (assoc :retryOptions (:retryOptions opts))
+              (:bigQueryRetryConfig opts) (assoc :bigQueryRetryConfig (:bigQueryRetryConfig opts)))))))))
+
+(def ^:private is-done-job-args-schema
+  [:altn
+   [:arity-1-map [:catn [:callRecord ::JobIsDone]]]
+   [:arity-1     [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+   [:arity-2     [:altn
+                  [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]
+                  [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]]]
+   [:arity-3     [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]])
+
+(defn ->JobIsDone [args]
+  (let [schema (g/schema is-done-job-args-schema)
+        parsed (m/parse schema args)]
+    (if (= ::m/invalid parsed)
+      (throw (ex-info "Invalid arguments to is-done" {:args args :explain (g/explain schema args)}))
+      (let [{:keys [clientable jobId opts callRecord]} (extract-parse-values parsed)]
+        (if callRecord
+          (assoc callRecord :op ::JobIsDone)
+          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+            (cond-> {:op       ::JobIsDone
+                     :bigquery clientable
+                     :jobId    resolved-job-id}
+              (:bigQueryRetryConfig opts) (assoc :bigQueryRetryConfig (:bigQueryRetryConfig opts)))))))))
 
 (def ^:private list-routines-args-schema
   [:altn
@@ -1121,13 +1185,13 @@
    [:arity-1-map [:catn [:callRecord ::Query]]]
    [:arity-1 [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]
    [:arity-2 [:altn
-              [:client-config [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration]]]
               [:config-job    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
-              [:config-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+              [:config-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+              [:client-config [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration]]]]]
    [:arity-3 [:altn
+              [:config-job-opts    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
               [:client-config-job  [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
-              [:client-config-opts [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-              [:config-job-opts    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+              [:client-config-opts [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
    [:arity-4 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->Query [args]
@@ -1220,8 +1284,8 @@
    [:arity-1-map [:catn [:callRecord ::Writer]]]
    [:arity-1 [:catn [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
    [:arity-2 [:altn
-              [:client-config [:catn [:clientable ::clientable] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
-              [:job-config    [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]]]
+              [:job-config    [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
+              [:client-config [:catn [:clientable ::clientable] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]]]
    [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]])
 
 (defn ->Writer [args]
@@ -1331,7 +1395,8 @@
   (let [client (client bigquery)
         opts (BQ/JobListOption-Array-from-edn opts)
         res (.listJobs client opts)]
-    (map Job/to-edn (seq (.iterateAll res)))))
+    (binding [g/*strict-mode* false]
+      (map (bound-fn [j] (Job/to-edn j)) (seq (.iterateAll res))))))
 
 (defmethod execute! ::JobCancel [{:keys [bigquery jobId]}]
   (let [client (client bigquery)
@@ -1348,12 +1413,53 @@
   (let [client (client bigquery)
         jobId (JobId/from-edn jobId)
         opts (BQ/JobOption-Array-from-edn opts)]
-    (Job/to-edn (.getJob client jobId opts))))
+    (binding [g/*strict-mode* false]
+      (Job/to-edn (.getJob client jobId opts)))))
 
 (defmethod execute! ::JobDelete [{:keys [bigquery jobId]}]
   (let [client (client bigquery)
         jobId (JobId/from-edn jobId)]
     (.delete client jobId)))
+
+(defmethod execute! ::JobWaitFor [{:keys [bigquery jobId retryOptions bigQueryRetryConfig]}]
+  (let [client (client bigquery)
+        jobId (JobId/from-edn jobId)
+        job (.getJob client jobId (make-array BigQuery$JobOption 0))]
+    (when job
+      (let [retry-opts (when retryOptions
+                         (into-array RetryOption
+                                     (map cloud/RetryOption-from-edn retryOptions)))
+            bq-retry-config (when bigQueryRetryConfig
+                              (BigQueryRetryConfig/from-edn bigQueryRetryConfig))]
+        (try
+          (let [job (cond
+                      (and retry-opts bq-retry-config)
+                      (.waitFor job bq-retry-config retry-opts)
+
+                      retry-opts
+                      (.waitFor job retry-opts)
+
+                      bq-retry-config
+                      (.waitFor job bq-retry-config (make-array RetryOption 0))
+
+                      :else
+                      (.waitFor job (make-array RetryOption 0)))]
+            (binding [g/*strict-mode* false] (Job/to-edn job)))
+          (catch com.google.cloud.bigquery.BigQueryException e
+            (throw (BigQueryException/to-edn e))))))))
+
+(defmethod execute! ::JobIsDone [{:keys [bigquery jobId]}]
+  (let [client (client bigquery)
+        jobId (JobId/from-edn jobId)
+        job (.getJob client jobId (into-array BigQuery$JobOption
+                                              [(BigQuery$JobOption/fields
+                                                 (into-array BigQuery$JobField
+                                                             [BigQuery$JobField/STATUS]))]))]
+    (if job
+      (if-let [status (.getStatus job)]
+        (= JobStatus$State/DONE (.getState status))
+        false)
+      true)))
 
 (defmethod execute! ::Query [{:keys [bigquery configuration jobId opts]}]
   (let [client (client bigquery)

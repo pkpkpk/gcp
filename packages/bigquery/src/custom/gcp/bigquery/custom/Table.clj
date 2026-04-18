@@ -1,7 +1,9 @@
 (ns gcp.bigquery.custom.Table
-  (:require [gcp.bigquery.TableId :as TableId]
-            [gcp.bigquery.TableInfo :as TableInfo])
-  (:import (com.google.cloud.bigquery Table)))
+  (:require
+   [gcp.bigquery.TableId :as TableId]
+   [gcp.bigquery.TableInfo :as TableInfo])
+  (:import
+   (com.google.cloud.bigquery Table)))
 
 (defn to-edn [^Table arg]
   (when arg

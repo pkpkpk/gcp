@@ -1,9 +1,10 @@
 (ns gcp.build.util
   (:require
-    [clojure.java.io :as io]
-    [clojure.tools.build.api :as b]
-    [deps-deploy.deps-deploy :as dd])
-  (:import (java.security MessageDigest)))
+   [clojure.java.io :as io]
+   [clojure.tools.build.api :as b]
+   [deps-deploy.deps-deploy :as dd])
+  (:import
+   (java.security MessageDigest)))
 
 (set! *print-namespace-maps* false)
 

@@ -1,10 +1,11 @@
 (ns gcp.build.global
-  (:require [clojure.java.io :as io]
-            [clojure.tools.build.api :as b]
-            [gcp.build.util :as util]
-            [gcp.dev.packages.definitions :as defs]
-            [gcp.dev.packages.git :as git]
-            [gcp.dev.util :as dev-util]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.tools.build.api :as b]
+   [gcp.build.util :as util]
+   [gcp.dev.packages.definitions :as defs]
+   [gcp.dev.packages.git :as git]
+   [gcp.dev.util :as dev-util]))
 
 (def lib (:lib defs/global))
 (def package-root (:package-root defs/global))
@@ -55,10 +56,8 @@
         (if is-dirty?
           (println "Building DIRTY global package version:" version "(state will not be updated)")
           (println "Building global package version:" version))
-        
         (util/jar p)
         (util/install-local p)
-        
         (when-not is-dirty?
           (io/make-parents state-file)
           (spit state-file (pr-str {:hash    new-hash
@@ -71,5 +70,4 @@
 (comment
   (current-hash)
   (needs-deploy?)
-  (build)
-  )
+  (build))

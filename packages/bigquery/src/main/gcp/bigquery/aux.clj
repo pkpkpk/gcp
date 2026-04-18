@@ -5,7 +5,6 @@
    [gcp.bigquery :as bq]
    [gcp.global :as g])
   (:import
-   (com.google.cloud.bigquery Job)
    (java.nio.channels Channels)))
 
 (defn get-schema [dataset table]
@@ -98,6 +97,22 @@
     (if (pos? idx)
       (subs name 0 idx)
       name)))
+
+(defn open-csv-writer
+  "Returns a java.io.Writer that streams directly to BigQuery as CSV.
+   The caller must close the writer (e.g. using with-open) to trigger the job.
+   Once closed, use `gcp.bigquery/wait-for` on the `jobId` to await completion.
+
+   Its recommended to use the otherwise optional location field of the jobId such that
+   it can be retrieved using bq/get-job"
+  ([tableId jobId]
+   (open-csv-writer tableId jobId nil))
+  ([tableId jobId cfg]
+   (let [cfg     (merge {:destinationTable tableId
+                         :formatOptions    {:type "CSV"}} cfg)
+         channel (bq/writer jobId cfg)
+         stream  (Channels/newOutputStream channel)]
+     (io/writer stream))))
 
 (defn load-local-file
   ([dataset table file]

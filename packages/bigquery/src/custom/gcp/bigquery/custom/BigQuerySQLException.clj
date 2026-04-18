@@ -1,7 +1,9 @@
 (ns gcp.bigquery.custom.BigQuerySQLException
-  (:require [gcp.bigquery.BigQueryError :as BigQueryError]
-            [gcp.global :as g])
-  (:import (com.google.cloud.bigquery BigQuerySQLException)))
+  (:require
+   [gcp.bigquery.BigQueryError :as BigQueryError]
+   [gcp.global :as g])
+  (:import
+   (com.google.cloud.bigquery BigQuerySQLException)))
 
 (defn from-edn [arg]
   (throw (Exception. "Class com.google.cloud.bigquery.BigQuerySQLException is read-only")))

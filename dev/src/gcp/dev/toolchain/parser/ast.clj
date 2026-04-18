@@ -616,23 +616,23 @@
         mce-calls (when body (.findAll body MethodCallExpr))
         params (mapv #(.getNameAsString %) (.getParameters m))]
     (reduce
-     (fn [acc mce]
-       (if (and (= "matcher" (.getNameAsString mce))
-                (.isPresent (.getScope mce)))
-         (let [args (.getArguments mce)]
-           (if (and (= 1 (count args))
-                    (instance? NameExpr (first args))
-                    (some #(= (.getNameAsString ^NameExpr (first args)) %) params))
-             (let [param-name (.getNameAsString ^NameExpr (first args))
-                   scope (.get (.getScope mce))
-                   regex (extract-regex-from-expr scope parent-decl)]
-               (if regex
-                 (assoc acc param-name regex)
-                 acc))
-             acc))
-         acc))
-     {}
-     mce-calls)))
+      (fn [acc mce]
+        (if (and (= "matcher" (.getNameAsString mce))
+                 (.isPresent (.getScope mce)))
+          (let [args (.getArguments mce)]
+            (if (and (= 1 (count args))
+                     (instance? NameExpr (first args))
+                     (some #(= (.getNameAsString ^NameExpr (first args)) %) params))
+              (let [param-name (.getNameAsString ^NameExpr (first args))
+                    scope (.get (.getScope mce))
+                    regex (extract-regex-from-expr scope parent-decl)]
+                (if regex
+                  (assoc acc param-name regex)
+                  acc))
+              acc))
+          acc))
+      {}
+      mce-calls)))
 
 (defn method->edn
   [solver type-params ^TypeDeclaration parent-decl ^MethodDeclaration m]
@@ -689,8 +689,7 @@
 
 (def protobuf-types
   '#{com.google.protobuf.Descriptors.FieldDescriptor
-     com.google.protobuf.FieldMask
-     })
+     com.google.protobuf.FieldMask})
 
 (defn extract-methods
   "Extracts method details (name, modifiers, return type, parameters, doc, annotations) from a type declaration."

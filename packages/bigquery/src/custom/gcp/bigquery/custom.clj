@@ -1,24 +1,18 @@
 (ns gcp.bigquery.custom
-  (:require [clojure.walk :as walk]
-            [gcp.bigquery.PolicyTags :as PolicyTags]
-            [gcp.bigquery.TableId :as TableId]
-            [gcp.global :as g]
-            [jsonista.core :as j])
-  (:import (com.google.cloud.bigquery Field
-                                      Field$Mode
-                                      FieldElementType
-                                      FieldValue
-                                      InsertAllRequest LegacySQLTypeName
-                                      QueryParameterValue
-                                      Range
-                                      StandardSQLTypeName
-                                      TableResult)
-           (com.google.gson JsonObject)
-           (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
-           (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
-           (java.time.temporal ChronoField ChronoUnit)
-           (java.util Base64 Date HashMap)
-           (org.threeten.extra PeriodDuration)))
+  (:require
+   [clojure.walk :as walk]
+   [gcp.bigquery.PolicyTags :as PolicyTags]
+   [gcp.bigquery.TableId :as TableId]
+   [gcp.global :as g]
+   [jsonista.core :as j])
+  (:import
+   (com.google.cloud.bigquery Field Field$Mode FieldElementType FieldValue InsertAllRequest LegacySQLTypeName QueryParameterValue Range StandardSQLTypeName TableResult)
+   (com.google.gson JsonObject)
+   (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
+   (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
+   (java.time.temporal ChronoField ChronoUnit)
+   (java.util Base64 Date HashMap)
+   (org.threeten.extra PeriodDuration)))
 
 #!-----------------------------
 #! :Time
@@ -134,15 +128,15 @@
 
 (def FieldElementType-schema
   [:or
-   {:closed       true,
-    :doc          nil,
-    :gcp/category :accessor-with-builder,
+   {:closed       true
+    :doc          nil
+    :gcp/category :accessor-with-builder
     :gcp/key      :gcp.bigquery/FieldElementType}
    StandardSQLTypeNames-schema
    LegacySQLTypeNames-schema
    [:map
     [:type
-     {:optional true,
+     {:optional true
       :getter-doc "The subtype of the RANGE, if the field type is RANGE.\n\n@return value or {@code null} for none"}
      [:or StandardSQLTypeNames-schema
           LegacySQLTypeNames-schema]]]])
@@ -187,67 +181,67 @@
 (def _Field-fields
   [:map
    [:collation
-    {:optional true,
+    {:optional true
      :setter-doc
      "Optional. Field collation can be set only when the type of field is STRING. The following\nvalues are supported:\n\n<p>* 'und:ci': undetermined locale, case insensitive. * '': empty string. Default to\ncase-sensitive behavior. (-- A wrapper is used here because it is possible to set the value\nto the empty string. --)"}
     :string]
    [:defaultValueExpression
-    {:optional true,
-     :getter-doc "Return the default value of the field.",
+    {:optional true
+     :getter-doc "Return the default value of the field."
      :setter-doc
      "DefaultValueExpression is used to specify the default value of a field using a SQL\nexpression. It can only be set for top level fields (columns).\n\n<p>You can use struct or array expression to specify default value for the entire struct or\narray. The valid SQL expressions are:\n\n<pre>\n  Literals for all data types, including STRUCT and ARRAY.\n  The following functions:\n     - CURRENT_TIMESTAMP\n     - CURRENT_TIME\n     - CURRENT_DATE\n     - CURRENT_DATETIME\n     - GENERATE_UUID\n     - RAND\n     - SESSION_USER\n     - ST_GEOGPOINT\n\n  Struct or array composed with the above allowed functions, for example:\n     \"[CURRENT_DATE(), DATE '2020-01-01']\"\n</pre>"}
     :string]
    [:description
-    {:optional true,
-     :getter-doc "Returns the field description.",
+    {:optional true
+     :getter-doc "Returns the field description."
      :setter-doc
      "Sets the field description. The maximum length is 16K characters."}
     :string]
    [:maxLength
-    {:optional true,
+    {:optional true
      :getter-doc
-     "Returns the maximum length of the field for STRING or BYTES type.",
+     "Returns the maximum length of the field for STRING or BYTES type."
      :setter-doc
      "Sets the maximum length of the field for STRING or BYTES type.\n\n<p>It is invalid to set value for types other than STRING or BYTES.\n\n<p>For STRING type, this represents the maximum UTF-8 length of strings allowed in the field.\nFor BYTES type, this represents the maximum number of bytes in the field."}
     :int]
    [:mode
-    {:optional true,
-     :doc "Mode for a BigQuery Table field. {@link Mode#NULLABLE} fields can be set to {@code null},\n{@link Mode#REQUIRED} fields must be provided. {@link Mode#REPEATED} fields can contain more\nthan one value.",
-     :getter-doc "Returns the field mode. By default {@link Mode#NULLABLE} is used.",
+    {:optional true
+     :doc "Mode for a BigQuery Table field. {@link Mode#NULLABLE} fields can be set to {@code null},\n{@link Mode#REQUIRED} fields must be provided. {@link Mode#REPEATED} fields can contain more\nthan one value."
+     :getter-doc "Returns the field mode. By default {@link Mode#NULLABLE} is used."
      :setter-doc "Sets the mode of the field. When not specified {@link Mode#NULLABLE} is used."}
     [:enum "NULLABLE" "REQUIRED" "REPEATED"]]
    [:policyTags
-    {:optional true,
-     :getter-doc "Returns the policy tags for the field.",
+    {:optional true
+     :getter-doc "Returns the policy tags for the field."
      :setter-doc "Sets the policy tags for the field."}
     :gcp.bigquery/PolicyTags]
    [:precision
-    {:optional true,
+    {:optional true
      :getter-doc
-     "Returns the maximum number of total digits allowed for NUMERIC or BIGNUMERIC types.",
+     "Returns the maximum number of total digits allowed for NUMERIC or BIGNUMERIC types."
      :setter-doc
      "Precision can be used to constrain the maximum number of total digits allowed for NUMERIC or BIGNUMERIC types. It is invalid to set values for Precision for types other than // NUMERIC\nor BIGNUMERIC. For NUMERIC type, acceptable values for Precision must be: 1 ≤ (Precision -\nScale) ≤ 29. Values for Scale must be: 0 ≤ Scale ≤ 9. For BIGNUMERIC type, acceptable values\nfor Precision must be: 1 ≤ (Precision - Scale) ≤ 38. Values for Scale must be: 0 ≤ Scale ≤\n38."}
     :int]
    [:rangeElementType
-    {:optional true,
-     :getter-doc "Return the range element type the field.",
+    {:optional true
+     :getter-doc "Return the range element type the field."
      :setter-doc
      "Optional. Field range element type can be set only when the type of field is RANGE."}
     [:ref :gcp.bigquery/FieldElementType]]
    [:scale
-    {:optional true,
+    {:optional true
      :getter-doc
-     "Returns the maximum number of digits set in the fractional part of a NUMERIC or BIGNUMERIC type.",
+     "Returns the maximum number of digits set in the fractional part of a NUMERIC or BIGNUMERIC type."
      :setter-doc
      "Scale can be used to constrain the maximum number of digits in the fractional part of a\nNUMERIC or BIGNUMERIC type. If the Scale value is set, the Precision value must be set as\nwell. It is invalid to set values for Scale for types other than NUMERIC or BIGNUMERIC. See\nthe Precision field for additional guidance about valid values."}
     :int]
    [:timestampPrecision
-    {:optional true,
-     :getter-doc "Returns the precision for TIMESTAMP type.",
+    {:optional true
+     :getter-doc "Returns the precision for TIMESTAMP type."
      :setter-doc
      "Specifies the precision for TIMESTAMP types. The default value is 6. Possible values are 6 (microsecond) or 12 (picosecond)."}
     [:enum 6 12]]
-   ;;----
+   ;; ----
    [:name {:getter-doc "Returns the field name."}
     [:string {:min 1}]]])
 
@@ -318,7 +312,7 @@
 (defn Field-to-edn
   [^Field arg]
   {:post [(g/strict! :gcp.bigquery/Field %)]}
-  (cond-> {:name (.getName arg),
+  (cond-> {:name (.getName arg)
            :type (.name (.getType arg))}
           (seq (.getSubFields arg))        (assoc :subFields (map Field-to-edn (.getSubFields arg)))
           (.getCollation arg)              (assoc :collation (.getCollation arg))
@@ -366,7 +360,7 @@
         "JSON"      (j/read-value (.getValue field-value) j/keyword-keys-object-mapper)
         "BYTES"     (.getBytesValue field-value)
         "GEOGRAPHY" (.getStringValue field-value)
-        "INTERVAL"  (.getPeriodDuration field-value) ;org.threeten.extra.PeriodDuration
+        "INTERVAL"  (.getPeriodDuration field-value) ; org.threeten.extra.PeriodDuration
         (throw (ex-info (str "unimplemented PRIMITIVE '" field-type "'") {:field-value field-value
                                                                           :field-type  field-type})))
       (throw (ex-info (str "unimplemented FieldValue attribute: '" (.name (.getAttribute field-value)) "'")
@@ -555,7 +549,7 @@
       (contains? arg :interval) (QueryParameterValue/interval ^String (:interval arg))
       (contains? arg :geography) (QueryParameterValue/geography (:geography arg))
       (contains? arg :json) (QueryParameterValue/json ^String (:json arg))
-      :else (QueryParameterValue/struct (into {} (map (fn [[k v]] [(name k) (QueryParameterValue-from-edn v)])) arg)) )
+      :else (QueryParameterValue/struct (into {} (map (fn [[k v]] [(name k) (QueryParameterValue-from-edn v)])) arg)))
 
     (sequential? arg)
     (cond
@@ -599,8 +593,8 @@
             T StandardSQLTypeName/TIMESTAMP]
         (QueryParameterValue/array array T))
 
-      ;(g/valid? [:sequential json-schema] arg)
-      ;(let [array ^String/1 (into-array Object (map QueryParameterValue-from-edn arg))
+      ; (g/valid? [:sequential json-schema] arg)
+      ; (let [array ^String/1 (into-array Object (map QueryParameterValue-from-edn arg))
       ;      T StandardSQLTypeName/JSON]
       ;  (QueryParameterValue/array array T))
 

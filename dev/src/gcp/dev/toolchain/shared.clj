@@ -4,6 +4,12 @@
    [clojure.set :as set]
    [gcp.dev.util :as u]))
 
+(def primitive-types
+  #{'byte 'short 'int 'long 'float 'double 'boolean 'char})
+
+(defn primitive? [t]
+  (contains? primitive-types t))
+
 #! IT IS FORBIDDEN TO MODIFY THIS SET WITHOUT ELICITING USER FOR APPROVAL
 (def categories
   #{:accessor-with-builder

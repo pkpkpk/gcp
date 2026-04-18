@@ -1,6 +1,8 @@
 (ns gcp.bigquery.custom.Model
-  (:require [gcp.bigquery.ModelInfo :as ModelInfo])
-  (:import (com.google.cloud.bigquery Model)))
+  (:require
+   [gcp.bigquery.ModelInfo :as ModelInfo])
+  (:import
+   (com.google.cloud.bigquery Model)))
 
 (defn to-edn [^Model arg]
   (when arg

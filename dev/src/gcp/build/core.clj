@@ -45,13 +45,14 @@
   sibling packages, and preserves traceability to the underlying Google SDK.
   ======================================================================
   "
-  (:require [clojure.java.io :as io]
-            [clojure.tools.build.api :as b]
-            [gcp.build.global :as global]
-            [gcp.build.util :as util]
-            [gcp.dev.packages.definitions :as defs]
-            [gcp.dev.packages.git :as git]
-            [gcp.dev.util :as dev-util]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.tools.build.api :as b]
+   [gcp.build.global :as global]
+   [gcp.build.util :as util]
+   [gcp.dev.packages.definitions :as defs]
+   [gcp.dev.packages.git :as git]
+   [gcp.dev.util :as dev-util]))
 
 (defn package-state-file [pkg]
   (io/file (:state-root pkg) "deployment.edn"))
@@ -111,15 +112,12 @@
         deps-map (read-string (slurp deps-file))
         sdk-dep (symbol (str (:googleapis/mvn-org pkg) "/" (:googleapis/mvn-artifact pkg)))
         sdk-version (get-in deps-map [:deps sdk-dep :mvn/version])
-        
         repo-root (dev-util/get-gcp-repo-root)
         rel-path (dev-util/relative-path repo-root package-root)
         is-dirty? (git/dirty? repo-root rel-path)
-        
         pkg-hash (current-hash pkg deps-map)
         state (current-state pkg)
         {:keys [needs-deploy? dirty? version revision]} (determine-version state sdk-version pkg-hash is-dirty?)]
-    
     (if-not needs-deploy?
       (do
         (println "Package" (:name pkg) "up to date:" version)
@@ -128,10 +126,8 @@
         (if dirty?
           (println "Building DIRTY package version:" version "(state will not be updated)")
           (println "Building" (:name pkg) "package version:" version))
-        
         (util/jar p)
         (util/install-local p)
-        
         (when-not dirty?
           (let [f (package-state-file pkg)]
             (io/make-parents f)

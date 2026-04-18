@@ -1,8 +1,8 @@
 (ns gcp.dev.toolchain.malli
   "Convert analyzer AST nodes into malli schemas"
   (:require
-    [clojure.core.match :refer [match]]
-    [clojure.math.combinatorics :as combo]
+   [clojure.core.match :refer [match]]
+   [clojure.math.combinatorics :as combo]
    [clojure.set :as set]
    [clojure.string :as string]
    [gcp.dev.toolchain.shared :as shared :refer [categorize-type]]
@@ -151,7 +151,7 @@
                   (if-not (and (ident? returnType) (ident? setterType))
                     false
                     (let [ret (u/as-class returnType)
-                          set(u/as-class setterType)]
+                          set (u/as-class setterType)]
                       (or (isa? ret set)
                           (isa? set ret)))))
       (if (= :client parent-category)
@@ -532,7 +532,7 @@
                              (let [getter (get-in node [:getters-by-key k])
                                    _ (assert (map? getter) (str "missing required :getters-by-key " k))
                                    setter (get-in node [:setters-by-key k])
-                                   ;_ (assert (map? setter) (str "missing required :setters-by-key " k))
+                                   ; _ (assert (map? setter) (str "missing required :setters-by-key " k))
                                    opts (cond-> {:optional true}
                                           (get getter :doc) (assoc :getter-doc (get getter :doc))
                                           (get setter :doc) (assoc :setter-doc (get setter :doc)))]

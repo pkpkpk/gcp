@@ -2,6 +2,12 @@
   (:require [clojure.test :refer :all]
             [gcp.bigquery.core :as bqc]))
 
+(comment
+  (do
+    (require 'gcp.bigquery.parse-args-tests)
+    (clojure.test/run-tests 'gcp.bigquery.parse-args-tests))
+  )
+
 (def client (bqc/client))
 
 (def dataset-id {:project "p" :dataset "d"})
@@ -365,9 +371,13 @@
     (is (= {:op ::bqc/Query :bigquery nil :configuration query-job :jobId nil :opts nil} (bqc/->Query [query-job])))
     (is (= {:op ::bqc/Query :bigquery client :configuration query-job :jobId nil :opts nil} (bqc/->Query [client query-job])))
     (is (= {:op ::bqc/Query :bigquery nil :configuration query-job :jobId job-id :opts nil} (bqc/->Query [query-job "j"])))
+    (is (= {:op ::bqc/Query :bigquery nil :configuration query-job :jobId job-id :opts nil} (bqc/->Query [query-job job-id])) "map-based jobId arity-2")
     (is (= {:op ::bqc/Query :bigquery client :configuration query-job :jobId job-id :opts nil} (bqc/->Query [client query-job "j"])))
+    (is (= {:op ::bqc/Query :bigquery client :configuration query-job :jobId job-id :opts nil} (bqc/->Query [client query-job job-id])) "map-based jobId arity-3")
     (is (= {:op ::bqc/Query :bigquery nil :configuration query-job :jobId job-id :opts {}} (bqc/->Query [query-job "j" {}])))
+    (is (= {:op ::bqc/Query :bigquery nil :configuration query-job :jobId job-id :opts {}} (bqc/->Query [query-job job-id {}])) "map-based jobId arity-3 with opts")
     (is (= {:op ::bqc/Query :bigquery client :configuration query-job :jobId job-id :opts {}} (bqc/->Query [client query-job "j" {}])))
+    (is (= {:op ::bqc/Query :bigquery client :configuration query-job :jobId job-id :opts {}} (bqc/->Query [client query-job job-id {}])) "map-based jobId arity-4")
     (is (= {:op ::bqc/Query :bigquery client :configuration query-job :jobId job-id :opts {}} (bqc/->Query [{:bigquery client :configuration query-job :jobId job-id :opts {}}])) "callRecord"))
 
   (testing "q (->Q)"
@@ -411,5 +421,23 @@
     (is (= {:op ::bqc/Writer :bigquery nil :writeChannelConfiguration {:destinationTable table-id} :jobId nil} (bqc/->Writer [{:destinationTable table-id}])))
     (is (= {:op ::bqc/Writer :bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId nil} (bqc/->Writer [client {:destinationTable table-id}])))
     (is (= {:op ::bqc/Writer :bigquery nil :writeChannelConfiguration {:destinationTable table-id} :jobId job-id} (bqc/->Writer ["j" {:destinationTable table-id}])))
+    (is (= {:op ::bqc/Writer :bigquery nil :writeChannelConfiguration {:destinationTable table-id} :jobId job-id} (bqc/->Writer [job-id {:destinationTable table-id}])) "map-based jobId arity-2")
     (is (= {:op ::bqc/Writer :bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId job-id} (bqc/->Writer [client "j" {:destinationTable table-id}])))
-    (is (= {:op ::bqc/Writer :bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId job-id} (bqc/->Writer [{:bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId job-id}])) "callRecord")))
+    (is (= {:op ::bqc/Writer :bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId job-id} (bqc/->Writer [client job-id {:destinationTable table-id}])) "map-based jobId arity-3")
+    (is (= {:op ::bqc/Writer :bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId job-id} (bqc/->Writer [{:bigquery client :writeChannelConfiguration {:destinationTable table-id} :jobId job-id}])) "callRecord"))
+
+  (testing "wait-for (->JobWaitFor)"
+    (is (= {:op ::bqc/JobWaitFor :bigquery nil :jobId job-id} (bqc/->JobWaitFor ["j"])))
+    (is (= {:op ::bqc/JobWaitFor :bigquery nil :jobId job-id} (bqc/->JobWaitFor [job-id])))
+    (is (= {:op ::bqc/JobWaitFor :bigquery client :jobId job-id} (bqc/->JobWaitFor [client "j"])))
+    (is (= {:op ::bqc/JobWaitFor :bigquery client :jobId job-id} (bqc/->JobWaitFor [client job-id])))
+    (is (= {:op ::bqc/JobWaitFor :bigquery nil :jobId job-id :retryOptions [{:maxAttempts 1}]} (bqc/->JobWaitFor [job-id {:retryOptions [{:maxAttempts 1}]}])))
+    (is (= {:op ::bqc/JobWaitFor :bigquery client :jobId job-id :retryOptions [{:maxAttempts 1}]} (bqc/->JobWaitFor [client job-id {:retryOptions [{:maxAttempts 1}]}]))))
+
+  (testing "done? (->JobIsDone)"
+    (is (= {:op ::bqc/JobIsDone :bigquery nil :jobId job-id} (bqc/->JobIsDone ["j"])))
+    (is (= {:op ::bqc/JobIsDone :bigquery nil :jobId job-id} (bqc/->JobIsDone [job-id])))
+    (is (= {:op ::bqc/JobIsDone :bigquery client :jobId job-id} (bqc/->JobIsDone [client "j"])))
+    (is (= {:op ::bqc/JobIsDone :bigquery client :jobId job-id} (bqc/->JobIsDone [client job-id])))
+    (is (= {:op ::bqc/JobIsDone :bigquery nil :jobId job-id :bigQueryRetryConfig {}} (bqc/->JobIsDone [job-id {:bigQueryRetryConfig {}}])) "job-id vs clientable ambiguity check")
+    (is (= {:op ::bqc/JobIsDone :bigquery client :jobId job-id :bigQueryRetryConfig {}} (bqc/->JobIsDone [client job-id {:bigQueryRetryConfig {}}])))))

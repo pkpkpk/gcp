@@ -294,9 +294,9 @@
                :else
                (binding [g/*registry* (fg/test-registry)]
                  (let [schema        (g/get-schema sk)
-                       ;_             (println "pruning schema" sk)
+                       ; _             (println "pruning schema" sk)
                        pruned-schema (prune-read-only-schema schema)
-                       ;_             (println "constructing generator for pruned schema")
+                       ; _             (println "constructing generator for pruned schema")
                        generator     (try
                                        (gen/generator pruned-schema {:gen/elements 3})
                                        (catch Exception e
@@ -304,7 +304,7 @@
                                            (let [ex (ex-info (str "missing generator for schema") {:schema (:schema (:data (ex-data e)))})]
                                              (throw ex))
                                            (throw e))))
-                       ;_             (println "successfully built generator")
+                       ; _             (println "successfully built generator")
                        from-edn      (ns-resolve ns-sym 'from-edn)
                        to-edn        (ns-resolve ns-sym 'to-edn)
                        _ (when-not (and from-edn to-edn)

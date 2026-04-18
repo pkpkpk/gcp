@@ -1,6 +1,8 @@
 (ns gcp.api.services.bigquery.custom
-  (:require [gcp.global :as g])
-  (:import [com.google.api.services.bigquery.model QueryParameterValue RangeValue]))
+  (:require
+   [gcp.global :as g])
+  (:import
+   (com.google.api.services.bigquery.model QueryParameterValue RangeValue)))
 
 (declare RangeValue-from-edn RangeValue-to-edn
          QueryParameterValue-from-edn QueryParameterValue-to-edn)
@@ -36,36 +38,36 @@
 (def QueryParameterValue-schema
   [:map
    {:closed true
-    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c",
+    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
     :fqcn "com.google.api.services.bigquery.model.QueryParameterValue"
-    :doc "The value of a query parameter. This is the Java data model class that specifies how to parse/serialize into the JSON that is transmitted over HTTP when working with the BigQuery API. For a detailed explanation see:\n<a href=\"https://developers.google.com/api-client-library/java/google-http-java-client/json\">https://developers.google.com/api-client-library/java/google-http-java-client/json</a>",
-    :gcp/category :mutable-pojo,
+    :doc "The value of a query parameter. This is the Java data model class that specifies how to parse/serialize into the JSON that is transmitted over HTTP when working with the BigQuery API. For a detailed explanation see:\n<a href=\"https://developers.google.com/api-client-library/java/google-http-java-client/json\">https://developers.google.com/api-client-library/java/google-http-java-client/json</a>"
+    :gcp/category :mutable-pojo
     :gcp/key :gcp.api.services.bigquery.model/QueryParameterValue}
    [:arrayValues
     {:getter-doc
-     "Optional. The array values, if this is an array type.\n\n@return value or {@code null} for none",
+     "Optional. The array values, if this is an array type.\n\n@return value or {@code null} for none"
      :setter-doc
-     "Optional. The array values, if this is an array type.\n\n@param arrayValues arrayValues or {@code null} for none",
+     "Optional. The array values, if this is an array type.\n\n@param arrayValues arrayValues or {@code null} for none"
      :optional true}
     [:sequential {:min 1} [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]]
    [:rangeValue
     {:getter-doc
-     "Optional. The range value, if this is a range type.\n\n@return value or {@code null} for none",
+     "Optional. The range value, if this is a range type.\n\n@return value or {@code null} for none"
      :setter-doc
-     "Optional. The range value, if this is a range type.\n\n@param rangeValue rangeValue or {@code null} for none",
+     "Optional. The range value, if this is a range type.\n\n@param rangeValue rangeValue or {@code null} for none"
      :optional true} [:ref :gcp.api.services.bigquery.model/RangeValue]]
    [:structValues
     {:getter-doc
-     "The struct field values.\n\n@return value or {@code null} for none",
+     "The struct field values.\n\n@return value or {@code null} for none"
      :setter-doc
-     "The struct field values.\n\n@param structValues structValues or {@code null} for none",
+     "The struct field values.\n\n@param structValues structValues or {@code null} for none"
      :optional true}
     [:map-of [:or simple-keyword? [:string {:min 1}]] [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]]
    [:value
     {:getter-doc
-     "Optional. The value of this value, if a simple scalar type.\n\n@return value or {@code null} for none",
+     "Optional. The value of this value, if a simple scalar type.\n\n@return value or {@code null} for none"
      :setter-doc
-     "Optional. The value of this value, if a simple scalar type.\n\n@param value value or {@code null} for none",
+     "Optional. The value of this value, if a simple scalar type.\n\n@param value value or {@code null} for none"
      :optional true} [:string {:min 1}]]])
 
 #!------------------------------------------------------------------------------------------
@@ -89,19 +91,19 @@
 (def RangeValue-schema
   [:map
    {:closed true
-    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c",
+    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
     :fqcn "com.google.api.services.bigquery.model.RangeValue"
-    :doc "Represents the value of a range. This is the Java data model class that specifies how to parse/serialize into the JSON that is transmitted over HTTP when working with the BigQuery API. For a detailed explanation see:\n<a href=\"https://developers.google.com/api-client-library/java/google-http-java-client/json\">https://developers.google.com/api-client-library/java/google-http-java-client/json</a>\n</p>\n\n@author Google, Inc.",
-    :gcp/category :mutable-pojo,
+    :doc "Represents the value of a range. This is the Java data model class that specifies how to parse/serialize into the JSON that is transmitted over HTTP when working with the BigQuery API. For a detailed explanation see:\n<a href=\"https://developers.google.com/api-client-library/java/google-http-java-client/json\">https://developers.google.com/api-client-library/java/google-http-java-client/json</a>\n</p>\n\n@author Google, Inc."
+    :gcp/category :mutable-pojo
     :gcp/key :gcp.api.services.bigquery.model/RangeValue}
    [:end
-    {:getter-doc "Optional. The end value of the range. A missing value represents an unbounded end.\n\n@return value or {@code null} for none",
-     :setter-doc "Optional. The end value of the range. A missing value represents an unbounded end.\n\n@param end end or {@code null} for none",
+    {:getter-doc "Optional. The end value of the range. A missing value represents an unbounded end.\n\n@return value or {@code null} for none"
+     :setter-doc "Optional. The end value of the range. A missing value represents an unbounded end.\n\n@param end end or {@code null} for none"
      :optional true}
     [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]
    [:start
-    {:getter-doc "Optional. The start value of the range. A missing value represents an unbounded start.\n\n@return value or {@code null} for none",
-     :setter-doc "Optional. The start value of the range. A missing value represents an unbounded start.\n\n@param start start or {@code null} for none",
+    {:getter-doc "Optional. The start value of the range. A missing value represents an unbounded start.\n\n@return value or {@code null} for none"
+     :setter-doc "Optional. The start value of the range. A missing value represents an unbounded start.\n\n@param start start or {@code null} for none"
      :optional true}
     [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]])
 

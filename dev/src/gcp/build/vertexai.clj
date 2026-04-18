@@ -1,8 +1,9 @@
 (ns gcp.build.vertexai
-  (:require [clojure.java.io :as io]
-            [clojure.tools.build.api :as b]
-            [gcp.build.global :as global]
-            [gcp.build.util :as util :refer [jar deploy]]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.tools.build.api :as b]
+   [gcp.build.global :as global]
+   [gcp.build.util :as util :refer [deploy jar]]))
 
 (def lib 'com.github.pkpkpk/gcp.vertexai)
 (def vertexai-version "1.20.1")
@@ -29,5 +30,4 @@
 (comment
   (do (require :reload 'gcp.build.vertexai) (in-ns 'gcp.build.vertexai))
   (jar (pom))
-  (deploy (pom))
-  )
+  (deploy (pom)))
