@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.Schema"
    :gcp.dev/certification
-     {:base-seed 1775465488145
+     {:base-seed 1776627421820
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465488145 :standard 1775465488146 :stress 1775465488147}
+        {:smoke 1776627421820 :standard 1776627421821 :stress 1776627421822}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:40.960362512Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:37:07.429510247Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api Schema Schema$Builder Type]
@@ -28,7 +28,7 @@
                                 (protobuf/Value-from-edn
                                   (get arg :additionalProperties))))
     (when (seq (get arg :anyOf))
-      (.addAllAnyOf builder (map from-edn (get arg :anyOf))))
+      (.addAllAnyOf builder (mapv from-edn (get arg :anyOf))))
     (when (some? (get arg :default))
       (.setDefault builder (protobuf/Value-from-edn (get arg :default))))
     (when (seq (get arg :defs))
@@ -86,7 +86,7 @@
       (.hasAdditionalProperties arg) (assoc :additionalProperties
                                        (protobuf/Value-to-edn
                                          (.getAdditionalProperties arg)))
-      (seq (.getAnyOfList arg)) (assoc :anyOf (map to-edn (.getAnyOfList arg)))
+      (seq (.getAnyOfList arg)) (assoc :anyOf (mapv to-edn (.getAnyOfList arg)))
       (.hasDefault arg) (assoc :default
                           (protobuf/Value-to-edn (.getDefault arg)))
       (seq (.getDefsMap arg)) (assoc :defs
@@ -156,7 +156,7 @@
        "<pre>\nOptional. The value should be validated against any (one or more) of the\nsubschemas in the list.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.Schema any_of = 11 [(.google.api.field_behavior) = OPTIONAL];\n</code>",
      :setter-doc
        "<pre>\nOptional. The value should be validated against any (one or more) of the\nsubschemas in the list.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.Schema any_of = 11 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-    [:sequential {:min 1} [:ref :gcp.vertexai.api/Schema]]]
+    [:sequential {:min 1, :gen/max 2} [:ref :gcp.vertexai.api/Schema]]]
    [:default
     {:optional true,
      :getter-doc
@@ -178,7 +178,7 @@
        "<pre>\nOptional. The description of the data.\n</pre>\n\n<code>string description = 8 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The description.",
      :setter-doc
        "<pre>\nOptional. The description of the data.\n</pre>\n\n<code>string description = 8 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The description to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:enum
     {:optional true,
      :getter-doc
@@ -199,7 +199,7 @@
        "<pre>\nOptional. The format of the data.\nSupported formats:\nfor NUMBER type: \"float\", \"double\"\nfor INTEGER type: \"int32\", \"int64\"\nfor STRING type: \"email\", \"byte\", etc\n</pre>\n\n<code>string format = 7 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The format.",
      :setter-doc
        "<pre>\nOptional. The format of the data.\nSupported formats:\nfor NUMBER type: \"float\", \"double\"\nfor INTEGER type: \"int32\", \"int64\"\nfor STRING type: \"email\", \"byte\", etc\n</pre>\n\n<code>string format = 7 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The format to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:items
     {:optional true,
      :getter-doc
@@ -276,7 +276,7 @@
        "<pre>\nOptional. Pattern of the Type.STRING to restrict a string to a regular\nexpression.\n</pre>\n\n<code>string pattern = 20 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The pattern.",
      :setter-doc
        "<pre>\nOptional. Pattern of the Type.STRING to restrict a string to a regular\nexpression.\n</pre>\n\n<code>string pattern = 20 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The pattern to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:properties
     {:optional true,
      :getter-doc
@@ -298,7 +298,7 @@
        "<pre>\nOptional. Allows indirect references between schema nodes. The value should\nbe a valid reference to a child of the root `defs`.\n\nFor example, the following schema defines a reference to a schema node\nnamed \"Pet\":\n\ntype: object\nproperties:\npet:\nref: #/defs/Pet\ndefs:\nPet:\ntype: object\nproperties:\nname:\ntype: string\n\nThe value of the \"pet\" property is a reference to the schema node\nnamed \"Pet\".\nSee details in\nhttps://json-schema.org/understanding-json-schema/structuring\n</pre>\n\n<code>string ref = 27 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The ref.",
      :setter-doc
        "<pre>\nOptional. Allows indirect references between schema nodes. The value should\nbe a valid reference to a child of the root `defs`.\n\nFor example, the following schema defines a reference to a schema node\nnamed \"Pet\":\n\ntype: object\nproperties:\npet:\nref: #/defs/Pet\ndefs:\nPet:\ntype: object\nproperties:\nname:\ntype: string\n\nThe value of the \"pet\" property is a reference to the schema node\nnamed \"Pet\".\nSee details in\nhttps://json-schema.org/understanding-json-schema/structuring\n</pre>\n\n<code>string ref = 27 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The ref to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:required
     {:optional true,
      :getter-doc
@@ -312,7 +312,7 @@
        "<pre>\nOptional. The title of the Schema.\n</pre>\n\n<code>string title = 24 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nOptional. The title of the Schema.\n</pre>\n\n<code>string title = 24 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:type
     {:optional true,
      :getter-doc

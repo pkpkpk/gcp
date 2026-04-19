@@ -30,7 +30,7 @@
     (void java.lang.Void) :nil
     (? Object) :any
     (java.lang.Char char) :char
-    java.lang.String [:string {:min 1}]
+    java.lang.String [:string {:min 1 :gen/max 1}]
     (java.lang.Byte byte) :byte
     (java.lang.Integer int) :i32
     (java.lang.Long long) :i64
@@ -78,7 +78,7 @@
                                   ;; [:iterable :generic/peer] for type: [java.lang.Iterable [? :extends com.google.cloud.vertexai.api.Part]]
                                   (assert (= '? A))
                                   (assert (= :extends B))
-                                  [:sequential {:min 1} (u/fqcn->gcp-key C)])
+                                  [:sequential {:min 1 :gen/max 2} (u/fqcn->gcp-key C)])
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       #! nested - want to wrap in :ref to avoid load order issues
       :nested [:ref (u/fqcn->gcp-key t)]
@@ -86,18 +86,18 @@
       [(:or :iterable :list) :generic/nested] (let [[A B C] (second t)]
                                                 (assert (= '? A))
                                                 (assert (= :extends B))
-                                                [:sequential {:min 1} [:ref (u/fqcn->gcp-key C)]])
-      [(:or :iterable :list :array) :nested]  [:sequential {:min 1} [:ref (u/fqcn->gcp-key (second t))]]
+                                                [:sequential {:min 1 :gen/max 2} [:ref (u/fqcn->gcp-key C)]])
+      [(:or :iterable :list :array) :nested]  [:sequential {:min 1 :gen/max 2} [:ref (u/fqcn->gcp-key (second t))]]
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       #! Foreign
       :foreign (u/fqcn->gcp-key t)
       [:foreign :generic] :any
-      [(:or :iterable :list :array) :foreign] [:sequential {:min 1} (u/fqcn->gcp-key (second t))]
+      [(:or :iterable :list :array) :foreign] [:sequential {:min 1 :gen/max 2} (u/fqcn->gcp-key (second t))]
       [:map :scalar :foreign]                 (let [[_ K V] t] [:map-of (map-key-schema K) (u/fqcn->gcp-key V)])
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       #! Custom
       :custom (u/fqcn->gcp-key t)
-      [(:or :iterable :list) :custom] [:sequential {:min 1} (u/fqcn->gcp-key (second t))]
+      [(:or :iterable :list) :custom] [:sequential {:min 1 :gen/max 2} (u/fqcn->gcp-key (second t))]
       [:map :scalar :custom] (let [[_ K V] t] [:map-of (map-key-schema K) (u/fqcn->gcp-key V)])
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       #! Support
@@ -107,7 +107,7 @@
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       #! Self
       :self [:ref (u/fqcn->gcp-key (:self deps))]
-      [(:or :iterable :list) :self] [:sequential {:min 1} [:ref (u/fqcn->gcp-key (:self deps))]]
+      [(:or :iterable :list) :self] [:sequential {:min 1 :gen/max 2} [:ref (u/fqcn->gcp-key (:self deps))]]
       [:map :scalar :self] (let [[_ K V] t] [:map-of (map-key-schema K) [:ref (u/fqcn->gcp-key (:self deps))]])
       [:array :self] (list 'gcp.global/instance-schema (symbol (str (name (second t)) "/1")))
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -119,12 +119,12 @@
        (:or :nested :peer :sibling)] (let [[_ K V] t] [:map-of (map-key-schema K) (u/fqcn->gcp-key V)])
       [:map :scalar :scalar]         (let [[_ K V] t] [:map-of (map-key-schema K) (scalar-type V)])
       [:map :scalar :enum]           (let [[_ K V] t] [:map-of (map-key-schema K) (into [:enum {:closed true}] (u/enum-values V))])
-      [:map :scalar [:list :peer]]   (let [[_ K [_ E]] t] [:map-of (map-key-schema K) [:sequential {:min 1} (u/fqcn->gcp-key E)]])
+      [:map :scalar [:list :peer]]   (let [[_ K [_ E]] t] [:map-of (map-key-schema K) [:sequential {:min 1 :gen/max 2} (u/fqcn->gcp-key E)]])
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      [(:or :iterable :list :array) :enum] [:sequential {:min 1} (into [:enum {:closed true}] (u/enum-values (second t)))]
+      [(:or :iterable :list :array) :enum] [:sequential {:min 1 :gen/max 2} (into [:enum {:closed true}] (u/enum-values (second t)))]
       [(:or :iterable :list :array)
-       (:or :nested :peer :sibling)] [:sequential {:min 1} (u/fqcn->gcp-key (second t))]
-      [(:or :iterable :list :array) :scalar] [:sequential {:min 1} (scalar-type (second t))]
+       (:or :nested :peer :sibling)] [:sequential {:min 1 :gen/max 2} (u/fqcn->gcp-key (second t))]
+      [(:or :iterable :list :array) :scalar] [:sequential {:min 1 :gen/max 2} (scalar-type (second t))]
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       [:set :scalar] [:set (scalar-type (second t))]
       #!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

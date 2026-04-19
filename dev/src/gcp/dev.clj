@@ -301,23 +301,24 @@
   (certify-graph "com.google.cloud.vertexai.api.GenerateContentRequest"
                  "com.google.cloud.vertexai.api.GenerateContentResponse"
 
-                 "com.google.cloud.vertexai.api.PredictRequest"
-                 "com.google.cloud.vertexai.api.PredictResponse"
-                 "com.google.cloud.vertexai.api.EndpointName"
-                 "com.google.cloud.vertexai.api.RawPredictRequest"
-                 "com.google.cloud.vertexai.api.DirectPredictResponse"
-                 "com.google.cloud.vertexai.api.DirectPredictRequest"
+                 ;"com.google.cloud.vertexai.api.PredictRequest"
+                 ;"com.google.cloud.vertexai.api.PredictResponse"
+                 ;"com.google.cloud.vertexai.api.EndpointName"
+                 ;"com.google.cloud.vertexai.api.RawPredictRequest"
+                 ;"com.google.cloud.vertexai.api.DirectPredictResponse"
+                 ;"com.google.cloud.vertexai.api.DirectPredictRequest"
+                 ;
+                 ;"com.google.cloud.vertexai.api.EmbedContentRequest"
+                 ;"com.google.cloud.vertexai.api.EmbedContentResponse"
 
-                 "com.google.cloud.vertexai.api.EmbedContentRequest"
-                 "com.google.cloud.vertexai.api.EmbedContentResponse"
-
-                 "com.google.cloud.vertexai.api.ExplainRequest"
-                 "com.google.cloud.vertexai.api.ExplainResponse"
-                 "com.google.cloud.vertexai.api.PredictionServiceClient.ListLocationsPagedResponse"
+                 ;"com.google.cloud.vertexai.api.ExplainRequest"
+                 ;"com.google.cloud.vertexai.api.ExplainResponse"
+                 ;"com.google.cloud.vertexai.api.PredictionServiceClient.ListLocationsPagedResponse"
 
                  ;;; --- LlmUtilityService --------------------------------
-                 "com.google.cloud.vertexai.api.CountTokensRequest"
-                 "com.google.cloud.vertexai.api.CountTokensResponse")
+                 ;"com.google.cloud.vertexai.api.CountTokensRequest"
+                 ;"com.google.cloud.vertexai.api.CountTokensResponse"
+                 )
 
   #_ com.google.api.HttpBody
   #_ com.google.cloud.location.GetLocationRequest

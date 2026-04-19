@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.GenerateContentResponse"
    :gcp.dev/certification
-     {:base-seed 1775465717864
+     {:base-seed 1776627536391
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465717864 :standard 1775465717865 :stress 1775465717866}
+        {:smoke 1776627536391 :standard 1776627536392 :stress 1776627536393}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:55:24.561351604Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:39:00.622445571Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global]
             [gcp.vertexai.api.Candidate :as Candidate]
@@ -71,7 +71,7 @@
       (.setBlockReasonMessage builder (get arg :blockReasonMessage)))
     (when (seq (get arg :safetyRatings))
       (.addAllSafetyRatings builder
-                            (map SafetyRating/from-edn
+                            (mapv SafetyRating/from-edn
                               (get arg :safetyRatings))))
     (.build builder)))
 
@@ -84,7 +84,7 @@
                (not= ""))
         (assoc :blockReasonMessage (.getBlockReasonMessage arg))
       (seq (.getSafetyRatingsList arg)) (assoc :safetyRatings
-                                          (map SafetyRating/to-edn
+                                          (mapv SafetyRating/to-edn
                                             (.getSafetyRatingsList arg))))))
 
 (def PromptFeedback-schema
@@ -106,20 +106,20 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. A readable block reason message.\n</pre>\n\n<code>string block_reason_message = 3 [(.google.api.field_behavior) = OUTPUT_ONLY];</code>\n\n@return The blockReasonMessage."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:safetyRatings
     {:optional true,
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. Safety ratings.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.SafetyRating safety_ratings = 2 [(.google.api.field_behavior) = OUTPUT_ONLY];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/SafetyRating]]])
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/SafetyRating]]])
 
 (defn ^GenerateContentResponse$UsageMetadata UsageMetadata-from-edn
   [arg]
   (let [builder (GenerateContentResponse$UsageMetadata/newBuilder)]
     (when (seq (get arg :cacheTokensDetails))
       (.addAllCacheTokensDetails builder
-                                 (map ModalityTokenCount/from-edn
+                                 (mapv ModalityTokenCount/from-edn
                                    (get arg :cacheTokensDetails))))
     (when (some? (get arg :cachedContentTokenCount))
       (.setCachedContentTokenCount builder
@@ -128,13 +128,13 @@
       (.setCandidatesTokenCount builder (int (get arg :candidatesTokenCount))))
     (when (seq (get arg :candidatesTokensDetails))
       (.addAllCandidatesTokensDetails builder
-                                      (map ModalityTokenCount/from-edn
+                                      (mapv ModalityTokenCount/from-edn
                                         (get arg :candidatesTokensDetails))))
     (when (some? (get arg :promptTokenCount))
       (.setPromptTokenCount builder (int (get arg :promptTokenCount))))
     (when (seq (get arg :promptTokensDetails))
       (.addAllPromptTokensDetails builder
-                                  (map ModalityTokenCount/from-edn
+                                  (mapv ModalityTokenCount/from-edn
                                     (get arg :promptTokensDetails))))
     (when (some? (get arg :thoughtsTokenCount))
       (.setThoughtsTokenCount builder (int (get arg :thoughtsTokenCount))))
@@ -148,13 +148,14 @@
     (cond-> {}
       (seq (.getCacheTokensDetailsList arg))
         (assoc :cacheTokensDetails
-          (map ModalityTokenCount/to-edn (.getCacheTokensDetailsList arg)))
+          (mapv ModalityTokenCount/to-edn (.getCacheTokensDetailsList arg)))
       (seq (.getCandidatesTokensDetailsList arg))
         (assoc :candidatesTokensDetails
-          (map ModalityTokenCount/to-edn (.getCandidatesTokensDetailsList arg)))
+          (mapv ModalityTokenCount/to-edn
+            (.getCandidatesTokensDetailsList arg)))
       (seq (.getPromptTokensDetailsList arg))
         (assoc :promptTokensDetails
-          (map ModalityTokenCount/to-edn (.getPromptTokensDetailsList arg))))))
+          (mapv ModalityTokenCount/to-edn (.getPromptTokensDetailsList arg))))))
 
 (def UsageMetadata-schema
   [:map
@@ -168,19 +169,19 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. List of modalities of the cached content in the request\ninput.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.ModalityTokenCount cache_tokens_details = 10 [(.google.api.field_behavior) = OUTPUT_ONLY];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/ModalityTokenCount]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/ModalityTokenCount]]
    [:candidatesTokensDetails
     {:optional true,
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. List of modalities that were returned in the response.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.ModalityTokenCount candidates_tokens_details = 11 [(.google.api.field_behavior) = OUTPUT_ONLY];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/ModalityTokenCount]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/ModalityTokenCount]]
    [:promptTokensDetails
     {:optional true,
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. List of modalities that were processed in the request input.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.ModalityTokenCount prompt_tokens_details = 9 [(.google.api.field_behavior) = OUTPUT_ONLY];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/ModalityTokenCount]]])
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/ModalityTokenCount]]])
 
 (defn ^GenerateContentResponse from-edn
   [arg]
@@ -188,7 +189,7 @@
   (let [builder (GenerateContentResponse/newBuilder)]
     (when (seq (get arg :candidates))
       (.addAllCandidates builder
-                         (map Candidate/from-edn (get arg :candidates))))
+                         (mapv Candidate/from-edn (get arg :candidates))))
     (when (some? (get arg :createTime))
       (.setCreateTime builder
                       (protobuf/Timestamp-from-edn (get arg :createTime))))
@@ -210,7 +211,7 @@
   (when arg
     (cond-> {}
       (seq (.getCandidatesList arg))
-        (assoc :candidates (map Candidate/to-edn (.getCandidatesList arg)))
+        (assoc :candidates (mapv Candidate/to-edn (.getCandidatesList arg)))
       (.hasCreateTime arg) (assoc :createTime
                              (protobuf/Timestamp-to-edn (.getCreateTime arg)))
       (some->> (.getModelVersion arg)
@@ -236,7 +237,7 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. Generated candidates.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.Candidate candidates = 2 [(.google.api.field_behavior) = OUTPUT_ONLY];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/Candidate]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/Candidate]]
    [:createTime
     {:optional true,
      :read-only true,
@@ -248,7 +249,7 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. The model version used to generate the response.\n</pre>\n\n<code>string model_version = 11 [(.google.api.field_behavior) = OUTPUT_ONLY];</code>\n\n@return The modelVersion."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:promptFeedback
     {:optional true,
      :read-only true,
@@ -260,7 +261,7 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. response_id is used to identify each response. It is the\nencoding of the event_id.\n</pre>\n\n<code>string response_id = 13 [(.google.api.field_behavior) = OUTPUT_ONLY];</code>\n\n@return The responseId."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:usageMetadata
     {:optional true,
      :getter-doc

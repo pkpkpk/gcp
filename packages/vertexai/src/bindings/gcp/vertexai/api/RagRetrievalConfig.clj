@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.RagRetrievalConfig"
    :gcp.dev/certification
-     {:base-seed 1775465481535
+     {:base-seed 1776627415778
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465481535 :standard 1775465481536 :stress 1775465481537}
+        {:smoke 1776627415778 :standard 1776627415779 :stress 1776627415780}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:22.477062124Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:36:56.769632959Z"}}
   (:require [gcp.global :as global])
   (:import
     [com.google.cloud.vertexai.api RagRetrievalConfig RagRetrievalConfig$Builder
@@ -111,7 +111,7 @@
         "<pre>\nOptional. String for metadata filtering.\n</pre>\n\n<code>string metadata_filter = 2 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The metadataFilter.",
       :setter-doc
         "<pre>\nOptional. String for metadata filtering.\n</pre>\n\n<code>string metadata_filter = 2 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The metadataFilter to set.\n@return This builder for chaining."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:vectorDistanceThreshold
      {:optional true,
       :getter-doc
@@ -126,23 +126,14 @@
       :setter-doc
         "<pre>\nOptional. Only returns contexts with vector similarity larger than the\nthreshold.\n</pre>\n\n<code>double vector_similarity_threshold = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@param value The vectorSimilarityThreshold to set.\n@return This builder for chaining."}
      :f64]]
-   [:or
-    [:map
-     [:vectorDistanceThreshold
-      {:optional true,
-       :getter-doc
-         "<pre>\nOptional. Only returns contexts with vector distance smaller than the\nthreshold.\n</pre>\n\n<code>double vector_distance_threshold = 3 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The vectorDistanceThreshold.",
-       :setter-doc
-         "<pre>\nOptional. Only returns contexts with vector distance smaller than the\nthreshold.\n</pre>\n\n<code>double vector_distance_threshold = 3 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@param value The vectorDistanceThreshold to set.\n@return This builder for chaining."}
-      :f64]]
-    [:map
-     [:vectorSimilarityThreshold
-      {:optional true,
-       :getter-doc
-         "<pre>\nOptional. Only returns contexts with vector similarity larger than the\nthreshold.\n</pre>\n\n<code>double vector_similarity_threshold = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@return The vectorSimilarityThreshold.",
-       :setter-doc
-         "<pre>\nOptional. Only returns contexts with vector similarity larger than the\nthreshold.\n</pre>\n\n<code>double vector_similarity_threshold = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@param value The vectorSimilarityThreshold to set.\n@return This builder for chaining."}
-      :f64]]]])
+   [:fn
+    {:error/message
+       "Only one of these keys may be present: #{:vectorDistanceThreshold :vectorSimilarityThreshold}"}
+    (quote (fn [m]
+             (<= (count (filter (set (keys m))
+                          #{:vectorDistanceThreshold
+                            :vectorSimilarityThreshold}))
+                 1)))]])
 
 (defn ^RagRetrievalConfig$Ranking$RankService Ranking$RankService-from-edn
   [arg]
@@ -169,7 +160,7 @@
        "<pre>\nOptional. The model name of the rank service.\nFormat: `semantic-ranker-512&#64;latest`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The modelName.",
      :setter-doc
        "<pre>\nOptional. The model name of the rank service.\nFormat: `semantic-ranker-512&#64;latest`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The modelName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn ^RagRetrievalConfig$Ranking$LlmRanker Ranking$LlmRanker-from-edn
   [arg]
@@ -196,7 +187,7 @@
        "<pre>\nOptional. The model name used for ranking.\nFormat: `gemini-1.5-pro`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The modelName.",
      :setter-doc
        "<pre>\nOptional. The model name used for ranking.\nFormat: `gemini-1.5-pro`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The modelName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (def Ranking$RankingConfigCase-schema
   [:enum
@@ -231,7 +222,7 @@
        "<pre>\nOptional. The model name of the rank service.\nFormat: `semantic-ranker-512&#64;latest`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The modelName.",
      :setter-doc
        "<pre>\nOptional. The model name of the rank service.\nFormat: `semantic-ranker-512&#64;latest`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The modelName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn ^RagRetrievalConfig$Ranking$LlmRanker Ranking$LlmRanker-from-edn
   [arg]
@@ -258,7 +249,7 @@
        "<pre>\nOptional. The model name used for ranking.\nFormat: `gemini-1.5-pro`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The modelName.",
      :setter-doc
        "<pre>\nOptional. The model name used for ranking.\nFormat: `gemini-1.5-pro`\n</pre>\n\n<code>optional string model_name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The modelName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (def Ranking$RankingConfigCase-schema
   [:enum
@@ -316,23 +307,12 @@
       :setter-doc
         "<pre>\nOptional. Config for Rank Service.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.RagRetrievalConfig.Ranking.RankService rank_service = 1 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
      [:ref :gcp.vertexai.api/RagRetrievalConfig.Ranking.RankService]]]
-   [:or
-    [:map
-     [:llmRanker
-      {:optional true,
-       :getter-doc
-         "<pre>\nOptional. Config for LlmRanker.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.RagRetrievalConfig.Ranking.LlmRanker llm_ranker = 3 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@return The llmRanker.",
-       :setter-doc
-         "<pre>\nOptional. Config for LlmRanker.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.RagRetrievalConfig.Ranking.LlmRanker llm_ranker = 3 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-      [:ref :gcp.vertexai.api/RagRetrievalConfig.Ranking.LlmRanker]]]
-    [:map
-     [:rankService
-      {:optional true,
-       :getter-doc
-         "<pre>\nOptional. Config for Rank Service.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.RagRetrievalConfig.Ranking.RankService rank_service = 1 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@return The rankService.",
-       :setter-doc
-         "<pre>\nOptional. Config for Rank Service.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.RagRetrievalConfig.Ranking.RankService rank_service = 1 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-      [:ref :gcp.vertexai.api/RagRetrievalConfig.Ranking.RankService]]]]])
+   [:fn
+    {:error/message
+       "Only one of these keys may be present: #{:rankService :llmRanker}"}
+    (quote (fn [m]
+             (<= (count (filter (set (keys m)) #{:rankService :llmRanker}))
+                 1)))]])
 
 (defn ^RagRetrievalConfig from-edn
   [arg]

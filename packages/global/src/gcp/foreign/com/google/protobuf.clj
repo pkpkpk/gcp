@@ -6,17 +6,18 @@
 
 (def registry
   ^{:gcp.global/name :gcp.foreign.com.google.protobuf/registry}
-  {:gcp.foreign.com.google.protobuf/Timestamp  [:map
+  {:gcp.foreign.com.google.protobuf/Timestamp  [:map {:gen/max 2}
                                                 [:seconds :pi64]
                                                 [:nanos :pi64]]
-   :gcp.foreign.com.google.protobuf/Duration   [:or
+   :gcp.foreign.com.google.protobuf/Duration   [:or {:gen/max 2}
                                                 :pi64
                                                 [:map
                                                  [:seconds :pi64]
                                                  [:nanos {:optional true} :pi32]]]
    :gcp.foreign.com.google.protobuf/Value      [:or
                                                 {:class 'com.google.protobuf.Value
-                                                 :doc "schema for com.google.protobuf.Value"}
+                                                 :doc "schema for com.google.protobuf.Value"
+                                                 :gen/max 2}
                                                 :boolean
                                                 :nil
                                                 :i64
@@ -27,24 +28,28 @@
 
    :gcp.foreign.com.google.protobuf/Any        [:map
                                                 {:class 'com.google.protobuf.Any
-                                                 :doc "schema for com.google.protobuf.Any"}
+                                                 :doc "schema for com.google.protobuf.Any"
+                                                 :gen/max 2}
                                                 [:type-url :string]
                                                 [:value [:ref :gcp.foreign.com.google.protobuf/ByteString]]]
 
    :gcp.foreign.com.google.protobuf/Struct     [:map-of {:class 'com.google.protobuf.Struct
-                                                         :doc "schema for com.google.protobuf.Struct"}
+                                                         :doc "schema for com.google.protobuf.Struct"
+                                                         :gen/max 2}
                                                 [:or :string :keyword]
                                                 [:ref :gcp.foreign.com.google.protobuf/Value]]
 
    :gcp.foreign.com.google.protobuf/ByteString [:or {:class 'com.google.protobuf.ByteString
                                                      :doc "schema for com.google.protobuf.ByteString"
-                                                     :gen/schema :string}
+                                                     :gen/schema :string
+                                                     :gen/max 2}
                                                 :string
                                                 'bytes?
                                                 (g/instance-schema java.nio.ByteBuffer)]
 
    :gcp.foreign.com.google.protobuf/ProtocolStringList [:sequential {:class 'com.google.protobuf.ProtocolStringList
-                                                                     :doc "schema for com.google.protobuf.ProtocolStringList"}
+                                                                     :doc "schema for com.google.protobuf.ProtocolStringList"
+                                                                     :gen/max 2}
                                                         [:ref :gcp.foreign.com.google.protobuf/ByteString]]})
 
 (g/include-schema-registry! registry)

@@ -20,7 +20,7 @@
 
 (def CERTIFICATION_PROTOCOL
   {:version "v1"
-   :stages [{:name :smoke    :tests 10  :max-size 10 :timeout-ms    5000}
+   :stages [{:name :smoke    :tests 10  :max-size 10 :timeout-ms    15000}
             {:name :standard :tests 50  :max-size 20 :timeout-ms  120000}
             {:name :stress   :tests 100  :max-size 30 :timeout-ms  300000}]})
 

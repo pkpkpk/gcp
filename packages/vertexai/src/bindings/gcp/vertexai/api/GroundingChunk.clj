@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.GroundingChunk"
    :gcp.dev/certification
-     {:base-seed 1775465673305
+     {:base-seed 1776627515647
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465673305 :standard 1775465673306 :stress 1775465673307}
+        {:smoke 1776627515647 :standard 1776627515648 :stress 1776627515649}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:54:34.284429585Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:36.654376911Z"}}
   (:require [gcp.global :as global]
             [gcp.vertexai.api.RagChunk :as RagChunk])
   (:import [com.google.cloud.vertexai.api GroundingChunk GroundingChunk$Builder
@@ -79,14 +79,14 @@
        "<pre>\nTitle of the chunk.\n</pre>\n\n<code>optional string title = 2;</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nTitle of the chunk.\n</pre>\n\n<code>optional string title = 2;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:uri
     {:optional true,
      :getter-doc
        "<pre>\nURI reference of the chunk.\n</pre>\n\n<code>optional string uri = 1;</code>\n\n@return The uri.",
      :setter-doc
        "<pre>\nURI reference of the chunk.\n</pre>\n\n<code>optional string uri = 1;</code>\n\n@param value The uri to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (def RetrievedContext$ContextDetailsCase-schema
   [:enum
@@ -146,7 +146,7 @@
       :read-only true,
       :getter-doc
         "<pre>\nOutput only. The full document name for the referenced Vertex AI Search\ndocument.\n</pre>\n\n<code>optional string document_name = 6 [(.google.api.field_behavior) = OUTPUT_ONLY];</code>\n\n@return The documentName."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:ragChunk
      {:optional true,
       :getter-doc
@@ -160,30 +160,23 @@
         "<pre>\nText of the attribution.\n</pre>\n\n<code>optional string text = 3;</code>\n\n@return The text.",
       :setter-doc
         "<pre>\nText of the attribution.\n</pre>\n\n<code>optional string text = 3;</code>\n\n@param value The text to set.\n@return This builder for chaining."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:title
      {:optional true,
       :getter-doc
         "<pre>\nTitle of the attribution.\n</pre>\n\n<code>optional string title = 2;</code>\n\n@return The title.",
       :setter-doc
         "<pre>\nTitle of the attribution.\n</pre>\n\n<code>optional string title = 2;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:uri
      {:optional true,
       :getter-doc
         "<pre>\nURI reference of the attribution.\n</pre>\n\n<code>optional string uri = 1;</code>\n\n@return The uri.",
       :setter-doc
         "<pre>\nURI reference of the attribution.\n</pre>\n\n<code>optional string uri = 1;</code>\n\n@param value The uri to set.\n@return This builder for chaining."}
-     [:string {:min 1}]]]
-   [:or
-    [:map
-     [:ragChunk
-      {:optional true,
-       :getter-doc
-         "<pre>\nAdditional context for the RAG retrieval result. This is only populated\nwhen using the RAG retrieval tool.\n</pre>\n\n<code>.google.cloud.vertexai.v1.RagChunk rag_chunk = 4;</code>\n\n@return The ragChunk.",
-       :setter-doc
-         "<pre>\nAdditional context for the RAG retrieval result. This is only populated\nwhen using the RAG retrieval tool.\n</pre>\n\n<code>.google.cloud.vertexai.v1.RagChunk rag_chunk = 4;</code>"}
-      :gcp.vertexai.api/RagChunk]]]])
+     [:string {:min 1, :gen/max 1}]]]
+   [:fn {:error/message "Only one of these keys may be present: #{:ragChunk}"}
+    (quote (fn [m] (<= (count (filter (set (keys m)) #{:ragChunk})) 1)))]])
 
 (defn
   ^GroundingChunk$Maps$PlaceAnswerSources$ReviewSnippet Maps$PlaceAnswerSources$ReviewSnippet-from-edn
@@ -226,21 +219,21 @@
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@return The googleMapsUri.",
      :setter-doc
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@param value The googleMapsUri to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:reviewId
     {:optional true,
      :getter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@return The reviewId.",
      :setter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@param value The reviewId to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:title
     {:optional true,
      :getter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn
   ^GroundingChunk$Maps$PlaceAnswerSources$ReviewSnippet Maps$PlaceAnswerSources$ReviewSnippet-from-edn
@@ -283,21 +276,21 @@
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@return The googleMapsUri.",
      :setter-doc
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@param value The googleMapsUri to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:reviewId
     {:optional true,
      :getter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@return The reviewId.",
      :setter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@param value The reviewId to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:title
     {:optional true,
      :getter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn
   ^GroundingChunk$Maps$PlaceAnswerSources Maps$PlaceAnswerSources-from-edn
@@ -305,7 +298,8 @@
   (let [builder (GroundingChunk$Maps$PlaceAnswerSources/newBuilder)]
     (when (seq (get arg :reviewSnippets))
       (.addAllReviewSnippets builder
-                             (map Maps$PlaceAnswerSources$ReviewSnippet-from-edn
+                             (mapv
+                               Maps$PlaceAnswerSources$ReviewSnippet-from-edn
                                (get arg :reviewSnippets))))
     (.build builder)))
 
@@ -316,7 +310,7 @@
     (cond-> {}
       (seq (.getReviewSnippetsList arg))
         (assoc :reviewSnippets
-          (map Maps$PlaceAnswerSources$ReviewSnippet-to-edn
+          (mapv Maps$PlaceAnswerSources$ReviewSnippet-to-edn
             (.getReviewSnippetsList arg))))))
 
 (def Maps$PlaceAnswerSources-schema
@@ -332,7 +326,7 @@
        "<pre>\nSnippets of reviews that are used to generate the answer.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.GroundingChunk.Maps.PlaceAnswerSources.ReviewSnippet review_snippets = 1;\n</code>",
      :setter-doc
        "<pre>\nSnippets of reviews that are used to generate the answer.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.GroundingChunk.Maps.PlaceAnswerSources.ReviewSnippet review_snippets = 1;\n</code>"}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      [:ref
       :gcp.vertexai.api/GroundingChunk.Maps.PlaceAnswerSources.ReviewSnippet]]]])
 
@@ -377,21 +371,21 @@
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@return The googleMapsUri.",
      :setter-doc
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@param value The googleMapsUri to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:reviewId
     {:optional true,
      :getter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@return The reviewId.",
      :setter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@param value The reviewId to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:title
     {:optional true,
      :getter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn
   ^GroundingChunk$Maps$PlaceAnswerSources$ReviewSnippet Maps$PlaceAnswerSources$ReviewSnippet-from-edn
@@ -434,21 +428,21 @@
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@return The googleMapsUri.",
      :setter-doc
        "<pre>\nA link to show the review on Google Maps.\n</pre>\n\n<code>string google_maps_uri = 2;</code>\n\n@param value The googleMapsUri to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:reviewId
     {:optional true,
      :getter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@return The reviewId.",
      :setter-doc
        "<pre>\nId of the review referencing the place.\n</pre>\n\n<code>string review_id = 1;</code>\n\n@param value The reviewId to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:title
     {:optional true,
      :getter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nTitle of the review.\n</pre>\n\n<code>string title = 3;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn
   ^GroundingChunk$Maps$PlaceAnswerSources Maps$PlaceAnswerSources-from-edn
@@ -456,7 +450,8 @@
   (let [builder (GroundingChunk$Maps$PlaceAnswerSources/newBuilder)]
     (when (seq (get arg :reviewSnippets))
       (.addAllReviewSnippets builder
-                             (map Maps$PlaceAnswerSources$ReviewSnippet-from-edn
+                             (mapv
+                               Maps$PlaceAnswerSources$ReviewSnippet-from-edn
                                (get arg :reviewSnippets))))
     (.build builder)))
 
@@ -467,7 +462,7 @@
     (cond-> {}
       (seq (.getReviewSnippetsList arg))
         (assoc :reviewSnippets
-          (map Maps$PlaceAnswerSources$ReviewSnippet-to-edn
+          (mapv Maps$PlaceAnswerSources$ReviewSnippet-to-edn
             (.getReviewSnippetsList arg))))))
 
 (def Maps$PlaceAnswerSources-schema
@@ -483,7 +478,7 @@
        "<pre>\nSnippets of reviews that are used to generate the answer.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.GroundingChunk.Maps.PlaceAnswerSources.ReviewSnippet review_snippets = 1;\n</code>",
      :setter-doc
        "<pre>\nSnippets of reviews that are used to generate the answer.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.GroundingChunk.Maps.PlaceAnswerSources.ReviewSnippet review_snippets = 1;\n</code>"}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      [:ref
       :gcp.vertexai.api/GroundingChunk.Maps.PlaceAnswerSources.ReviewSnippet]]]])
 
@@ -532,28 +527,28 @@
        "<pre>\nThis Place's resource name, in `places/{place_id}` format.  Can be used\nto look up the Place.\n</pre>\n\n<code>optional string place_id = 4;</code>\n\n@return The placeId.",
      :setter-doc
        "<pre>\nThis Place's resource name, in `places/{place_id}` format.  Can be used\nto look up the Place.\n</pre>\n\n<code>optional string place_id = 4;</code>\n\n@param value The placeId to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:text
     {:optional true,
      :getter-doc
        "<pre>\nText of the chunk.\n</pre>\n\n<code>optional string text = 3;</code>\n\n@return The text.",
      :setter-doc
        "<pre>\nText of the chunk.\n</pre>\n\n<code>optional string text = 3;</code>\n\n@param value The text to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:title
     {:optional true,
      :getter-doc
        "<pre>\nTitle of the chunk.\n</pre>\n\n<code>optional string title = 2;</code>\n\n@return The title.",
      :setter-doc
        "<pre>\nTitle of the chunk.\n</pre>\n\n<code>optional string title = 2;</code>\n\n@param value The title to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:uri
     {:optional true,
      :getter-doc
        "<pre>\nURI reference of the chunk.\n</pre>\n\n<code>optional string uri = 1;</code>\n\n@return The uri.",
      :setter-doc
        "<pre>\nURI reference of the chunk.\n</pre>\n\n<code>optional string uri = 1;</code>\n\n@param value The uri to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (def ChunkTypeCase-schema
   [:enum
@@ -620,31 +615,12 @@
       :setter-doc
         "<pre>\nGrounding chunk from the web.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.Web web = 1;</code>"}
      [:ref :gcp.vertexai.api/GroundingChunk.Web]]]
-   [:or
-    [:map
-     [:maps
-      {:optional true,
-       :getter-doc
-         "<pre>\nGrounding chunk from Google Maps.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.Maps maps = 3;</code>\n\n@return The maps.",
-       :setter-doc
-         "<pre>\nGrounding chunk from Google Maps.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.Maps maps = 3;</code>"}
-      [:ref :gcp.vertexai.api/GroundingChunk.Maps]]]
-    [:map
-     [:retrievedContext
-      {:optional true,
-       :getter-doc
-         "<pre>\nGrounding chunk from context retrieved by the retrieval tools.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.RetrievedContext retrieved_context = 2;</code>\n\n@return The retrievedContext.",
-       :setter-doc
-         "<pre>\nGrounding chunk from context retrieved by the retrieval tools.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.RetrievedContext retrieved_context = 2;</code>"}
-      [:ref :gcp.vertexai.api/GroundingChunk.RetrievedContext]]]
-    [:map
-     [:web
-      {:optional true,
-       :getter-doc
-         "<pre>\nGrounding chunk from the web.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.Web web = 1;</code>\n\n@return The web.",
-       :setter-doc
-         "<pre>\nGrounding chunk from the web.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GroundingChunk.Web web = 1;</code>"}
-      [:ref :gcp.vertexai.api/GroundingChunk.Web]]]]])
+   [:fn
+    {:error/message
+       "Only one of these keys may be present: #{:maps :retrievedContext :web}"}
+    (quote (fn [m]
+             (<= (count (filter (set (keys m)) #{:maps :retrievedContext :web}))
+                 1)))]])
 
 (global/include-schema-registry!
   (with-meta

@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.LogprobsResult"
    :gcp.dev/certification
-     {:base-seed 1775465689604
+     {:base-seed 1776627529385
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465689604 :standard 1775465689605 :stress 1775465689606}
+        {:smoke 1776627529385 :standard 1776627529386 :stress 1776627529387}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:54:50.658211128Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:50.365071007Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api LogprobsResult LogprobsResult$Builder
             LogprobsResult$Candidate LogprobsResult$Candidate$Builder
@@ -62,7 +62,7 @@
        "<pre>\nThe candidate’s token string value.\n</pre>\n\n<code>optional string token = 1;</code>\n\n@return The token.",
      :setter-doc
        "<pre>\nThe candidate’s token string value.\n</pre>\n\n<code>optional string token = 1;</code>\n\n@param value The token to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:tokenId
     {:optional true,
      :getter-doc
@@ -76,7 +76,7 @@
   (let [builder (LogprobsResult$TopCandidates/newBuilder)]
     (when (seq (get arg :candidates))
       (.addAllCandidates builder
-                         (map Candidate-from-edn (get arg :candidates))))
+                         (mapv Candidate-from-edn (get arg :candidates))))
     (.build builder)))
 
 (defn TopCandidates-to-edn
@@ -84,7 +84,7 @@
   (when arg
     (cond-> {}
       (seq (.getCandidatesList arg))
-        (assoc :candidates (map Candidate-to-edn (.getCandidatesList arg))))))
+        (assoc :candidates (mapv Candidate-to-edn (.getCandidatesList arg))))))
 
 (def TopCandidates-schema
   [:map
@@ -99,7 +99,8 @@
        "<pre>\nSorted by log probability in descending order.\n</pre>\n\n<code>repeated .google.cloud.vertexai.v1.LogprobsResult.Candidate candidates = 1;</code>",
      :setter-doc
        "<pre>\nSorted by log probability in descending order.\n</pre>\n\n<code>repeated .google.cloud.vertexai.v1.LogprobsResult.Candidate candidates = 1;</code>"}
-    [:sequential {:min 1} [:ref :gcp.vertexai.api/LogprobsResult.Candidate]]]])
+    [:sequential {:min 1, :gen/max 2}
+     [:ref :gcp.vertexai.api/LogprobsResult.Candidate]]]])
 
 (defn ^LogprobsResult from-edn
   [arg]
@@ -107,11 +108,11 @@
   (let [builder (LogprobsResult/newBuilder)]
     (when (seq (get arg :chosenCandidates))
       (.addAllChosenCandidates builder
-                               (map Candidate-from-edn
+                               (mapv Candidate-from-edn
                                  (get arg :chosenCandidates))))
     (when (seq (get arg :topCandidates))
       (.addAllTopCandidates builder
-                            (map TopCandidates-from-edn
+                            (mapv TopCandidates-from-edn
                               (get arg :topCandidates))))
     (.build builder)))
 
@@ -121,10 +122,10 @@
   (when arg
     (cond-> {}
       (seq (.getChosenCandidatesList arg)) (assoc :chosenCandidates
-                                             (map Candidate-to-edn
+                                             (mapv Candidate-to-edn
                                                (.getChosenCandidatesList arg)))
       (seq (.getTopCandidatesList arg)) (assoc :topCandidates
-                                          (map TopCandidates-to-edn
+                                          (mapv TopCandidates-to-edn
                                             (.getTopCandidatesList arg))))))
 
 (def schema
@@ -140,14 +141,15 @@
        "<pre>\nLength = total number of decoding steps.\nThe chosen candidates may or may not be in top_candidates.\n</pre>\n\n<code>repeated .google.cloud.vertexai.v1.LogprobsResult.Candidate chosen_candidates = 2;</code>",
      :setter-doc
        "<pre>\nLength = total number of decoding steps.\nThe chosen candidates may or may not be in top_candidates.\n</pre>\n\n<code>repeated .google.cloud.vertexai.v1.LogprobsResult.Candidate chosen_candidates = 2;\n</code>"}
-    [:sequential {:min 1} [:ref :gcp.vertexai.api/LogprobsResult.Candidate]]]
+    [:sequential {:min 1, :gen/max 2}
+     [:ref :gcp.vertexai.api/LogprobsResult.Candidate]]]
    [:topCandidates
     {:optional true,
      :getter-doc
        "<pre>\nLength = total number of decoding steps.\n</pre>\n\n<code>repeated .google.cloud.vertexai.v1.LogprobsResult.TopCandidates top_candidates = 1;\n</code>",
      :setter-doc
        "<pre>\nLength = total number of decoding steps.\n</pre>\n\n<code>repeated .google.cloud.vertexai.v1.LogprobsResult.TopCandidates top_candidates = 1;\n</code>"}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      [:ref :gcp.vertexai.api/LogprobsResult.TopCandidates]]]])
 
 (global/include-schema-registry!

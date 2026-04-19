@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.UrlContext"
    :gcp.dev/certification
-     {:base-seed 1775465477214
+     {:base-seed 1776627408038
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465477214 :standard 1775465477215 :stress 1775465477216}
+        {:smoke 1776627408038 :standard 1776627408039 :stress 1776627408040}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:18.074593485Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:36:48.893854495Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api UrlContext UrlContext$Builder]))
 

@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.GroundingSupport"
    :gcp.dev/certification
-     {:base-seed 1775465677557
+     {:base-seed 1776627520041
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465677557 :standard 1775465677558 :stress 1775465677559}
+        {:smoke 1776627520041 :standard 1776627520042 :stress 1776627520043}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:54:38.594494443Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:41.000962315Z"}}
   (:require [gcp.global :as global]
             [gcp.vertexai.api.Segment :as Segment])
   (:import [com.google.cloud.vertexai.api GroundingSupport
@@ -56,14 +56,14 @@
        "<pre>\nConfidence score of the support references. Ranges from 0 to 1. 1 is the\nmost confident. This list must have the same size as the\ngrounding_chunk_indices.\n</pre>\n\n<code>repeated float confidence_scores = 3;</code>\n\n@return A list containing the confidenceScores.",
      :setter-doc
        "<pre>\nConfidence score of the support references. Ranges from 0 to 1. 1 is the\nmost confident. This list must have the same size as the\ngrounding_chunk_indices.\n</pre>\n\n<code>repeated float confidence_scores = 3;</code>\n\n@param values The confidenceScores to add.\n@return This builder for chaining."}
-    [:sequential {:min 1} :f32]]
+    [:sequential {:min 1, :gen/max 2} :f32]]
    [:groundingChunkIndices
     {:optional true,
      :getter-doc
        "<pre>\nA list of indices (into 'grounding_chunk') specifying the\ncitations associated with the claim. For instance [1,3,4] means\nthat grounding_chunk[1], grounding_chunk[3],\ngrounding_chunk[4] are the retrieved content attributed to the claim.\n</pre>\n\n<code>repeated int32 grounding_chunk_indices = 2;</code>\n\n@return A list containing the groundingChunkIndices.",
      :setter-doc
        "<pre>\nA list of indices (into 'grounding_chunk') specifying the\ncitations associated with the claim. For instance [1,3,4] means\nthat grounding_chunk[1], grounding_chunk[3],\ngrounding_chunk[4] are the retrieved content attributed to the claim.\n</pre>\n\n<code>repeated int32 grounding_chunk_indices = 2;</code>\n\n@param values The groundingChunkIndices to add.\n@return This builder for chaining."}
-    [:sequential {:min 1} :i32]]
+    [:sequential {:min 1, :gen/max 2} :i32]]
    [:segment
     {:optional true,
      :getter-doc

@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.RetrievalMetadata"
    :gcp.dev/certification
-     {:base-seed 1775465680077
+     {:base-seed 1776627522374
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465680077 :standard 1775465680078 :stress 1775465680079}
+        {:smoke 1776627522374 :standard 1776627522375 :stress 1776627522376}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:54:41.134647785Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:43.385300582Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api RetrievalMetadata
             RetrievalMetadata$Builder]))

@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.VertexRagStore"
    :gcp.dev/certification
-     {:base-seed 1775465483684
+     {:base-seed 1776627417800
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465483684 :standard 1775465483685 :stress 1775465483686}
+        {:smoke 1776627417800 :standard 1776627417801 :stress 1776627417802}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:24.703189709Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:36:58.758462452Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global]
             [gcp.vertexai.api.RagRetrievalConfig :as RagRetrievalConfig])
@@ -54,7 +54,7 @@
        "<pre>\nOptional. RagCorpora resource name.\nFormat:\n`projects/{project}/locations/{location}/ragCorpora/{rag_corpus}`\n</pre>\n\n<code>\nstring rag_corpus = 1 [(.google.api.field_behavior) = OPTIONAL, (.google.api.resource_reference) = { ... }\n</code>\n\n@return The ragCorpus.",
      :setter-doc
        "<pre>\nOptional. RagCorpora resource name.\nFormat:\n`projects/{project}/locations/{location}/ragCorpora/{rag_corpus}`\n</pre>\n\n<code>\nstring rag_corpus = 1 [(.google.api.field_behavior) = OPTIONAL, (.google.api.resource_reference) = { ... }\n</code>\n\n@param value The ragCorpus to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:ragFileIds
     {:optional true,
      :getter-doc
@@ -69,7 +69,7 @@
   (let [builder (VertexRagStore/newBuilder)]
     (when (seq (get arg :ragResources))
       (.addAllRagResources builder
-                           (map RagResource-from-edn (get arg :ragResources))))
+                           (mapv RagResource-from-edn (get arg :ragResources))))
     (when (some? (get arg :ragRetrievalConfig))
       (.setRagRetrievalConfig builder
                               (RagRetrievalConfig/from-edn
@@ -82,7 +82,7 @@
   (when arg
     (cond-> {}
       (seq (.getRagResourcesList arg)) (assoc :ragResources
-                                         (map RagResource-to-edn
+                                         (mapv RagResource-to-edn
                                            (.getRagResourcesList arg)))
       (.hasRagRetrievalConfig arg) (assoc :ragRetrievalConfig
                                      (RagRetrievalConfig/to-edn
@@ -101,7 +101,8 @@
        "<pre>\nOptional. The representation of the rag source. It can be used to specify\ncorpus only or ragfiles. Currently only support one corpus or multiple\nfiles from one corpus. In the future we may open up multiple corpora\nsupport.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.VertexRagStore.RagResource rag_resources = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>",
      :setter-doc
        "<pre>\nOptional. The representation of the rag source. It can be used to specify\ncorpus only or ragfiles. Currently only support one corpus or multiple\nfiles from one corpus. In the future we may open up multiple corpora\nsupport.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.VertexRagStore.RagResource rag_resources = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-    [:sequential {:min 1} [:ref :gcp.vertexai.api/VertexRagStore.RagResource]]]
+    [:sequential {:min 1, :gen/max 2}
+     [:ref :gcp.vertexai.api/VertexRagStore.RagResource]]]
    [:ragRetrievalConfig
     {:optional true,
      :getter-doc

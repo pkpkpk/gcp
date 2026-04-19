@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.Candidate"
    :gcp.dev/certification
-     {:base-seed 1775465713329
+     {:base-seed 1776627531561
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465713329 :standard 1775465713330 :stress 1775465713331}
+        {:smoke 1776627531561 :standard 1776627531562 :stress 1776627531563}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:55:16.611204257Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:55.168595454Z"}}
   (:require [gcp.global :as global]
             [gcp.vertexai.api.CitationMetadata :as CitationMetadata]
             [gcp.vertexai.api.Content :as Content]
@@ -63,7 +63,7 @@
                           (LogprobsResult/from-edn (get arg :logprobsResult))))
     (when (seq (get arg :safetyRatings))
       (.addAllSafetyRatings builder
-                            (map SafetyRating/from-edn
+                            (mapv SafetyRating/from-edn
                               (get arg :safetyRatings))))
     (when (some? (get arg :score))
       (.setScore builder (double (get arg :score))))
@@ -93,7 +93,7 @@
       (.hasLogprobsResult arg)
         (assoc :logprobsResult (LogprobsResult/to-edn (.getLogprobsResult arg)))
       (seq (.getSafetyRatingsList arg)) (assoc :safetyRatings
-                                          (map SafetyRating/to-edn
+                                          (mapv SafetyRating/to-edn
                                             (.getSafetyRatingsList arg)))
       (.getScore arg) (assoc :score (.getScore arg))
       (.hasUrlContextMetadata arg) (assoc :urlContextMetadata
@@ -130,7 +130,7 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. Describes the reason the mode stopped generating tokens in\nmore detail. This is only filled when `finish_reason` is set.\n</pre>\n\n<code>optional string finish_message = 5 [(.google.api.field_behavior) = OUTPUT_ONLY];</code>\n\n@return The finishMessage."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:finishReason
     {:optional true,
      :read-only true,
@@ -162,7 +162,7 @@
      :read-only true,
      :getter-doc
        "<pre>\nOutput only. List of ratings for the safety of a response candidate.\n\nThere is at most one rating per category.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.SafetyRating safety_ratings = 4 [(.google.api.field_behavior) = OUTPUT_ONLY];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/SafetyRating]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/SafetyRating]]
    [:score
     {:optional true,
      :read-only true,

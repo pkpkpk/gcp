@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.FunctionCall"
    :gcp.dev/certification
-     {:base-seed 1775465693906
+     {:base-seed 1776627463736
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465693906 :standard 1775465693907 :stress 1775465693908}
+        {:smoke 1776627463736 :standard 1776627463737 :stress 1776627463738}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:54:55.002509730Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:37:44.814594986Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global]
             [gcp.vertexai.api.PartialArg :as PartialArg])
@@ -29,7 +29,7 @@
     (when (some? (get arg :name)) (.setName builder (get arg :name)))
     (when (seq (get arg :partialArgs))
       (.addAllPartialArgs builder
-                          (map PartialArg/from-edn (get arg :partialArgs))))
+                          (mapv PartialArg/from-edn (get arg :partialArgs))))
     (when (some? (get arg :willContinue))
       (.setWillContinue builder (get arg :willContinue)))
     (.build builder)))
@@ -44,7 +44,7 @@
                (not= ""))
         (assoc :name (.getName arg))
       (seq (.getPartialArgsList arg))
-        (assoc :partialArgs (map PartialArg/to-edn (.getPartialArgsList arg)))
+        (assoc :partialArgs (mapv PartialArg/to-edn (.getPartialArgsList arg)))
       (.getWillContinue arg) (assoc :willContinue (.getWillContinue arg)))))
 
 (def schema
@@ -67,14 +67,14 @@
        "<pre>\nOptional. The name of the function to call.\nMatches [FunctionDeclaration.name].\n</pre>\n\n<code>string name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The name.",
      :setter-doc
        "<pre>\nOptional. The name of the function to call.\nMatches [FunctionDeclaration.name].\n</pre>\n\n<code>string name = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The name to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:partialArgs
     {:optional true,
      :getter-doc
        "<pre>\nOptional. The partial argument value of the function call.\nIf provided, represents the arguments/fields that are streamed\nincrementally.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.PartialArg partial_args = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>",
      :setter-doc
        "<pre>\nOptional. The partial argument value of the function call.\nIf provided, represents the arguments/fields that are streamed\nincrementally.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.PartialArg partial_args = 4 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/PartialArg]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/PartialArg]]
    [:willContinue
     {:optional true,
      :getter-doc

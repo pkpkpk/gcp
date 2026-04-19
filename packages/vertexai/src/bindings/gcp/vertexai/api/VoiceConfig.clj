@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.VoiceConfig"
    :gcp.dev/certification
-     {:base-seed 1775465469128
+     {:base-seed 1776627396045
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465469128 :standard 1775465469129 :stress 1775465469130}
+        {:smoke 1776627396045 :standard 1776627396046 :stress 1776627396047}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:10.830827809Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:36:37.086114582Z"}}
   (:require [gcp.global :as global]
             [gcp.vertexai.api.PrebuiltVoiceConfig :as PrebuiltVoiceConfig]
             [gcp.vertexai.api.ReplicatedVoiceConfig :as ReplicatedVoiceConfig])
@@ -81,23 +81,13 @@
       :setter-doc
         "<pre>\nOptional. The configuration for a replicated voice. This enables users to\nreplicate a voice from an audio sample.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.ReplicatedVoiceConfig replicated_voice_config = 3 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
      :gcp.vertexai.api/ReplicatedVoiceConfig]]
-   [:or
-    [:map
-     [:prebuiltVoiceConfig
-      {:optional true,
-       :getter-doc
-         "<pre>\nThe configuration for a prebuilt voice.\n</pre>\n\n<code>.google.cloud.vertexai.v1.PrebuiltVoiceConfig prebuilt_voice_config = 1;</code>\n\n@return The prebuiltVoiceConfig.",
-       :setter-doc
-         "<pre>\nThe configuration for a prebuilt voice.\n</pre>\n\n<code>.google.cloud.vertexai.v1.PrebuiltVoiceConfig prebuilt_voice_config = 1;</code>"}
-      :gcp.vertexai.api/PrebuiltVoiceConfig]]
-    [:map
-     [:replicatedVoiceConfig
-      {:optional true,
-       :getter-doc
-         "<pre>\nOptional. The configuration for a replicated voice. This enables users to\nreplicate a voice from an audio sample.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.ReplicatedVoiceConfig replicated_voice_config = 3 [(.google.api.field_behavior) = OPTIONAL];\n</code>\n\n@return The replicatedVoiceConfig.",
-       :setter-doc
-         "<pre>\nOptional. The configuration for a replicated voice. This enables users to\nreplicate a voice from an audio sample.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.ReplicatedVoiceConfig replicated_voice_config = 3 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-      :gcp.vertexai.api/ReplicatedVoiceConfig]]]])
+   [:fn
+    {:error/message
+       "Only one of these keys may be present: #{:replicatedVoiceConfig :prebuiltVoiceConfig}"}
+    (quote (fn [m]
+             (<= (count (filter (set (keys m))
+                          #{:replicatedVoiceConfig :prebuiltVoiceConfig}))
+                 1)))]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.vertexai.api/VoiceConfig schema,

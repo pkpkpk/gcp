@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.GenerationConfig"
    :gcp.dev/certification
-     {:base-seed 1775465508221
+     {:base-seed 1776627433763
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465508221 :standard 1775465508222 :stress 1775465508223}
+        {:smoke 1776627433763 :standard 1776627433764 :stress 1776627433765}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:52.005210431Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:37:18.238017063Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global]
             [gcp.vertexai.api.ImageConfig :as ImageConfig]
@@ -140,7 +140,7 @@
        "<pre>\nThe model name to use. Only the public LLM models are accepted. e.g.\n'gemini-1.5-pro-001'.\n</pre>\n\n<code>optional string model_name = 1;</code>\n\n@return The modelName.",
      :setter-doc
        "<pre>\nThe model name to use. Only the public LLM models are accepted. e.g.\n'gemini-1.5-pro-001'.\n</pre>\n\n<code>optional string model_name = 1;</code>\n\n@param value The modelName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (def RoutingConfig$RoutingConfigCase-schema
   [:enum
@@ -233,7 +233,7 @@
        "<pre>\nThe model name to use. Only the public LLM models are accepted. e.g.\n'gemini-1.5-pro-001'.\n</pre>\n\n<code>optional string model_name = 1;</code>\n\n@return The modelName.",
      :setter-doc
        "<pre>\nThe model name to use. Only the public LLM models are accepted. e.g.\n'gemini-1.5-pro-001'.\n</pre>\n\n<code>optional string model_name = 1;</code>\n\n@param value The modelName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (def RoutingConfig$RoutingConfigCase-schema
   [:enum
@@ -293,24 +293,12 @@
       :setter-doc
         "<pre>\nManual routing.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.GenerationConfig.RoutingConfig.ManualRoutingMode manual_mode = 2;\n</code>"}
      [:ref :gcp.vertexai.api/GenerationConfig.RoutingConfig.ManualRoutingMode]]]
-   [:or
-    [:map
-     [:autoMode
-      {:optional true,
-       :getter-doc
-         "<pre>\nAutomated routing.\n</pre>\n\n<code>.google.cloud.vertexai.v1.GenerationConfig.RoutingConfig.AutoRoutingMode auto_mode = 1;\n</code>\n\n@return The autoMode.",
-       :setter-doc
-         "<pre>\nAutomated routing.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.GenerationConfig.RoutingConfig.AutoRoutingMode auto_mode = 1;\n</code>"}
-      [:ref :gcp.vertexai.api/GenerationConfig.RoutingConfig.AutoRoutingMode]]]
-    [:map
-     [:manualMode
-      {:optional true,
-       :getter-doc
-         "<pre>\nManual routing.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.GenerationConfig.RoutingConfig.ManualRoutingMode manual_mode = 2;\n</code>\n\n@return The manualMode.",
-       :setter-doc
-         "<pre>\nManual routing.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.GenerationConfig.RoutingConfig.ManualRoutingMode manual_mode = 2;\n</code>"}
-      [:ref
-       :gcp.vertexai.api/GenerationConfig.RoutingConfig.ManualRoutingMode]]]]])
+   [:fn
+    {:error/message
+       "Only one of these keys may be present: #{:autoMode :manualMode}"}
+    (quote (fn [m]
+             (<= (count (filter (set (keys m)) #{:autoMode :manualMode}))
+                 1)))]])
 
 (defn ^GenerationConfig$ThinkingConfig ThinkingConfig-from-edn
   [arg]
@@ -496,7 +484,7 @@
        "<pre>\nOptional. Output response mimetype of the generated candidate text.\nSupported mimetype:\n- `text/plain`: (default) Text output.\n- `application/json`: JSON response in the candidates.\nThe model needs to be prompted to output the appropriate response type,\notherwise the behavior is undefined.\nThis is a preview feature.\n</pre>\n\n<code>string response_mime_type = 13 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The responseMimeType.",
      :setter-doc
        "<pre>\nOptional. Output response mimetype of the generated candidate text.\nSupported mimetype:\n- `text/plain`: (default) Text output.\n- `application/json`: JSON response in the candidates.\nThe model needs to be prompted to output the appropriate response type,\notherwise the behavior is undefined.\nThis is a preview feature.\n</pre>\n\n<code>string response_mime_type = 13 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The responseMimeType to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:responseSchema
     {:optional true,
      :getter-doc

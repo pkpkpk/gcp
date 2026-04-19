@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.PrebuiltVoiceConfig"
    :gcp.dev/certification
-     {:base-seed 1775465462936
+     {:base-seed 1776627392084
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465462936 :standard 1775465462937 :stress 1775465462938}
+        {:smoke 1776627392084 :standard 1776627392085 :stress 1776627392086}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:51:04.138629141Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:36:32.976397125Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api PrebuiltVoiceConfig
             PrebuiltVoiceConfig$Builder]))
@@ -45,7 +45,7 @@
        "<pre>\nThe name of the prebuilt voice to use.\n</pre>\n\n<code>optional string voice_name = 1;</code>\n\n@return The voiceName.",
      :setter-doc
        "<pre>\nThe name of the prebuilt voice to use.\n</pre>\n\n<code>optional string voice_name = 1;</code>\n\n@param value The voiceName to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.vertexai.api/PrebuiltVoiceConfig schema}

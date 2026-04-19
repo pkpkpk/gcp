@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.ExecutableCode"
    :gcp.dev/certification
-     {:base-seed 1775465653448
+     {:base-seed 1776627406124
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465653448 :standard 1775465653449 :stress 1775465653450}
+        {:smoke 1776627406124 :standard 1776627406125 :stress 1776627406126}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:54:14.629739139Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:36:46.964419052Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.vertexai.api ExecutableCode ExecutableCode$Builder
             ExecutableCode$Language]))
@@ -55,7 +55,7 @@
        "<pre>\nRequired. The code to be executed.\n</pre>\n\n<code>string code = 2 [(.google.api.field_behavior) = REQUIRED];</code>\n\n@return The code.",
      :setter-doc
        "<pre>\nRequired. The code to be executed.\n</pre>\n\n<code>string code = 2 [(.google.api.field_behavior) = REQUIRED];</code>\n\n@param value The code to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:language
     {:getter-doc
        "<pre>\nRequired. Programming language of the `code`.\n</pre>\n\n<code>\n.google.cloud.vertexai.v1.ExecutableCode.Language language = 1 [(.google.api.field_behavior) = REQUIRED];\n</code>\n\n@return The language.",

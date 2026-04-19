@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.Tool"
    :gcp.dev/certification
-     {:base-seed 1775465569338
+     {:base-seed 1776627495542
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465569338 :standard 1775465569339 :stress 1775465569340}
+        {:smoke 1776627495542 :standard 1776627495543 :stress 1776627495544}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:52:59.381760515Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:18.252696413Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global]
             [gcp.vertexai.api.EnterpriseWebSearch :as EnterpriseWebSearch]
@@ -190,7 +190,7 @@
                                  (get arg :enterpriseWebSearch))))
     (when (seq (get arg :functionDeclarations))
       (.addAllFunctionDeclarations builder
-                                   (map FunctionDeclaration/from-edn
+                                   (mapv FunctionDeclaration/from-edn
                                      (get arg :functionDeclarations))))
     (when (some? (get arg :googleMaps))
       (.setGoogleMaps builder (GoogleMaps/from-edn (get arg :googleMaps))))
@@ -221,7 +221,7 @@
                                         (.getEnterpriseWebSearch arg)))
       (seq (.getFunctionDeclarationsList arg))
         (assoc :functionDeclarations
-          (map FunctionDeclaration/to-edn (.getFunctionDeclarationsList arg)))
+          (mapv FunctionDeclaration/to-edn (.getFunctionDeclarationsList arg)))
       (.hasGoogleMaps arg) (assoc :googleMaps
                              (GoogleMaps/to-edn (.getGoogleMaps arg)))
       (.hasGoogleSearch arg) (assoc :googleSearch
@@ -268,7 +268,7 @@
        "<pre>\nOptional. Function tool type.\nOne or more function declarations to be passed to the model along with the\ncurrent user query. Model may decide to call a subset of these functions\nby populating [FunctionCall][google.cloud.aiplatform.v1.Part.function_call]\nin the response. User should provide a\n[FunctionResponse][google.cloud.aiplatform.v1.Part.function_response] for\neach function call in the next turn. Based on the function responses, Model\nwill generate the final response back to the user. Maximum 128 function\ndeclarations can be provided.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.FunctionDeclaration function_declarations = 1 [(.google.api.field_behavior) = OPTIONAL];\n</code>",
      :setter-doc
        "<pre>\nOptional. Function tool type.\nOne or more function declarations to be passed to the model along with the\ncurrent user query. Model may decide to call a subset of these functions\nby populating [FunctionCall][google.cloud.aiplatform.v1.Part.function_call]\nin the response. User should provide a\n[FunctionResponse][google.cloud.aiplatform.v1.Part.function_response] for\neach function call in the next turn. Based on the function responses, Model\nwill generate the final response back to the user. Maximum 128 function\ndeclarations can be provided.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.FunctionDeclaration function_declarations = 1 [(.google.api.field_behavior) = OPTIONAL];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/FunctionDeclaration]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/FunctionDeclaration]]
    [:googleMaps
     {:optional true,
      :getter-doc

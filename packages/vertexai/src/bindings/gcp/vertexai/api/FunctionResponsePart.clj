@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.FunctionResponsePart"
    :gcp.dev/certification
-     {:base-seed 1775465700874
+     {:base-seed 1776627470073
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465700874 :standard 1775465700875 :stress 1775465700876}
+        {:smoke 1776627470073 :standard 1776627470074 :stress 1776627470075}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:55:02.018569653Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:37:51.167251301Z"}}
   (:require [gcp.global :as global]
             [gcp.vertexai.api.FunctionResponseBlob :as FunctionResponseBlob]
             [gcp.vertexai.api.FunctionResponseFileData :as
@@ -80,23 +80,12 @@
       :setter-doc
         "<pre>\nInline media bytes.\n</pre>\n\n<code>.google.cloud.vertexai.v1.FunctionResponseBlob inline_data = 1;</code>"}
      :gcp.vertexai.api/FunctionResponseBlob]]
-   [:or
-    [:map
-     [:fileData
-      {:optional true,
-       :getter-doc
-         "<pre>\nURI based data.\n</pre>\n\n<code>.google.cloud.vertexai.v1.FunctionResponseFileData file_data = 2;</code>\n\n@return The fileData.",
-       :setter-doc
-         "<pre>\nURI based data.\n</pre>\n\n<code>.google.cloud.vertexai.v1.FunctionResponseFileData file_data = 2;</code>"}
-      :gcp.vertexai.api/FunctionResponseFileData]]
-    [:map
-     [:inlineData
-      {:optional true,
-       :getter-doc
-         "<pre>\nInline media bytes.\n</pre>\n\n<code>.google.cloud.vertexai.v1.FunctionResponseBlob inline_data = 1;</code>\n\n@return The inlineData.",
-       :setter-doc
-         "<pre>\nInline media bytes.\n</pre>\n\n<code>.google.cloud.vertexai.v1.FunctionResponseBlob inline_data = 1;</code>"}
-      :gcp.vertexai.api/FunctionResponseBlob]]]])
+   [:fn
+    {:error/message
+       "Only one of these keys may be present: #{:inlineData :fileData}"}
+    (quote (fn [m]
+             (<= (count (filter (set (keys m)) #{:inlineData :fileData}))
+                 1)))]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.vertexai.api/FunctionResponsePart schema,

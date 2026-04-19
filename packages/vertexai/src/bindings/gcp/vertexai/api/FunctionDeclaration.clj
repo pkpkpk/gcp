@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.FunctionDeclaration"
    :gcp.dev/certification
-     {:base-seed 1775465557877
+     {:base-seed 1776627485317
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465557877 :standard 1775465557878 :stress 1775465557879}
+        {:smoke 1776627485317 :standard 1776627485318 :stress 1776627485319}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:52:41.550928076Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:08.118802645Z"}}
   (:require [gcp.foreign.com.google.protobuf :as protobuf]
             [gcp.global :as global]
             [gcp.vertexai.api.Schema :as Schema])
@@ -73,13 +73,13 @@
        "<pre>\nOptional. Description and purpose of the function.\nModel uses it to decide how and whether to call the function.\n</pre>\n\n<code>string description = 2 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The description.",
      :setter-doc
        "<pre>\nOptional. Description and purpose of the function.\nModel uses it to decide how and whether to call the function.\n</pre>\n\n<code>string description = 2 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The description to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:name
     {:getter-doc
        "<pre>\nRequired. The name of the function to call.\nMust start with a letter or an underscore.\nMust be a-z, A-Z, 0-9, or contain underscores, dots and dashes, with a\nmaximum length of 64.\n</pre>\n\n<code>string name = 1 [(.google.api.field_behavior) = REQUIRED];</code>\n\n@return The name.",
      :setter-doc
        "<pre>\nRequired. The name of the function to call.\nMust start with a letter or an underscore.\nMust be a-z, A-Z, 0-9, or contain underscores, dots and dashes, with a\nmaximum length of 64.\n</pre>\n\n<code>string name = 1 [(.google.api.field_behavior) = REQUIRED];</code>\n\n@param value The name to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:parameters
     {:optional true,
      :getter-doc

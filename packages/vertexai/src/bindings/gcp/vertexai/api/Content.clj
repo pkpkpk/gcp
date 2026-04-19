@@ -5,13 +5,13 @@
    :file-git-sha "d937fcec0c42304b32ec37bc46cfb9739b978382"
    :fqcn "com.google.cloud.vertexai.api.Content"
    :gcp.dev/certification
-     {:base-seed 1775465708894
+     {:base-seed 1776627477563
       :manifest "2e809e6a-933c-51dd-8bb9-567961e7a29e"
       :passed-stages
-        {:smoke 1775465708894 :standard 1775465708895 :stress 1775465708896}
+        {:smoke 1776627477563 :standard 1776627477564 :stress 1776627477565}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-06T08:55:12.105837733Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-04-19T19:38:00.094114564Z"}}
   (:require [gcp.global :as global]
             [gcp.vertexai.api.Part :as Part])
   (:import [com.google.cloud.vertexai.api Content Content$Builder]))
@@ -23,7 +23,7 @@
   (global/strict! :gcp.vertexai.api/Content arg)
   (let [builder (Content/newBuilder)]
     (when (seq (get arg :parts))
-      (.addAllParts builder (map Part/from-edn (get arg :parts))))
+      (.addAllParts builder (mapv Part/from-edn (get arg :parts))))
     (when (some? (get arg :role)) (.setRole builder (get arg :role)))
     (.build builder)))
 
@@ -31,7 +31,7 @@
   [^Content arg]
   {:post [(global/strict! :gcp.vertexai.api/Content %)]}
   (when arg
-    (cond-> {:parts (map Part/to-edn (.getPartsList arg))}
+    (cond-> {:parts (mapv Part/to-edn (.getPartsList arg))}
       (some->> (.getRole arg)
                (not= ""))
         (assoc :role (.getRole arg)))))
@@ -48,14 +48,14 @@
        "<pre>\nRequired. Ordered `Parts` that constitute a single message. Parts may have\ndifferent IANA MIME types.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.Part parts = 2 [(.google.api.field_behavior) = REQUIRED];\n</code>",
      :setter-doc
        "<pre>\nRequired. Ordered `Parts` that constitute a single message. Parts may have\ndifferent IANA MIME types.\n</pre>\n\n<code>\nrepeated .google.cloud.vertexai.v1.Part parts = 2 [(.google.api.field_behavior) = REQUIRED];\n</code>"}
-    [:sequential {:min 1} :gcp.vertexai.api/Part]]
+    [:sequential {:min 1, :gen/max 2} :gcp.vertexai.api/Part]]
    [:role
     {:optional true,
      :getter-doc
        "<pre>\nOptional. The producer of the content. Must be either 'user' or 'model'.\n\nUseful to set for multi-turn conversations, otherwise can be left blank\nor unset.\n</pre>\n\n<code>string role = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@return The role.",
      :setter-doc
        "<pre>\nOptional. The producer of the content. Must be either 'user' or 'model'.\n\nUseful to set for multi-turn conversations, otherwise can be left blank\nor unset.\n</pre>\n\n<code>string role = 1 [(.google.api.field_behavior) = OPTIONAL];</code>\n\n@param value The role to set.\n@return This builder for chaining."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry! (with-meta {:gcp.vertexai.api/Content schema}
                                    {:gcp.global/name
