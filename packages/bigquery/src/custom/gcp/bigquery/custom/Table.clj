@@ -1,7 +1,9 @@
 (ns gcp.bigquery.custom.Table
   (:require
    [gcp.bigquery.TableId :as TableId]
-   [gcp.bigquery.TableInfo :as TableInfo])
+   [gcp.bigquery.TableInfo :as TableInfo]
+   [gcp.global :as g]
+   [malli.util :as mu])
   (:import
    (com.google.cloud.bigquery Table)))
 
@@ -26,3 +28,12 @@
           (assoc :labels (keywordize-map (.getLabels arg)))
           (seq (.getResourceTags arg))
           (assoc :resourceTags (keywordize-map (.getResourceTags arg)))))
+
+(def schema
+  (mu/merge
+    TableInfo/schema
+    [:map [:bigquery {:optional true} :any]]
+    (g/mopts)))
+
+(g/include-schema-registry! (with-meta {:gcp.bigquery/Table schema}
+                                       {:gcp.global/name "gcp.bigquery.Table"}))

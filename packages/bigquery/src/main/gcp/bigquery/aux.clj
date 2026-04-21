@@ -16,7 +16,9 @@
            "https://cloud.google.com/bigquery/docs/reference/standard-sql/export-statements"
            "https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/com.google.cloud.bigquery.ExtractJobConfiguration"]}
   extract-table
-  ([table format compression dst & opts]
+  ([table format compression dst]
+   (extract-table table format compression dst nil))
+  ([table format compression dst opts]
    (let [table (if (g/valid? :gcp.bigquery/TableId table)
                  table
                  (if (g/valid? :gcp.bigquery/TableInfo table)
@@ -37,10 +39,9 @@
                                 :sourceTable     (g/coerce :gcp.bigquery/TableId table)
                                 :format          format
                                 :destinationUris dst}
-                               compression (assoc :compression compression))]
-     (bq/create-job {:bigquery (:bigquery table) ;; if Table, use same client
-                     :jobInfo  {:configuration (g/coerce :gcp.bigquery/ExtractJobConfiguration configuration)}
-                     :options  (not-empty opts)}))))
+                               compression (assoc :compression compression))
+         jobInfo {:configuration (g/coerce :gcp.bigquery/ExtractJobConfiguration configuration)}]
+     (bq/create-job (:bigquery table) jobInfo opts))))
 
 (defn extract-parquet
   ([dataset table bucket]

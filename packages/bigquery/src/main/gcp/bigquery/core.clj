@@ -324,12 +324,12 @@
 (def ^:private create-dataset-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::DatasetCreate]]]
-   [:arity-1a [:catn [:datasetInfo :gcp.bigquery/DatasetInfo]]]
+   [:arity-1a [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]
    [:arity-1b [:catn [:datasetId :gcp.bigquery/DatasetId]]]
    [:arity-2 [:altn
-              [:info-opts   [:catn [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
-              [:client-info [:catn [:clientable ::clientable] [:datasetInfo :gcp.bigquery/DatasetInfo]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]])
+              [:info-opts   [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+              [:client-info [:catn [:clientable ::clientable] [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]])
 
 (defn ->DatasetCreate [args]
   (let [schema (g/schema create-dataset-args-schema)
@@ -350,11 +350,11 @@
 (def ^:private update-dataset-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::DatasetUpdate]]]
-   [:arity-1 [:catn [:datasetInfo :gcp.bigquery/DatasetInfo]]]
+   [:arity-1 [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]
    [:arity-2 [:altn
-              [:info-opts   [:catn [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
-              [:client-info [:catn [:clientable ::clientable] [:datasetInfo :gcp.bigquery/DatasetInfo]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]])
+              [:info-opts   [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+              [:client-info [:catn [:clientable ::clientable] [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]])
 
 (defn ->DatasetUpdate [args]
   (let [schema (g/schema update-dataset-args-schema)
@@ -372,11 +372,11 @@
 (def ^:private get-dataset-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::DatasetGet]]]
-   [:arity-1 [:catn [:datasetId :gcp.bigquery/DatasetId]]]
+   [:arity-1 [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]
    [:arity-2 [:altn
-              [:id-opts   [:catn [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
-              [:client-id [:catn [:clientable ::clientable] [:datasetId :gcp.bigquery/DatasetId]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]])
+              [:id-opts   [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+              [:client-id [:catn [:clientable ::clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]])
 
 (defn ->DatasetGet [args]
   (let [schema (g/schema get-dataset-args-schema)
@@ -386,19 +386,20 @@
       (let [{:keys [clientable datasetId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::DatasetGet)
-          {:op        ::DatasetGet
-           :bigquery  clientable
-           :datasetId datasetId
-           :opts      opts})))))
+          (let [resolved-dataset-id (if (:datasetId datasetId) (:datasetId datasetId) datasetId)]
+            {:op        ::DatasetGet
+             :bigquery  clientable
+             :datasetId resolved-dataset-id
+             :opts      opts}))))))
 
 (def ^:private delete-dataset-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::DatasetDelete]]]
-   [:arity-1 [:catn [:datasetId :gcp.bigquery/DatasetId]]]
+   [:arity-1 [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]
    [:arity-2 [:altn
-              [:id-opts   [:catn [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.DatasetDeleteOption]]]
-              [:client-id [:catn [:clientable ::clientable] [:datasetId :gcp.bigquery/DatasetId]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.DatasetDeleteOption]]]])
+              [:id-opts   [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetDeleteOption]]]
+              [:client-id [:catn [:clientable ::clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetDeleteOption]]]])
 
 (defn ->DatasetDelete [args]
   (let [schema (g/schema delete-dataset-args-schema)
@@ -408,23 +409,24 @@
       (let [{:keys [clientable datasetId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::DatasetDelete)
-          {:op        ::DatasetDelete
-           :bigquery  clientable
-           :datasetId datasetId
-           :opts      opts})))))
+          (let [resolved-dataset-id (if (:datasetId datasetId) (:datasetId datasetId) datasetId)]
+            {:op        ::DatasetDelete
+             :bigquery  clientable
+             :datasetId resolved-dataset-id
+             :opts      opts}))))))
 
 (def ^:private list-tables-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableList]]]
-   [:arity-1 [:catn [:datasetId :gcp.bigquery/DatasetId]]]
+   [:arity-1 [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]
    [:arity-2 [:altn
               [:project-dataset [:catn [:project string?] [:dataset string?]]]
-              [:dataset-opts    [:catn [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.TableListOption]]]
-              [:client-dataset  [:catn [:clientable ::clientable] [:datasetId :gcp.bigquery/DatasetId]]]]]
+              [:dataset-opts    [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.TableListOption]]]
+              [:client-dataset  [:catn [:clientable ::clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]]
    [:arity-3 [:altn
               [:project-dataset-opts   [:catn [:project string?] [:dataset string?] [:opts :gcp.bigquery/BigQuery.TableListOption]]]
               [:client-project-dataset [:catn [:clientable ::clientable] [:project string?] [:dataset string?]]]
-              [:client-dataset-opts    [:catn [:clientable ::clientable] [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.TableListOption]]]]]
+              [:client-dataset-opts    [:catn [:clientable ::clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.TableListOption]]]]]
    [:arity-4 [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:opts :gcp.bigquery/BigQuery.TableListOption]]]])
 
 (defn ->TableList [args]
@@ -435,7 +437,7 @@
       (let [{:keys [clientable project dataset datasetId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::TableList)
-          (let [resolved-dataset-id (or datasetId
+          (let [resolved-dataset-id (or (if (:datasetId datasetId) (:datasetId datasetId) datasetId)
                                         (cond-> {:dataset dataset}
                                           project (assoc :project project)))]
             {:op        ::TableList
@@ -446,9 +448,9 @@
 (def ^:private list-partitions-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableListPartitions]]]
-   [:arity-1 [:catn [:tableId :gcp.bigquery/TableId]]]
+   [:arity-1 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
-              [:client-table  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId]]]
+              [:client-table  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
               [:dataset-table [:catn [:dataset string?] [:table string?]]]]]
    [:arity-3 [:altn
               [:client-dataset-table  [:catn [:clientable ::clientable] [:dataset string?] [:table string?]]]
@@ -463,7 +465,7 @@
       (let [{:keys [clientable project dataset table tableId callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::TableListPartitions)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op        ::TableListPartitions
@@ -473,11 +475,11 @@
 (def ^:private create-table-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableCreate]]]
-   [:arity-1 [:catn [:tableInfo :gcp.bigquery/TableInfo]]]
+   [:arity-1 [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
-              [:client-info [:catn [:clientable ::clientable] [:tableInfo :gcp.bigquery/TableInfo]]]
-              [:info-opts   [:catn [:tableInfo :gcp.bigquery/TableInfo] [:opts :gcp.bigquery/BigQuery.TableOption]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:tableInfo :gcp.bigquery/TableInfo] [:opts :gcp.bigquery/BigQuery.TableOption]]]])
+              [:client-info [:catn [:clientable ::clientable] [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]
+              [:info-opts   [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]])
 
 (defn ->TableCreate [args]
   (let [schema (g/schema create-table-args-schema)
@@ -495,11 +497,11 @@
 (def ^:private update-table-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableUpdate]]]
-   [:arity-1 [:catn [:tableInfo :gcp.bigquery/TableInfo]]]
+   [:arity-1 [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
-              [:client-info [:catn [:clientable ::clientable] [:tableInfo :gcp.bigquery/TableInfo]]]
-              [:info-opts   [:catn [:tableInfo :gcp.bigquery/TableInfo] [:opts :gcp.bigquery/BigQuery.TableOption]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:tableInfo :gcp.bigquery/TableInfo] [:opts :gcp.bigquery/BigQuery.TableOption]]]])
+              [:client-info [:catn [:clientable ::clientable] [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]
+              [:info-opts   [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]])
 
 (defn ->TableUpdate [args]
   (let [schema (g/schema update-table-args-schema)
@@ -517,16 +519,16 @@
 (def ^:private get-table-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableGet]]]
-   [:arity-1 [:catn [:tableId :gcp.bigquery/TableId]]]
+   [:arity-1 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
               [:dataset-table [:catn [:dataset string?] [:table string?]]]
-              [:table-opts    [:catn [:tableId :gcp.bigquery/TableId] [:opts :gcp.bigquery/BigQuery.TableOption]]]
-              [:client-table  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId]]]]]
+              [:table-opts    [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]
+              [:client-table  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]]
    [:arity-3 [:altn
               [:project-dataset-table [:catn [:project string?] [:dataset string?] [:table string?]]]
               [:dataset-table-opts    [:catn [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableOption]]]
               [:client-dataset-table  [:catn [:clientable ::clientable] [:dataset string?] [:table string?]]]
-              [:client-table-opts     [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:opts :gcp.bigquery/BigQuery.TableOption]]]]]
+              [:client-table-opts     [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]]
    [:arity-4 [:altn
               [:project-dataset-table-opts   [:catn [:project string?] [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableOption]]]
               [:client-project-dataset-table [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:table string?]]]
@@ -541,7 +543,7 @@
       (let [{:keys [clientable project dataset table tableId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::TableGet)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op       ::TableGet
@@ -552,9 +554,9 @@
 (def ^:private delete-table-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableDelete]]]
-   [:arity-1 [:catn [:tableId :gcp.bigquery/TableId]]]
+   [:arity-1 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
-              [:client-table  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId]]]
+              [:client-table  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
               [:dataset-table [:catn [:dataset string?] [:table string?]]]]]
    [:arity-3 [:altn
               [:client-dataset-table  [:catn [:clientable ::clientable] [:dataset string?] [:table string?]]]
@@ -569,7 +571,7 @@
       (let [{:keys [clientable project dataset table tableId callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::TableDelete)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op       ::TableDelete
@@ -582,9 +584,9 @@
    [:arity-1 [:catn [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]
    [:arity-2 [:altn
               [:client-request [:catn [:clientable ::clientable] [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]
-              [:table-rows     [:catn [:tableId :gcp.bigquery/TableId] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]]
+              [:table-rows     [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]]
    [:arity-3 [:altn
-              [:client-table-rows  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
+              [:client-table-rows  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
               [:dataset-table-rows [:catn [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]]
    [:arity-4 [:altn
               [:client-dataset-table-rows  [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
@@ -599,7 +601,7 @@
       (let [{:keys [clientable project dataset table tableId rows insertAllRequest callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::InsertAll)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                             project (assoc :project project)))
                 request (or insertAllRequest {:table resolved-table-id :rows rows})]
@@ -610,25 +612,25 @@
 (def ^:private list-table-data-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TableListData]]]
-   [:arity-1 [:catn [:tableId :gcp.bigquery/TableId]]]
+   [:arity-1 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
-              [:client-table  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId]]]
+              [:client-table  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
               [:dataset-table [:catn [:dataset string?] [:table string?]]]
-              [:table-schema  [:catn [:tableId :gcp.bigquery/TableId] [:schema :gcp.bigquery/Schema]]]
-              [:table-opts    [:catn [:tableId :gcp.bigquery/TableId] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]]
+              [:table-schema  [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema]]]
+              [:table-opts    [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]]
    [:arity-3 [:altn
               [:client-dataset-table  [:catn [:clientable ::clientable] [:dataset string?] [:table string?]]]
-              [:client-table-schema   [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:schema :gcp.bigquery/Schema]]]
-              [:client-table-opts     [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
+              [:client-table-schema   [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema]]]
+              [:client-table-opts     [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
               [:project-dataset-table [:catn [:project string?] [:dataset string?] [:table string?]]]
               [:dataset-table-schema  [:catn [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema]]]
               [:dataset-table-opts    [:catn [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
-              [:table-schema-opts     [:catn [:tableId :gcp.bigquery/TableId] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]]
+              [:table-schema-opts     [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]]
    [:arity-4 [:altn
               [:client-project-dataset-table [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:table string?]]]
               [:client-dataset-table-schema  [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema]]]
               [:client-dataset-table-opts    [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
-              [:client-table-schema-opts     [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
+              [:client-table-schema-opts     [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
               [:project-dataset-table-schema [:catn [:project string?] [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema]]]
               [:project-dataset-table-opts   [:catn [:project string?] [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
               [:dataset-table-schema-opts    [:catn [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]]
@@ -647,7 +649,7 @@
       (let [{:keys [clientable project dataset table tableId schema opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::TableListData)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op        ::TableListData
@@ -680,8 +682,8 @@
 (def ^:private cancel-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobCancel]]]
-   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
-   [:arity-2 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]])
+   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
+   [:arity-2 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]])
 
 (defn ->JobCancel [args]
   (let [schema (g/schema cancel-job-args-schema)
@@ -691,7 +693,10 @@
       (let [{:keys [clientable jobId callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobCancel)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             {:op       ::JobCancel
              :bigquery clientable
              :jobId    resolved-job-id}))))))
@@ -699,24 +704,23 @@
 (def ^:private create-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord (mu/dissoc ::JobCreate :op (g/mopts))]]]
-   [:arity-1b [:catn [:jobInfo :gcp.bigquery/JobInfo]]]
-   [:arity-1c [:catn [:configuration :gcp.bigquery/JobConfiguration]]]
+   [:arity-1b [:catn [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]]]]
    [:arity-2 [:altn
-              [:client-info [:catn [:clientable ::clientable] [:jobInfo :gcp.bigquery/JobInfo]]]
-              [:info-opts   [:catn [:jobInfo :gcp.bigquery/JobInfo] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:jobInfo :gcp.bigquery/JobInfo] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+              [:client-info [:catn [:clientable ::clientable] [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]]]]
+              [:info-opts   [:catn [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->JobCreate [args]
   (let [schema (g/schema create-job-args-schema)
         parsed (m/parse schema args)]
     (if (= ::m/invalid parsed)
       (throw (ex-info "Invalid arguments to create-job" {:args args :explain (g/explain schema args)}))
-      (let [{:keys [clientable callRecord jobInfo configuration opts]} (extract-parse-values parsed)]
+      (let [{:keys [clientable callRecord jobInfo opts]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobCreate)
-          (let [jobInfo (if configuration
-                          {:configuration configuration}
-                          jobInfo)]
+          (let [jobInfo (if (:configuration jobInfo)
+                          jobInfo
+                          {:configuration jobInfo})]
             {:op       ::JobCreate
              :bigquery clientable
              :jobInfo  jobInfo
@@ -725,11 +729,11 @@
 (def ^:private update-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobUpdate]]]
-   [:arity-1 [:catn [:jobInfo :gcp.bigquery/JobInfo]]]
+   [:arity-1 [:catn [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]]]]
    [:arity-2 [:altn
-              [:client-info [:catn [:clientable ::clientable] [:jobInfo :gcp.bigquery/JobInfo]]]
-              [:info-opts   [:catn [:jobInfo :gcp.bigquery/JobInfo] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:jobInfo :gcp.bigquery/JobInfo] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+              [:client-info [:catn [:clientable ::clientable] [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]]]]
+              [:info-opts   [:catn [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:jobInfo [:or :gcp.bigquery/JobInfo :gcp.bigquery/JobConfiguration]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->JobUpdate [args]
   (let [schema (g/schema update-job-args-schema)
@@ -739,19 +743,22 @@
       (let [{:keys [clientable jobInfo opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobUpdate)
-          {:op       ::JobUpdate
-           :bigquery clientable
-           :jobInfo  jobInfo
-           :opts     opts})))))
+          (let [jobInfo (if (:configuration jobInfo)
+                          jobInfo
+                          {:configuration jobInfo})]
+            {:op       ::JobUpdate
+             :bigquery clientable
+             :jobInfo  jobInfo
+             :opts     opts}))))))
 
 (def ^:private get-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobGet]]]
-   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
    [:arity-2 [:altn
-              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->JobGet [args]
   (let [schema (g/schema get-job-args-schema)
@@ -761,7 +768,10 @@
       (let [{:keys [clientable jobId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobGet)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             {:op       ::JobGet
              :bigquery clientable
              :jobId    resolved-job-id
@@ -770,10 +780,10 @@
 (def ^:private delete-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobDelete]]]
-   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
    [:arity-2 [:altn
-              [:job-id [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
-              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]]]])
+              [:job-id [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
+              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]]])
 
 (defn ->JobDelete [args]
   (let [schema (g/schema delete-job-args-schema)
@@ -783,7 +793,10 @@
       (let [{:keys [clientable jobId callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobDelete)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             {:op       ::JobDelete
              :bigquery clientable
              :jobId    resolved-job-id}))))))
@@ -791,11 +804,11 @@
 (def ^:private wait-for-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobWaitFor]]]
-   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+   [:arity-1 [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
    [:arity-2 [:altn
-              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]
-              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]])
+              [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]
+              [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]])
 
 (defn ->JobWaitFor [args]
   (let [schema (g/schema wait-for-job-args-schema)
@@ -805,7 +818,10 @@
       (let [{:keys [clientable jobId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobWaitFor)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             (cond-> {:op       ::JobWaitFor
                      :bigquery clientable
                      :jobId    resolved-job-id}
@@ -815,11 +831,11 @@
 (def ^:private is-done-job-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::JobIsDone]]]
-   [:arity-1     [:catn [:jobId [:or string? :gcp.bigquery/JobId]]]]
+   [:arity-1     [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
    [:arity-2     [:altn
-                  [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]]]]
-                  [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]]]
-   [:arity-3     [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]])
+                  [:client-job [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
+                  [:job-opts   [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]]]
+   [:arity-3     [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]])
 
 (defn ->JobIsDone [args]
   (let [schema (g/schema is-done-job-args-schema)
@@ -829,7 +845,10 @@
       (let [{:keys [clientable jobId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::JobIsDone)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             (cond-> {:op       ::JobIsDone
                      :bigquery clientable
                      :jobId    resolved-job-id}
@@ -868,11 +887,11 @@
 (def ^:private routine-info-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::RoutineCreate]]] ;; Reuse for Update
-   [:arity-1 [:catn [:routineInfo :gcp.bigquery/RoutineInfo]]]
+   [:arity-1 [:catn [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]]]
    [:arity-2 [:altn
-              [:client-info [:catn [:clientable ::clientable] [:routineInfo :gcp.bigquery/RoutineInfo]]]
-              [:info-opts   [:catn [:routineInfo :gcp.bigquery/RoutineInfo] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:routineInfo :gcp.bigquery/RoutineInfo] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]])
+              [:client-info [:catn [:clientable ::clientable] [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]]]
+              [:info-opts   [:catn [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]])
 
 (defn ->RoutineCreate [args]
   (let [schema (g/schema routine-info-args-schema)
@@ -903,14 +922,14 @@
 (def ^:private get-routine-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::RoutineGet]]]
-   [:arity-1 [:catn [:routineId :gcp.bigquery/RoutineId]]]
+   [:arity-1 [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]
    [:arity-2 [:altn
-              [:client-routine  [:catn [:clientable ::clientable] [:routineId :gcp.bigquery/RoutineId]]]
+              [:client-routine  [:catn [:clientable ::clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]
               [:dataset-routine [:catn [:dataset string?] [:routine string?]]]
-              [:routine-opts    [:catn [:routineId :gcp.bigquery/RoutineId] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]]
+              [:routine-opts    [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]]
    [:arity-3 [:altn
               [:client-ds-routine  [:catn [:clientable ::clientable] [:dataset string?] [:routine string?]]]
-              [:client-routine-opts [:catn [:clientable ::clientable] [:routineId :gcp.bigquery/RoutineId] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]
+              [:client-routine-opts [:catn [:clientable ::clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]
               [:project-ds-routine [:catn [:project string?] [:dataset string?] [:routine string?]]]
               [:ds-routine-opts    [:catn [:dataset string?] [:routine string?] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]]
    [:arity-4 [:altn
@@ -926,7 +945,7 @@
       (let [{:keys [clientable project dataset routine routineId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::RoutineGet)
-          (let [resolved-routine-id (or routineId
+          (let [resolved-routine-id (or (if (:routineId routineId) (:routineId routineId) routineId)
                                         (cond-> {:dataset dataset :routine routine}
                                           project (assoc :project project)))]
             {:op        ::RoutineGet
@@ -937,9 +956,9 @@
 (def ^:private delete-routine-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::RoutineDelete]]]
-   [:arity-1 [:catn [:routineId :gcp.bigquery/RoutineId]]]
+   [:arity-1 [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]
    [:arity-2 [:altn
-              [:client-routine  [:catn [:clientable ::clientable] [:routineId :gcp.bigquery/RoutineId]]]
+              [:client-routine  [:catn [:clientable ::clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]
               [:dataset-routine [:catn [:dataset string?] [:routine string?]]]]]
    [:arity-3 [:altn
               [:client-ds-routine  [:catn [:clientable ::clientable] [:dataset string?] [:routine string?]]]
@@ -954,7 +973,7 @@
       (let [{:keys [clientable project dataset routine routineId callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::RoutineDelete)
-          (let [resolved-routine-id (or routineId
+          (let [resolved-routine-id (or (if (:routineId routineId) (:routineId routineId) routineId)
                                         (cond-> {:dataset dataset :routine routine}
                                           project (assoc :project project)))]
             {:op        ::RoutineDelete
@@ -994,11 +1013,11 @@
 (def ^:private update-model-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::ModelUpdate]]]
-   [:arity-1 [:catn [:modelInfo :gcp.bigquery/ModelInfo]]]
+   [:arity-1 [:catn [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]]]]
    [:arity-2 [:altn
-              [:client-info [:catn [:clientable ::clientable] [:modelInfo :gcp.bigquery/ModelInfo]]]
-              [:info-opts   [:catn [:modelInfo :gcp.bigquery/ModelInfo] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:modelInfo :gcp.bigquery/ModelInfo] [:opts :gcp.bigquery/BigQuery.ModelOption]]]])
+              [:client-info [:catn [:clientable ::clientable] [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]]]]
+              [:info-opts   [:catn [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]])
 
 (defn ->ModelUpdate [args]
   (let [schema (g/schema update-model-args-schema)
@@ -1016,14 +1035,14 @@
 (def ^:private get-model-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::ModelGet]]]
-   [:arity-1 [:catn [:modelId :gcp.bigquery/ModelId]]]
+   [:arity-1 [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]
    [:arity-2 [:altn
-              [:client-model  [:catn [:clientable ::clientable] [:modelId :gcp.bigquery/ModelId]]]
+              [:client-model  [:catn [:clientable ::clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]
               [:dataset-model [:catn [:dataset string?] [:model string?]]]
-              [:model-opts    [:catn [:modelId :gcp.bigquery/ModelId] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]]
+              [:model-opts    [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]]
    [:arity-3 [:altn
               [:client-ds-model   [:catn [:clientable ::clientable] [:dataset string?] [:model string?]]]
-              [:client-model-opts [:catn [:clientable ::clientable] [:modelId :gcp.bigquery/ModelId] [:opts :gcp.bigquery/BigQuery.ModelOption]]]
+              [:client-model-opts [:catn [:clientable ::clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]
               [:project-ds-model  [:catn [:project string?] [:dataset string?] [:model string?]]]
               [:ds-model-opts     [:catn [:dataset string?] [:model string?] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]]
    [:arity-4 [:altn
@@ -1039,7 +1058,7 @@
       (let [{:keys [clientable project dataset model modelId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::ModelGet)
-          (let [resolved-model-id (or modelId
+          (let [resolved-model-id (or (if (:modelId modelId) (:modelId modelId) modelId)
                                     (cond-> {:dataset dataset :model model}
                                       project (assoc :project project)))]
             {:op        ::ModelGet
@@ -1050,9 +1069,9 @@
 (def ^:private delete-model-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::ModelDelete]]]
-   [:arity-1 [:catn [:modelId :gcp.bigquery/ModelId]]]
+   [:arity-1 [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]
    [:arity-2 [:altn
-              [:client-model  [:catn [:clientable ::clientable] [:modelId :gcp.bigquery/ModelId]]]
+              [:client-model  [:catn [:clientable ::clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]
               [:dataset-model [:catn [:dataset string?] [:model string?]]]]]
    [:arity-3 [:altn
               [:client-ds-model  [:catn [:clientable ::clientable] [:dataset string?] [:model string?]]]
@@ -1067,7 +1086,7 @@
       (let [{:keys [clientable project dataset model modelId callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::ModelDelete)
-          (let [resolved-model-id (or modelId
+          (let [resolved-model-id (or (if (:modelId modelId) (:modelId modelId) modelId)
                                     (cond-> {:dataset dataset :model model}
                                       project (assoc :project project)))]
             {:op        ::ModelDelete
@@ -1077,14 +1096,14 @@
 (def ^:private get-iam-policy-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::GetIamPolicy]]]
-   [:arity-1 [:catn [:tableId :gcp.bigquery/TableId]]]
+   [:arity-1 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
    [:arity-2 [:altn
-              [:client-table  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId]]]
+              [:client-table  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
               [:dataset-table [:catn [:dataset string?] [:table string?]]]
-              [:table-opts    [:catn [:tableId :gcp.bigquery/TableId] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
+              [:table-opts    [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
    [:arity-3 [:altn
               [:client-dataset-table  [:catn [:clientable ::clientable] [:dataset string?] [:table string?]]]
-              [:client-table-opts     [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
+              [:client-table-opts     [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
               [:project-dataset-table [:catn [:project string?] [:dataset string?] [:table string?]]]
               [:dataset-table-opts    [:catn [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
    [:arity-4 [:altn
@@ -1100,7 +1119,7 @@
       (let [{:keys [clientable project dataset table tableId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::GetIamPolicy)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op       ::GetIamPolicy
@@ -1111,16 +1130,16 @@
 (def ^:private set-iam-policy-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::SetIamPolicy]]]
-   [:arity-2 [:catn [:tableId :gcp.bigquery/TableId] [:policy ::cloud/Policy]]]
+   [:arity-2 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy]]]
    [:arity-3 [:altn
-              [:client-table-policy [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:policy ::cloud/Policy]]]
+              [:client-table-policy [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy]]]
               [:dataset-table-policy [:catn [:dataset string?] [:table string?] [:policy ::cloud/Policy]]]
               [:dataset-table-policy-opts [:catn [:dataset string?] [:table string?] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
-              [:table-policy-opts   [:catn [:tableId :gcp.bigquery/TableId] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
+              [:table-policy-opts   [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
    [:arity-4 [:altn
               [:client-dataset-table-policy [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:policy ::cloud/Policy]]]
               [:project-dataset-table-policy [:catn [:project string?] [:dataset string?] [:table string?] [:policy ::cloud/Policy]]]
-              [:client-table-policy-opts    [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
+              [:client-table-policy-opts    [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
    [:arity-5 [:altn
               [:client-project-dataset-table-policy [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:table string?] [:policy ::cloud/Policy]]]
               [:client-dataset-table-policy-opts    [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
@@ -1135,7 +1154,7 @@
       (let [{:keys [clientable project dataset table tableId policy opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::SetIamPolicy)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op       ::SetIamPolicy
@@ -1147,15 +1166,15 @@
 (def ^:private test-iam-permissions-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::TestIamPermissions]]]
-   [:arity-2 [:catn [:tableId :gcp.bigquery/TableId] [:permissions [:sequential string?]]]]
+   [:arity-2 [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential string?]]]]
    [:arity-3 [:altn
-              [:client-table-perms  [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:permissions [:sequential string?]]]]
+              [:client-table-perms  [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential string?]]]]
               [:dataset-table-perms [:catn [:dataset string?] [:table string?] [:permissions [:sequential string?]]]]
-              [:table-perms-opts    [:catn [:tableId :gcp.bigquery/TableId] [:permissions [:sequential string?]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
+              [:table-perms-opts    [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential string?]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
    [:arity-4 [:altn
               [:client-dataset-table-perms  [:catn [:clientable ::clientable] [:dataset string?] [:table string?] [:permissions [:sequential string?]]]]
               [:project-dataset-table-perms [:catn [:project string?] [:dataset string?] [:table string?] [:permissions [:sequential string?]]]]
-              [:client-table-perms-opts     [:catn [:clientable ::clientable] [:tableId :gcp.bigquery/TableId] [:permissions [:sequential string?]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
+              [:client-table-perms-opts     [:catn [:clientable ::clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential string?]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
               [:dataset-table-perms-opts    [:catn [:dataset string?] [:table string?] [:permissions [:sequential string?]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]]
    [:arity-5 [:altn
               [:client-project-dataset-table-perms  [:catn [:clientable ::clientable] [:project string?] [:dataset string?] [:table string?] [:permissions [:sequential string?]]]]
@@ -1171,7 +1190,7 @@
       (let [{:keys [clientable project dataset table tableId permissions opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::TestIamPermissions)
-          (let [resolved-table-id (or tableId
+          (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
                                     (cond-> {:dataset dataset :table table}
                                       project (assoc :project project)))]
             {:op          ::TestIamPermissions
@@ -1185,14 +1204,14 @@
    [:arity-1-map [:catn [:callRecord ::Query]]]
    [:arity-1 [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]
    [:arity-2 [:altn
-              [:config-job    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
+              [:config-job    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
               [:config-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
               [:client-config [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration]]]]]
    [:arity-3 [:altn
-              [:config-job-opts    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-              [:client-config-job  [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]]]]
+              [:config-job-opts    [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+              [:client-config-job  [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
               [:client-config-opts [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
-   [:arity-4 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+   [:arity-4 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->Query [args]
   (let [schema (g/schema query-args-schema)
@@ -1202,7 +1221,10 @@
       (let [{:keys [clientable configuration jobId opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::Query)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             {:op            ::Query
              :bigquery      clientable
              :configuration configuration
@@ -1236,11 +1258,11 @@
 (def ^:private query-with-timeout-args-schema
   [:altn
    [:arity-1-map [:catn [:callRecord ::QueryWithTimeout]]]
-   [:arity-3 [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int]]]
+   [:arity-3 [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:timeoutMs :int]]]
    [:arity-4 [:altn
-              [:client-config-job-timeout [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int]]]
-              [:config-job-timeout-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
-   [:arity-5 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
+              [:client-config-job-timeout [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:timeoutMs :int]]]
+              [:config-job-timeout-opts   [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]]
+   [:arity-5 [:catn [:clientable ::clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]])
 
 (defn ->QueryWithTimeout [args]
   (let [schema (g/schema query-with-timeout-args-schema)
@@ -1250,7 +1272,10 @@
       (let [{:keys [clientable configuration jobId timeoutMs opts callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::QueryWithTimeout)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             {:op            ::QueryWithTimeout
              :bigquery      clientable
              :configuration configuration
@@ -1284,9 +1309,9 @@
    [:arity-1-map [:catn [:callRecord ::Writer]]]
    [:arity-1 [:catn [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
    [:arity-2 [:altn
-              [:job-config    [:catn [:jobId [:or string? :gcp.bigquery/JobId]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
+              [:job-config    [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
               [:client-config [:catn [:clientable ::clientable] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]]]
-   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]])
+   [:arity-3 [:catn [:clientable ::clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]])
 
 (defn ->Writer [args]
   (let [schema (g/schema writer-args-schema)
@@ -1296,7 +1321,10 @@
       (let [{:keys [clientable jobId writeChannelConfiguration callRecord]} (extract-parse-values parsed)]
         (if callRecord
           (assoc callRecord :op ::Writer)
-          (let [resolved-job-id (if (string? jobId) {:job jobId} jobId)]
+          (let [resolved-job-id (cond
+                                  (string? jobId) {:job jobId}
+                                  (:jobId jobId) (:jobId jobId)
+                                  :else jobId)]
             {:op                        ::Writer
              :bigquery                  clientable
              :writeChannelConfiguration writeChannelConfiguration
