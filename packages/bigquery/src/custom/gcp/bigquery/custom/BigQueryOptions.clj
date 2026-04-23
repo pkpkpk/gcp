@@ -3,12 +3,16 @@
    :fqcn "com.google.cloud.bigquery.BigQueryOptions"}
   (:require
    [gcp.bigquery.DataFormatOptions :as DataFormatOptions]
+   [gcp.foreign.com.google.api.gax.retrying  :as gax-retrying]
    [gcp.global :as g])
   (:import
    (com.google.api.gax.retrying ResultRetryAlgorithm)
    (com.google.cloud TransportOptions)
    (com.google.cloud.bigquery BigQuery BigQueryOptions QueryJobConfiguration$JobCreationMode)
    (io.opentelemetry.api.trace Tracer)))
+
+;com.google.cloud.ServiceOptions.Builder.setCredentials(com.google.auth.Credentials)
+;com.google.cloud.ServiceOptions.Builder.setHeaderProvider(com.google.api.gax.rpc.HeaderProvider)
 
 (defn ^BigQueryOptions from-edn
   ([]
@@ -20,6 +24,11 @@
      (if (instance? BigQueryOptions arg)
        arg
        (let [builder (BigQueryOptions/newBuilder)]
+         (some->> (get arg :projectId) (.setProjectId builder))
+         (some->> (get arg :quotaProjectId) (.setQuotaProjectId builder))
+         (some->> (get arg :host) (.setHost builder))
+         (when-let [retrySettings (get arg :retrySettings)]
+           (.setRetrySettings builder (gax-retrying/RetrySettings-from-edn retrySettings)))
          (when (some? (get arg :dataFormatOptions))
            (.setDataFormatOptions builder (DataFormatOptions/from-edn (get arg :dataFormatOptions))))
          (when (some? (get arg :enableOpenTelemetryTracing))
@@ -58,6 +67,10 @@
   [^BigQueryOptions arg]
   {:post [(g/strict! :gcp.bigquery/BigQueryOptions %)]}
   (cond-> {}
+    (.getProjectId arg)                  (assoc :projectId (.getProjectId arg))
+    (.getHost arg)                       (assoc :host (.getHost arg))
+    (.getQuotaProjectId arg)             (assoc :quoteProjectId (.getQuotaProjectId arg))
+    (.getRetrySettings arg)              (assoc :retrySettings (gax-retrying/RetrySettings-to-edn (.getRetrySettings arg)))
     (.getDataFormatOptions arg)          (assoc :dataFormatOptions (DataFormatOptions/to-edn (.getDataFormatOptions arg)))
     (.getDefaultJobCreationMode arg)     (assoc :defaultJobCreationMode (.name (.getDefaultJobCreationMode arg)))
     (.isOpenTelemetryTracingEnabled arg) (assoc :enableOpenTelemetryTracing (.isOpenTelemetryTracingEnabled arg))
@@ -75,6 +88,10 @@
    (g/instance-schema com.google.cloud.bigquery.BigQueryOptions)
    [:maybe
     [:map {:closed true}
+     [:projectId {:optional true} :string]
+     [:host {:optional true} :string]
+     [:quotaProjectId {:optional true} :string]
+     [:retrySettings {:optional true} ::gax-retrying/RetrySettings]
      [:dataFormatOptions
       {:optional   true
        :setter-doc "Set the format options for the BigQuery data types\n\n@param dataFormatOptions Configuration of the formatting options"}

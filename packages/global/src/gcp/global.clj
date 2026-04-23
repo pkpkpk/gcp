@@ -42,14 +42,11 @@
          props (clojure.core/merge
                  {:error/message (str "not an instance of " class-symbol)}
                  properties)]
-     (when-not (contains? @*classes scalar-class)
-       (swap! *classes assoc scalar-sym scalar-class))
-     (when (and array-class (not (contains? @*classes array-class)))
-       (swap! *classes assoc class-symbol array-class))
-     `[:fn ~props (quote (~'fn [~'v] (~'instance? ~class-symbol ~'v)))])))
-
-;:float [:double {:min -3.4028235E38 :max 3.4028235E38}]
-;:byte [:int {:min -128 :max 127}]
+     `(do
+        (swap! *classes assoc '~scalar-sym ~scalar-sym)
+        ~@(when array-class
+            `((swap! *classes assoc '~class-symbol (Class/forName ~(.getName ^Class array-class)))))
+        [:fn ~props (quote (~'fn [~'v] (~'instance? ~class-symbol ~'v)))]))))
 
 (def built-in-schemas
   {:bigint         (instance-schema java.math.BigInteger)

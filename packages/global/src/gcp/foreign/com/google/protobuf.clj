@@ -52,8 +52,6 @@
                                                                      :gen/max 2}
                                                         [:ref :gcp.foreign.com.google.protobuf/ByteString]]})
 
-(g/include-schema-registry! registry)
-
 #!-----------------------------------------------------------------------------
 
 (defn ^Timestamp Timestamp-from-edn [arg]
@@ -198,3 +196,5 @@
   ;{:post [(g/strict! ::Duration %)]}
   {:seconds (.getSeconds arg)
    :nanos   (.getNanos arg)})
+
+(g/include-schema-registry! registry)

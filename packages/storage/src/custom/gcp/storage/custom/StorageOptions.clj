@@ -1,5 +1,6 @@
 (ns gcp.storage.custom.StorageOptions
-  (:require gcp.foreign.io.opentelemetry.api
+  (:require [gcp.foreign.com.google.api.gax.retrying  :as gax-retrying]
+            gcp.foreign.io.opentelemetry.api
             [gcp.global :as g]
             [gcp.storage.BlobWriteSessionConfigs :as BlobWriteSessionConfigs]
             [gcp.storage.custom.StorageRetryStrategy :as StorageRetryStrategy])
@@ -10,6 +11,10 @@
    {:gcp/key :gcp.storage/StorageOptions}
    [:map
     {:closed true}
+    [:projectId {:optional true} :string]
+    [:host {:optional true} :string]
+    [:quotaProjectId {:optional true} :string]
+    [:retrySettings {:optional true} ::gax-retrying/RetrySettings]
     [:version {:optional true :read-only? true} :string]
     [:openTelemetry
      {:optional   true
@@ -28,6 +33,11 @@
    (if (nil? arg)
      (StorageOptions/getDefaultInstance)
      (let [builder (StorageOptions/newBuilder)]
+       (some->> (get arg :projectId) (.setProjectId builder))
+       (some->> (get arg :quotaProjectId) (.setQuotaProjectId builder))
+       (some->> (get arg :host) (.setHost builder))
+       (when-let [retrySettings (get arg :retrySettings)]
+         (.setRetrySettings builder (gax-retrying/RetrySettings-from-edn retrySettings)))
        (some->> (:openTelemetry arg) (.setOpenTelemetry builder))
        (some->> (:blobWriteSessionConfig arg) BlobWriteSessionConfigs/from-edn (.setBlobWriteSessionConfig builder))
        (some->> (:storageRetryStrategy arg) StorageRetryStrategy/from-edn (.setStorageRetryStrategy builder))
@@ -35,6 +45,10 @@
 
 (defn to-edn [^StorageOptions arg]
   (cond-> {:version (.getLibraryVersion arg)}
+          (.getProjectId arg)                  (assoc :projectId (.getProjectId arg))
+          (.getHost arg)                       (assoc :host (.getHost arg))
+          (.getQuotaProjectId arg)             (assoc :quoteProjectId (.getQuotaProjectId arg))
+          (.getRetrySettings arg)              (assoc :retrySettings (gax-retrying/RetrySettings-to-edn (.getRetrySettings arg)))
           (.getOpenTelemetry arg) (assoc :openTelemetry (.getOpenTelemetry arg))))
 
 (defn ^String get-library-version
