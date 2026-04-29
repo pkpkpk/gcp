@@ -1,16 +1,16 @@
 (ns gcp.pubsub.aux.subscriber
-  (:require [clojure.core.async :as a]
-            [clojure.core.async.impl.protocols :as impl :refer [ReadPort]]
-            [gcp.global :as g]
-            [gcp.pubsub.v1.SubscriptionName :as SubscriptionName])
-  (:import (com.google.api.gax.core NoCredentialsProvider)
-           (com.google.api.gax.grpc GrpcTransportChannel)
-           (com.google.api.gax.rpc FixedTransportChannelProvider TransportChannelProvider)
-           [com.google.cloud.pubsub.v1 AckReplyConsumer
-                                       MessageReceiver
-                                       Subscriber]
-           (com.google.pubsub.v1 Subscription)
-           (io.grpc ManagedChannel ManagedChannelBuilder)))
+  (:require
+   [clojure.core.async :as a]
+   [clojure.core.async.impl.protocols :as impl :refer [ReadPort]]
+   [gcp.global :as g]
+   [gcp.pubsub.v1.SubscriptionName :as SubscriptionName])
+  (:import
+   (com.google.api.gax.core NoCredentialsProvider)
+   (com.google.api.gax.grpc GrpcTransportChannel)
+   (com.google.api.gax.rpc FixedTransportChannelProvider TransportChannelProvider)
+   (com.google.cloud.pubsub.v1 AckReplyConsumer MessageReceiver Subscriber)
+   (com.google.pubsub.v1 Subscription)
+   (io.grpc ManagedChannel ManagedChannelBuilder)))
 
 (defrecord ReadportSubscriber [chan subscriber mc]
   ReadPort

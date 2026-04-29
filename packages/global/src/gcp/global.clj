@@ -79,14 +79,21 @@
 (def sci-namespaces {'clojure.string      (sci/copy-ns clojure.string (sci/create-ns 'clojure.string {}))
                      'clojure.core        (sci/copy-ns clojure.core (sci/create-ns 'clojure.core {}))})
 
-(defn mopts []
-  {:registry       *registry*
-   ::m/sci-options {:classes    @*classes
-                    :namespaces sci-namespaces}})
+(defn mopts
+  ([] (mopts *registry*))
+  ([registry]
+   {:registry       registry
+    :gcp.global/registry registry
+    ::m/sci-options {:classes    @*classes
+                     :namespaces sci-namespaces}}))
 
 (defn get-all-schemas [] (mr/schemas *registry*))
 
-(defn get-schema [key] (get (mr/schemas *registry*) key))
+(defn get-schema
+  ([key] (get-schema key *registry*))
+  ([key registry]
+   (let [reg-map (if (map? registry) registry (mr/schemas registry))]
+     (get reg-map key))))
 
 (defn- schema-key?
   "Returns true if k is a keyword shaped like :gcp.vertexai.v1.api/Schema.
@@ -169,33 +176,36 @@
       (let [[err recovered :as res] (read-res written opts)]
         (if err
           res
-          (let [same? (schemas-equivalent? (m/form (m/schema schema opts)) (m/form recovered))]
+          (let [same? (schemas-equivalent? (m/form (m/schema schema opts)) 
+                                           (m/form (m/schema recovered opts)))]
             (if same?
               [nil true]
               [nil false])))))))
 
 (defn include-schema-registry! [registry]
-  (if-let [{registry-name ::name} (meta registry)]
+  (if-let [{registry-name ::name :as rmeta} (meta registry)]
     (do
       (assert-registry-keys! registry registry-name)
-      (let [candidate (clojure.core/merge (mr/schemas *registry*) registry)]
+      (let [candidate (clojure.core/merge (mr/schemas *registry*) registry)
+            candidate-reg (mr/simple-registry candidate)]
         (when-let [bad-pairs (not-empty
                                (reduce
                                  (fn [acc [k schema]]
-                                   (let [opts (assoc (mopts) :registry candidate)
+                                   (let [opts (mopts candidate-reg)
                                          [err same?] (safety-check-schema schema opts)]
                                      (if (or err (false? same?))
                                        (assoc acc k {:schema schema :err err :same? same?})
                                        acc)))
-                                 {}
-                                 registry))]
-          (throw (ex-info (str "edn-unsafe schema entries in " registry-name) {:unsafe bad-pairs})))
+                                 (sorted-map)
+                                 (into (sorted-map) registry)))]
+          (throw (ex-info (str "edn-unsafe schema entries in " registry-name) 
+                          {:unsafe bad-pairs
+                           :registry-name registry-name
+                           :registry-meta rmeta})))
         (alter-var-root #'*registry* (fn [_extant]
                                        (when (or *dbg* (System/getenv "GCP_DEBUG"))
                                          (println "successfully merged registry " registry-name))
-                                       ;; TODO should we be cached compiled schemas instead?
-                                       ;; TODO check if schema is already present and unchanged before re-compiling
-                                       (mr/simple-registry candidate)))))
+                                       candidate-reg))))
     (throw (Exception. "registry must have metadata with a :gcp.global/name identifier"))))
 
 (defn register-schema! [key schema]
@@ -272,9 +282,6 @@
 
 (defmacro strict! [schema-or-spec value]
   `(if-not *strict-mode* ~value (coerce ~schema-or-spec ~value)))
-
-(defn get-schema [key]
-  (get (mr/schemas *registry*) key))
 
 (defn schema
   ([?schema]

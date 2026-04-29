@@ -206,40 +206,41 @@
 (defn visible?
   "Determines if a node should be included in the analysis based on its visibility modifiers
    and the provided options (:include-private?, :include-package-private?)."
-  [node options]
-  (let [include-private? (:include-private? options)
-        include-package? (:include-package-private? options)
-        modifiers (.getModifiers node)
-        annotations (.getAnnotations node)
-        has-mod? (fn [kw] (some #(and (= (.getKeyword %) kw)) modifiers))
-        internal? (some (fn [a]
-                          (let [n (.getNameAsString a)]
-                            (= n "InternalApi")))
-                        annotations)
-        deprecated? (some (fn [a]
-                            (= (.getNameAsString a) "Deprecated"))
-                          annotations)
-        is-impl-type? (and (instance? TypeDeclaration node)
-                           (u/excluded-type-name? (.getNameAsString node)))
-        is-private? (has-mod? Modifier$Keyword/PRIVATE)
-        is-public? (has-mod? Modifier$Keyword/PUBLIC)
-        is-protected? (has-mod? Modifier$Keyword/PROTECTED)
-        is-package? (not (or is-private? is-public? is-protected?))]
-    (cond
-      is-impl-type? false
-      internal? false
-      deprecated? false
-      is-private? include-private?
-      is-public? true
-      is-protected? true
-      is-package? (if (and (instance? BodyDeclaration node)
-                           (.isPresent (.getParentNode node))
-                           (let [parent (.get (.getParentNode node))]
-                             (and (instance? ClassOrInterfaceDeclaration parent)
-                                  (.isInterface parent))))
-                    true
-                    include-package?)
-      :else true)))
+  ([node options] (visible? node options false false))
+  ([node options ignore-deprecated? ignore-private?]
+   (let [include-private? (or ignore-private? (:include-private? options))
+         include-package? (:include-package-private? options)
+         modifiers (.getModifiers node)
+         annotations (.getAnnotations node)
+         has-mod? (fn [kw] (some #(and (= (.getKeyword %) kw)) modifiers))
+         internal? (some (fn [a]
+                           (let [n (.getNameAsString a)]
+                             (= n "InternalApi")))
+                         annotations)
+         deprecated? (some (fn [a]
+                             (= (.getNameAsString a) "Deprecated"))
+                           annotations)
+         is-impl-type? (and (instance? TypeDeclaration node)
+                            (u/excluded-type-name? (.getNameAsString node)))
+         is-private? (has-mod? Modifier$Keyword/PRIVATE)
+         is-public? (has-mod? Modifier$Keyword/PUBLIC)
+         is-protected? (has-mod? Modifier$Keyword/PROTECTED)
+         is-package? (not (or is-private? is-public? is-protected?))]
+     (cond
+       is-impl-type? false
+       internal? false
+       (and deprecated? (not ignore-deprecated?)) false
+       is-private? include-private?
+       is-public? true
+       is-protected? true
+       is-package? (if (and (instance? BodyDeclaration node)
+                            (.isPresent (.getParentNode node))
+                            (let [parent (.get (.getParentNode node))]
+                              (and (instance? ClassOrInterfaceDeclaration parent)
+                                   (.isInterface parent))))
+                     true
+                     include-package?)
+       :else true))))
 
 (defn extract-annotations
   "Extracts annotations from a node."
@@ -439,7 +440,9 @@
        (when (and parent-decl body)
          (let [fields (set (keep (fn [member]
                                    (when (instance? FieldDeclaration member)
-                                     (.getNameAsString (.getVariable ^FieldDeclaration member 0))))
+                                     (let [vars (.getVariables ^FieldDeclaration member)]
+                                       (when (seq vars)
+                                         (.getNameAsString (.get vars 0))))))
                                  (.getMembers parent-decl)))
                names (map #(.getNameAsString %) (.findAll m NameExpr))
                field-accesses (map #(.getNameAsString %) (.findAll m FieldAccessExpr))
@@ -634,6 +637,83 @@
       {}
       mce-calls)))
 
+(defn- builder-constructor? [^ConstructorDeclaration c]
+  (let [params (.getParameters c)]
+    (when (and (= 1 (.size params)))
+      (let [p (.get params 0)
+            t (.getType p)
+            t-str (.asString t)]
+        (string/ends-with? (string/lower-case t-str) "builder")))))
+
+(defn extract-checked-fields
+  "Extracts field names that are validated using Preconditions.checkNotNull.
+   Supports:
+   1. Standalone: checkNotNull(field)
+   2. Assignment: field = checkNotNull(arg)
+   3. Builder getter: field = checkNotNull(builder.getField())
+   4. Static method: checkNotNull(param)"
+  [^BodyDeclaration decl]
+  (let [body (cond
+               (instance? MethodDeclaration decl) (when (.isPresent (.getBody ^MethodDeclaration decl)) (.get (.getBody ^MethodDeclaration decl)))
+               (instance? ConstructorDeclaration decl) (.getBody ^ConstructorDeclaration decl)
+               :else nil)
+        stmts (when body (.getStatements body))
+        check-not-null? (fn [^MethodCallExpr mce]
+                          (let [name (.getNameAsString mce)
+                                scope (when (.isPresent (.getScope mce)) (.get (.getScope mce)))]
+                            (or (= name "checkNotNull")
+                                (and (= name "checkNotNull")
+                                     (some? scope)
+                                     (or (= (.toString scope) "Preconditions")
+                                         (= (.toString scope) "com.google.common.base.Preconditions"))))))]
+    (when stmts
+      (into (sorted-set)
+            (comp
+              (mapcat (fn [stmt]
+                        (cond
+                          (instance? ExpressionStmt stmt)
+                          (let [expr (.getExpression ^ExpressionStmt stmt)]
+                            (cond
+                              ;; Direct call: checkNotNull(x)
+                              (and (instance? MethodCallExpr expr)
+                                   (check-not-null? expr))
+                              [expr]
+
+                              ;; Assignment: x = checkNotNull(y)
+                              (instance? AssignExpr expr)
+                              (let [rhs (.getValue ^AssignExpr expr)]
+                                (if (and (instance? MethodCallExpr rhs)
+                                         (check-not-null? rhs))
+                                  [rhs]
+                                  []))
+                              :else []))
+                          :else [])))
+              (mapcat (fn [^MethodCallExpr check-call]
+                        (let [args (.getArguments check-call)]
+                          (when (seq args)
+                            (let [arg (.get args 0)]
+                              (cond
+                                ;; checkNotNull(project) -> :project
+                                (instance? NameExpr arg)
+                                [(keyword (u/property-name (.getNameAsString ^NameExpr arg)))]
+
+                                ;; checkNotNull(builder.getProject()) -> :project
+                                (instance? MethodCallExpr arg)
+                                (let [inner-call ^MethodCallExpr arg
+                                      n (.getNameAsString inner-call)]
+                                  (if (or (string/starts-with? n "get")
+                                          (string/starts-with? n "is"))
+                                    [(u/property-key n)]
+                                    [(keyword (u/property-name n))]))
+
+                                ;; checkNotNull(this.project) -> :project
+                                (instance? FieldAccessExpr arg)
+                                [(keyword (u/property-name (.getIdentifier (.getName ^FieldAccessExpr arg))))]
+
+                                :else []))))))
+              (remove nil?))
+            stmts))))
+
 (defn method->edn
   [solver type-params ^TypeDeclaration parent-decl ^MethodDeclaration m]
   (let [method-type-params (set (map #(.getNameAsString %) (.getTypeParameters m)))
@@ -645,6 +725,7 @@
         factory-variant (extract-factory-variant m parent-decl)
         parameter-mappings (extract-parameter-mappings m)
         parameter-regexes (extract-parameter-regexes m parent-decl)
+        checked (extract-checked-fields m)
         annotations' (remove (fn [{:keys [name] :as annotation}]
                                (or (known-annotations annotation)
                                    (string/starts-with?  name "Json")
@@ -680,6 +761,7 @@
             (:variant factory-variant) (assoc :variant (:variant factory-variant))
             (:variant-type factory-variant) (assoc :variant-type (:variant-type factory-variant))
             field-name (assoc :field-name field-name)
+            (seq checked) (assoc :checked-fields checked)
             parameter-mappings (assoc :parameter-mappings parameter-mappings)
             (not-empty annotations') (assoc :annotations annotations')
             (seq throws) (assoc :throws throws)
@@ -744,28 +826,31 @@
   (let [fields (.getFields type-decl)]
     (->> fields
          (mapcat (fn [^FieldDeclaration f]
-                   (let [modifiers   (into #{} (remove #{"private" "static" "final"}) (extract-modifiers f))
-                         annotations (extract-annotations f)
-                         common (cond-> {:doc (extract-javadoc f)
-                                         :static? (.isStatic f)
-                                         :private? (not (.isPublic f))
-                                         :final? (.isFinal f)}
-                                        (seq annotations) (assoc :annotations  annotations)
-                                        (seq modifiers) (assoc :modifiers modifiers))]
-                     (into []
-                           (comp
-                             (map (fn [^VariableDeclarator v]
-                                    (let [base (merge common
-                                                      {:name (.getNameAsString v)
-                                                       :type (parse-type-ast (.getType v) solver type-params)})]
-                                      (if (and (.isPresent (.getInitializer v))
-                                               (.isStringLiteralExpr (.get (.getInitializer v))))
-                                        (assoc base :value (.getValue (.asStringLiteralExpr (.get (.getInitializer v)))))
-                                        base))))
-                             (remove #(contains? #{"serialVersionUID" "TO_PB_FUNCTION" "FROM_PB_FUNCTION"
-                                                   "INSTANCE"}
-                                                 (:name %))))
-                           (.getVariables f)))))
+                   (let [vars (.getVariables f)]
+                     (if (empty? vars)
+                       []
+                       (let [modifiers   (into #{} (remove #{"private" "static" "final"}) (extract-modifiers f))
+                             annotations (extract-annotations f)
+                             common (cond-> {:doc (extract-javadoc f)
+                                             :static? (.isStatic f)
+                                             :private? (not (.isPublic f))
+                                             :final? (.isFinal f)}
+                                      (seq annotations) (assoc :annotations  annotations)
+                                      (seq modifiers) (assoc :modifiers modifiers))]
+                         (into []
+                               (comp
+                                 (map (fn [^VariableDeclarator v]
+                                        (let [base (merge common
+                                                          {:name (.getNameAsString v)
+                                                           :type (parse-type-ast (.getType v) solver type-params)})]
+                                          (if (and (.isPresent (.getInitializer v))
+                                                   (.isStringLiteralExpr (.get (.getInitializer v))))
+                                            (assoc base :value (.getValue (.asStringLiteralExpr (.get (.getInitializer v)))))
+                                            base))))
+                                 (remove #(contains? #{"serialVersionUID" "TO_PB_FUNCTION" "FROM_PB_FUNCTION"
+                                                       "INSTANCE"}
+                                                     (:name %))))
+                               vars))))))
          vec)))
 
 (defn type-contains-hidden? [type-ast hidden-fqcns]
@@ -779,7 +864,12 @@
   [^ClassOrInterfaceDeclaration type-decl solver options type-params hidden-types]
   (let [constructors (.getConstructors type-decl)]
     (->> constructors
-         (filter #(visible? % options))
+         (filter (fn [c]
+                   (let [v (visible? c options)
+                         b (builder-constructor? c)
+                         ;; If it's a builder-constructor, we might want to see it even if @Deprecated or private
+                         v-extra (when (and (not v) b) (visible? c options true true))]
+                     (or v v-extra))))
          ;; Note: This only filters constructors using hidden *nested* types.
          ;; Constructors using package-private types from *peer* classes (same package)
          ;; are not currently detected because we don't have visibility into peer classes here.
@@ -794,7 +884,8 @@
                  (let [ctor-type-params (set (map #(.getNameAsString %) (.getTypeParameters c)))
                        all-type-params (into (set type-params) ctor-type-params)
                        annotations (extract-annotations c)
-                       doc         (extract-javadoc c)]
+                       doc         (extract-javadoc c)
+                       checked     (extract-checked-fields c)]
                    (cond->
                      {:name        (.getNameAsString c)
                       :modifiers   (extract-modifiers c)
@@ -806,12 +897,14 @@
                                                (seq annotations) (assoc :annotations annotations))))
                                          (.getParameters c))}
                      doc (assoc :doc doc)
+                     (seq checked) (assoc :checked-fields checked)
                      (seq (.getThrownExceptions c)) (assoc :throws (mapv #(parse-type-ast % solver all-type-params) (.getThrownExceptions c)))
                      (seq annotations) (assoc :annotations annotations)))))
          (remove
-           (fn [{:keys [parameters] :as ctor}]
+           (fn [{:keys [parameters checked-fields] :as ctor}]
              (and (= 1 (count parameters))
-                  (= "builder" (get-in parameters [0 :name]))))))))
+                  (= "builder" (get-in parameters [0 :name]))
+                  (empty? checked-fields)))))))
 
 (defn extract-enum-constants
   "Extracts enum constants (name, doc, arguments, annotations) from an enum declaration."
@@ -1497,7 +1590,7 @@
    (process-type type-decl package imports options file-git-sha {} #{} #{}))
   ([^TypeDeclaration type-decl package imports options file-git-sha parent-local-types parent-type-params parent-extended-peers]
    {:post [(or (sorted? %) (nil? %))]}
-   (if (or (not (visible? type-decl options))
+   (if (or (not (visible? type-decl options true true)) ;; Relaxed here
            (instance? AnnotationDeclaration type-decl)
            (and package (string/includes? package ".spi."))
            (u/excluded-type-name? (.getNameAsString type-decl))
@@ -1546,11 +1639,12 @@
                                          (= category :nested/variant-read-only)
                                          (= category :nested/variant-pojo))
                                  (extract-discriminator type-decl))
-           resource-id?        (resource-identifier? type-decl)           nested              (->> (.getMembers type-decl)
-                                                                                                (filter #(and (instance? TypeDeclaration %) (visible? % options)))
-                                                                                                (mapv #(process-type % package imports options file-git-sha local-types all-type-params all-extended-peers))
-                                                                                                (remove nil?)
-                                                                                                vec)
+           resource-id?        (resource-identifier? type-decl)
+           nested              (->> (.getMembers type-decl)
+                                    (filter #(and (instance? TypeDeclaration %) (visible? % options)))
+                                    (mapv #(process-type % package imports options file-git-sha local-types all-type-params all-extended-peers))
+                                    (remove nil?)
+                                    vec)
 
            ;; Identify nested types that were hidden (e.g. package-private) so we can filter constructors using them
            nested-decls (filter #(instance? TypeDeclaration %) (.getMembers type-decl))
@@ -1585,7 +1679,8 @@
            :file-git-sha file-git-sha
            :doc (extract-javadoc type-decl)
            :abstract? (when (instance? ClassOrInterfaceDeclaration type-decl) (.isAbstract type-decl))
-           :private? (not (or (.isPublic type-decl) (.isProtected type-decl) (.isPrivate type-decl))))         autovalue? (assoc :autovalue? true)
+           :private? (not (or (.isPublic type-decl) (.isProtected type-decl) (.isPrivate type-decl))))
+         autovalue? (assoc :autovalue? true)
          (seq modifiers) (assoc :modifiers modifiers)
          (seq fields) (assoc :fields fields)
          (seq current-type-params) (assoc :type-parameters current-type-params)

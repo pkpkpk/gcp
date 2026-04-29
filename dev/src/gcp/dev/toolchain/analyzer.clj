@@ -516,6 +516,12 @@
                                                     (mapv (fn [p]
                                                             (assoc p :key (param->key (:name p))))
                                                           params)))
+
+        ;; Capture required fields from constructor validation (e.g., checkNotNull)
+        checked-required-keys             (into (sorted-set)
+                                                (mapcat :checked-fields)
+                                                (:constructors node))
+
         ;;; Required === must be param to builder OR must be set by builder
         ;;;   1) for autovalue they are all required unless marked nullable in getter
         ;;;   2) default: builder params are required, rest are not
@@ -531,11 +537,13 @@
                                                   required-keys (set/intersection settable-keys (into #{} (remove #(get-in getters-by-key [% :nullable?])) (keys getters-by-key)))
                                                   builder-setters-by-key setters-by-key
                                                   optional-keys (set/intersection settable-keys (into #{} (filter #(get-in getters-by-key [% :nullable?])) (keys getters-by-key)))]
-                                              [required-keys builder-setters-by-key optional-keys])
-                                            (let [required-keys (mapv (comp param->key :name) (:parameters newBuilder))
-                                                  builder-setters-by-key (apply dissoc setters-by-key required-keys)
-                                                  optional-keys (set/intersection (set (keys getters-by-key)) (set (keys builder-setters-by-key)))]
-                                              [required-keys builder-setters-by-key optional-keys]))
+                                              [(into (sorted-set) required-keys) builder-setters-by-key optional-keys])
+                                            (let [newBuilder-keys (into #{} (mapv (comp param->key :name) (:parameters newBuilder)))
+                                                  all-required-keys (into (sorted-set) (concat newBuilder-keys checked-required-keys))
+                                                  builder-setters-by-key (apply dissoc setters-by-key newBuilder-keys)
+                                                  optional-keys (set/intersection (set (keys getters-by-key))
+                                                                                  (set/difference (set (keys builder-setters-by-key)) all-required-keys))]
+                                              [all-required-keys builder-setters-by-key optional-keys]))
         setter-types                      (reduce (fn [acc {:keys [parameters]}] (into acc (map :type parameters))) #{} (vals builder-setters-by-key))
         #!--------------------------------------------------------------------------------------------------------------
         required-newBuilder-params-by-key (into {}

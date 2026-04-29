@@ -1,44 +1,24 @@
 (ns gcp.foreign.com.google.api.gax.batching
-  {:gcp.dev/certification
-   {:BatchingSettings
-    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-     :base-seed 1767570434548
-     :timestamp "2026-01-04T23:47:14.564142115Z"
-     :passed-stages {:smoke 1767570434548
-                     :standard 1767570434549
-                     :stress 1767570434550}
-     :source-hash "2db39e85bf19b1e0d025bc24f9ec3a5959c307a94a33d0c2bc912600d78c50e5"}
-    :FlowControlSettings
-    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-     :base-seed 1767570434564
-     :timestamp "2026-01-04T23:47:14.569571772Z"
-     :passed-stages {:smoke 1767570434564
-                     :standard 1767570434565
-                     :stress 1767570434566}
-     :source-hash "2db39e85bf19b1e0d025bc24f9ec3a5959c307a94a33d0c2bc912600d78c50e5"}}}
-  (:require [gcp.global :as global]
-            [gcp.foreign.org.threeten.bp :as bp])
-  (:import (com.google.api.gax.batching BatchingSettings BatchingSettings$Builder FlowControlSettings FlowControlSettings$Builder FlowController$LimitExceededBehavior)))
+  (:require [gcp.global :as g])
+  (:import (com.google.api.gax.batching BatchingSettings BatchingSettings$Builder FlowControlSettings FlowControlSettings$Builder FlowController$LimitExceededBehavior)
+           (java.time Duration)))
 
 (def registry
-  (let [pos-duration [:map
-                      [:seconds [:int {:min 0 :max 100}]]
-                      [:nanos [:int {:min 1 :max 999999999}]]]]
-    (with-meta
-      {:gcp.foreign.com.google.api.gax.batching/LimitExceededBehavior [:enum :ThrowException :Block :Ignore]
-       :gcp.foreign.com.google.api.gax.batching/FlowControlSettings [:map
-                                                                     [:maxOutstandingElementCount {:optional true} [:int {:min 1}]]
-                                                                     [:maxOutstandingRequestBytes {:optional true} [:int {:min 1}]]
-                                                                     [:limitExceededBehavior {:optional true} [:ref :gcp.foreign.com.google.api.gax.batching/LimitExceededBehavior]]]
-       :gcp.foreign.com.google.api.gax.batching/BatchingSettings [:map
-                                                                  [:elementCountThreshold {:optional true} [:int {:min 1}]]
-                                                                  [:requestByteThreshold {:optional true} [:int {:min 1}]]
-                                                                  [:delayThreshold {:optional true} pos-duration]
-                                                                  [:flowControlSettings {:optional true} [:ref :gcp.foreign.com.google.api.gax.batching/FlowControlSettings]]
-                                                                  [:isEnabled {:optional true} :boolean]]}
-      {:gcp.global/name :gcp.foreign.com.google.api.gax.batching/registry})))
+  (with-meta
+    {::LimitExceededBehavior [:enum :ThrowException :Block :Ignore]
+     ::FlowControlSettings   [:map
+                              [:maxOutstandingElementCount {:optional true} [:int {:min 1}]]
+                              [:maxOutstandingRequestBytes {:optional true} [:int {:min 1}]]
+                              [:limitExceededBehavior {:optional true} [:ref :gcp.foreign.com.google.api.gax.batching/LimitExceededBehavior]]]
+     ::BatchingSettings      [:map
+                              [:elementCountThreshold {:optional true} [:int {:min 1}]]
+                              [:requestByteThreshold {:optional true} [:int {:min 1}]]
+                              [:delayThreshold {:optional true} 'number?]
+                              [:flowControlSettings {:optional true} [:ref :gcp.foreign.com.google.api.gax.batching/FlowControlSettings]]
+                              [:isEnabled {:optional true} :boolean]]}
+    {::g/name ::registry}))
 
-(global/include-schema-registry! registry)
+(g/include-schema-registry! registry)
 
 #!-----------------------------------------------------------------------------
 
@@ -62,7 +42,7 @@
   (cond-> {}
     (.getElementCountThreshold arg) (assoc :elementCountThreshold (.getElementCountThreshold arg))
     (.getRequestByteThreshold arg) (assoc :requestByteThreshold (.getRequestByteThreshold arg))
-    (.getDelayThreshold arg) (assoc :delayThreshold (bp/Duration-to-edn (.getDelayThreshold arg)))
+    (.getDelayThreshold arg) (assoc :delayThreshold (.toSeconds (.getDelayThresholdDuration arg)))
     (.getFlowControlSettings arg) (assoc :flowControlSettings (FlowControlSettings-to-edn (.getFlowControlSettings arg)))
     (some? (.getIsEnabled arg)) (assoc :isEnabled (.getIsEnabled arg))))
 
@@ -70,7 +50,7 @@
   (let [builder (BatchingSettings/newBuilder)]
     (when-some [v (:elementCountThreshold arg)] (.setElementCountThreshold builder v))
     (when-some [v (:requestByteThreshold arg)] (.setRequestByteThreshold builder v))
-    (when-some [v (:delayThreshold arg)] (.setDelayThreshold builder (bp/Duration-from-edn v)))
+    (when-some [v (:delayThreshold arg)] (.setDelayThresholdDuration builder (Duration/ofSeconds v)))
     (when-some [v (:flowControlSettings arg)] (.setFlowControlSettings builder (FlowControlSettings-from-edn v)))
     (when-some [v (:isEnabled arg)] (.setIsEnabled builder v))
     (.build builder)))

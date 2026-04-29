@@ -177,8 +177,8 @@
 #!------------------------------------------------------------------------
 
 (defn clean-method [m]
-  (-> (dissoc m :doc :static? :private? :abstract? :beta? :parameter-mappings)
-      (update :parameters (fn [ps] (mapv #(dissoc % :varArgs?) ps)))))
+  (-> (dissoc m :static? :private? :abstract? :beta? :parameter-mappings)
+      #_(update :parameters (fn [ps] (mapv #(dissoc % :varArgs?) ps)))))
 
 (defn can-consolidate?
   [methods]
@@ -284,6 +284,28 @@
                  "com.google.cloud.storage.NotificationInfo") ; <---TODO fix certification
 
   (require :reload 'gcp.storage.core 'gcp.storage.aux '[gcp.storage :as storage]))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! pubsub
+
+(def pubsub-roots
+  ["com.google.pubsub.v1.DeleteTopicRequest"
+   "com.google.pubsub.v1.GetSubscriptionRequest"
+   "com.google.pubsub.v1.GetTopicRequest"
+   "com.google.pubsub.v1.ListTopicsRequest"
+   "com.google.pubsub.v1.ListTopicSubscriptionsRequest"
+   "com.google.pubsub.v1.SubscriptionName"
+   "com.google.pubsub.v1.ProjectName"
+   "com.google.pubsub.v1.TopicName"
+   "com.google.pubsub.v1.Topic"
+   "com.google.pubsub.v1.Subscription"
+   ])
+
+(comment
+   (apply certify-graph pubsub-roots)
+
+
+  )
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! vertexai
