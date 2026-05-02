@@ -25,7 +25,7 @@
           (println "Global package up to date, skipping Clojars deploy:" version))
         {:package "gcp.global" :version version :deployed? needs-deploy?}))))
 
-(defn deploy-wrapper [pkg]
+(defn deploy-wrapper [pkg global-version]
   (let [repo-root (dev-util/get-gcp-repo-root)
         package-root (:package-root pkg)
         rel-path (dev-util/relative-path repo-root package-root)]
@@ -37,10 +37,10 @@
             sdk-version (get-in deps-map [:deps sdk-dep :mvn/version])
             pkg-hash (core/current-hash pkg deps-map)
             state (core/current-state pkg)
-            version-info (core/determine-version state sdk-version pkg-hash false)
+            version-info (core/determine-version state sdk-version pkg-hash global-version false)
             needs-deploy? (:needs-deploy? version-info)
             version (core/build-package pkg)
-            p (core/pom pkg version (global/build) deps-map)]
+            p (core/pom pkg version global-version deps-map)]
         (cond
           (string/ends-with? version "-DIRTY")
           (throw (ex-info (str "Refusing to deploy DIRTY version of " (:name pkg)) {:package (:name pkg) :version version}))
@@ -69,11 +69,12 @@
 
     ;; 2. Deploy global first
     (let [global-info (deploy-global)
+          global-version (:version global-info)
           initial-info (if (:deployed? global-info) [global-info] [])
           deployed-info (atom initial-info)]
       ;; 3. Deploy requested wrapper packages
       (doseq [pkg packages]
-        (let [info (deploy-wrapper pkg)]
+        (let [info (deploy-wrapper pkg global-version)]
           (when (:deployed? info)
             (swap! deployed-info conj info))))
       (if (empty? @deployed-info)

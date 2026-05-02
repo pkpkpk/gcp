@@ -60,8 +60,9 @@
 (defn current-state [pkg]
   (let [f (package-state-file pkg)]
     (if (.exists f)
-      (read-string (slurp f))
-      {:revision 0 :hash nil :sdk-version nil})))
+      (merge {:revision 0 :hash nil :sdk-version nil :global-version nil}
+             (read-string (slurp f)))
+      {:revision 0 :hash nil :sdk-version nil :global-version nil})))
 
 (defn current-hash [pkg deps-map]
   (let [root (:package-root pkg)
@@ -69,13 +70,14 @@
         deps-file (io/file root "deps.edn")]
     (util/hash-dir (conj paths deps-file))))
 
-(defn determine-version [state current-sdk-version current-hash is-dirty?]
+(defn determine-version [state current-sdk-version current-hash current-global-version is-dirty?]
   (let [revision (or (:revision state) 0)]
     (if is-dirty?
       {:needs-deploy? true
        :dirty? true
        :version (str current-sdk-version "." revision "-DIRTY")}
-      (if (= (:hash state) current-hash)
+      (if (and (= (:hash state) current-hash)
+               (= (:global-version state) current-global-version))
         {:needs-deploy? false
          :dirty? false
          :version (str current-sdk-version "." revision)}
@@ -117,7 +119,7 @@
         is-dirty? (git/dirty? repo-root rel-path)
         pkg-hash (current-hash pkg deps-map)
         state (current-state pkg)
-        {:keys [needs-deploy? dirty? version revision]} (determine-version state sdk-version pkg-hash is-dirty?)]
+        {:keys [needs-deploy? dirty? version revision]} (determine-version state sdk-version pkg-hash global-version is-dirty?)]
     (if-not needs-deploy?
       (do
         (println "Package" (:name pkg) "up to date:" version)
@@ -133,5 +135,6 @@
             (io/make-parents f)
             (spit f (pr-str {:hash pkg-hash
                              :sdk-version sdk-version
+                             :global-version global-version
                              :revision revision}))))
         version))))
