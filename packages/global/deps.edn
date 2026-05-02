@@ -1,4 +1,5 @@
 {:paths ["src"]
- :deps {metosin/jsonista         {:mvn/version "0.3.13"}
-        metosin/malli            {:mvn/version "0.20.0"}
-        org.babashka/sci         {:mvn/version "0.9.44"}}}
+ :deps  {metosin/jsonista          {:mvn/version "0.3.13"}
+         metosin/malli             {:mvn/version "0.20.0"}
+         org.babashka/sci          {:mvn/version "0.9.44"}
+         org.threeten/threeten-extra {:mvn/version "1.8.0"}}}

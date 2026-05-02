@@ -14,6 +14,7 @@
     [gcp.pubsub.v1.TopicName :as TopicName]
     [malli.core :as m])
   (:import
+    (com.google.api.gax.rpc NotFoundException)
     (com.google.cloud.pubsub.v1 TopicAdminClient)))
 
 (defonce ^:dynamic *client* nil)
@@ -240,9 +241,11 @@
          :request request}))))
 
 (defmethod execute! ::TopicGet [{:keys [topicAdmin request]}]
-  (let [client (client topicAdmin)
-        response (.getTopic client (GetTopicRequest/from-edn request))]
-    (Topic/to-edn response)))
+  (let [client (client topicAdmin)]
+    (try
+      (Topic/to-edn (.getTopic client (GetTopicRequest/from-edn request)))
+      (catch NotFoundException _
+        nil))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! ::TopicListSubscription

@@ -24,9 +24,11 @@
         sub-name (if (instance? Subscription subscription)
                    (.getName subscription)
                    (if (map? subscription)
-                     (if (g/valid? :gcp/pubsub.SubscriptionName subscription)
-                       (SubscriptionName/from-edn subscription)
-                       (g/coerce :string (:name subscription)))
+                     (if (g/valid? :gcp.pubsub.v1/SubscriptionName subscription)
+                       (str (SubscriptionName/from-edn subscription))
+                       (if (string? (:name subscription))
+                         (:name subscription)
+                         (str (SubscriptionName/from-edn (:name subscription)))))
                      (g/coerce :string subscription)))
         receiver (reify MessageReceiver
                    (receiveMessage [_ message consumer]

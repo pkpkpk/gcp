@@ -15,7 +15,8 @@
    [gcp.pubsub.v1.TopicName :as TopicName]
    [malli.core :as m])
   (:import
-   (com.google.cloud.pubsub.v1 SubscriptionAdminClient)))
+    (com.google.api.gax.rpc NotFoundException)
+    (com.google.cloud.pubsub.v1 SubscriptionAdminClient)))
 
 (defonce ^:dynamic *client* nil)
 
@@ -101,10 +102,15 @@
     [:subscriptionAdmin {:optional true} [:ref ::clientable]]
     [:request [:ref ::GetSubscriptionRequest]]]
 
+   ::CreateSubscriptionRequest
+   (-> :gcp.pubsub.v1/Subscription
+       (gu/assoc :name [:or [:string {:min 1, :gen/max 1}] [:ref ::SubscriptionResourcePathString] :gcp.pubsub.v1/SubscriptionName])
+       (gu/assoc :topic [:or [:string {:min 1, :gen/max 1}] [:ref ::TopicResourcePathString] :gcp.pubsub.v1/TopicName]))
+
    ::SubscriptionCreate
    [:map {:closed true :doc "call record for SubscriptionAdminClient.createSubscription"}
     [:subscriptionAdmin {:optional true} [:ref ::clientable]]
-    [:request :gcp.pubsub.v1/Subscription]]
+    [:request [:ref ::CreateSubscriptionRequest]]]
 
    ::DeleteSubscriptionRequest (gu/assoc :gcp.pubsub.v1/DeleteSubscriptionRequest :subscription [:ref ::SubscriptionResourcePathString])
 
@@ -233,9 +239,11 @@
          :request request}))))
 
 (defmethod execute! ::SubscriptionGet [{:keys [subscriptionAdmin request]}]
-  (let [client (client subscriptionAdmin)
-        response (.getSubscription client (GetSubscriptionRequest/from-edn request))]
-    (Subscription/to-edn response))),
+  (let [client (client subscriptionAdmin)]
+    (try
+      (Subscription/to-edn (.getSubscription client (GetSubscriptionRequest/from-edn request)))
+      (catch NotFoundException _
+        nil))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! SubscriptionCreate
@@ -244,11 +252,11 @@
   [:altn
    [:arity-1-CR [:altn [:callRecord [:catn [:callRecord ::SubscriptionCreate]]]]]
    [:arity-1 [:altn
-              [:request              [:catn [:request :gcp.pubsub.v1/Subscription]]]
+              [:request              [:catn [:request ::CreateSubscriptionRequest]]]
               [:subscriptionName     [:catn [:subscriptionName :gcp.pubsub.v1/SubscriptionName]]]
               [:subscriptionResource [:catn [:subscriptionResource ::SubscriptionResourcePathString]]]]]
    [:arity-2 [:altn
-              [:client-request              [:catn [:clientable ::clientable] [:request :gcp.pubsub.v1/Subscription]]]
+              [:client-request              [:catn [:clientable ::clientable] [:request ::CreateSubscriptionRequest]]]
               [:client-subscriptionName     [:catn [:clientable ::clientable] [:subscriptionName :gcp.pubsub.v1/SubscriptionName]]]
               [:client-subscriptionResource [:catn [:clientable ::clientable] [:subscriptionResource ::SubscriptionResourcePathString]]]
               [:project-subscription        [:catn [:project string?] [:subscription string?]]]
@@ -292,7 +300,10 @@
                                                     (str "projects/" project "/topics/" topic)))
                                                 (conform-topic-resource-string topic)))
                           (some? pushConfig) (assoc :pushConfig pushConfig)
-                          (some? ackDeadlineSeconds) (assoc :ackDeadlineSeconds ackDeadlineSeconds)))]
+                          (some? ackDeadlineSeconds) (assoc :ackDeadlineSeconds ackDeadlineSeconds)))
+            request (cond-> request
+                      (map? (:name request)) (assoc :name (str (SubscriptionName/from-edn (:name request))))
+                      (map? (:topic request)) (assoc :topic (str (TopicName/from-edn (:topic request)))))]
         {:op ::SubscriptionCreate
          :subscriptionAdmin clientable
          :request request}))))

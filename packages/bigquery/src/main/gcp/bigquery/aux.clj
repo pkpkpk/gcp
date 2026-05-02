@@ -11,6 +11,21 @@
   (when-let [T (bq/get-table dataset table)]
     (get-in T [:definition :schema])))
 
+(defn export-query
+  "Exports the result of a SQL query directly to a GCS bucket using EXPORT DATA.
+   `format` should be 'JSON' (for JSONL) or 'CSV'.
+   `uri` must include a wildcard '*' if the query result is large."
+  [query uri format]
+  (bq/q "EXPORT DATA OPTIONS(
+           uri=@uri,
+           format=@format,
+           overwrite=true
+         ) AS
+         %s"
+        {:uri uri
+         :format format}
+        query))
+
 (defn
   ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
            "https://cloud.google.com/bigquery/docs/reference/standard-sql/export-statements"
