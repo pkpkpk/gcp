@@ -1,8 +1,8 @@
 (ns gcp.bigquery.aux
   {:doc "convenience functions that sugar top-level api functions"}
   (:require
-   [clojure.java.io :as io]
-   [gcp.bigquery :as bq]
+    [clojure.java.io :as io]
+    [gcp.bigquery :as bq]
    [gcp.global :as g])
   (:import
    (java.nio.channels Channels)))
@@ -14,18 +14,16 @@
 (defn export-query
   "Exports the result of a SQL query directly to a GCS bucket using EXPORT DATA.
    `format` should be 'JSON' (for JSONL) or 'CSV'.
-   `uri` must include a wildcard '*' if the query result is large."
+   If the URI does not contain a wildcard '*', one is automatically inserted before the extension."
   [query uri format]
-  (bq/q "EXPORT DATA OPTIONS(
-           uri=@uri,
-           format=@format,
-           overwrite=true
-         ) AS
-         %s"
-        {:uri uri
-         :format format}
-        query))
-
+  (let [uri (if (clojure.string/includes? uri "*")
+              uri
+              (let [idx (.lastIndexOf uri ".")]
+                (if (pos? idx)
+                  (str (subs uri 0 idx) "-*" (subs uri idx))
+                  (str uri "-*"))))]
+    (bq/q (str "EXPORT DATA OPTIONS(ok uri= ?, format= ?, overwrite=true) AS " query)
+          [uri format])))
 (defn
   ^{:urls ["https://cloud.google.com/bigquery/docs/exporting-data"
            "https://cloud.google.com/bigquery/docs/reference/standard-sql/export-statements"
@@ -57,6 +55,33 @@
                                compression (assoc :compression compression))
          jobInfo {:configuration (g/coerce :gcp.bigquery/ExtractJobConfiguration configuration)}]
      (bq/create-job (:bigquery table) jobInfo opts))))
+
+(defn export-from-temp
+  "Executes a query into a temporary table, then uses the Extract API to export it.
+   This bypasses the wildcard requirement of EXPORT DATA and the table-only limitation of EXTRACT.
+   `dataset` is required to determine where to create the temporary table.
+   `format` should be 'NEWLINE_DELIMITED_JSON' or 'CSV'.
+   `params` is an optional sequence of positional SQL parameters."
+  ([dataset uri format query]
+   (export-from-temp dataset uri format query nil))
+  ([dataset uri format query params]
+   (when-not dataset
+     (throw (ex-info "dataset is required for export-from-temp" {:query query :uri uri})))
+   (let [temp-table   (str "tmp_export_" (clojure.string/replace (str (random-uuid)) "-" ""))
+         table-id     {:dataset dataset :table temp-table}
+         query-config (cond-> {:type "QUERY"
+                               :query query
+                               :destinationTable table-id
+                               :writeDisposition "WRITE_TRUNCATE"}
+                              (seq params) (assoc :useLegacySql false
+                                                  :parameterMode "POSITIONAL"
+                                                  :queryParameters params))]
+     (try
+       (bq/wait-for (bq/create-job {:configuration query-config}))
+       (bq/wait-for (extract-table table-id format nil uri))
+       (finally
+         (try (bq/q (str "DROP TABLE IF EXISTS `" dataset "." temp-table "`"))
+              (catch Exception _)))))))
 
 (defn extract-parquet
   ([dataset table bucket]
