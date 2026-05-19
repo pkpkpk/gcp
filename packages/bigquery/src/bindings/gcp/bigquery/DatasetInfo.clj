@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.DatasetInfo"
    :gcp.dev/certification
-     {:base-seed 1776499511815
+     {:base-seed 1779204753212
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499511815 :standard 1776499511816 :stress 1776499511817}
+        {:smoke 1779204753212 :standard 1779204753213 :stress 1779204753214}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:05:14.518496831Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:34.148895432Z"}}
   (:require [gcp.bigquery.Acl :as Acl]
             [gcp.bigquery.DatasetId :as DatasetId]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
@@ -130,7 +130,7 @@
        "Returns the dataset's access control configuration.\n\n<p>Update the ACLs for a dataset.\n\n<pre>{@code\nDataset dataset = bigquery.getDataset(DatasetId.of(\"my_dataset\"));\nList<Acl> beforeAcls = dataset.getAcl();\n\n// Make a copy of the ACLs so that they can be modified.\nArrayList<Acl> acls = new ArrayList<>(beforeAcls);\nacls.add(Acl.of(new Acl.User(\"sample.bigquery.dev@gmail.com\"), Acl.Role.READER));\nDataset.Builder builder = dataset.toBuilder();\nbuilder.setAcl(acls);\n\nbigquery.update(builder.build());  // API request.\n}</pre>\n\n@see <a href=\"https://cloud.google.com/bigquery/access-control\">Access Control</a>",
      :setter-doc
        "Sets the dataset's access control configuration.\n\n@see <a href=\"https://cloud.google.com/bigquery/access-control\">Access Control</a>"}
-    [:sequential {:min 1} :gcp.bigquery/Acl]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/Acl]]
    [:creationTime
     {:optional true,
      :read-only? true,
@@ -143,7 +143,7 @@
     {:optional true,
      :setter-doc
        "Optional. Defines the default collation specification of future tables created in the\ndataset. If a table is created in this dataset without table-level default collation, then\nthe table inherits the dataset default collation, which is applied to the string fields that\ndo not have explicit collation specified. A change to this field affects only tables created\nafterwards, and does not alter the existing tables. The following values are supported:\n\n<p>* 'und:ci': undetermined locale, case insensitive. * '': empty string. Default to\ncase-sensitive behavior. (-- A wrapper is used here because it is possible to set the value\nto the empty string. --) (-- api-linter: standard-fields=disabled --)"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:defaultEncryptionConfiguration
     {:optional true,
      :setter-doc
@@ -165,12 +165,12 @@
     {:optional true,
      :getter-doc "Returns a user-friendly description for the dataset.",
      :setter-doc "Sets a user-friendly description for the dataset."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:etag
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the hash of the dataset resource."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:externalDatasetReference
     {:optional true,
      :getter-doc
@@ -182,18 +182,19 @@
     {:optional true,
      :getter-doc "Returns a user-friendly name for the dataset.",
      :setter-doc "Sets a user-friendly name for the dataset."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:generatedId
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the service-generated id for the dataset."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:labels
     {:optional true,
      :getter-doc
        "Return a map for labels applied to the dataset.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/labeling-datasets\">Labeling Datasets</a>",
      :setter-doc nil}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:lastModified
     {:optional true,
      :read-only? true,
@@ -206,7 +207,7 @@
        "Returns the geographic location where the dataset should reside.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/managing_jobs_datasets_projects#dataset-location\">\n    Dataset Location</a>",
      :setter-doc
        "Sets the geographic location where the dataset should reside. This property is experimental\nand might be subject to change or removed.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/reference/v2/datasets#location\">Dataset\n    Location</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:maxTimeTravelHours
     {:optional true,
      :getter-doc
@@ -220,18 +221,19 @@
        "Optional. The <a href=\"https://cloud.google.com/bigquery/docs/tags\">tags</a> attached to this\ndataset. Tag keys are globally unique. Tag key is expected to be in the namespaced format, for\nexample \"123456789012/environment\" where 123456789012 is the ID of the parent organization or\nproject resource for this tag key. Tag value is expected to be the short name, for example\n\"Production\".\n\n@see <a href=\"https://cloud.google.com/iam/docs/tags-access-control#definitions\">Tag\n    definitions</a> for more details.\n@return value or {@code null} for none",
      :setter-doc
        "Optional. The <a href=\"https://cloud.google.com/bigquery/docs/tags\">tags</a> attached to this\ndataset. Tag keys are globally unique. Tag key is expected to be in the namespaced format,\nfor example \"123456789012/environment\" where 123456789012 is the ID of the parent\norganization or project resource for this tag key. Tag value is expected to be the short\nname, for example \"Production\".\n\n@see <a href=\"https://cloud.google.com/iam/docs/tags-access-control#definitions\">Tag\n    definitions</a> for more details.\n@param resourceTags resourceTags or {@code null} for none"}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:selfLink
     {:optional true,
      :read-only? true,
      :getter-doc
        "Returns an URL that can be used to access the resource again. The returned URL can be used for\nget or update requests."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:storageBillingModel
     {:optional true,
      :setter-doc
        "Optional. Storage billing model to be used for all tables in the dataset. Can be set to\nPHYSICAL. Default is LOGICAL."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry! (with-meta {:gcp.bigquery/DatasetInfo schema}
                                    {:gcp.global/name

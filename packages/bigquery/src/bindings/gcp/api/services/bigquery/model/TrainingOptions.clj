@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.TrainingOptions"
    :gcp.dev/certification
-     {:base-seed 1776499492845
+     {:base-seed 1779204741989
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499492845 :standard 1776499492846 :stress 1776499492847}
+        {:smoke 1779204741989 :standard 1779204741990 :stress 1779204741991}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:54.259024063Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:22.931356143Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaOrder :as ArimaOrder]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model TrainingOptions]))
@@ -477,7 +477,7 @@
        "Activation function of the neural nets.\n\n@return value or {@code null} for none",
      :setter-doc
        "Activation function of the neural nets.\n\n@param activationFn activationFn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:adjustStepChanges
     {:getter-doc
        "If true, detect step changes and make data adjustment in the input time series.\n\n@return value or {@code null} for none",
@@ -525,7 +525,7 @@
        "Booster type for boosted tree models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Booster type for boosted tree models.\n\n@param boosterType boosterType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:budgetHours
     {:getter-doc
        "Budget in hours for AutoML training.\n\n@return value or {@code null} for none",
@@ -543,7 +543,7 @@
        "Categorical feature encoding method.\n\n@return value or {@code null} for none",
      :setter-doc
        "Categorical feature encoding method.\n\n@param categoryEncodingMethod categoryEncodingMethod or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:cleanSpikesAndDips
     {:getter-doc
        "If true, clean spikes and dips in the input time series.\n\n@return value or {@code null} for none",
@@ -555,7 +555,7 @@
        "Enums for color space, used for processing images in Object Table. See more details at\nhttps://www.tensorflow.org/io/tutorials/colorspace.\n\n@return value or {@code null} for none",
      :setter-doc
        "Enums for color space, used for processing images in Object Table. See more details at\nhttps://www.tensorflow.org/io/tutorials/colorspace.\n\n@param colorSpace colorSpace or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:colsampleBylevel
     {:getter-doc
        "Subsample ratio of columns for each level for boosted tree models.\n\n@return value or {@code null} for none",
@@ -579,25 +579,25 @@
        "The contribution metric. Applies to contribution analysis models. Allowed formats supported are\nfor summable and summable ratio contribution metrics. These include expressions such as\n`SUM(x)` or `SUM(x)/SUM(y)`, where x and y are column names from the base table.\n\n@return value or {@code null} for none",
      :setter-doc
        "The contribution metric. Applies to contribution analysis models. Allowed formats supported are\nfor summable and summable ratio contribution metrics. These include expressions such as\n`SUM(x)` or `SUM(x)/SUM(y)`, where x and y are column names from the base table.\n\n@param contributionMetric contributionMetric or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:dartNormalizeType
     {:getter-doc
        "Type of normalization algorithm for boosted tree models using dart booster.\n\n@return value or {@code null} for none",
      :setter-doc
        "Type of normalization algorithm for boosted tree models using dart booster.\n\n@param dartNormalizeType dartNormalizeType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:dataFrequency
     {:getter-doc
        "The data frequency of a time series.\n\n@return value or {@code null} for none",
      :setter-doc
        "The data frequency of a time series.\n\n@param dataFrequency dataFrequency or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:dataSplitColumn
     {:getter-doc
        "The column to split data with. This column won't be used as a feature. 1. When\ndata_split_method is CUSTOM, the corresponding column should be boolean. The rows with true\nvalue tag are eval data, and the false are training data. 2. When data_split_method is SEQ, the\nfirst DATA_SPLIT_EVAL_FRACTION rows (from smallest to largest) in the corresponding column are\nused as training data, and the rest are eval data. It respects the order in Orderable data\ntypes: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-\ntypes#data_type_properties\n\n@return value or {@code null} for none",
      :setter-doc
        "The column to split data with. This column won't be used as a feature. 1. When\ndata_split_method is CUSTOM, the corresponding column should be boolean. The rows with true\nvalue tag are eval data, and the false are training data. 2. When data_split_method is SEQ, the\nfirst DATA_SPLIT_EVAL_FRACTION rows (from smallest to largest) in the corresponding column are\nused as training data, and the rest are eval data. It respects the order in Orderable data\ntypes: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-\ntypes#data_type_properties\n\n@param dataSplitColumn dataSplitColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:dataSplitEvalFraction
     {:getter-doc
        "The fraction of evaluation data over the whole input data. The rest of data will be used as\ntraining data. The format should be double. Accurate to two decimal places. Default value is\n0.2.\n\n@return value or {@code null} for none",
@@ -609,7 +609,7 @@
        "The data split type for training and evaluation, e.g. RANDOM.\n\n@return value or {@code null} for none",
      :setter-doc
        "The data split type for training and evaluation, e.g. RANDOM.\n\n@param dataSplitMethod dataSplitMethod or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:decomposeTimeSeries
     {:getter-doc
        "If true, perform decompose time series and save the results.\n\n@return value or {@code null} for none",
@@ -621,13 +621,14 @@
        "Optional. Names of the columns to slice on. Applies to contribution analysis models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Optional. Names of the columns to slice on. Applies to contribution analysis models.\n\n@param dimensionIdColumns dimensionIdColumns or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:distanceType
     {:getter-doc
        "Distance type for clustering models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Distance type for clustering models.\n\n@param distanceType distanceType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:dropout
     {:getter-doc
        "Dropout probability for dnn models.\n\n@return value or {@code null} for none",
@@ -651,13 +652,13 @@
        "The idle TTL of the endpoint before the resources get destroyed. The default value is 6.5\nhours.\n\n@return value or {@code null} for none",
      :setter-doc
        "The idle TTL of the endpoint before the resources get destroyed. The default value is 6.5\nhours.\n\n@param endpointIdleTtl endpointIdleTtl or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:feedbackType
     {:getter-doc
        "Feedback type that specifies which algorithm to run for matrix factorization.\n\n@return value or {@code null} for none",
      :setter-doc
        "Feedback type that specifies which algorithm to run for matrix factorization.\n\n@param feedbackType feedbackType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:fitIntercept
     {:getter-doc
        "Whether the model should include intercept during model training.\n\n@return value or {@code null} for none",
@@ -681,19 +682,20 @@
        "Hidden units for dnn models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Hidden units for dnn models.\n\n@param hiddenUnits hiddenUnits or {@code null} for none",
-     :optional true} [:sequential {:min 1} :i64]]
+     :optional true} [:sequential {:min 1, :gen/max 2} :i64]]
    [:holidayRegion
     {:getter-doc
        "The geographical region based on which the holidays are considered in time series modeling. If\na valid value is specified, then holiday effects modeling is enabled.\n\n@return value or {@code null} for none",
      :setter-doc
        "The geographical region based on which the holidays are considered in time series modeling. If\na valid value is specified, then holiday effects modeling is enabled.\n\n@param holidayRegion holidayRegion or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:holidayRegions
     {:getter-doc
        "A list of geographical regions that are used for time series modeling.\n\n@return value or {@code null} for none",
      :setter-doc
        "A list of geographical regions that are used for time series modeling.\n\n@param holidayRegions holidayRegions or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:horizon
     {:getter-doc
        "The number of periods ahead that need to be forecasted.\n\n@return value or {@code null} for none",
@@ -705,13 +707,14 @@
        "The target evaluation metrics to optimize the hyperparameters for.\n\n@return value or {@code null} for none",
      :setter-doc
        "The target evaluation metrics to optimize the hyperparameters for.\n\n@param hparamTuningObjectives hparamTuningObjectives or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:huggingFaceModelId
     {:getter-doc
        "The id of a Hugging Face model. For example, `google/gemma-2-2b-it`.\n\n@return value or {@code null} for none",
      :setter-doc
        "The id of a Hugging Face model. For example, `google/gemma-2-2b-it`.\n\n@param huggingFaceModelId huggingFaceModelId or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:includeDrift
     {:getter-doc
        "Include drift when fitting an ARIMA model.\n\n@return value or {@code null} for none",
@@ -729,13 +732,14 @@
        "Name of input label columns in training data.\n\n@return value or {@code null} for none",
      :setter-doc
        "Name of input label columns in training data.\n\n@param inputLabelColumns inputLabelColumns or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:instanceWeightColumn
     {:getter-doc
        "Name of the instance weight column for training data. This column isn't be used as a feature.\n\n@return value or {@code null} for none",
      :setter-doc
        "Name of the instance weight column for training data. This column isn't be used as a feature.\n\n@param instanceWeightColumn instanceWeightColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:integratedGradientsNumSteps
     {:getter-doc
        "Number of integral steps for the integrated gradients explain method.\n\n@return value or {@code null} for none",
@@ -747,19 +751,19 @@
        "Item column specified for matrix factorization models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Item column specified for matrix factorization models.\n\n@param itemColumn itemColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:kmeansInitializationColumn
     {:getter-doc
        "The column used to provide the initial centroids for kmeans algorithm when\nkmeans_initialization_method is CUSTOM.\n\n@return value or {@code null} for none",
      :setter-doc
        "The column used to provide the initial centroids for kmeans algorithm when\nkmeans_initialization_method is CUSTOM.\n\n@param kmeansInitializationColumn kmeansInitializationColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:kmeansInitializationMethod
     {:getter-doc
        "The method used to initialize the centroids for kmeans algorithm.\n\n@return value or {@code null} for none",
      :setter-doc
        "The method used to initialize the centroids for kmeans algorithm.\n\n@param kmeansInitializationMethod kmeansInitializationMethod or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:l1RegActivation
     {:getter-doc
        "L1 regularization coefficient to activations.\n\n@return value or {@code null} for none",
@@ -795,19 +799,19 @@
        "The strategy to determine learn rate for the current iteration.\n\n@return value or {@code null} for none",
      :setter-doc
        "The strategy to determine learn rate for the current iteration.\n\n@param learnRateStrategy learnRateStrategy or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:lossType
     {:getter-doc
        "Type of loss function used during training run.\n\n@return value or {@code null} for none",
      :setter-doc
        "Type of loss function used during training run.\n\n@param lossType lossType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:machineType
     {:getter-doc
        "The type of the machine used to deploy and serve the model.\n\n@return value or {@code null} for none",
      :setter-doc
        "The type of the machine used to deploy and serve the model.\n\n@param machineType machineType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:maxIterations
     {:getter-doc
        "The maximum number of iterations in training. Used only for iterative training algorithms.\n\n@return value or {@code null} for none",
@@ -879,19 +883,19 @@
        "The name of a Vertex model garden publisher model. Format is\n`publishers/{publisher}/models/{model}@{optional_version_id}`.\n\n@return value or {@code null} for none",
      :setter-doc
        "The name of a Vertex model garden publisher model. Format is\n`publishers/{publisher}/models/{model}@{optional_version_id}`.\n\n@param modelGardenModelName modelGardenModelName or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:modelRegistry
     {:getter-doc
        "The model registry.\n\n@return value or {@code null} for none",
      :setter-doc
        "The model registry.\n\n@param modelRegistry modelRegistry or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:modelUri
     {:getter-doc
        "Google Cloud Storage URI from which the model was imported. Only applicable for imported\nmodels.\n\n@return value or {@code null} for none",
      :setter-doc
        "Google Cloud Storage URI from which the model was imported. Only applicable for imported\nmodels.\n\n@param modelUri modelUri or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:nonSeasonalOrder
     {:getter-doc
        "A specification of the non-seasonal part of the ARIMA model: the three components (p, d, q) are\nthe AR order, the degree of differencing, and the MA order.\n\n@return value or {@code null} for none",
@@ -933,13 +937,13 @@
        "Optimization strategy for training linear regression models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Optimization strategy for training linear regression models.\n\n@param optimizationStrategy optimizationStrategy or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:optimizer
     {:getter-doc
        "Optimizer used for training the neural nets.\n\n@return value or {@code null} for none",
      :setter-doc
        "Optimizer used for training the neural nets.\n\n@param optimizer optimizer or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:pcaExplainedVarianceRatio
     {:getter-doc
        "The minimum ratio of cumulative explained variance that needs to be given by the PCA model.\n\n@return value or {@code null} for none",
@@ -951,25 +955,26 @@
        "The solver for PCA.\n\n@return value or {@code null} for none",
      :setter-doc
        "The solver for PCA.\n\n@param pcaSolver pcaSolver or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:reservationAffinityKey
     {:getter-doc
        "Corresponds to the label key of a reservation resource used by Vertex AI. To target a\nSPECIFIC_RESERVATION by name, use `compute.googleapis.com/reservation-name` as the key and\nspecify the name of your reservation as its value.\n\n@return value or {@code null} for none",
      :setter-doc
        "Corresponds to the label key of a reservation resource used by Vertex AI. To target a\nSPECIFIC_RESERVATION by name, use `compute.googleapis.com/reservation-name` as the key and\nspecify the name of your reservation as its value.\n\n@param reservationAffinityKey reservationAffinityKey or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:reservationAffinityType
     {:getter-doc
        "Specifies the reservation affinity type used to configure a Vertex AI resource. The default\nvalue is `NO_RESERVATION`.\n\n@return value or {@code null} for none",
      :setter-doc
        "Specifies the reservation affinity type used to configure a Vertex AI resource. The default\nvalue is `NO_RESERVATION`.\n\n@param reservationAffinityType reservationAffinityType or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:reservationAffinityValues
     {:getter-doc
        "Corresponds to the label values of a reservation resource used by Vertex AI. This must be the\nfull resource name of the reservation or reservation block.\n\n@return value or {@code null} for none",
      :setter-doc
        "Corresponds to the label values of a reservation resource used by Vertex AI. This must be the\nfull resource name of the reservation or reservation block.\n\n@param reservationAffinityValues reservationAffinityValues or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:sampledShapleyNumPaths
     {:getter-doc
        "Number of paths for the sampled Shapley explain method.\n\n@return value or {@code null} for none",
@@ -999,31 +1004,32 @@
        "Name of the column used to determine the rows corresponding to control and test. Applies to\ncontribution analysis models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Name of the column used to determine the rows corresponding to control and test. Applies to\ncontribution analysis models.\n\n@param isTestColumn isTestColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:tfVersion
     {:getter-doc
        "Based on the selected TF version, the corresponding docker image is used to train external\nmodels.\n\n@return value or {@code null} for none",
      :setter-doc
        "Based on the selected TF version, the corresponding docker image is used to train external\nmodels.\n\n@param tfVersion tfVersion or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:timeSeriesDataColumn
     {:getter-doc
        "Column to be designated as time series data for ARIMA model.\n\n@return value or {@code null} for none",
      :setter-doc
        "Column to be designated as time series data for ARIMA model.\n\n@param timeSeriesDataColumn timeSeriesDataColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:timeSeriesIdColumn
     {:getter-doc
        "The time series id column that was used during ARIMA model training.\n\n@return value or {@code null} for none",
      :setter-doc
        "The time series id column that was used during ARIMA model training.\n\n@param timeSeriesIdColumn timeSeriesIdColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:timeSeriesIdColumns
     {:getter-doc
        "The time series id columns that were used during ARIMA model training.\n\n@return value or {@code null} for none",
      :setter-doc
        "The time series id columns that were used during ARIMA model training.\n\n@param timeSeriesIdColumns timeSeriesIdColumns or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:timeSeriesLengthFraction
     {:getter-doc
        "The fraction of the interpolated length of the time series that's used to model the time series\ntrend component. All of the time points of the time series are used to model the non-trend\ncomponent. This training option accelerates modeling training without sacrificing much\nforecasting accuracy. You can use this option with `minTimeSeriesLength` but not with\n`maxTimeSeriesLength`.\n\n@return value or {@code null} for none",
@@ -1035,13 +1041,13 @@
        "Column to be designated as time series timestamp for ARIMA model.\n\n@return value or {@code null} for none",
      :setter-doc
        "Column to be designated as time series timestamp for ARIMA model.\n\n@param timeSeriesTimestampColumn timeSeriesTimestampColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:treeMethod
     {:getter-doc
        "Tree construction algorithm for boosted tree models.\n\n@return value or {@code null} for none",
      :setter-doc
        "Tree construction algorithm for boosted tree models.\n\n@param treeMethod treeMethod or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:trendSmoothingWindowSize
     {:getter-doc
        "Smoothing window size for the trend component. When a positive value is specified, a center\nmoving average smoothing is applied on the history trend. When the smoothing window is out of\nthe boundary at the beginning or the end of the trend, the first element or the last element is\npadded to fill the smoothing window before the average is applied.\n\n@return value or {@code null} for none",
@@ -1053,13 +1059,14 @@
        "User column specified for matrix factorization models.\n\n@return value or {@code null} for none",
      :setter-doc
        "User column specified for matrix factorization models.\n\n@param userColumn userColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:vertexAiModelVersionAliases
     {:getter-doc
        "The version aliases to apply in Vertex AI model registry. Always overwrite if the version\naliases exists in a existing model.\n\n@return value or {@code null} for none",
      :setter-doc
        "The version aliases to apply in Vertex AI model registry. Always overwrite if the version\naliases exists in a existing model.\n\n@param vertexAiModelVersionAliases vertexAiModelVersionAliases or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:walsAlpha
     {:getter-doc
        "Hyperparameter for matrix factoration when implicit feedback type is specified.\n\n@return value or {@code null} for none",
@@ -1077,7 +1084,7 @@
        "User-selected XGBoost versions for training of XGBoost models.\n\n@return value or {@code null} for none",
      :setter-doc
        "User-selected XGBoost versions for training of XGBoost models.\n\n@param xgboostVersion xgboostVersion or {@code null} for none",
-     :optional true} [:string {:min 1}]]])
+     :optional true} [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.api.services.bigquery.model/TrainingOptions schema}

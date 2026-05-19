@@ -5,13 +5,13 @@
    :file-git-sha "a335927e16d0907d62e584f08fa8393daae40354"
    :fqcn "com.google.cloud.bigquery.Acl"
    :gcp.dev/certification
-     {:base-seed 1776499498650
+     {:base-seed 1779204746151
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499498650 :standard 1776499498651 :stress 1776499498652}
+        {:smoke 1779204746151 :standard 1779204746152 :stress 1779204746153}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:59.999434829Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:27.059039594Z"}}
   (:require [gcp.bigquery.DatasetId :as DatasetId]
             [gcp.bigquery.RoutineId :as RoutineId]
             [gcp.bigquery.TableId :as TableId]
@@ -124,7 +124,8 @@
     :gcp/key :gcp.bigquery/Acl.DatasetAclEntity} [:type [:= "DATASET"]]
    [:id {:doc "@return Returns DatasetAclEntity's identity."}
     :gcp.bigquery/DatasetId]
-   [:targetTypes {} [:sequential {:min 1} [:string {:min 1}]]]])
+   [:targetTypes {}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
 (defn ^Acl$Domain Domain-from-edn
   [arg]
@@ -147,7 +148,8 @@
       "Class for a BigQuery Domain entity. Objects of this class represent a domain to grant access\nto. Any users signed in with the domain specified will be granted the specified access.",
     :gcp/category :nested/variant-pojo,
     :gcp/key :gcp.bigquery/Acl.Domain} [:type [:= "DOMAIN"]]
-   [:domain {:doc "@return Returns the domain name."} [:string {:min 1}]]])
+   [:domain {:doc "@return Returns the domain name."}
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn ^Acl$Group Group-from-edn
   [arg]
@@ -173,7 +175,7 @@
    [:identifier
     {:doc
        "@return Returns group's identifier, can be either a <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/v2/datasets#access.specialGroup\">\n    special group identifier</a> or a group email."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn ^Acl$User User-from-edn
   [arg]
@@ -196,7 +198,8 @@
       "Class for a BigQuery User entity. Objects of this class represent a user to grant access to\ngiven the email address.",
     :gcp/category :nested/variant-pojo,
     :gcp/key :gcp.bigquery/Acl.User} [:type [:= "USER"]]
-   [:email {:doc "@return Returns user's email."} [:string {:min 1}]]])
+   [:email {:doc "@return Returns user's email."}
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn ^Acl$View View-from-edn
   [arg]
@@ -265,7 +268,8 @@
       "Class for a BigQuery IamMember entity. Objects of this class represent a iamMember to grant\naccess to given the IAM Policy.",
     :gcp/category :nested/variant-pojo,
     :gcp/key :gcp.bigquery/Acl.IamMember} [:type [:= "IAM_MEMBER"]]
-   [:iamMember {:doc "@return Returns iamMember."} [:string {:min 1}]]])
+   [:iamMember {:doc "@return Returns iamMember."}
+    [:string {:min 1, :gen/max 1}]]])
 
 (defn ^Acl$Expr Expr-from-edn
   [arg]
@@ -300,10 +304,13 @@
       "Expr represents the conditional information related to dataset access policies.",
     :gcp/category :nested/pojo,
     :gcp/key :gcp.bigquery/Acl.Expr}
-   [:description {:doc "Synthetic getter for description"} [:string {:min 1}]]
-   [:expression {:doc "Synthetic getter for expression"} [:string {:min 1}]]
-   [:location {:doc "Synthetic getter for location"} [:string {:min 1}]]
-   [:title {:doc "Synthetic getter for title"} [:string {:min 1}]]])
+   [:description {:doc "Synthetic getter for description"}
+    [:string {:min 1, :gen/max 1}]]
+   [:expression {:doc "Synthetic getter for expression"}
+    [:string {:min 1, :gen/max 1}]]
+   [:location {:doc "Synthetic getter for location"}
+    [:string {:min 1, :gen/max 1}]]
+   [:title {:doc "Synthetic getter for title"} [:string {:min 1, :gen/max 1}]]])
 
 (defn ^Acl from-edn
   [arg]

@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BiEngineStats"
    :gcp.dev/certification
-     {:base-seed 1776499430760
+     {:base-seed 1779204697335
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499430760 :standard 1776499430761 :stress 1776499430762}
+        {:smoke 1779204697335 :standard 1779204697336 :stress 1779204697337}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:52.109503076Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:38.165235227Z"}}
   (:require [gcp.bigquery.BiEngineReason :as BiEngineReason]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery BiEngineStats BiEngineStats$Builder]))
@@ -55,14 +55,14 @@
        "Specifies which mode of BI Engine acceleration was performed (if any).\n\n@return value or {@code null} for none",
      :setter-doc
        "Specifies which mode of BI Engine acceleration was performed (if any).\n\n@param biEngineMode biEngineMode or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:biEngineReasons
     {:optional true,
      :getter-doc
        "In case of DISABLED or PARTIAL bi_engine_mode, these contain the explanatory reasons as to why\nBI Engine could not accelerate. In case the full query was accelerated, this field is not\npopulated.\n\n@return value or {@code null} for none",
      :setter-doc
        "In case of DISABLED or PARTIAL bi_engine_mode, these contain the explanatory reasons as to\nwhy BI Engine could not accelerate. In case the full query was accelerated, this field is not\npopulated.\n\n@param biEngineReasons biEngineReasons or {@code null} for none"}
-    [:sequential {:min 1} :gcp.bigquery/BiEngineReason]]])
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/BiEngineReason]]])
 
 (global/include-schema-registry! (with-meta {:gcp.bigquery/BiEngineStats schema}
                                    {:gcp.global/name

@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ArimaForecastingMetrics"
    :gcp.dev/certification
-     {:base-seed 1776499468789
+     {:base-seed 1779204725617
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499468789 :standard 1776499468790 :stress 1776499468791}
+        {:smoke 1779204725617 :standard 1779204725618 :stress 1779204725619}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:30.172662056Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:06.496213550Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaFittingMetrics :as
              ArimaFittingMetrics]
             [gcp.api.services.bigquery.model.ArimaOrder :as ArimaOrder]
@@ -83,40 +83,44 @@
      :setter-doc
        "Arima model fitting metrics.\n\n@param arimaFittingMetrics arimaFittingMetrics or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/ArimaFittingMetrics]]
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/ArimaFittingMetrics]]
    [:arimaSingleModelForecastingMetrics
     {:getter-doc
        "Repeated as there can be many metric sets (one for each model) in auto-arima and the large-\nscale case.\n\n@return value or {@code null} for none",
      :setter-doc
        "Repeated as there can be many metric sets (one for each model) in auto-arima and the large-\nscale case.\n\n@param arimaSingleModelForecastingMetrics arimaSingleModelForecastingMetrics or {@code null} for none",
      :optional true}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      :gcp.api.services.bigquery.model/ArimaSingleModelForecastingMetrics]]
    [:hasDrift
     {:getter-doc
        "Whether Arima model fitted with drift or not. It is always false when d is not 1.\n\n@return value or {@code null} for none",
      :setter-doc
        "Whether Arima model fitted with drift or not. It is always false when d is not 1.\n\n@param hasDrift hasDrift or {@code null} for none",
-     :optional true} [:sequential {:min 1} :boolean]]
+     :optional true} [:sequential {:min 1, :gen/max 2} :boolean]]
    [:nonSeasonalOrder
     {:getter-doc
        "Non-seasonal order.\n\n@return value or {@code null} for none",
      :setter-doc
        "Non-seasonal order.\n\n@param nonSeasonalOrder nonSeasonalOrder or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/ArimaOrder]]
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/ArimaOrder]]
    [:seasonalPeriods
     {:getter-doc
        "Seasonal periods. Repeated because multiple periods are supported for one time series.\n\n@return value or {@code null} for none",
      :setter-doc
        "Seasonal periods. Repeated because multiple periods are supported for one time series.\n\n@param seasonalPeriods seasonalPeriods or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:timeSeriesId
     {:getter-doc
        "Id to differentiate different time series for the large-scale case.\n\n@return value or {@code null} for none",
      :setter-doc
        "Id to differentiate different time series for the large-scale case.\n\n@param timeSeriesId timeSeriesId or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]])
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.api.services.bigquery.model/ArimaForecastingMetrics schema}

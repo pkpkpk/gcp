@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :client
       :skipped true
-      :timestamp "2026-04-18T08:05:00.721496963Z"}}
+      :timestamp "2026-05-19T15:32:27.839323581Z"}}
   (:require [gcp.bigquery.custom.BigQueryRetryConfig :as BigQueryRetryConfig]
             [gcp.foreign.com.google.cloud :as cloud]
             [gcp.global :as global])
@@ -147,7 +147,7 @@
      {:optional true,
       :doc
         "Returns an option to specify a label filter. @see <a href=\n\"https://cloud.google.com/bigquery/docs/adding-using-labels#filtering_datasets_using_labels\">Filtering\nusing labels</a>\n\n@param labelFilter In the form \"labels.key:value\""}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:pageSize
      {:optional true,
       :doc
@@ -157,7 +157,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start listing datasets."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:all
      {:optional true,
       :doc "Returns an options to list all datasets, even hidden ones."}
@@ -219,7 +219,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the dataset's fields to be returned by the RPC call. If this\noption is not provided all dataset's fields are returned. {@code DatasetOption.fields} can be\nused to specify only the fields of interest. {@link Dataset#getDatasetId()} is always\nreturned, even if not specified."}
-     [:sequential {:min 1}
+     [:sequential {:min 1, :gen/max 2}
       [:enum {:closed true} "ACCESS" "CREATION_TIME" "DATASET_REFERENCE"
        "DEFAULT_TABLE_EXPIRATION_MS" "DESCRIPTION" "ETAG" "FRIENDLY_NAME" "ID"
        "LABELS" "LAST_MODIFIED_TIME" "LOCATION" "SELF_LINK"]]]
@@ -323,7 +323,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start listing models."}
-     [:string {:min 1}]]]])
+     [:string {:min 1, :gen/max 1}]]]])
 
 (do (defn ^BigQuery$RoutineListOption/1 RoutineListOption-Array-from-edn
       [arg]
@@ -367,7 +367,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start listing routines."}
-     [:string {:min 1}]]]])
+     [:string {:min 1, :gen/max 1}]]]])
 
 (do (defn ^BigQuery$TableListOption/1 TableListOption-Array-from-edn
       [arg]
@@ -410,7 +410,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start listing tables."}
-     [:string {:min 1}]]]])
+     [:string {:min 1, :gen/max 1}]]]])
 
 (do
   (defn ^BigQuery$TableOption/1 TableOption-Array-from-edn
@@ -460,7 +460,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the table's fields to be returned by the RPC call. If this\noption is not provided all table's fields are returned. {@code TableOption.fields} can be\nused to specify only the fields of interest. {@link Table#getTableId()} and type (which is\npart of {@link Table#getDefinition()}) are always returned, even if not specified."}
-     [:sequential {:min 1}
+     [:sequential {:min 1, :gen/max 2}
       [:enum {:closed true} "CREATION_TIME" "DESCRIPTION" "ETAG"
        "EXPIRATION_TIME" "EXTERNAL_DATA_CONFIGURATION" "FRIENDLY_NAME" "ID"
        "LABELS" "LAST_MODIFIED_TIME" "LOCATION" "NUM_BYTES"
@@ -551,7 +551,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the model's fields to be returned by the RPC call. If this\noption is not provided all model's fields are returned. {@code ModelOption.fields} can be\nused to specify only the fields of interest."}
-     [:sequential {:min 1}
+     [:sequential {:min 1, :gen/max 2}
       [:enum {:closed true} "CREATION_TIME" "DESCRIPTION" "ETAG"
        "EXPIRATION_TIME" "FRIENDLY_NAME" "LABELS" "LAST_MODIFIED_TIME"
        "LOCATION" "MODEL_REFERENCE" "TRAINING_RUNS" "LABEL_COLUMNS"
@@ -598,7 +598,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the routines's fields to be returned by the RPC call. If this\noption is not provided all model's fields are returned. {@code RoutineOption.fields} can be\nused to specify only the fields of interest."}
-     [:sequential {:min 1}
+     [:sequential {:min 1, :gen/max 2}
       [:enum {:closed true} "ARGUMENTS" "CREATION_TIME" "DEFINITION_BODY" "ETAG"
        "IMPORTED_LIBRARIES" "LANGUAGE" "LAST_MODIFIED_TIME" "RETURN_TYPE"
        "ROUTINE_REFERENCE" "ROUTINE_TYPE"]]]]])
@@ -650,7 +650,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start listing table data."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:startIndex
      {:optional true,
       :doc
@@ -729,7 +729,8 @@
      {:optional true,
       :doc
         "Returns an option to list only jobs that match the provided state filters."}
-     [:sequential {:min 1} [:enum {:closed true} "PENDING" "RUNNING" "DONE"]]]
+     [:sequential {:min 1, :gen/max 2}
+      [:enum {:closed true} "PENDING" "RUNNING" "DONE"]]]
     [:minCreationTime
      {:optional true,
       :doc
@@ -749,17 +750,17 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start listing jobs."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:parentJobId
      {:optional true,
       :doc
         "Returns an option to list only child job from specify parent job id."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:fields
      {:optional true,
       :doc
         "Returns an option to specify the job's fields to be returned by the RPC call. If this option\nis not provided all job's fields are returned. {@code JobOption.fields()} can be used to\nspecify only the fields of interest. {@link Job#getJobId()}, {@link JobStatus#getState()},\n{@link JobStatus#getError()} as well as type-specific configuration (e.g. {@link\nQueryJobConfiguration#getQuery()} for Query Jobs) are always returned, even if not specified.\n{@link JobField#SELF_LINK} and {@link JobField#ETAG} can not be selected when listing jobs."}
-     [:sequential {:min 1}
+     [:sequential {:min 1, :gen/max 2}
       [:enum {:closed true} "CONFIGURATION" "ETAG" "ID" "JOB_REFERENCE"
        "SELF_LINK" "STATISTICS" "STATUS" "USER_EMAIL"]]]]])
 
@@ -817,7 +818,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the job's fields to be returned by the RPC call. If this option\nis not provided all job's fields are returned. {@code JobOption.fields()} can be used to\nspecify only the fields of interest. {@link Job#getJobId()} as well as type-specific\nconfiguration (e.g. {@link QueryJobConfiguration#getQuery()} for Query Jobs) are always\nreturned, even if not specified."}
-     [:sequential {:min 1}
+     [:sequential {:min 1, :gen/max 2}
       [:enum {:closed true} "CONFIGURATION" "ETAG" "ID" "JOB_REFERENCE"
        "SELF_LINK" "STATISTICS" "STATUS" "USER_EMAIL"]]]
     [:bigQueryRetryConfig
@@ -828,7 +829,8 @@
     [:retryOptions
      {:optional true,
       :doc "Returns an option to specify the job's retry options."}
-     [:sequential {:min 1} :gcp.foreign.com.google.cloud/RetryOption]]]])
+     [:sequential {:min 1, :gen/max 2}
+      :gcp.foreign.com.google.cloud/RetryOption]]]])
 
 (do
   (defn ^BigQuery$QueryResultsOption/1 QueryResultsOption-Array-from-edn
@@ -880,7 +882,7 @@
      {:optional true,
       :doc
         "Returns an option to specify the page token from which to start getting query results."}
-     [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]
     [:startIndex
      {:optional true,
       :doc

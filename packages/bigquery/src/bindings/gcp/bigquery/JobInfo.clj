@@ -5,13 +5,13 @@
    :file-git-sha "acea61c20b69b44c8612ca22745458ad04bc6be4"
    :fqcn "com.google.cloud.bigquery.JobInfo"
    :gcp.dev/certification
-     {:base-seed 1776499439809
+     {:base-seed 1779204704078
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499439809 :standard 1776499439810 :stress 1776499439811}
+        {:smoke 1779204704078 :standard 1779204704079 :stress 1779204704080}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:08.647963336Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:52.098934865Z"}}
   (:require [gcp.bigquery.JobConfiguration :as JobConfiguration]
             [gcp.bigquery.JobId :as JobId]
             [gcp.bigquery.JobStatus :as JobStatus]
@@ -99,12 +99,13 @@
    [:etag
     {:optional true,
      :read-only? true,
-     :getter-doc "Returns the hash of the job resource."} [:string {:min 1}]]
+     :getter-doc "Returns the hash of the job resource."}
+    [:string {:min 1, :gen/max 1}]]
    [:generatedId
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the service-generated id for the job."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:jobId
     {:optional true,
      :getter-doc "Returns the job identity.",
@@ -114,7 +115,7 @@
      :read-only? true,
      :getter-doc
        "Returns an URL that can be used to access the resource again. The returned URL can be used for\nGET requests."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:statistics
     {:optional true,
      :read-only? true,
@@ -131,7 +132,7 @@
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the email address of the user who ran the job."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.bigquery/JobInfo schema,

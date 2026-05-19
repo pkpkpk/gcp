@@ -6,13 +6,13 @@
    :fqcn
      "com.google.api.services.bigquery.model.ArimaSingleModelForecastingMetrics"
    :gcp.dev/certification
-     {:base-seed 1776499459919
+     {:base-seed 1779204720443
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499459919 :standard 1776499459920 :stress 1776499459921}
+        {:smoke 1779204720443 :standard 1779204720444 :stress 1779204720445}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:21.387027127Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:01.323360031Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaFittingMetrics :as
              ArimaFittingMetrics]
             [gcp.api.services.bigquery.model.ArimaOrder :as ArimaOrder]
@@ -125,19 +125,21 @@
        "Seasonal periods. Repeated because multiple periods are supported for one time series.\n\n@return value or {@code null} for none",
      :setter-doc
        "Seasonal periods. Repeated because multiple periods are supported for one time series.\n\n@param seasonalPeriods seasonalPeriods or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:timeSeriesId
     {:getter-doc
        "The time_series_id value for this time series. It will be one of the unique values from the\ntime_series_id_column specified during ARIMA model training. Only present when\ntime_series_id_column training option was used.\n\n@return value or {@code null} for none",
      :setter-doc
        "The time_series_id value for this time series. It will be one of the unique values from the\ntime_series_id_column specified during ARIMA model training. Only present when\ntime_series_id_column training option was used.\n\n@param timeSeriesId timeSeriesId or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:timeSeriesIds
     {:getter-doc
        "The tuple of time_series_ids identifying this time series. It will be one of the unique tuples\nof values present in the time_series_id_columns specified during ARIMA model training. Only\npresent when time_series_id_columns training option was used and the order of values here are\nsame as the order of time_series_id_columns.\n\n@return value or {@code null} for none",
      :setter-doc
        "The tuple of time_series_ids identifying this time series. It will be one of the unique tuples\nof values present in the time_series_id_columns specified during ARIMA model training. Only\npresent when time_series_id_columns training option was used and the order of values here are\nsame as the order of time_series_id_columns.\n\n@param timeSeriesIds timeSeriesIds or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]])
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
 (global/include-schema-registry!
   (with-meta

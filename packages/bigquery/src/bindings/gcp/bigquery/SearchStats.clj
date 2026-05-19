@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.SearchStats"
    :gcp.dev/certification
-     {:base-seed 1776499436086
+     {:base-seed 1779204700989
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499436086 :standard 1776499436087 :stress 1776499436088}
+        {:smoke 1779204700989 :standard 1779204700990 :stress 1779204700991}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:57.394438835Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:41.857729780Z"}}
   (:require [gcp.bigquery.IndexUnusedReason :as IndexUnusedReason]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery SearchStats SearchStats$Builder]))
@@ -51,12 +51,12 @@
     {:optional true,
      :setter-doc
        "When index_usage_mode is UNUSED or PARTIALLY_USED, this field explains why index was not used\nin all or part of the search query. If index_usage_mode is FULLY_USED, this field is not\npopulated.\n\n@param indexUnusedReasons"}
-    [:sequential {:min 1} :gcp.bigquery/IndexUnusedReason]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/IndexUnusedReason]]
    [:indexUsageMode
     {:optional true,
      :setter-doc
        "Specifies index usage mode for the query.\n\n@param indexUsageMode, has three modes UNUSED, PARTIALLY_USED, and FULLY_USED"}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry! (with-meta {:gcp.bigquery/SearchStats schema}
                                    {:gcp.global/name

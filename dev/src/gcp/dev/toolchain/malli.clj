@@ -379,8 +379,17 @@
                             (let [getter (g/coerce map? (get-in node [:getters-by-key k]))
                                   setter (g/coerce map? (get-in node [:setters-by-key k]))
                                   _ (when setter (assert-getter-setter-agree! deps getter setter parent-category fqcn))
-                                  schema-type (if (and (= :client parent-category) setter)
-                                                (get-in setter [:parameters 0 :type])
+                                  ;; Resolve schema type: Default to the getter's return type.
+                                  ;; However, if this is a client OR if the getter and setter schemas differ
+                                  ;; (e.g., getter returns a concrete CsvOptions but setter accepts a generic union FormatOptions),
+                                  ;; prefer the setter's parameter type to prevent overly restrictive bindings.
+                                  schema-type (if setter
+                                                (let [getter-schema (type-schema deps (:returnType getter))
+                                                      setter-schema (type-schema deps (get-in setter [:parameters 0 :type]))]
+                                                  (if (or (= :client parent-category)
+                                                          (not= getter-schema setter-schema))
+                                                    (get-in setter [:parameters 0 :type])
+                                                    (:returnType getter)))
                                                 (:returnType getter))
                                   opts (cond-> {:optional true}
                                                (get getter :doc) (assoc :getter-doc (get getter :doc))

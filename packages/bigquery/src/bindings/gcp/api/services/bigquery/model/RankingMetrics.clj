@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.RankingMetrics"
    :gcp.dev/certification
-     {:base-seed 1776499479753
+     {:base-seed 1779204733724
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499479753 :standard 1776499479754 :stress 1776499479755}
+        {:smoke 1779204733724 :standard 1779204733725 :stress 1779204733726}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:41.028581190Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:14.594706631Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model RankingMetrics]))
 

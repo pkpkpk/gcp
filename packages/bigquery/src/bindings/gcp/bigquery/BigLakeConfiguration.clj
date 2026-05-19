@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BigLakeConfiguration"
    :gcp.dev/certification
-     {:base-seed 1776499389711
+     {:base-seed 1779204668268
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499389711 :standard 1776499389712 :stress 1776499389713}
+        {:smoke 1779204668268 :standard 1779204668269 :stress 1779204668270}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:11.047035546Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:09.083908462Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigLakeConfiguration
             BigLakeConfiguration$Builder]))
@@ -51,25 +51,25 @@
        "Credential reference for accessing external storage system. Normalized as\nproject_id.location_id.connection_id.\n\n@return value or {@code null} for none",
      :setter-doc
        "[Required] Required and immutable. Credential reference for accessing external storage\nsystem. Normalized as project_id.location_id.connection_id.\n\n@param connectionId connectionId or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:fileFormat
     {:getter-doc
        "Open source file format that the table data is stored in. Currently only PARQUET is supported.\n\n@return value or {@code null} for none",
      :setter-doc
        "[Required] Required and immutable. Open source file format that the table data is stored in.\nCurrently only PARQUET is supported.\n\n@param fileFormat fileFormat or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:storageUri
     {:getter-doc
        "Fully qualified location prefix of the external folder where data is stored. Starts with\n\"gs://\" ends with \"/\". Does not contain \"*\".\n\n@return value or {@code null} for none",
      :setter-doc
        "[Required] Required and immutable. Fully qualified location prefix of the external folder\nwhere data is stored. Starts with \"gs://\" and ends with \"/\". Does not contain \"*\".\n\n@param storageUri storageUri or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:tableFormat
     {:getter-doc
        "Open source file format that the table data is stored in. Currently only PARQUET is supported.\n\n@return value or {@code null} for none",
      :setter-doc
        "[Required] Required and immutable. Open source file format that the table data is stored in.\nCurrently only PARQUET is supported.\n\n@param tableFormat tableFormat or {@code null} for none"}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.bigquery/BigLakeConfiguration schema}

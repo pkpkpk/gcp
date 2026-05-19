@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.IndexUnusedReason"
    :gcp.dev/certification
-     {:base-seed 1776499379091
+     {:base-seed 1779204661943
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499379091 :standard 1776499379092 :stress 1776499379093}
+        {:smoke 1779204661943 :standard 1779204661944 :stress 1779204661945}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:00.584970048Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:02.786518285Z"}}
   (:require [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery IndexUnusedReason
@@ -66,21 +66,21 @@
        "Returns the high-level reason for the scenario when no search index was used.\n\n@return value or {@code null} for none",
      :setter-doc
        "Specifies the high-level reason for the scenario when no search index was used.\n\n@param code code or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:indexName
     {:optional true,
      :getter-doc
        "Returns the name of the unused search index, if available.\n\n@return value or {@code null} for none",
      :setter-doc
        "Specifies the name of the unused search index, if available.\n\n@param indexName indexName or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:message
     {:optional true,
      :getter-doc
        "Returns free form human-readable reason for the scenario when no search index was used.\n\n@return value or {@code null} for none",
      :setter-doc
        "Free form human-readable reason for the scenario when no search index was used.\n\n@param message message or {@code null} for none"}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.bigquery/IndexUnusedReason schema}

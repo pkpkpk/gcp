@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-18T08:03:55.842491038Z"}}
+      :timestamp "2026-05-19T15:31:40.745443038Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery QueryStage QueryStage$Builder
             QueryStage$QueryStep]))
@@ -45,12 +45,12 @@
      :optional true,
      :doc
        "Returns a machine-readable name for the operation.\n\n@see <a href=\"https://cloud.google.com/bigquery/query-plan-explanation#steps_metadata\">Steps\n    Metadata</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:substeps
     {:read-only? true,
      :optional true,
      :doc "Returns a list of human-readable stage descriptions."}
-    [:sequential {:min 1} [:string {:min 1}]]]])
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
 (defn ^QueryStage from-edn
   [arg]
@@ -154,11 +154,12 @@
     {:read-only? true,
      :optional true,
      :doc "Returns a list of the stage IDs that are inputs to this stage."}
-    [:sequential {:min 1} :i64]]
+    [:sequential {:min 1, :gen/max 2} :i64]]
    [:name
     {:read-only? true,
      :optional true,
-     :doc "Returns a human-readable name for the stage."} [:string {:min 1}]]
+     :doc "Returns a human-readable name for the stage."}
+    [:string {:min 1, :gen/max 1}]]
    [:parallelInputs
     {:read-only? true,
      :optional true,
@@ -222,13 +223,15 @@
    [:status
     {:read-only? true,
      :optional true,
-     :doc "Returns the current status for the stage."} [:string {:min 1}]]
+     :doc "Returns the current status for the stage."}
+    [:string {:min 1, :gen/max 1}]]
    [:steps
     {:read-only? true,
      :optional true,
      :doc
        "Returns the list of steps within the stage in dependency order (approximately chronological)."}
-    [:sequential {:min 1} [:ref :gcp.bigquery/QueryStage.QueryStep]]]
+    [:sequential {:min 1, :gen/max 2}
+     [:ref :gcp.bigquery/QueryStage.QueryStep]]]
    [:waitMsAvg
     {:read-only? true,
      :optional true,

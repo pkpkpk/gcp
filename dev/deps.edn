@@ -27,6 +27,5 @@
          borkdude/edamame                      {:mvn/version "1.5.37"}
          babashka/fs                           {:mvn/version "0.5.32"}
          com.taoensso/telemere                 {:mvn/version "1.1.0"}
-         io.replikativ/konserve                {:mvn/version "0.8.320"}
          org.ow2.asm/asm                       {:mvn/version "9.7.1"}
          zprint/zprint                         {:mvn/version "1.2.9"}}}

@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.IterationResult"
    :gcp.dev/certification
-     {:base-seed 1776499377198
+     {:base-seed 1779204660785
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499377198 :standard 1776499377199 :stress 1776499377200}
+        {:smoke 1779204660785 :standard 1779204660786 :stress 1779204660787}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:02:58.761173552Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:01.685002596Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaResult :as ArimaResult]
             [gcp.api.services.bigquery.model.ClusterInfo :as ClusterInfo]
             [gcp.api.services.bigquery.model.PrincipalComponentInfo :as
@@ -79,7 +79,8 @@
      :setter-doc
        "Information about top clusters for clustering models.\n\n@param clusterInfos clusterInfos or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/ClusterInfo]]
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/ClusterInfo]]
    [:durationMs
     {:getter-doc
        "Time taken to run the iteration in milliseconds.\n\n@return value or {@code null} for none",
@@ -104,7 +105,7 @@
      :setter-doc
        "The information of the principal components.\n\n@param principalComponentInfos principalComponentInfos or {@code null} for none",
      :optional true}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      :gcp.api.services.bigquery.model/PrincipalComponentInfo]]
    [:trainingLoss
     {:getter-doc

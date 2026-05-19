@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.WriteChannelConfiguration"
    :gcp.dev/certification
-     {:base-seed 1776499501003
+     {:base-seed 1779204748109
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499501003 :standard 1776499501004 :stress 1776499501005}
+        {:smoke 1779204748109 :standard 1779204748110 :stress 1779204748111}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:05:03.079213929Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:29.309665017Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.CsvOptions :as CsvOptions]
@@ -136,24 +136,26 @@
    [:autodetect {:optional true, :setter-doc nil} :boolean]
    [:clustering {:optional true, :setter-doc nil} :gcp.bigquery/Clustering]
    [:connectionProperties {:optional true, :setter-doc nil}
-    [:sequential {:min 1} :gcp.bigquery/ConnectionProperty]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/ConnectionProperty]]
    [:createDisposition {:optional true, :setter-doc nil}
     [:enum {:closed true} "CREATE_IF_NEEDED" "CREATE_NEVER"]]
    [:createSession {:optional true, :setter-doc nil} :boolean]
    [:decimalTargetTypes {:optional true, :setter-doc nil}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:destinationEncryptionConfiguration {:optional true, :setter-doc nil}
     :gcp.bigquery/EncryptionConfiguration]
    [:destinationTable {:getter-doc nil} :gcp.bigquery/TableId]
    [:formatOptions {:optional true, :setter-doc nil} :gcp.bigquery/CsvOptions]
    [:ignoreUnknownValues {:optional true, :setter-doc nil} :boolean]
    [:labels {:optional true, :setter-doc nil}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:maxBadRecords {:optional true, :setter-doc nil} :i32]
-   [:nullMarker {:optional true, :setter-doc nil} [:string {:min 1}]]
+   [:nullMarker {:optional true, :setter-doc nil}
+    [:string {:min 1, :gen/max 1}]]
    [:schema {:optional true, :setter-doc nil} :gcp.bigquery/Schema]
    [:schemaUpdateOptions {:optional true, :setter-doc nil}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      [:enum {:closed true} "ALLOW_FIELD_ADDITION" "ALLOW_FIELD_RELAXATION"]]]
    [:timePartitioning {:optional true, :setter-doc nil}
     :gcp.bigquery/TimePartitioning]

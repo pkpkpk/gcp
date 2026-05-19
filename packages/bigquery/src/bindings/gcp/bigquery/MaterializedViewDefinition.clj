@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.MaterializedViewDefinition"
    :gcp.dev/certification
-     {:base-seed 1776499385990
+     {:base-seed 1779204665727
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499385990 :standard 1776499385991 :stress 1776499385992}
+        {:smoke 1779204665727 :standard 1779204665728 :stress 1779204665729}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:07.676136668Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:06.855093006Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.RangePartitioning :as RangePartitioning]
             [gcp.bigquery.Schema :as Schema]
@@ -91,7 +91,7 @@
        "Returns time when this materialized view was last modified, in milliseconds since the epoch."}
     :i64]
    [:query {:getter-doc "Returns a query whose result is persisted."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:rangePartitioning
     {:optional true,
      :getter-doc

@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.ConnectionSettings"
    :gcp.dev/certification
-     {:base-seed 1776499360620
+     {:base-seed 1779204649473
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499360620 :standard 1776499360621 :stress 1776499360622}
+        {:smoke 1779204649473 :standard 1779204649474 :stress 1779204649475}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:02:43.713741963Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:30:50.998150810Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.DatasetId :as DatasetId]
@@ -204,7 +204,7 @@
        "Returns the connection properties for connection string with this query",
      :setter-doc
        "Sets a connection-level property to customize query behavior.\n\n@param connectionProperties connectionProperties or {@code null} for none"}
-    [:sequential {:min 1} :gcp.bigquery/ConnectionProperty]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/ConnectionProperty]]
    [:createDisposition
     {:optional true,
      :getter-doc
@@ -311,7 +311,7 @@
        "[Experimental] Returns options allowing the schema of the destination table to be updated as a\nside effect of the query job. Schema update options are supported in two cases: when\nwriteDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination\ntable is a partition of a table, specified by partition decorators. For normal tables,\nWRITE_TRUNCATE will always overwrite the schema.",
      :setter-doc
        "[Experimental] Sets options allowing the schema of the destination table to be updated as a\nside effect of the query job. Schema update options are supported in two cases: when\nwriteDisposition is WRITE_APPEND; when writeDisposition is WRITE_TRUNCATE and the destination\ntable is a partition of a table, specified by partition decorators. For normal tables,\nWRITE_TRUNCATE will always overwrite the schema."}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      [:enum {:closed true} "ALLOW_FIELD_ADDITION" "ALLOW_FIELD_RELAXATION"]]]
    [:tableDefinitions
     {:optional true,
@@ -352,7 +352,7 @@
        "Returns user defined function resources that can be used by this query. Function resources can\neither be defined inline ({@link UserDefinedFunction.Type#INLINE}) or loaded from a Google\nCloud Storage URI ({@link UserDefinedFunction.Type#FROM_URI}.",
      :setter-doc
        "Sets user defined function resources that can be used by this query. Function resources can\neither be defined inline ({@link UserDefinedFunction#inline(String)}) or loaded from a Google\nCloud Storage URI ({@link UserDefinedFunction#fromUri(String)}."}
-    [:sequential {:min 1} :gcp.bigquery/UserDefinedFunction]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/UserDefinedFunction]]
    [:writeDisposition
     {:optional true,
      :getter-doc

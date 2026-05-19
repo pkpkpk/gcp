@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.ViewDefinition"
    :gcp.dev/certification
-     {:base-seed 1776499398133
+     {:base-seed 1779204674177
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499398133 :standard 1776499398134 :stress 1776499398135}
+        {:smoke 1779204674177 :standard 1779204674178 :stress 1779204674179}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:19.780667355Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:15.282431804Z"}}
   (:require [gcp.bigquery.Schema :as Schema]
             [gcp.bigquery.UserDefinedFunction :as UserDefinedFunction]
             [gcp.global :as global])
@@ -52,7 +52,7 @@
     :gcp/category :variant-accessor,
     :gcp/key :gcp.bigquery/ViewDefinition} [:type [:= "VIEW"]]
    [:query {:getter-doc "Returns the query used to create the view."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:schema
     {:optional true,
      :getter-doc "Returns the table's schema.",
@@ -70,7 +70,7 @@
        "Returns user defined functions that can be used by {@link #getQuery()}. Returns {@code null} if\nnot set.\n\n@see <a href=\"https://cloud.google.com/bigquery/user-defined-functions\">User-Defined Functions\n    </a>",
      :setter-doc
        "Sets user defined functions that can be used by {@link #getQuery()}.\n\n@see <a href=\"https://cloud.google.com/bigquery/user-defined-functions\">User-Defined\n    Functions</a>"}
-    [:sequential {:min 1} :gcp.bigquery/UserDefinedFunction]]])
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/UserDefinedFunction]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.bigquery/ViewDefinition schema}

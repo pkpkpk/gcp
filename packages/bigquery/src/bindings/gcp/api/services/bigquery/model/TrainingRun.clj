@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.TrainingRun"
    :gcp.dev/certification
-     {:base-seed 1776499494781
+     {:base-seed 1779204743413
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499494781 :standard 1776499494782 :stress 1776499494783}
+        {:smoke 1779204743413 :standard 1779204743414 :stress 1779204743415}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:56.334615107Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:24.456055594Z"}}
   (:require
     [gcp.api.services.bigquery.model.DataSplitResult :as DataSplitResult]
     [gcp.api.services.bigquery.model.EvaluationMetrics :as EvaluationMetrics]
@@ -107,7 +107,8 @@
      :setter-doc
        "Output only. Global explanation contains the explanation of top features on the class level.\nApplies to classification models only.\n\n@param classLevelGlobalExplanations classLevelGlobalExplanations or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/GlobalExplanation]]
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/GlobalExplanation]]
    [:dataSplitResult
     {:getter-doc
        "Output only. Data split result of the training run. Only set when the input data is actually\nsplit.\n\n@return value or {@code null} for none",
@@ -132,13 +133,14 @@
      :setter-doc
        "Output only. Output of each iteration run, results.size() <= max_iterations.\n\n@param results results or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/IterationResult]]
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/IterationResult]]
    [:startTime
     {:getter-doc
        "Output only. The start time of this training run.\n\n@return value or {@code null} for none",
      :setter-doc
        "Output only. The start time of this training run.\n\n@param startTime startTime or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:trainingOptions
     {:getter-doc
        "Output only. Options that were used for this training run, includes user specified and default\noptions that were used.\n\n@return value or {@code null} for none",
@@ -156,13 +158,13 @@
        "The model id in the [Vertex AI Model Registry](https://cloud.google.com/vertex-ai/docs/model-\nregistry/introduction) for this training run.\n\n@return value or {@code null} for none",
      :setter-doc
        "The model id in the [Vertex AI Model Registry](https://cloud.google.com/vertex-ai/docs/model-\nregistry/introduction) for this training run.\n\n@param vertexAiModelId vertexAiModelId or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:vertexAiModelVersion
     {:getter-doc
        "Output only. The model version in the [Vertex AI Model\nRegistry](https://cloud.google.com/vertex-ai/docs/model-registry/introduction) for this\ntraining run.\n\n@return value or {@code null} for none",
      :setter-doc
        "Output only. The model version in the [Vertex AI Model\nRegistry](https://cloud.google.com/vertex-ai/docs/model-registry/introduction) for this\ntraining run.\n\n@param vertexAiModelVersion vertexAiModelVersion or {@code null} for none",
-     :optional true} [:string {:min 1}]]])
+     :optional true} [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.api.services.bigquery.model/TrainingRun schema}

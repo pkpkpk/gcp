@@ -5,13 +5,13 @@
    :file-git-sha "3e97f7c0c4676fcdda0862929a69bbabc69926f2"
    :fqcn "com.google.cloud.bigquery.CopyJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1776499409649
+     {:base-seed 1779204680978
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499409649 :standard 1776499409650 :stress 1776499409651}
+        {:smoke 1779204680978 :standard 1779204680979 :stress 1779204680980}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:31.058076823Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:21.857148127Z"}}
   (:require [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
@@ -104,7 +104,7 @@
      :getter-doc "Returns the time when the destination table expires",
      :setter-doc
        "Sets the time when the destination table expires. Expired tables will be deleted and their\nstorage reclaimed. More info:\nhttps://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfigurationtablecopy"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:destinationTable
     {:getter-doc "Returns the destination table to load the data into."}
     :gcp.bigquery/TableId]
@@ -119,21 +119,22 @@
      :getter-doc "Returns the labels associated with this job",
      :setter-doc
        "The labels associated with this job. You can use these to organize and group your jobs. Label\nkeys and values can be no longer than 63 characters, can only contain lowercase letters,\nnumeric characters, underscores and dashes. International characters are allowed. Label\nvalues are optional. Label keys must start with a letter and each label in the list must have\na different key.\n\n@param labels labels or {@code null} for none"}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:operationType
     {:optional true,
      :getter-doc "Returns the table copy job type",
      :setter-doc
        "Sets the supported operation types (COPY, CLONE, SNAPSHOT or RESTORE) in table copy job. More\ninfo: https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#operationtype"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:reservation
     {:optional true,
      :getter-doc "Returns the reservation associated with this job",
      :setter-doc
        "[Optional] The reservation that job would use. User can specify a reservation to execute the\njob. If reservation is not set, reservation is determined based on the rules defined by the\nreservation assignments. The expected format is\n`projects/{project}/locations/{location}/reservations/{reservation}`.\n\n@param reservation reservation or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:sourceTables {:getter-doc "Returns the source tables to copy."}
-    [:sequential {:min 1} :gcp.bigquery/TableId]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/TableId]]
    [:writeDisposition
     {:optional true,
      :getter-doc

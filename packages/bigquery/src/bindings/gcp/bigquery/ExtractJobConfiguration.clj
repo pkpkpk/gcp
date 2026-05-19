@@ -5,13 +5,13 @@
    :file-git-sha "3e97f7c0c4676fcdda0862929a69bbabc69926f2"
    :fqcn "com.google.cloud.bigquery.ExtractJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1776499413013
+     {:base-seed 1779204683220
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499413013 :standard 1776499413014 :stress 1776499413015}
+        {:smoke 1779204683220 :standard 1779204683221 :stress 1779204683222}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:34.430106036Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:24.087284659Z"}}
   (:require [gcp.bigquery.ModelId :as ModelId]
             [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
@@ -87,24 +87,24 @@
      :getter-doc "Returns the compression value of exported files.",
      :setter-doc
        "Sets the compression value to use for exported files. If not set exported files are not\ncompressed.\n\n<p><a\nhref=\"https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.extract.compression\">\nCompression</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:destinationUris
     {:getter-doc
        "Returns the list of fully-qualified Google Cloud Storage URIs where the extracted table should\nbe written.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/exporting-data-from-bigquery#exportingmultiple\">\n    Exporting Data Into One or More Files</a>"}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:fieldDelimiter
     {:optional true,
      :getter-doc
        "Returns the delimiter used between fields in the exported data.",
      :setter-doc
        "Sets the delimiter to use between fields in the exported data. By default \",\" is used."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:format
     {:optional true,
      :getter-doc "Returns the exported files format.",
      :setter-doc
        "Sets the exported file format. If not set table is exported in CSV format.\n\n<p><a\nhref=\"https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.extract.destinationFormat\">\nDestination Format</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:jobTimeoutMs
     {:optional true,
      :getter-doc "Returns the timeout associated with this job",
@@ -116,7 +116,8 @@
      :getter-doc "Returns the labels associated with this job",
      :setter-doc
        "The labels associated with this job. You can use these to organize and group your jobs. Label\nkeys and values can be no longer than 63 characters, can only contain lowercase letters,\nnumeric characters, underscores and dashes. International characters are allowed. Label\nvalues are optional. Label keys must start with a letter and each label in the list must have\na different key.\n\n@param labels labels or {@code null} for none"}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:printHeader
     {:optional true,
      :getter-doc "Returns whether an header row is printed with the result.",
@@ -128,7 +129,7 @@
      :getter-doc "Returns the reservation associated with this job",
      :setter-doc
        "[Optional] The reservation that job would use. User can specify a reservation to execute the\njob. If reservation is not set, reservation is determined based on the rules defined by the\nreservation assignments. The expected format is\n`projects/{project}/locations/{location}/reservations/{reservation}`.\n\n@param reservation reservation or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:sourceModel
     {:optional true,
      :getter-doc "Returns the model to export.",

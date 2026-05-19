@@ -5,13 +5,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.TimePartitioning"
    :gcp.dev/certification
-     {:base-seed 1776499356727
+     {:base-seed 1779204647153
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499356727 :standard 1776499356728 :stress 1776499356729}
+        {:smoke 1779204647153 :standard 1779204647154 :stress 1779204647155}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:02:38.225221057Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:30:47.964867234Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery TimePartitioning TimePartitioning$Builder
             TimePartitioning$Type]))
@@ -66,7 +66,7 @@
      :read-only? true,
      :getter-doc
        "If not set, the table is partitioned by pseudo column '_PARTITIONTIME'; if set, the table is\npartitioned by this field."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:requirePartitionFilter
     {:optional true,
      :getter-doc

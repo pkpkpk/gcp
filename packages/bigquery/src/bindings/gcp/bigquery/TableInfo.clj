@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.TableInfo"
    :gcp.dev/certification
-     {:base-seed 1776499516948
+     {:base-seed 1779204755895
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499516948 :standard 1776499516949 :stress 1776499516950}
+        {:smoke 1779204755895 :standard 1779204755896 :stress 1779204755897}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:05:19.280838739Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:37.766201567Z"}}
   (:require [gcp.bigquery.CloneDefinition :as CloneDefinition]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.TableConstraints :as TableConstraints]
@@ -138,20 +138,22 @@
      :getter-doc
        "Returns the time when this table was created, in milliseconds since the epoch."}
     :i64]
-   [:defaultCollation {:optional true, :setter-doc nil} [:string {:min 1}]]
+   [:defaultCollation {:optional true, :setter-doc nil}
+    [:string {:min 1, :gen/max 1}]]
    [:definition {:getter-doc "Returns the table definition."}
     :gcp.bigquery/TableDefinition]
    [:description
     {:optional true,
      :getter-doc "Returns a user-friendly description for the table.",
      :setter-doc "Sets a user-friendly description for the table."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:encryptionConfiguration {:optional true, :setter-doc nil}
     :gcp.bigquery/EncryptionConfiguration]
    [:etag
     {:optional true,
      :read-only? true,
-     :getter-doc "Returns the hash of the table resource."} [:string {:min 1}]]
+     :getter-doc "Returns the hash of the table resource."}
+    [:string {:min 1, :gen/max 1}]]
    [:expirationTime
     {:optional true,
      :getter-doc
@@ -162,19 +164,21 @@
    [:friendlyName
     {:optional true,
      :getter-doc "Returns a user-friendly name for the table.",
-     :setter-doc "Sets a user-friendly name for the table."} [:string {:min 1}]]
+     :setter-doc "Sets a user-friendly name for the table."}
+    [:string {:min 1, :gen/max 1}]]
    [:generatedId
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the service-generated id for the table."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:labels
     {:optional true,
      :getter-doc
        "Return a map for labels applied to the table.\n\n<p>Unstable, because labels are <a\nhref=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/tables\">experimental</a>.",
      :setter-doc
        "Sets the labels applied to this table.\n\n<p>Unstable, because labels are <a\nhref=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/tables\">experimental</a>.\n\n<p>When used with {@link BigQuery#update(TableInfo, TableOption...)}, setting {@code labels}\nto {@code null} removes all labels; otherwise all keys that are mapped to {@code null} values\nare removed and other keys are updated to their respective values."}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:lastModifiedTime
     {:optional true,
      :read-only? true,
@@ -246,13 +250,14 @@
     {:optional true,
      :getter-doc "Return a map for resource tags applied to the table.",
      :setter-doc "Sets the resource tags applied to this table."}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:selfLink
     {:optional true,
      :read-only? true,
      :getter-doc
        "Returns an URL that can be used to access the resource again. The returned URL can be used for\nget or update requests."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:tableConstraints {:optional true, :setter-doc nil}
     :gcp.bigquery/TableConstraints]
    [:tableId {:getter-doc "Returns the table identity."}

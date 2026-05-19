@@ -5,13 +5,13 @@
    :file-git-sha "e5467c917c63ac066edcbcd902cc2093a39971a3"
    :fqcn "com.google.cloud.bigquery.ExternalTableDefinition"
    :gcp.dev/certification
-     {:base-seed 1776499352506
+     {:base-seed 1779204644334
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499352506 :standard 1776499352507 :stress 1776499352508}
+        {:smoke 1779204644334 :standard 1779204644335 :stress 1779204644336}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:02:34.369931496Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:30:45.818297484Z"}}
   (:require [gcp.bigquery.FormatOptions :as FormatOptions]
             [gcp.bigquery.HivePartitioningOptions :as HivePartitioningOptions]
             [gcp.bigquery.Schema :as Schema]
@@ -161,36 +161,36 @@
        "Returns the compression type of the data source.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration.compression\">\n    Compression</a>",
      :setter-doc
        "Sets compression type of the data source. By default no compression is assumed.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration.compression\">\n    Compression</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:connectionId
     {:optional true,
      :getter-doc
        "Returns the connection ID used to connect to external data source.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration\">\n    ConnectionId</a>",
      :setter-doc
        "[Optional, Trusted Tester] connectionId for external data source. The value may be {@code\nnull}."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:dateFormat
     {:optional true,
      :getter-doc "Returns the format used to parse DATE values.",
      :setter-doc
        "Format used to parse DATE values. Supports C-style and SQL-style values."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:datetimeFormat
     {:optional true,
      :getter-doc "Returns the format used to parse DATETIME values.",
      :setter-doc
        "Format used to parse DATETIME values. Supports C-style and SQL-style values."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:decimalTargetTypes
     {:optional true,
      :setter-doc
        "Defines the list of possible SQL data types to which the source decimal values are converted.\nThis list and the precision and the scale parameters of the decimal field determine the\ntarget type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in\nthe specified list and if it supports the precision and the scale. STRING supports all\nprecision and scale values.\n\n@param decimalTargetTypes decimalTargetType or {@code null} for none"}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:fileSetSpecType
     {:optional true,
      :setter-doc
        "Defines how to interpret files denoted by URIs. By default the files are assumed to be data\nfiles (this can be specified explicitly via FILE_SET_SPEC_TYPE_FILE_SYSTEM_MATCH). A second\noption is \"FILE_SET_SPEC_TYPE_NEW_LINE_DELIMITED_MANIFEST\" which interprets each file as a\nmanifest file, where each line is a reference to a file."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:formatOptions
     {:getter-doc
        "Returns the source format, and possibly some parsing options, of the external data. Supported\nformats are {@code CSV} and {@code NEWLINE_DELIMITED_JSON}."}
@@ -221,31 +221,31 @@
        "Returns the maximum staleness of data that could be returned when the table is queried.\nStaleness encoded as a string encoding of sql IntervalValue type.\n\n@see <a\n    href=\"hhttps://cloud.google.com/bigquery/docs/reference/rest/v2/tables#resource:-table\">\n    MaxStaleness</a>",
      :setter-doc
        "[Optional] Metadata Cache Mode for the table. Set this to enable caching of metadata from\nexternal data source.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#resource:-table\">\n    MaxStaleness</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:metadataCacheMode
     {:optional true,
      :getter-doc
        "Returns the metadata cache mode.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#metadatacachemode\">\n    MetadataCacheMode</a>",
      :setter-doc
        "[Optional] Metadata Cache Mode for the table. Set this to enable caching of metadata from\nexternal data source.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#metadatacachemode\">\n    MetadataCacheMode</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:nullMarkers
     {:optional true,
      :getter-doc
        "Returns a list of strings represented as SQL NULL value in a CSV file.",
      :setter-doc
        "A list of strings represented as SQL NULL value in a CSV file. null_marker and null_markers\ncan't be set at the same time. If null_marker is set, null_markers has to be not set. If\nnull_markers is set, null_marker has to be not set. If both null_marker and null_markers are\nset at the same time, a user error would be thrown. Any strings listed in null_markers,\nincluding empty string would be interpreted as SQL NULL. This applies to all column types."}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:objectMetadata
     {:optional true,
      :getter-doc
        "Returns the object metadata.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/v2/tables#externalDataConfiguration\">\n    ObjectMetadata</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:referenceFileSchemaUri
     {:optional true,
      :setter-doc
        "When creating an external table, the user can provide a reference file with the table schema.\nThis is enabled for the following formats: AVRO, PARQUET, ORC.\n\n@param referenceFileSchemaUri or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:schema {:getter-doc "Returns the table's schema."} :gcp.bigquery/Schema]
    [:sourceColumnMatch
     {:optional true,
@@ -257,28 +257,28 @@
    [:sourceUris
     {:getter-doc
        "Returns the fully-qualified URIs that point to your data in Google Cloud Storage. Each URI can\ncontain one '*' wildcard character that must come after the bucket's name. Size limits related\nto load jobs apply to external data sources, plus an additional limit of 10 GB maximum size\nacross all URIs.\n\n@see <a href=\"https://cloud.google.com/bigquery/loading-data-into-bigquery#quota\">Quota</a>"}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:sourceUrisImmut {:optional true, :read-only? true}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:timeFormat
     {:optional true,
      :getter-doc "Returns the format used to parse TIME values.",
      :setter-doc
        "Format used to parse TIME values. Supports C-style and SQL-style values."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:timeZone
     {:optional true,
      :getter-doc
        "Returns the time zone used when parsing timestamp values that don't have specific time zone\ninformation.",
      :setter-doc
        "Time zone used when parsing timestamp values that do not have specific time zone information\n(e.g. 2024-04-20 12:34:56). The expected format is a IANA timezone string (e.g.\nAmerica/Los_Angeles)."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:timestampFormat
     {:optional true,
      :getter-doc "Returns the format used to parse TIMESTAMP values.",
      :setter-doc
        "Format used to parse TIMESTAMP values. Supports C-style and SQL-style values."}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.bigquery/ExternalTableDefinition schema,

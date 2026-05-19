@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.RoutineInfo"
    :gcp.dev/certification
-     {:base-seed 1776499505821
+     {:base-seed 1779204750740
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499505821 :standard 1776499505822 :stress 1776499505823}
+        {:smoke 1779204750740 :standard 1779204750741 :stress 1779204750742}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:05:08.321771407Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:31.732954798Z"}}
   (:require [gcp.bigquery.RemoteFunctionOptions :as RemoteFunctionOptions]
             [gcp.bigquery.RoutineArgument :as RoutineArgument]
             [gcp.bigquery.RoutineId :as RoutineId]
@@ -108,13 +108,13 @@
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the list of arguments for the routine."}
-    [:sequential {:min 1} :gcp.bigquery/RoutineArgument]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/RoutineArgument]]
    [:body
     {:optional true,
      :getter-doc "Returns the definition body of the routine.",
      :setter-doc
        "Required. The body of the routine.\n\n<p>For functions, this is the expression in the AS clause.\n\n<p>If language=SQL, it is the substring inside (but excluding) the parentheses. For example,\nfor the function created with the following statement:\n\n<p>CREATE FUNCTION JoinLines(x string, y string) as (concat(x, \"\\n\", y))\n\n<p>The definitionBody is concat(x, \"\\n\", y) (\\n is not replaced with linebreak).\n\n<p>If language=JAVASCRIPT, it is the evaluated string in the AS clause. For example, for the\nfunction created with the following statement:\n\n<p>CREATE FUNCTION f() RETURNS STRING LANGUAGE js AS 'return \"\\n\";\\n'\n\n<p>The definitionBody is\n\n<p>return \"\\n\";\\n\n\n<p>Note that both \\n are replaced with linebreaks."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:creationTime
     {:optional true,
      :read-only? true,
@@ -127,35 +127,36 @@
        "Returns the data governance type of the routine, e.g. DATA_MASKING.",
      :setter-doc
        "Sets the data governance type for the Builder (e.g. DATA_MASKING).\n\n<p>See https://cloud.google.com/bigquery/docs/reference/rest/v2/routines"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:description
     {:optional true,
      :read-only? true,
-     :getter-doc "Returns the description of the routine."} [:string {:min 1}]]
+     :getter-doc "Returns the description of the routine."}
+    [:string {:min 1, :gen/max 1}]]
    [:determinismLevel
     {:optional true,
      :getter-doc
        "Returns the determinism level of the JavaScript UDF if defined.",
      :setter-doc
        "Sets the JavaScript UDF determinism levels (e.g. DETERMINISM_LEVEL_UNSPECIFIED,\nDETERMINISTIC, NOT_DETERMINISTIC) only applicable to Javascript UDFs."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:etag
     {:optional true,
      :read-only? true,
      :getter-doc "Returns the hash of the routine resource."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:importedLibrariesList
     {:optional true,
      :read-only? true,
      :getter-doc
        "Returns the list of imported libraries for the routine. Only relevant for routines implemented\nusing the JAVASCRIPT language."}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:language
     {:optional true,
      :getter-doc
        "Returns the language of the routine. Currently supported languages include SQL and JAVASCRIPT.",
      :setter-doc "Sets the language for the routine (e.g. SQL or JAVASCRIPT)"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:lastModifiedTime
     {:optional true,
      :read-only? true,
@@ -190,7 +191,7 @@
      :getter-doc "Returns the type of the routine, e.g. SCALAR_FUNCTION.",
      :setter-doc
        "Sets the routine type for the Builder (e.g. SCALAR_FUNCTION).\n\n<p>See https://cloud.google.com/bigquery/docs/reference/rest/v2/routines"}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry! (with-meta {:gcp.bigquery/RoutineInfo schema}
                                    {:gcp.global/name

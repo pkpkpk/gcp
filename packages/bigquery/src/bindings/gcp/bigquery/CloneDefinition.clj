@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.CloneDefinition"
    :gcp.dev/certification
-     {:base-seed 1776499515196
+     {:base-seed 1779204754662
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499515196 :standard 1776499515197 :stress 1776499515198}
+        {:smoke 1779204754662 :standard 1779204754663 :stress 1779204754664}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:05:16.620522991Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:35.543465355Z"}}
   (:require [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery CloneDefinition CloneDefinition$Builder]))
@@ -52,7 +52,7 @@
     {:optional true,
      :setter-doc
        "The time at which the base table was Cloned. This value is reported in the JSON response\nusing RFC3339 format. *"}
-    [:string {:min 1}]]])
+    [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.bigquery/CloneDefinition schema}

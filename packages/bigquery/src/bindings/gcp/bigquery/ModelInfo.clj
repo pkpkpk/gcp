@@ -5,13 +5,13 @@
    :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
    :fqcn "com.google.cloud.bigquery.ModelInfo"
    :gcp.dev/certification
-     {:base-seed 1776499496623
+     {:base-seed 1779204744729
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499496623 :standard 1776499496624 :stress 1776499496625}
+        {:smoke 1779204744729 :standard 1779204744730 :stress 1779204744731}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:58.203633973Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:25.790888376Z"}}
   (:require [gcp.api.services.bigquery.model.TrainingRun :as TrainingRun]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.ModelId :as ModelId]
@@ -97,13 +97,14 @@
     {:optional true,
      :getter-doc "Returns the user description of the model.",
      :setter-doc "Sets the user description for this model."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:encryptionConfiguration {:optional true, :setter-doc nil}
     :gcp.bigquery/EncryptionConfiguration]
    [:etag
     {:optional true,
      :read-only? true,
-     :getter-doc "Returns the hash of the model resource."} [:string {:min 1}]]
+     :getter-doc "Returns the hash of the model resource."}
+    [:string {:min 1, :gen/max 1}]]
    [:expirationTime
     {:optional true,
      :getter-doc
@@ -116,23 +117,24 @@
      :read-only? true,
      :getter-doc
        "Returns information about the feature columns for this model."}
-    [:sequential {:min 1} :gcp.bigquery/StandardSQLField]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/StandardSQLField]]
    [:friendlyName
     {:optional true,
      :getter-doc "Returns the user-friendly name for the model.",
      :setter-doc "Sets the user-friendly name for this model."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:labelColumnList
     {:optional true,
      :read-only? true,
      :getter-doc "Returns information about the label columns for this model."}
-    [:sequential {:min 1} :gcp.bigquery/StandardSQLField]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/StandardSQLField]]
    [:labels
     {:optional true,
      :getter-doc "Returns a map for labels applied to the model.",
      :setter-doc
        "Set the labels applied to this model.\n\n<p>When used with {@link BigQuery#update(ModelInfo, ModelOption...)}, setting {@code labels}\nto {@code null} removes all labels; otherwise all keys that are mapped to {@code null} values\nare removed and other keys are updated to their respective values."}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]]
    [:lastModifiedTime
     {:optional true,
      :read-only? true,
@@ -142,12 +144,14 @@
    [:location
     {:optional true,
      :read-only? true,
-     :getter-doc "Returns a location of the model."} [:string {:min 1}]]
+     :getter-doc "Returns a location of the model."}
+    [:string {:min 1, :gen/max 1}]]
    [:modelId {:getter-doc "Returns the model identity."} :gcp.bigquery/ModelId]
    [:modelType
     {:optional true,
      :read-only? true,
-     :getter-doc "Returns the type of the ML model."} [:string {:min 1}]]
+     :getter-doc "Returns the type of the ML model."}
+    [:string {:min 1, :gen/max 1}]]
    [:trainingRunList
     {:optional true,
      :read-only? true,

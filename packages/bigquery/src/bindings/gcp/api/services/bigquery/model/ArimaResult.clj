@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ArimaResult"
    :gcp.dev/certification
-     {:base-seed 1776499371766
+     {:base-seed 1779204656781
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499371766 :standard 1776499371767 :stress 1776499371768}
+        {:smoke 1779204656781 :standard 1779204656782 :stress 1779204656783}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:02:53.079199313Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:30:57.629244942Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaModelInfo :as ArimaModelInfo]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model ArimaResult]))
@@ -54,13 +54,15 @@
      :setter-doc
        "This message is repeated because there are multiple arima models fitted in auto-arima. For non-\nauto-arima model, its size is one.\n\n@param arimaModelInfo arimaModelInfo or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/ArimaModelInfo]]
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/ArimaModelInfo]]
    [:seasonalPeriods
     {:getter-doc
        "Seasonal periods. Repeated because multiple periods are supported for one time series.\n\n@return value or {@code null} for none",
      :setter-doc
        "Seasonal periods. Repeated because multiple periods are supported for one time series.\n\n@param seasonalPeriods seasonalPeriods or {@code null} for none",
-     :optional true} [:sequential {:min 1} [:string {:min 1}]]]])
+     :optional true}
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.api.services.bigquery.model/ArimaResult schema}

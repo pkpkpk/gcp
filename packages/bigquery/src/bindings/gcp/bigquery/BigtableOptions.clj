@@ -4,13 +4,13 @@
    :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BigtableOptions"
    :gcp.dev/certification
-     {:base-seed 1776499331300
+     {:base-seed 1779204631116
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499331300 :standard 1776499331301 :stress 1776499331302}
+        {:smoke 1779204631116 :standard 1779204631117 :stress 1779204631118}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:02:12.880052801Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:30:31.933842748Z"}}
   (:require [gcp.bigquery.BigtableColumnFamily :as BigtableColumnFamily]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigtableOptions BigtableOptions$Builder]))
@@ -57,7 +57,7 @@
     {:optional true,
      :setter-doc
        "List of column families to expose in the table schema along with their types.\n\n<p>This list restricts the column families that can be referenced in queries and specifies\ntheir value types. You can use this list to do type conversions - see the 'type' field for\nmore details. If you leave this list empty, all column families are present in the table\nschema and their values are read as BYTES. During a query only the column families referenced\nin that query are read from Bigtable."}
-    [:sequential {:min 1} :gcp.bigquery/BigtableColumnFamily]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/BigtableColumnFamily]]
    [:ignoreUnspecifiedColumnFamilies
     {:optional true,
      :setter-doc

@@ -8,10 +8,10 @@
      {:base-seed 0
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :read-only
       :skipped true
-      :timestamp "2026-04-18T08:03:59.493597521Z"}}
+      :timestamp "2026-05-19T15:31:43.564053901Z"}}
   (:require [gcp.bigquery.BigQueryError :as BigQueryError]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery JobStatus JobStatus$State]))
@@ -58,7 +58,7 @@
      :optional true,
      :doc
        "Returns all errors encountered during the running of the job. Errors here do not necessarily\nmean that the job has completed or was unsuccessful.\n\n@see <a href=\"https://cloud.google.com/bigquery/troubleshooting-errors\">Troubleshooting\n    Errors</a>"}
-    [:sequential {:min 1} :gcp.bigquery/BigQueryError]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/BigQueryError]]
    [:state
     {:read-only? true,
      :optional true,

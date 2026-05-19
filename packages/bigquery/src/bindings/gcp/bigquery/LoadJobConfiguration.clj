@@ -5,13 +5,13 @@
    :file-git-sha "5cfdf855fa0cf206660fd89743cbaabf3afa75a3"
    :fqcn "com.google.cloud.bigquery.LoadJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1776499414747
+     {:base-seed 1779204684499
       :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
       :passed-stages
-        {:smoke 1776499414747 :standard 1776499414748 :stress 1776499414749}
+        {:smoke 1779204684499 :standard 1779204684500 :stress 1779204684501}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:03:36.459422477Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:25.800962645Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.CsvOptions :as CsvOptions]
@@ -227,9 +227,9 @@
        "Returns the column name character map used in CSV/Parquet loads.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#columnnamecharactermap\">\n    ColumnNameCharacterMap</a>",
      :setter-doc
        "[Optional] Character map supported for column names in CSV/Parquet loads. Defaults to STRICT\nand can be overridden by Project Config Service. Using this option with unsupporting load\nformats will result in an error.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#columnnamecharactermap\">\n    ColumnNameCharacterMap</a>"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:connectionProperties {:optional true}
-    [:sequential {:min 1} :gcp.bigquery/ConnectionProperty]]
+    [:sequential {:min 1, :gen/max 2} :gcp.bigquery/ConnectionProperty]]
    [:createDisposition {:optional true}
     [:enum {:closed true} "CREATE_IF_NEEDED" "CREATE_NEVER"]]
    [:createSession {:optional true} :boolean]
@@ -237,17 +237,17 @@
     {:optional true,
      :getter-doc "Returns the format used to parse DATE values.",
      :setter-doc "Date format used for parsing DATE values."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:datetimeFormat
     {:optional true,
      :getter-doc "Returns the format used to parse DATETIME values.",
      :setter-doc "Date format used for parsing DATETIME values."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:decimalTargetTypes
     {:optional true,
      :setter-doc
        "Defines the list of possible SQL data types to which the source decimal values are converted.\nThis list and the precision and the scale parameters of the decimal field determine the\ntarget type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in\nthe specified list and if it supports the precision and the scale. STRING supports all\nprecision and scale values.\n\n@param decimalTargetTypes decimalTargetType or {@code null} for none"}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:destinationEncryptionConfiguration {:optional true}
     :gcp.bigquery/EncryptionConfiguration]
    [:destinationTable {:getter-doc nil} :gcp.bigquery/TableId]
@@ -255,8 +255,8 @@
     {:optional true,
      :setter-doc
        "Defines how to interpret files denoted by URIs. By default the files are assumed to be data\nfiles (this can be specified explicitly via FILE_SET_SPEC_TYPE_FILE_SYSTEM_MATCH). A second\noption is \"FILE_SET_SPEC_TYPE_NEW_LINE_DELIMITED_MANIFEST\" which interprets each file as a\nmanifest file, where each line is a reference to a file."}
-    [:string {:min 1}]]
-   [:formatOptions {:optional true} :gcp.bigquery/CsvOptions]
+    [:string {:min 1, :gen/max 1}]]
+   [:formatOptions {:optional true} :gcp.bigquery/FormatOptions]
    [:hivePartitioningOptions {:optional true}
     :gcp.bigquery/HivePartitioningOptions]
    [:ignoreUnknownValues {:optional true} :boolean]
@@ -271,16 +271,16 @@
      :getter-doc "Returns the labels associated with this job",
      :setter-doc
        "The labels associated with this job. You can use these to organize and group your jobs. Label\nkeys and values can be no longer than 63 characters, can only contain lowercase letters,\nnumeric characters, underscores and dashes. International characters are allowed. Label\nvalues are optional. Label keys must start with a letter and each label in the list must have\na different key.\n\n@param labels labels or {@code null} for none"}
-    [:map-of [:or simple-keyword? [:string {:min 1}]] [:string {:min 1}]]]
-   [:maxBadRecords {:optional true} :i32]
-   [:nullMarker {:optional true} [:string {:min 1}]]
+    [:map-of [:or simple-keyword? [:string {:min 1}]]
+     [:string {:min 1, :gen/max 1}]]] [:maxBadRecords {:optional true} :i32]
+   [:nullMarker {:optional true} [:string {:min 1, :gen/max 1}]]
    [:nullMarkers
     {:optional true,
      :getter-doc
        "Returns a list of strings represented as SQL NULL value in a CSV file.",
      :setter-doc
        "A list of strings represented as SQL NULL value in a CSV file. null_marker and null_markers\ncan't be set at the same time. If null_marker is set, null_markers has to be not set. If\nnull_markers is set, null_marker has to be not set. If both null_marker and null_markers are\nset at the same time, a user error would be thrown. Any strings listed in null_markers,\nincluding empty string would be interpreted as SQL NULL. This applies to all column types."}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:rangePartitioning
     {:optional true,
      :getter-doc "Returns the range partitioning specification for the table",
@@ -291,15 +291,16 @@
     {:optional true,
      :setter-doc
        "When creating an external table, the user can provide a reference file with the table schema.\nThis is enabled for the following formats: AVRO, PARQUET, ORC.\n\n@param referenceFileSchemaUri or {@code null} for none"}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:reservation
     {:optional true,
      :getter-doc "Returns the reservation associated with this job",
      :setter-doc
        "[Optional] The reservation that job would use. User can specify a reservation to execute the\njob. If reservation is not set, reservation is determined based on the rules defined by the\nreservation assignments. The expected format is\n`projects/{project}/locations/{location}/reservations/{reservation}`.\n\n@param reservation reservation or {@code null} for none"}
-    [:string {:min 1}]] [:schema {:optional true} :gcp.bigquery/Schema]
+    [:string {:min 1, :gen/max 1}]]
+   [:schema {:optional true} :gcp.bigquery/Schema]
    [:schemaUpdateOptions {:optional true}
-    [:sequential {:min 1}
+    [:sequential {:min 1, :gen/max 2}
      [:enum {:closed true} "ALLOW_FIELD_ADDITION" "ALLOW_FIELD_RELAXATION"]]]
    [:sourceColumnMatch
     {:optional true,
@@ -311,12 +312,12 @@
    [:sourceUris
     {:getter-doc
        "Returns the fully-qualified URIs that point to source data in Google Cloud Storage (e.g.\ngs://bucket/path). Each URI can contain one '*' wildcard character and it must come after the\n'bucket' name."}
-    [:sequential {:min 1} [:string {:min 1}]]]
+    [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]
    [:timeFormat
     {:optional true,
      :getter-doc "Returns the format used to parse TIME values.",
      :setter-doc "Date format used for parsing TIME values."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:timePartitioning {:optional true} :gcp.bigquery/TimePartitioning]
    [:timeZone
     {:optional true,
@@ -324,12 +325,13 @@
        "Returns the time zone used when parsing timestamp values that don't have specific time zone\ninformation.",
      :setter-doc
        "[Experimental] Default time zone that will apply when parsing timestamp values that have no\nspecific time zone."}
-    [:string {:min 1}]]
+    [:string {:min 1, :gen/max 1}]]
    [:timestampFormat
     {:optional true,
      :getter-doc "Returns the format used to parse TIMESTAMP values.",
      :setter-doc "Date format used for parsing TIMESTAMP values."}
-    [:string {:min 1}]] [:useAvroLogicalTypes {:optional true} :boolean]
+    [:string {:min 1, :gen/max 1}]]
+   [:useAvroLogicalTypes {:optional true} :boolean]
    [:writeDisposition {:optional true}
     [:enum {:closed true} "WRITE_TRUNCATE" "WRITE_TRUNCATE_DATA" "WRITE_APPEND"
      "WRITE_EMPTY"]]])

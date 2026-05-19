@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.TableReference"
    :gcp.dev/certification
-     {:base-seed 1776499461959
+     {:base-seed 1779204721772
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499461959 :standard 1776499461960 :stress 1776499461961}
+        {:smoke 1779204721772 :standard 1779204721773 :stress 1779204721774}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:23.668691323Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:02.635200566Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model TableReference]))
 
@@ -53,19 +53,19 @@
        "Required. The ID of the dataset containing this table.\n\n@return value or {@code null} for none",
      :setter-doc
        "Required. The ID of the dataset containing this table.\n\n@param datasetId datasetId or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:projectId
     {:getter-doc
        "Required. The ID of the project containing this table.\n\n@return value or {@code null} for none",
      :setter-doc
        "Required. The ID of the project containing this table.\n\n@param projectId projectId or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:tableId
     {:getter-doc
        "Required. The ID of the table. The ID can contain Unicode characters in category L (letter), M\n(mark), N (number), Pc (connector, including underscore), Pd (dash), and Zs (space). For more\ninformation, see [General\nCategory](https://wikipedia.org/wiki/Unicode_character_property#General_Category). The maximum\nlength is 1,024 characters. Certain operations allow suffixing of the table ID with a partition\ndecorator, such as `sample_table$20190123`.\n\n@return value or {@code null} for none",
      :setter-doc
        "Required. The ID of the table. The ID can contain Unicode characters in category L (letter), M\n(mark), N (number), Pc (connector, including underscore), Pd (dash), and Zs (space). For more\ninformation, see [General\nCategory](https://wikipedia.org/wiki/Unicode_character_property#General_Category). The maximum\nlength is 1,024 characters. Certain operations allow suffixing of the table ID with a partition\ndecorator, such as `sample_table$20190123`.\n\n@param tableId tableId or {@code null} for none",
-     :optional true} [:string {:min 1}]]])
+     :optional true} [:string {:min 1, :gen/max 1}]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.api.services.bigquery.model/TableReference schema}

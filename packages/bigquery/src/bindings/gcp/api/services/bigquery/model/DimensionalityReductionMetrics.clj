@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.DimensionalityReductionMetrics"
    :gcp.dev/certification
-     {:base-seed 1776499474452
+     {:base-seed 1779204729659
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499474452 :standard 1776499474453 :stress 1776499474454}
+        {:smoke 1779204729659 :standard 1779204729660 :stress 1779204729661}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:35.754402401Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:10.539949116Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model
             DimensionalityReductionMetrics]))

@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.GlobalExplanation"
    :gcp.dev/certification
-     {:base-seed 1776499490894
+     {:base-seed 1779204740483
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499490894 :standard 1776499490895 :stress 1776499490896}
+        {:smoke 1779204740483 :standard 1779204740484 :stress 1779204740485}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:52.238698168Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:32:21.339165677Z"}}
   (:require [gcp.api.services.bigquery.model.Explanation :as Explanation]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model GlobalExplanation]))
@@ -53,14 +53,15 @@
        "Class label for this set of global explanations. Will be empty/null for binary logistic and\nlinear regression models. Sorted alphabetically in descending order.\n\n@return value or {@code null} for none",
      :setter-doc
        "Class label for this set of global explanations. Will be empty/null for binary logistic and\nlinear regression models. Sorted alphabetically in descending order.\n\n@param classLabel classLabel or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:explanations
     {:getter-doc
        "A list of the top global explanations. Sorted by absolute value of attribution in descending\norder.\n\n@return value or {@code null} for none",
      :setter-doc
        "A list of the top global explanations. Sorted by absolute value of attribution in descending\norder.\n\n@param explanations explanations or {@code null} for none",
      :optional true}
-    [:sequential {:min 1} :gcp.api.services.bigquery.model/Explanation]]])
+    [:sequential {:min 1, :gen/max 2}
+     :gcp.api.services.bigquery.model/Explanation]]])
 
 (global/include-schema-registry!
   (with-meta {:gcp.api.services.bigquery.model/GlobalExplanation schema}

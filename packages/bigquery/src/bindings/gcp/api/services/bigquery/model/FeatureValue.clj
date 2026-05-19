@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.FeatureValue"
    :gcp.dev/certification
-     {:base-seed 1776499454555
+     {:base-seed 1779204716429
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1776499454555 :standard 1776499454556 :stress 1776499454557}
+        {:smoke 1779204716429 :standard 1779204716430 :stress 1779204716431}
       :protocol-hash
-        "4c8153e592bbd21aa5ceea5ac76bb3400f5daf613bb57ad03e7e373f401ca3ad"
-      :timestamp "2026-04-18T08:04:15.843552463Z"}}
+        "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
+      :timestamp "2026-05-19T15:31:57.294261622Z"}}
   (:require [gcp.api.services.bigquery.model.CategoricalValue :as
              CategoricalValue]
             [gcp.global :as global])
@@ -65,7 +65,7 @@
        "The feature column name.\n\n@return value or {@code null} for none",
      :setter-doc
        "The feature column name.\n\n@param featureColumn featureColumn or {@code null} for none",
-     :optional true} [:string {:min 1}]]
+     :optional true} [:string {:min 1, :gen/max 1}]]
    [:numericalValue
     {:getter-doc
        "The numerical feature value. This is the centroid value for this feature.\n\n@return value or {@code null} for none",
