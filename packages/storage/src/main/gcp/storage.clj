@@ -39,6 +39,9 @@
 (defn create-blob [& args]
   (gsc/execute! (gsc/->BlobCreate (vec args))))
 
+(defn blob-write-session [& args]
+  (gsc/execute! (gsc/->BlobWriteSession (vec args))))
+
 (defn update-blob [& args]
   (gsc/execute! (gsc/->BlobUpdate (vec args))))
 

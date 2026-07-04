@@ -104,6 +104,13 @@
     [:bufferSize {:optional true} :int]
     [:opts {:optional true} [:or :gcp.storage/Storage.BlobTargetOption :gcp.storage/Storage.BlobWriteOption]]]
 
+   ::BlobWriteSession
+   [:map {:closed true, :doc "call record for storage.blobWriteSession(blobInfo, options)"}
+    [:op [:= ::BlobWriteSession]]
+    [:storage {:optional true} [:ref ::clientable]]
+    [:blobInfo :gcp.storage/BlobInfo]
+    [:opts {:optional true} :gcp.storage/Storage.BlobWriteOption]]
+
    ::BlobUpdate
    [:map {:closed true :doc "call record for storage.update(blobInfo)"}
     [:op [:= ::BlobUpdate]]
@@ -667,6 +674,34 @@
       (Blob/to-edn (.create client info ^bytes content (S/BlobTargetOption-Array-from-edn opts)))
       :else
       (Blob/to-edn (.create client info (S/BlobTargetOption-Array-from-edn opts))))))
+
+#!----------------------------------------------------------------------------------------------------------------------
+#! ::BlobWriteSession
+
+(def ^:private blob-write-session-args-schema
+  [:altn
+   [:arity-1 [:catn [:blobInfo :gcp.storage/BlobInfo]]]
+   [:arity-2 [:altn
+              [:info-opts   [:catn [:blobInfo :gcp.storage/BlobInfo] [:opts :gcp.storage/Storage.BlobWriteOption]]]
+              [:client-info [:catn [:clientable ::clientable] [:blobInfo :gcp.storage/BlobInfo]]]]]
+   [:arity-3 [:catn [:clientable ::clientable] [:blobInfo :gcp.storage/BlobInfo] [:opts :gcp.storage/Storage.BlobWriteOption]]]])
+
+(defn ->BlobWriteSession [args]
+  (let [schema (g/schema blob-write-session-args-schema)
+        parsed (m/parse schema args)]
+    (if (= ::m/invalid parsed)
+      (throw (ex-info "Invalid arguments to blob-write-session" {:args args :explain (g/explain schema args)}))
+      (let [{:keys [clientable blobInfo opts]} (extract-parse-values parsed)]
+        (cond-> {:op       ::BlobWriteSession
+                 :blobInfo blobInfo}
+          clientable (assoc :storage clientable)
+          opts       (assoc :opts opts))))))
+
+(defmethod execute! ::BlobWriteSession [{:keys [storage blobInfo opts]}]
+  (let [client (client storage)
+        info (BlobInfo/from-edn blobInfo)
+        opts (S/BlobWriteOption-Array-from-edn opts)]
+    (.blobWriteSession client info opts)))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! ::BlobUpdate

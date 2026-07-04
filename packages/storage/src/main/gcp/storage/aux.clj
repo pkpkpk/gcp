@@ -3,7 +3,7 @@
             [gcp.storage :as storage]
             [jsonista.core :as j])
   (:import (java.io ByteArrayInputStream ByteArrayOutputStream)
-           (java.util.zip GZIPInputStream)))
+           (java.util.zip GZIPInputStream ZipException)))
 
 (defn read-gzip-bytes [bucket file]
   (let [bytes (storage/read-blob bucket file)]
@@ -13,7 +13,14 @@
       (.toByteArray out))))
 
 (defn read-jsonl [bucket file]
-  (j/read-values (storage/read-blob bucket file) j/keyword-keys-object-mapper))
+  (let [blob (storage/read-blob bucket file)]
+    (try
+      (with-open [in  (GZIPInputStream. (ByteArrayInputStream. blob))
+                  out (ByteArrayOutputStream.)]
+        (io/copy in out)
+        (j/read-values (.toByteArray out) j/keyword-keys-object-mapper))
+      (catch ZipException _
+        (j/read-values blob j/keyword-keys-object-mapper)))))
 
 (defn read-gzipped-jsonl [bucket file]
   (j/read-values (read-gzip-bytes bucket file) j/keyword-keys-object-mapper))

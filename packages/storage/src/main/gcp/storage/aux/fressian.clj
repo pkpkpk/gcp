@@ -108,8 +108,9 @@
 
 (defn write-fressian-blob
   [bucket-name blob-name object]
-  (let [bytes (.array (fressian/write object))]
-    (storage/create-blob bucket-name blob-name bytes)))
+  (let [bytes (.array (fressian/write object))
+        blobId {:bucket bucket-name :name blob-name}]
+    (storage/create-blob {:blobId blobId} bytes)))
 
 (defn read-fressian-blob
   [bucket-name blob-name]
