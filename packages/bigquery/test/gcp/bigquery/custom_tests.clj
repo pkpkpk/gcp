@@ -103,6 +103,20 @@
           (is (= "JSON" (.name (.getType (QueryParameterValue-from-edn arg)))))
           (is (= {} (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))))
 
+(deftest string-instant-parsing-test
+  (testing "Parsing timestamps in various formats"
+    (let [s->inst #'gcp.bigquery.custom/String->Instant]
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
+             (s->inst "1.776668040905547E9")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
+             (s->inst "1776668040.905547")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
+             (s->inst "2026-04-20 06:54:00.905547 UTC")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
+             (s->inst "2026-04-20 06:54:00.905547Z")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00Z")
+             (s->inst "1776668040"))))))
+
 #!----------------------------------------------------------------------------------------------------------------------
 ;ARRAY Ordered list of zero or more elements of any non-array type.
 ;BYTES Variable-length binary data.

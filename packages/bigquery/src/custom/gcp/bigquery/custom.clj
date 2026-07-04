@@ -75,7 +75,26 @@
       (.toFormatter)))
 
 (defn- ^Instant String->Instant [^String s]
-  (.toInstant (OffsetDateTime/parse s timestamp-formatter)))
+  (if-not s
+    nil
+    (try
+      (let [bd (java.math.BigDecimal. s)
+            seconds (.longValue bd)
+            fraction (.subtract bd (java.math.BigDecimal/valueOf seconds))
+            nanos (.longValue (.multiply fraction (java.math.BigDecimal/valueOf 1000000000)))]
+        (Instant/ofEpochSecond seconds nanos))
+      (catch NumberFormatException _
+        (let [clean-s (cond
+                        (.endsWith s " UTC") (str (subs s 0 (- (count s) 4)) "Z")
+                        (.endsWith s " GMT") (str (subs s 0 (- (count s) 4)) "Z")
+                        :else s)]
+          (try
+            (.toInstant (OffsetDateTime/parse clean-s timestamp-formatter))
+            (catch Exception _
+              (try
+                (.toInstant (OffsetDateTime/parse (str clean-s "Z") timestamp-formatter))
+                (catch Exception _
+                  (Instant/parse clean-s))))))))))
 
 (defn- ^String Instant->String
   [inst]
