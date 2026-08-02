@@ -1,23 +1,25 @@
 (ns gcp.storage.aux.fressian
-  (:require [clojure.data.fressian :as fressian]
-            [gcp.storage :as storage])
-  (:import [java.io Closeable OutputStream]
-           [java.nio ByteBuffer]
-           [com.google.cloud WriteChannel]
-           [com.google.cloud.storage BlobId BlobInfo Storage$BlobWriteOption]
-           [com.google.common.hash Hashing Hasher]
-           (org.fressian FressianWriter)))
+  (:require
+   [clojure.data.fressian :as fressian]
+   [gcp.storage :as storage])
+  (:import
+   (com.google.cloud WriteChannel)
+   (com.google.cloud.storage BlobId BlobInfo Storage$BlobWriteOption)
+   (com.google.common.hash Hasher Hashing)
+   (java.io Closeable OutputStream)
+   (java.nio ByteBuffer)
+   (org.fressian FressianWriter)))
 
-;https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/com.google.cloud.storage.BlobWriteSession
+; https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/com.google.cloud.storage.BlobWriteSession
 
-;https://github.com/clojure/data.fressian/blob/master/src/main/clojure/clojure/data/fressian.clj
+; https://github.com/clojure/data.fressian/blob/master/src/main/clojure/clojure/data/fressian.clj
 
 (defn ^WriteChannel create-write-channel
   "Creates a blob and returns a channel for writing its content.
    By default any MD5 and CRC32C values in the given blobInfo are ignored unless requested via the
    BlobWriteOption.md5Match and BlobWriteOption.crc32cMatch options."
-  ;;https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.WriteChannel
-  ;;https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/com.google.cloud.storage.Storage.BlobWriteOption
+  ;; https://cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.WriteChannel
+  ;; https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/com.google.cloud.storage.Storage.BlobWriteOption
   [bucket-name object-name]
   (let [blob-id (BlobId/of bucket-name object-name)
         blob-info (.build (BlobInfo/newBuilder blob-id))

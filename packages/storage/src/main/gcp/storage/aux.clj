@@ -1,9 +1,11 @@
 (ns gcp.storage.aux
-  (:require [clojure.java.io :as io]
-            [gcp.storage :as storage]
-            [jsonista.core :as j])
-  (:import (java.io ByteArrayInputStream ByteArrayOutputStream)
-           (java.util.zip GZIPInputStream ZipException)))
+  (:require
+   [clojure.java.io :as io]
+   [gcp.storage :as storage]
+   [jsonista.core :as j])
+  (:import
+   (java.io ByteArrayInputStream ByteArrayOutputStream)
+   (java.util.zip GZIPInputStream ZipException)))
 
 (defn read-gzip-bytes [bucket file]
   (let [bytes (storage/read-blob bucket file)]

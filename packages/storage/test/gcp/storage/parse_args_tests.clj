@@ -1,6 +1,7 @@
 (ns gcp.storage.parse-args-tests
-  (:require [clojure.test :refer :all]
-            [gcp.storage.core :as gsc]))
+  (:require
+   [clojure.test :refer :all]
+   [gcp.storage.core :as gsc]))
 
 (def client (gsc/client))
 
@@ -95,7 +96,6 @@
     (is (= {:op ::gsc/AclList :blobId blob-id} (gsc/->AclList [blob-id])))
     (is (= {:op ::gsc/AclList :storage client :bucket "b"} (gsc/->AclList [client "b"])))
     (is (= {:op ::gsc/AclList :bucket "b" :opts {:userProject "p"}} (gsc/->AclList ["b" {:userProject "p"}]))))
-  
   (testing "create-acl (->AclCreate)"
     (is (= {:op ::gsc/AclCreate :bucket "b" :acl acl} (gsc/->AclCreate ["b" acl])))
     (is (= {:op ::gsc/AclCreate :blobId blob-id :acl acl} (gsc/->AclCreate [blob-id acl])))
@@ -119,7 +119,6 @@
     (is (= {:op ::gsc/AclUpdate :blobId blob-id :acl acl} (gsc/->AclUpdate [blob-id acl])))
     (is (= {:op ::gsc/AclUpdate :storage client :bucket "b" :acl acl} (gsc/->AclUpdate [client "b" acl])))
     (is (= {:op ::gsc/AclUpdate :bucket "b" :acl acl :opts {:userProject "p"}} (gsc/->AclUpdate ["b" acl {:userProject "p"}]))))
-  
   (testing "default-acl-list (->DefaultAclList)"
     (is (= {:op ::gsc/DefaultAclList :bucket "b"} (gsc/->DefaultAclList ["b"])))
     (is (= {:op ::gsc/DefaultAclList :storage client :bucket "b"} (gsc/->DefaultAclList [client "b"]))))

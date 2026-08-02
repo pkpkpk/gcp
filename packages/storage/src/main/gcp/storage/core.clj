@@ -1,20 +1,22 @@
 (ns gcp.storage.core
-  (:require [gcp.foreign.com.google.cloud :as cloud]
-            [gcp.global :as g]
-            [gcp.storage.Acl :as Acl]
-            [gcp.storage.BlobId :as BlobId]
-            [gcp.storage.BlobInfo :as BlobInfo]
-            [gcp.storage.BucketInfo :as BucketInfo]
-            [gcp.storage.HmacKey :as HmacKey]
-            [gcp.storage.NotificationInfo :as NotificationInfo]
-            [gcp.storage.ServiceAccount :as ServiceAccount]
-            [gcp.storage.Storage :as S]
-            [gcp.storage.custom.Blob :as Blob]
-            [gcp.storage.custom.Bucket :as Bucket]
-            [gcp.storage.custom.Notification :as Notification]
-            [gcp.storage.custom.StorageOptions :as SO]
-            [malli.core :as m])
-  (:import (com.google.cloud.storage Storage)))
+  (:require
+   [gcp.foreign.com.google.cloud :as cloud]
+   [gcp.global :as g]
+   [gcp.storage.Acl :as Acl]
+   [gcp.storage.BlobId :as BlobId]
+   [gcp.storage.BlobInfo :as BlobInfo]
+   [gcp.storage.BucketInfo :as BucketInfo]
+   [gcp.storage.HmacKey :as HmacKey]
+   [gcp.storage.NotificationInfo :as NotificationInfo]
+   [gcp.storage.ServiceAccount :as ServiceAccount]
+   [gcp.storage.Storage :as S]
+   [gcp.storage.custom.Blob :as Blob]
+   [gcp.storage.custom.Bucket :as Bucket]
+   [gcp.storage.custom.Notification :as Notification]
+   [gcp.storage.custom.StorageOptions :as SO]
+   [malli.core :as m])
+  (:import
+   (com.google.cloud.storage Storage)))
 
 (defonce ^:dynamic *client* nil)
 
@@ -1583,39 +1585,39 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
-#_{:name "getServiceAccount",
- :returnType com.google.cloud.storage.ServiceAccount,
- :parameters [{:name "projectId", :type java.lang.String}]}
+#_{:name "getServiceAccount"
+   :returnType com.google.cloud.storage.ServiceAccount
+   :parameters [{:name "projectId", :type java.lang.String}]}
 
 #!----------------------------------------------------------------------------------------------------------------------
 
-#_{:name "compose",
- :returnType com.google.cloud.storage.Blob,
- :parameters [{:name "composeRequest", :type com.google.cloud.storage.Storage.ComposeRequest}]}
+#_{:name "compose"
+   :returnType com.google.cloud.storage.Blob
+   :parameters [{:name "composeRequest", :type com.google.cloud.storage.Storage.ComposeRequest}]}
 
 #!----------------------------------------------------------------------------------------------------------------------
 
-#_{:name "copy",
- :returnType com.google.cloud.storage.CopyWriter,
- :parameters [{:name "copyRequest", :type com.google.cloud.storage.Storage.CopyRequest}]}
+#_{:name "copy"
+   :returnType com.google.cloud.storage.CopyWriter
+   :parameters [{:name "copyRequest", :type com.google.cloud.storage.Storage.CopyRequest}]}
 
 #!----------------------------------------------------------------------------------------------------------------------
 
 #_ #_
-{:name "reader",
- :returnType com.google.cloud.ReadChannel,
+{:name "reader"
+ :returnType com.google.cloud.ReadChannel
  :parameters [{:name "bucket", :type java.lang.String}
               {:name "blob", :type java.lang.String}
               {:name "options", :type [:array com.google.cloud.storage.Storage.BlobSourceOption], :varArgs? true}]}
-{:name "reader",
- :returnType com.google.cloud.ReadChannel,
+{:name "reader"
+ :returnType com.google.cloud.ReadChannel
  :parameters [{:name "blob", :type com.google.cloud.storage.BlobId}
               {:name "options", :type [:array com.google.cloud.storage.Storage.BlobSourceOption], :varArgs? true}]}
 #!----------------------------------------------------------------------------------------------------------------------
 #_ #_
 
-{:name "writer",
- :returnType com.google.cloud.WriteChannel,
+{:name "writer"
+ :returnType com.google.cloud.WriteChannel
  :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
               {:name "options", :type [:array com.google.cloud.storage.Storage.BlobWriteOption], :varArgs? true}]}
 {:name "writer", :returnType com.google.cloud.WriteChannel, :parameters [{:name "signedURL", :type java.net.URL}]}
@@ -1623,8 +1625,8 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 #_
-{:name "blobAppendableUpload",
- :returnType com.google.cloud.storage.BlobAppendableUpload,
+{:name "blobAppendableUpload"
+ :returnType com.google.cloud.storage.BlobAppendableUpload
  :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
               {:name "uploadConfig", :type com.google.cloud.storage.BlobAppendableUploadConfig}
               {:name "options", :type [:array com.google.cloud.storage.Storage.BlobWriteOption], :varArgs? true}]}
@@ -1634,48 +1636,47 @@
 #_{:name "batch", :returnType com.google.cloud.storage.StorageBatch, :parameters []}
 #!----------------------------------------------------------------------------------------------------------------------
 
-#_{:name "blobReadSession",
-   :returnType [com.google.api.core.ApiFuture com.google.cloud.storage.BlobReadSession],
+#_{:name "blobReadSession"
+   :returnType [com.google.api.core.ApiFuture com.google.cloud.storage.BlobReadSession]
    :parameters [{:name "id", :type com.google.cloud.storage.BlobId}
                 {:name "options", :type [:array com.google.cloud.storage.Storage.BlobSourceOption]}]}
 
 #!----------------------------------------------------------------------------------------------------------------------
 
 #_
-{:name "blobWriteSession",
- :returnType com.google.cloud.storage.BlobWriteSession,
+{:name "blobWriteSession"
+ :returnType com.google.cloud.storage.BlobWriteSession
  :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
               {:name "options", :type [:array com.google.cloud.storage.Storage.BlobWriteOption], :varArgs? true}]}
 
 #!----------------------------------------------------------------------------------------------------------------------
 
 (comment
-{:name "generateSignedPostPolicyV4",
- :returnType com.google.cloud.storage.PostPolicyV4,
- :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
-              {:name "duration", :type long}
-              {:name "unit", :type java.util.concurrent.TimeUnit}
-              {:name "fields", :type com.google.cloud.storage.PostPolicyV4.PostFieldsV4}
-              {:name "conditions", :type com.google.cloud.storage.PostPolicyV4.PostConditionsV4}
-              {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
-{:name "generateSignedPostPolicyV4",
- :returnType com.google.cloud.storage.PostPolicyV4,
- :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
-              {:name "duration", :type long}
-              {:name "unit", :type java.util.concurrent.TimeUnit}
-              {:name "fields", :type com.google.cloud.storage.PostPolicyV4.PostFieldsV4}
-              {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
-{:name "generateSignedPostPolicyV4",
- :returnType com.google.cloud.storage.PostPolicyV4,
- :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
-              {:name "duration", :type long}
-              {:name "unit", :type java.util.concurrent.TimeUnit}
-              {:name "conditions", :type com.google.cloud.storage.PostPolicyV4.PostConditionsV4}
-              {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
-{:name "generateSignedPostPolicyV4",
- :returnType com.google.cloud.storage.PostPolicyV4,
- :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
-              {:name "duration", :type long}
-              {:name "unit", :type java.util.concurrent.TimeUnit}
-              {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
-  )
+  {:name "generateSignedPostPolicyV4"
+   :returnType com.google.cloud.storage.PostPolicyV4
+   :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
+                {:name "duration", :type long}
+                {:name "unit", :type java.util.concurrent.TimeUnit}
+                {:name "fields", :type com.google.cloud.storage.PostPolicyV4.PostFieldsV4}
+                {:name "conditions", :type com.google.cloud.storage.PostPolicyV4.PostConditionsV4}
+                {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
+  {:name "generateSignedPostPolicyV4"
+   :returnType com.google.cloud.storage.PostPolicyV4
+   :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
+                {:name "duration", :type long}
+                {:name "unit", :type java.util.concurrent.TimeUnit}
+                {:name "fields", :type com.google.cloud.storage.PostPolicyV4.PostFieldsV4}
+                {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
+  {:name "generateSignedPostPolicyV4"
+   :returnType com.google.cloud.storage.PostPolicyV4
+   :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
+                {:name "duration", :type long}
+                {:name "unit", :type java.util.concurrent.TimeUnit}
+                {:name "conditions", :type com.google.cloud.storage.PostPolicyV4.PostConditionsV4}
+                {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]}
+  {:name "generateSignedPostPolicyV4"
+   :returnType com.google.cloud.storage.PostPolicyV4
+   :parameters [{:name "blobInfo", :type com.google.cloud.storage.BlobInfo}
+                {:name "duration", :type long}
+                {:name "unit", :type java.util.concurrent.TimeUnit}
+                {:name "options", :type [:array com.google.cloud.storage.Storage.PostPolicyV4Option], :varArgs? true}]})

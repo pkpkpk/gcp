@@ -1,5 +1,6 @@
 (ns gcp.storage
-  (:require [gcp.storage.core :as gsc]))
+  (:require
+   [gcp.storage.core :as gsc]))
 
 (def client gsc/client)
 
@@ -148,7 +149,3 @@
   (gsc/execute! (gsc/->IamPermissionsTest (vec args))))
 
 #!----------------------------------------------------------------------------------------------------------------------
-
-
-
-
