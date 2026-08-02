@@ -241,7 +241,8 @@
 (defmethod execute! ::SubscriptionGet [{:keys [subscriptionAdmin request]}]
   (let [client (client subscriptionAdmin)]
     (try
-      (Subscription/to-edn (.getSubscription client (GetSubscriptionRequest/from-edn request)))
+      (when-some [res (Subscription/to-edn (.getSubscription client (GetSubscriptionRequest/from-edn request)))]
+        (with-meta res {:gcp/key :gcp.pubsub.v1/Subscription}))
       (catch NotFoundException _
         nil))))
 

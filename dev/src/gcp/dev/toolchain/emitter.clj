@@ -856,6 +856,10 @@
 
                      :else
                      (list (symbol (str "." name)) arg))]
+    ;;
+    ;; TODO peer types here can be returning empty maps
+    ;;  see (pubsub/get-subcription "/projects/...") ;=> {:expirationPolicy {},  :pushConfig {}, ...};;;
+    ;;
     (if (vector? cat)
       (case (first cat)
         (:map :list) (list 'seq invocation)

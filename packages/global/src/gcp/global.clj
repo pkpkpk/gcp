@@ -92,7 +92,11 @@
 (defn get-schema
   ([key] (get-schema key *registry*))
   ([key registry]
-   (let [reg-map (if (map? registry) registry (mr/schemas registry))]
+   (let [reg-map (if (map? registry) registry (mr/schemas registry))
+         key     (or (and (keyword? key) key)
+                     (-> key meta :gcp/key)
+                     (-> key :gcp/key)
+                     (throw (Exception. (str "invalid schema key: " (pr-str key)))))]
      (get reg-map key))))
 
 (defn- schema-key?

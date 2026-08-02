@@ -289,7 +289,9 @@
 (defmethod execute! ::TopicListSubscriptions [{:keys [topicAdmin request]}]
   (let [client (client topicAdmin)
         response (.listTopicSubscriptions client (ListTopicSubscriptionsRequest/from-edn request))]
-    (map Subscription/to-edn (seq (.iterateAll response)))))
+    ;TODO return is seq<string>
+    ; (map Subscription/to-edn)
+    (seq (.iterateAll response))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! ::TopicCreate

@@ -53,6 +53,7 @@
     (.build builder)))
 
 (defn ^boolean shutdown [^Publisher publisher]
+  ;(.publishAllOutstanding publisher)
   (.shutdown publisher)
   (.awaitTermination publisher 30 TimeUnit/SECONDS))
 
