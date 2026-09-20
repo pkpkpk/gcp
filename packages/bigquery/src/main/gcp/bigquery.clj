@@ -80,7 +80,7 @@
      :stateFilter     - string/enum: \"DONE\", \"PENDING\", \"RUNNING\"
      :minCreationTime - long (ms), filters jobs created after this time
      :maxCreationTime - long (ms), filters jobs created before this time
-     
+
    Returns: A lazy sequence of :gcp.bigquery/Job"
   [& args]
   (bqc/execute! (bqc/->JobList (vec args))))
@@ -99,10 +99,10 @@
 
 (defn wait-for
   "Blocks until the job completes.
-   1-arity: (jobId) | (callRecordMap)
+   1-arity: (jobId) | cmd
    2-arity: (jobId opts) | (client jobId)
    3-arity: (client jobId opts)
-   
+
    opts is a map that can contain:
      :retryOptions        - sequential list of RetryOption EDN maps
      :bigQueryRetryConfig - BigQueryRetryConfig EDN map"

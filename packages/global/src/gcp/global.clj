@@ -186,7 +186,37 @@
               [nil true]
               [nil false])))))))
 
-(defn include-schema-registry! [registry]
+(defn include-registry!
+  [keyable registry]
+  (let [
+        _ (assert (qualified-keyword? keyable))
+        ;; for now forcing as keyword but could accept symbols, or derive kw from a ns-object
+        registry-name keyable
+        ]
+    (assert-registry-keys! registry registry-name)
+    (let [candidate     (clojure.core/merge (mr/schemas *registry*) registry)
+          candidate-reg (mr/simple-registry candidate)]
+      (when-let [bad-pairs (not-empty
+                             (reduce
+                               (fn [acc [k schema]]
+                                 (let [opts (mopts candidate-reg)
+                                       [err same?] (safety-check-schema schema opts)]
+                                   (if (or err (false? same?))
+                                     (assoc acc k {:schema schema :err err :same? same?})
+                                     acc)))
+                               (sorted-map)
+                               (into (sorted-map) registry)))]
+        (throw (ex-info (str "edn-unsafe schema entries in " registry-name)
+                        {:unsafe        bad-pairs
+                         :registry-name registry-name})))
+      (alter-var-root #'*registry* (fn [_extant]
+                                     (when (or *dbg* (System/getenv "GCP_DEBUG"))
+                                       (println "successfully merged registry " registry-name))
+                                     candidate-reg)))))
+
+(defn include-schema-registry!
+  [registry]
+  (println "gcp.global/include-schema-registry! is deprecated, use (gcp.global/include-registry! keyable registry-map")
   (if-let [{registry-name ::name :as rmeta} (meta registry)]
     (do
       (assert-registry-keys! registry registry-name)

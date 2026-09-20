@@ -176,22 +176,6 @@
 
 #!------------------------------------------------------------------------
 
-(defn clean-method [m]
-  (-> (dissoc m :static? :private? :abstract? :beta? :parameter-mappings)
-      #_(update :parameters (fn [ps] (mapv #(dissoc % :varArgs?) ps)))))
-
-(defn can-consolidate?
-  [methods]
-  (and (apply = (map :name methods))
-       (apply = (map :returnType methods))))
-
-(defn consolidate-signatures
-  [methods]
-  (assert (can-consolidate? methods))
-  (let [base       (dissoc (first methods) :parameters)
-        signatures (vec (sort-by count < (map :parameters methods)))]
-    (assoc base :signatures signatures)))
-
 (defn reduce-types
   [acc t]
   (if (symbol? t)
@@ -222,11 +206,23 @@
         {:keys [package]} (u/split-fqcn client-fqcn)
         native  (into (sorted-set) (filter gcp.dev.packages.package/native-types all))
         peer    (into (sorted-set) (filter #(string/starts-with? % package) all))
-        foreign (into (sorted-set) (remove (clojure.set/union native peer
-                                                              gcp.dev.packages.package/scalars)) all)]
+        foreign (into (sorted-set) (remove (clojure.set/union native peer gcp.dev.packages.package/scalars)) all)]
     {:peer    peer
      :foreign foreign
      :native  native}))
+
+(defn clean-method [m]
+  (-> (dissoc m :static? :private? :abstract? :beta? :parameter-mappings)
+      (update :parameters (fn [ps] (mapv #(dissoc % :varArgs?) ps)))))
+
+(defn describe-methods [client-fqcn]
+  (let [methods (map clean-method (:methods (lookup client-fqcn)))]
+    (assert (not-empty methods))
+    (reduce
+      (fn [acc {:keys [name parameters] :as meth}]
+        (assoc-in acc [name parameters] (dissoc meth :name :parameters)))
+      (sorted-map)
+      methods)))
 
 (defn user-types [& client-fqcns]
   (let [ms    (map client-method-types client-fqcns)
@@ -265,7 +261,13 @@
                  "com.google.cloud.bigquery.DataFormatOptions" ; TODO this needs to be discoverable;  req'd by BQO (custom) only
                  "com.google.cloud.bigquery.BigQuery")
 
-  (require :reload 'gcp.bigquery.core 'gcp.bigquery.aux '[gcp.bigquery :as bq]))
+  (do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
+
+  (require :reload 'gcp.bigquery.core 'gcp.bigquery.aux '[gcp.bigquery :as bq])
+
+  (map clean-method (:methods (lookup "com.google.cloud.bigquery.BigQuery")))
+
+  )
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! storage

@@ -1,14 +1,30 @@
 {:paths ["src"]
- :deps  {org.clojure/core.match                {:mvn/version "1.1.1"}
+ :deps  {org.clojure/clojure                   {:mvn/version "1.13.0-alpha6"}
+         org.clojure/core.match                {:mvn/version "1.1.1"}
          org.clojure/math.combinatorics        {:mvn/version "0.3.2"}
-         org.clojure/test.check                {:mvn/version "1.1.2"}
-         com.gfredericks/test.chuck            {:mvn/version "0.2.14"}
-         org.clojure/tools.deps                {:mvn/version "0.28.1569"}
-         org.clojure/tools.gitlibs             {:mvn/version "2.6.206"}
+         org.clojure/test.check                {:mvn/version "1.1.3"}
+         org.clojure/tools.deps                {:mvn/version "0.31.1642"}
+         org.clojure/tools.gitlibs             {:mvn/version "2.6.217"}
          org.clojure/tools.namespace           {:mvn/version "1.5.1"}
-         io.github.clojure/tools.build         {:mvn/version "0.10.13"}
-         slipset/deps-deploy                   {:mvn/version "0.2.2"}
-         com.github.javaparser/javaparser-core {:mvn/version "3.25.10"}
+         io.github.clojure/tools.build         {:mvn/version "0.10.14"}
+         ;;-------------------------------------------------------------------------------
+         com.gfredericks/test.chuck            {:mvn/version "0.2.15"}
+         slipset/deps-deploy                   {:mvn/version "0.2.5"}
+         com.github.javaparser/javaparser-core {:mvn/version "3.28.2"}
+         clj-http/clj-http                     {:mvn/version "3.13.1"}
+         rewrite-clj/rewrite-clj               {:mvn/version "1.2.55"}
+         metosin/malli                         {:mvn/version "0.20.1"}
+         aleph/aleph                           {:mvn/version "0.9.11"}
+         manifold/manifold                     {:mvn/version "0.5.0"}
+         borkdude/edamame                      {:mvn/version "1.6.43"}
+         babashka/fs                           {:mvn/version "0.5.34"}
+         com.taoensso/telemere                 {:mvn/version "1.4.0"}
+         org.ow2.asm/asm                       {:mvn/version "9.10.1"}
+         zprint/zprint                         {:mvn/version "1.3.0"}
+         org.replikativ/datahike               {:mvn/version "0.8.1775"}
+         org.replikativ/konserve               {:mvn/version "0.9.373"}
+         org.replikativ/konserve-gcs           {:mvn/version "0.1.15"}
+         ;;-------------------------------------------------------------------------------
          gcp/global                            {:local/root "../packages/global"}
          ;gcp/artifact-registry                 {:local/root "../packages/artifact-registry"}
          gcp/bigquery                          {:local/root "../packages/bigquery"}
@@ -20,12 +36,4 @@
          gcp/storage                           {:local/root "../packages/storage"}
          gcp/storage-services                  {:local/root "../packages/storage-services"}
          ;gcp/storage-control                   {:local/root "../packages/storage-control"}
-         gcp/vertexai                          {:local/root "../packages/vertexai"}
-         clj-http/clj-http                     {:mvn/version "3.13.0"}
-         rewrite-clj/rewrite-clj               {:mvn/version "1.1.49"}
-         metosin/malli                         {:mvn/version "0.11.0"}
-         borkdude/edamame                      {:mvn/version "1.5.37"}
-         babashka/fs                           {:mvn/version "0.5.32"}
-         com.taoensso/telemere                 {:mvn/version "1.1.0"}
-         org.ow2.asm/asm                       {:mvn/version "9.7.1"}
-         zprint/zprint                         {:mvn/version "1.2.9"}}}
+         gcp/vertexai                          {:local/root "../packages/vertexai"}}}
