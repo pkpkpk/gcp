@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.DatastoreBackupOptions
   {:doc "Google BigQuery options for Cloud Datastore backup."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "36af39e222ccf992d15ddbf82148b98e377b40f3"
    :fqcn "com.google.cloud.bigquery.DatastoreBackupOptions"
    :gcp.dev/certification
-     {:base-seed 1779204633252
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034046461
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204633252 :standard 1779204633253 :stress 1779204633254}
+        {:smoke 1790034046461 :standard 1790034046462 :stress 1790034046463}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:34.050756901Z"}}
+      :timestamp "2026-09-21T23:40:47.860465427Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery DatastoreBackupOptions
             DatastoreBackupOptions$Builder]))
@@ -48,6 +48,5 @@
        "Sets which entity properties to load into BigQuery from a Cloud Datastore backup. Property\nnames are case sensitive and must be top-level properties. If no properties are specified,\nBigQuery loads all properties. If any named property isn't found in the Cloud Datastore\nbackup, an invalid error is returned in the job result."}
     [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/DatastoreBackupOptions schema}
-    {:gcp.global/name "gcp.bigquery.DatastoreBackupOptions"}))
+(global/include-registry! "gcp.bigquery.DatastoreBackupOptions"
+                          {:gcp.bigquery/DatastoreBackupOptions schema})

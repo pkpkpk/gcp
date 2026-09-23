@@ -291,8 +291,7 @@
 
 (defn from-edn [arg] (throw (Exception. "JobStatistics is read-only")))
 
-(g/include-schema-registry!
-  (with-meta {:gcp.bigquery/JobStatistics.SessionInfo JobStatistics$SessionInfo-schema
-              :gcp.bigquery/JobStatistics.QueryStatistics JobStatistics$QueryStatistics-schema
-              :gcp.bigquery/JobStatistics schema}
-             {::g/name "gcp.bigquery.custom.JobStatistics"}))
+(g/include-registry! "gcp.bigquery.custom.JobStatistics"
+  {:gcp.bigquery/JobStatistics.SessionInfo JobStatistics$SessionInfo-schema
+   :gcp.bigquery/JobStatistics.QueryStatistics JobStatistics$QueryStatistics-schema
+   :gcp.bigquery/JobStatistics schema})

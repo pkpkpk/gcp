@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.FeatureValue"
    :gcp.dev/certification
-     {:base-seed 1779204716429
+     {:base-seed 1790034160778
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204716429 :standard 1779204716430 :stress 1779204716431}
+        {:smoke 1790034160778 :standard 1790034160779 :stress 1790034160780}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:57.294261622Z"}}
+      :timestamp "2026-09-21T23:42:41.851633246Z"}}
   (:require [gcp.api.services.bigquery.model.CategoricalValue :as
              CategoricalValue]
             [gcp.global :as global])
@@ -73,6 +73,6 @@
        "The numerical feature value. This is the centroid value for this feature.\n\n@param numericalValue numericalValue or {@code null} for none",
      :optional true} :f64]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/FeatureValue schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.FeatureValue"}))
+(global/include-registry! "gcp.api.services.bigquery.model.FeatureValue"
+                          {:gcp.api.services.bigquery.model/FeatureValue
+                             schema})

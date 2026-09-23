@@ -16,5 +16,4 @@
 
 (def schema (g/instance-schema {:gcp/category :read-only} clojure.lang.ExceptionInfo))
 
-(g/include-schema-registry! (with-meta {:gcp.bigquery/BigQuerySQLException schema}
-                                       {:gcp.global/name "gcp.bigquery.custom.BigQuerySQLException"}))
+(g/include-registry! "gcp.bigquery.custom.BigQuerySQLException" {:gcp.bigquery/BigQuerySQLException schema})

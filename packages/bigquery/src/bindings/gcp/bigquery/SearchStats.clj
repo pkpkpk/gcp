@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.SearchStats
   {:doc "Represents Search statistics information of a search query."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "486338fc73e62e318d13d1f2f476a3cc6a1b407a"
    :fqcn "com.google.cloud.bigquery.SearchStats"
    :gcp.dev/certification
-     {:base-seed 1779204700989
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034138928
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204700989 :standard 1779204700990 :stress 1779204700991}
+        {:smoke 1790034138928 :standard 1790034138929 :stress 1790034138930}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:41.857729780Z"}}
+      :timestamp "2026-09-21T23:42:19.991172866Z"}}
   (:require [gcp.bigquery.IndexUnusedReason :as IndexUnusedReason]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery SearchStats SearchStats$Builder]))
@@ -58,6 +58,5 @@
        "Specifies index usage mode for the query.\n\n@param indexUsageMode, has three modes UNUSED, PARTIALLY_USED, and FULLY_USED"}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/SearchStats schema}
-                                   {:gcp.global/name
-                                      "gcp.bigquery.SearchStats"}))
+(global/include-registry! "gcp.bigquery.SearchStats"
+                          {:gcp.bigquery/SearchStats schema})

@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.CategoricalValue"
    :gcp.dev/certification
-     {:base-seed 1779204715083
+     {:base-seed 1790034159167
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204715083 :standard 1779204715084 :stress 1779204715085}
+        {:smoke 1790034159167 :standard 1790034159168 :stress 1790034159169}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:55.931339823Z"}}
+      :timestamp "2026-09-21T23:42:40.218341832Z"}}
   (:require [gcp.api.services.bigquery.model.CategoryCount :as CategoryCount]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model CategoricalValue]))
@@ -53,6 +53,6 @@
     [:sequential {:min 1, :gen/max 2}
      :gcp.api.services.bigquery.model/CategoryCount]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/CategoricalValue schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.CategoricalValue"}))
+(global/include-registry! "gcp.api.services.bigquery.model.CategoricalValue"
+                          {:gcp.api.services.bigquery.model/CategoricalValue
+                             schema})

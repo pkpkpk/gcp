@@ -127,7 +127,8 @@
    :discovery-url             "https://bigquery.googleapis.com/$discovery/rest?version=v2"
    :googleapis/mvn-org        "com.google.cloud"
    :googleapis/mvn-artifact   "google-cloud-bigquery"
-   :googleapis/git-repo       "java-bigquery"
+   :googleapis/git-repo       "google-cloud-java"
+   :googleapis/git-repo-root  "java-bigquery"
    :api-roots                 ["com.google.cloud.bigquery.BigQuery"
                                "com.google.cloud.bigquery.BigQueryOptions"
                                "com.google.cloud.bigquery.JobStatistics"]

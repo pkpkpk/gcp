@@ -1540,8 +1540,7 @@
          schema            (emit-schema node)
          registry-entries  (collect-registry-entries node)
          registry-map      (into (sorted-map) registry-entries)
-         registry-form     `(~'global/include-schema-registry!
-                              (~'with-meta ~registry-map {:gcp.global/name ~(str (:gcp/ns node))}))
+         registry-form     `(~'global/include-registry! ~(name (:gcp/ns node)) ~registry-map )
          forms             (into [ns-form declare-form] nested-forms)]
      (remove nil? (conj forms from-edn to-edn schema registry-form)))))
 

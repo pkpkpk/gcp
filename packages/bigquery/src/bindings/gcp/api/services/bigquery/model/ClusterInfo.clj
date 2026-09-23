@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ClusterInfo"
    :gcp.dev/certification
-     {:base-seed 1779204658078
+     {:base-seed 1790034080236
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204658078 :standard 1779204658079 :stress 1779204658080}
+        {:smoke 1790034080236 :standard 1790034080237 :stress 1790034080238}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:58.909398607Z"}}
+      :timestamp "2026-09-21T23:41:21.296515126Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model ClusterInfo]))
 
@@ -63,6 +63,5 @@
        "Cluster size, the total number of points assigned to the cluster.\n\n@param clusterSize clusterSize or {@code null} for none",
      :optional true} :i64]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/ClusterInfo schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.ClusterInfo"}))
+(global/include-registry! "gcp.api.services.bigquery.model.ClusterInfo"
+                          {:gcp.api.services.bigquery.model/ClusterInfo schema})

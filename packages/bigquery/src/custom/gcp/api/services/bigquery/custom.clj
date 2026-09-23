@@ -108,8 +108,7 @@
     [:ref :gcp.api.services.bigquery.model/QueryParameterValue]]])
 
 #!------------------------------------------------------------------------------------------
+(g/include-registry! "gcp.services.bigquery.custom"
+                     {:gcp.api.services.bigquery.model/QueryParameterValue QueryParameterValue-schema
+                      :gcp.api.services.bigquery.model/RangeValue RangeValue-schema})
 
-(g/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/QueryParameterValue QueryParameterValue-schema
-              :gcp.api.services.bigquery.model/RangeValue RangeValue-schema}
-             {::g/name "gcp.services.bigquery.custom"}))

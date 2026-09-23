@@ -2,16 +2,16 @@
 (ns gcp.bigquery.HivePartitioningOptions
   {:doc
      "HivePartitioningOptions currently supported types include: AVRO, CSV, JSON, ORC and Parquet."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "633806e6d2b95cb65ba4f628cc274efe60df5939"
    :fqcn "com.google.cloud.bigquery.HivePartitioningOptions"
    :gcp.dev/certification
-     {:base-seed 1779204637532
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034053818
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204637532 :standard 1779204637533 :stress 1779204637534}
+        {:smoke 1790034053818 :standard 1790034053819 :stress 1790034053820}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:38.298507508Z"}}
+      :timestamp "2026-09-21T23:40:55.391715620Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery HivePartitioningOptions
             HivePartitioningOptions$Builder]))
@@ -75,6 +75,5 @@
        "[Optional] When hive partition detection is requested, a common prefix for all source uris\nshould be supplied. The prefix must end immediately before the partition key encoding begins.\nFor example, consider files following this data layout.\ngs://bucket/path_to_table/dt=2019-01-01/country=BR/id=7/file.avro\ngs://bucket/path_to_table/dt=2018-12-31/country=CA/id=3/file.avro When hive partitioning is\nrequested with either AUTO or STRINGS detection, the common prefix can be either of\ngs://bucket/path_to_table or gs://bucket/path_to_table/ (trailing slash does not matter)."}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/HivePartitioningOptions schema}
-    {:gcp.global/name "gcp.bigquery.HivePartitioningOptions"}))
+(global/include-registry! "gcp.bigquery.HivePartitioningOptions"
+                          {:gcp.bigquery/HivePartitioningOptions schema})

@@ -120,6 +120,4 @@
       {:optional true}
       (g/instance-schema com.google.cloud.TransportOptions)]]]])
 
-(g/include-schema-registry!
-  (with-meta {:gcp.bigquery/BigQueryOptions schema}
-    {:gcp.global/name "gcp.bigquery.BigQueryOptions"}))
+(g/include-registry! "gcp.bigquery.BigQueryOptions" {:gcp.bigquery/BigQueryOptions schema})

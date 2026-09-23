@@ -17,8 +17,8 @@
   (:import
    (java.io File)))
 
-#_(use :reload 'gcp.dev)
-#_(in-ns 'gcp.dev)
+#_(require :reload 'gcp.dev)
+#_(do (require :reload 'gcp.dev) (in-ns 'gcp.dev))
 
 (defn fetch-all-upstream
   "Fetches all upstream commits and tags for a package's repository without updating local coordinates.
@@ -40,7 +40,8 @@
 
 (defn sync-to-release
   "Synchronizes the local package to the latest upstream release. Updates the internal manifest,
-   adjusts coordinates in deps.edn, and fetches the necessary sources into a git worktree."
+   adjusts coordinates in deps.edn, and fetches the necessary sources into a git worktree.
+   Does not regenerate bindings."
   [pkg-like]
   (p/sync-to-release pkg-like))
 
@@ -159,6 +160,7 @@
       (delete node))))
 
 (defn certify-graph [& fqcns]
+  ;; TODO we need to verify RT has correct sdk loaded first, or do this in clean child process
   (let [order (p/topological-order-many fqcns)]
     (doseq [node order]
       (try
@@ -243,6 +245,11 @@
 #! bigquery
 
 (comment
+
+  (fetch-all-upstream :bigquery)
+  (status :bigquery)
+  (sync-to-release :bigquery)
+
   (delete-bindings :bigquery)
 
   (client-method-types "com.google.cloud.bigquery.BigQuery")
@@ -265,9 +272,7 @@
 
   (require :reload 'gcp.bigquery.core 'gcp.bigquery.aux '[gcp.bigquery :as bq])
 
-  (map clean-method (:methods (lookup "com.google.cloud.bigquery.BigQuery")))
-
-  )
+  (map clean-method (:methods (lookup "com.google.cloud.bigquery.BigQuery"))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! storage

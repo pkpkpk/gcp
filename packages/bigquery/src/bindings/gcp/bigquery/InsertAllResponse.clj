@@ -2,16 +2,16 @@
 (ns gcp.bigquery.InsertAllResponse
   {:doc
      "Google Cloud BigQuery insert all response. Objects of this class possibly contain errors for an\n{@link InsertAllRequest}. If a row failed to be inserted, the non-empty list of errors associated\nto that row's index can be obtained with {@link InsertAllResponse#getErrorsFor(long)}. {@link\nInsertAllResponse#getInsertErrors()} can be used to return all errors caused by a {@link\nInsertAllRequest} as a map."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "36af39e222ccf992d15ddbf82148b98e377b40f3"
    :fqcn "com.google.cloud.bigquery.InsertAllResponse"
    :gcp.dev/certification
      {:base-seed 0
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :read-only
       :skipped true
-      :timestamp "2026-05-19T15:32:34.416867615Z"}}
+      :timestamp "2026-09-21T23:43:25.854639240Z"}}
   (:require [gcp.bigquery.BigQueryError :as BigQueryError]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery InsertAllResponse]))
@@ -49,6 +49,5 @@
     [:map-of :i64
      [:sequential {:min 1, :gen/max 2} :gcp.bigquery/BigQueryError]]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/InsertAllResponse schema}
-    {:gcp.global/name "gcp.bigquery.InsertAllResponse"}))
+(global/include-registry! "gcp.bigquery.InsertAllResponse"
+                          {:gcp.bigquery/InsertAllResponse schema})

@@ -2,16 +2,16 @@
 (ns gcp.bigquery.RoutineInfo
   {:doc
      "Google BigQuery routine information. A Routine is an API abstraction that encapsulates several\nrelated concepts inside the BigQuery service, including scalar user defined functions (UDFS) and\nstored procedures.\n\n<p>For more information about the REST representation of routines, see:\nhttps://cloud.google.com/bigquery/docs/reference/rest/v2/routines\n\n<p>For more information about working with scalar functions, see:\nhttps://cloud.google.com/bigquery/docs/reference/standard-sql/user-defined-functions"
-   :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
+   :file-git-sha "9b6aa80452ca4b123ad92df10545db8bfca2e622"
    :fqcn "com.google.cloud.bigquery.RoutineInfo"
    :gcp.dev/certification
-     {:base-seed 1779204750740
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034201483
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204750740 :standard 1779204750741 :stress 1779204750742}
+        {:smoke 1790034201483 :standard 1790034201484 :stress 1790034201485}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:31.732954798Z"}}
+      :timestamp "2026-09-21T23:43:22.703339014Z"}}
   (:require [gcp.bigquery.RemoteFunctionOptions :as RemoteFunctionOptions]
             [gcp.bigquery.RoutineArgument :as RoutineArgument]
             [gcp.bigquery.RoutineId :as RoutineId]
@@ -193,6 +193,5 @@
        "Sets the routine type for the Builder (e.g. SCALAR_FUNCTION).\n\n<p>See https://cloud.google.com/bigquery/docs/reference/rest/v2/routines"}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/RoutineInfo schema}
-                                   {:gcp.global/name
-                                      "gcp.bigquery.RoutineInfo"}))
+(global/include-registry! "gcp.bigquery.RoutineInfo"
+                          {:gcp.bigquery/RoutineInfo schema})

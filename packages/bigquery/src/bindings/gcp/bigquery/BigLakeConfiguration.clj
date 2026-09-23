@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.BigLakeConfiguration
   {:doc nil
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "e2cca4df5f4702e16942211dfa4c5274d41bb12e"
    :fqcn "com.google.cloud.bigquery.BigLakeConfiguration"
    :gcp.dev/certification
-     {:base-seed 1779204668268
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034092473
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204668268 :standard 1779204668269 :stress 1779204668270}
+        {:smoke 1790034092473 :standard 1790034092474 :stress 1790034092475}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:09.083908462Z"}}
+      :timestamp "2026-09-21T23:41:33.533731840Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigLakeConfiguration
             BigLakeConfiguration$Builder]))
@@ -35,10 +35,19 @@
   [^BigLakeConfiguration arg]
   {:post [(global/strict! :gcp.bigquery/BigLakeConfiguration %)]}
   (when arg
-    (cond-> {:connectionId (.getConnectionId arg),
-             :fileFormat (.getFileFormat arg),
-             :storageUri (.getStorageUri arg),
-             :tableFormat (.getTableFormat arg)})))
+    (cond-> {}
+      (some->> (.getConnectionId arg)
+               (not= ""))
+        (assoc :connectionId (.getConnectionId arg))
+      (some->> (.getFileFormat arg)
+               (not= ""))
+        (assoc :fileFormat (.getFileFormat arg))
+      (some->> (.getStorageUri arg)
+               (not= ""))
+        (assoc :storageUri (.getStorageUri arg))
+      (some->> (.getTableFormat arg)
+               (not= ""))
+        (assoc :tableFormat (.getTableFormat arg)))))
 
 (def schema
   [:map
@@ -47,30 +56,33 @@
     :gcp/category :accessor-with-builder,
     :gcp/key :gcp.bigquery/BigLakeConfiguration}
    [:connectionId
-    {:getter-doc
+    {:optional true,
+     :getter-doc
        "Credential reference for accessing external storage system. Normalized as\nproject_id.location_id.connection_id.\n\n@return value or {@code null} for none",
      :setter-doc
-       "[Required] Required and immutable. Credential reference for accessing external storage\nsystem. Normalized as project_id.location_id.connection_id.\n\n@param connectionId connectionId or {@code null} for none"}
+       "Credential reference for accessing external storage system. Normalized as\nproject_id.location_id.connection_id.\n\n@param connectionId connectionId or {@code null} for none"}
     [:string {:min 1, :gen/max 1}]]
    [:fileFormat
-    {:getter-doc
+    {:optional true,
+     :getter-doc
        "Open source file format that the table data is stored in. Currently only PARQUET is supported.\n\n@return value or {@code null} for none",
      :setter-doc
-       "[Required] Required and immutable. Open source file format that the table data is stored in.\nCurrently only PARQUET is supported.\n\n@param fileFormat fileFormat or {@code null} for none"}
+       "Open source file format that the table data is stored in. Currently only PARQUET is\nsupported.\n\n@param fileFormat fileFormat or {@code null} for none"}
     [:string {:min 1, :gen/max 1}]]
    [:storageUri
-    {:getter-doc
+    {:optional true,
+     :getter-doc
        "Fully qualified location prefix of the external folder where data is stored. Starts with\n\"gs://\" ends with \"/\". Does not contain \"*\".\n\n@return value or {@code null} for none",
      :setter-doc
-       "[Required] Required and immutable. Fully qualified location prefix of the external folder\nwhere data is stored. Starts with \"gs://\" and ends with \"/\". Does not contain \"*\".\n\n@param storageUri storageUri or {@code null} for none"}
+       "Fully qualified location prefix of the external folder where data is stored. Starts with\n\"gs://\" and ends with \"/\". Does not contain \"*\".\n\n@param storageUri storageUri or {@code null} for none"}
     [:string {:min 1, :gen/max 1}]]
    [:tableFormat
-    {:getter-doc
-       "Open source file format that the table data is stored in. Currently only PARQUET is supported.\n\n@return value or {@code null} for none",
+    {:optional true,
+     :getter-doc
+       "Open source table format that the table data is stored in. Currently only ICEBERG is supported.\n\n@return value or {@code null} for none",
      :setter-doc
-       "[Required] Required and immutable. Open source file format that the table data is stored in.\nCurrently only PARQUET is supported.\n\n@param tableFormat tableFormat or {@code null} for none"}
+       "Open source table format that the table data is stored in. Currently only ICEBERG is\nsupported.\n\n@param tableFormat tableFormat or {@code null} for none"}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/BigLakeConfiguration schema}
-    {:gcp.global/name "gcp.bigquery.BigLakeConfiguration"}))
+(global/include-registry! "gcp.bigquery.BigLakeConfiguration"
+                          {:gcp.bigquery/BigLakeConfiguration schema})

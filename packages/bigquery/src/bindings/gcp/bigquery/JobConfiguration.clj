@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.JobConfiguration
   {:doc "Base class for a BigQuery job configuration."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "36af39e222ccf992d15ddbf82148b98e377b40f3"
    :fqcn "com.google.cloud.bigquery.JobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1779204686239
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034113969
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204686239 :standard 1779204686240 :stress 1779204686241}
+        {:smoke 1790034113969 :standard 1790034113970 :stress 1790034113971}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:31.892548581Z"}}
+      :timestamp "2026-09-21T23:42:08.071419969Z"}}
   (:require [gcp.bigquery.CopyJobConfiguration :as CopyJobConfiguration]
             [gcp.bigquery.ExtractJobConfiguration :as ExtractJobConfiguration]
             [gcp.bigquery.LoadJobConfiguration :as LoadJobConfiguration]
@@ -49,6 +49,5 @@
    :gcp.bigquery/LoadJobConfiguration :gcp.bigquery/CopyJobConfiguration
    :gcp.bigquery/ExtractJobConfiguration])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/JobConfiguration schema}
-    {:gcp.global/name "gcp.bigquery.JobConfiguration"}))
+(global/include-registry! "gcp.bigquery.JobConfiguration"
+                          {:gcp.bigquery/JobConfiguration schema})

@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.RoutineId
   {:doc "RoutineId represents the identifier for a given Routine."
-   :file-git-sha "c3548a2f521b19761c844c0b24fc8caab541aba7"
+   :file-git-sha "5410f6bbd78031621045db8ac9f56dc8ab6bb837"
    :fqcn "com.google.cloud.bigquery.RoutineId"
    :gcp.dev/certification
-     {:base-seed 1779204677188
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034103417
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204677188 :standard 1779204677189 :stress 1779204677190}
+        {:smoke 1790034103417 :standard 1790034103418 :stress 1790034103419}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:18.008569785Z"}}
+      :timestamp "2026-09-21T23:41:44.451128104Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery RoutineId]))
 
@@ -44,5 +44,5 @@
    [:routine {:doc "Return corresponding routine ID for this routine. *"}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/RoutineId schema}
-                                   {:gcp.global/name "gcp.bigquery.RoutineId"}))
+(global/include-registry! "gcp.bigquery.RoutineId"
+                          {:gcp.bigquery/RoutineId schema})

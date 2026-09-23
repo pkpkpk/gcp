@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.DmlStats
   {:doc "Represents DML statistics information."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "19b3f01f6e68bb1a5f53ccb18989e9db8c28a475"
    :fqcn "com.google.cloud.bigquery.DmlStats"
    :gcp.dev/certification
-     {:base-seed 1779204698489
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034135868
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204698489 :standard 1779204698490 :stress 1779204698491}
+        {:smoke 1790034135868 :standard 1790034135869 :stress 1790034135870}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:39.346802355Z"}}
+      :timestamp "2026-09-21T23:42:16.937273460Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery DmlStats DmlStats$Builder]))
 
@@ -68,5 +68,5 @@
        "Number of updated Rows. Populated by DML UPDATE and MERGE statements.\n\n@param updatedRowCount updatedRowCount or {@code null} for none"}
     :i64]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/DmlStats schema}
-                                   {:gcp.global/name "gcp.bigquery.DmlStats"}))
+(global/include-registry! "gcp.bigquery.DmlStats"
+                          {:gcp.bigquery/DmlStats schema})

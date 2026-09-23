@@ -2,16 +2,16 @@
 (ns gcp.bigquery.BigtableColumnFamily
   {:doc
      "List of column families to expose in the table schema along with their types. This list restricts\nthe column families that can be referenced in queries and specifies their value types.\n\n<p>You can use this list to do type conversions - see the 'type' field for more details. If you\nleave this list empty, all column families are present in the table schema and their values are\nread as BYTES. During a query only the column families referenced in that query are read from\nBigtable."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "8ef4330789702c93ec5ef8843f2202ccea1e9e36"
    :fqcn "com.google.cloud.bigquery.BigtableColumnFamily"
    :gcp.dev/certification
-     {:base-seed 1779204630017
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034041722
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204630017 :standard 1779204630018 :stress 1779204630019}
+        {:smoke 1790034041722 :standard 1790034041723 :stress 1790034041724}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:30.827057350Z"}}
+      :timestamp "2026-09-21T23:40:42.838194508Z"}}
   (:require [gcp.bigquery.BigtableColumn :as BigtableColumn]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigtableColumnFamily
@@ -74,6 +74,5 @@
        "The type to convert the value in cells of this column family. The values are expected to be\nencoded using HBase Bytes.toBytes function when using the BINARY encoding value.\n\n<p>Following BigQuery types are allowed (case-sensitive): BYTES STRING INTEGER FLOAT BOOLEAN.\n\n<p>The default type is BYTES. This can be overridden for a specific column by listing that\ncolumn in 'columns' and specifying a type for it."}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/BigtableColumnFamily schema}
-    {:gcp.global/name "gcp.bigquery.BigtableColumnFamily"}))
+(global/include-registry! "gcp.bigquery.BigtableColumnFamily"
+                          {:gcp.bigquery/BigtableColumnFamily schema})

@@ -21,6 +21,4 @@
 
 (def schema (g/instance-schema {:gcp/category :read-only} clojure.lang.ExceptionInfo))
 
-(g/include-schema-registry!
-  (with-meta {:gcp.bigquery/JobException schema}
-    {:gcp.global/name "gcp.bigquery.custom.JobException"}))
+(g/include-registry! "gcp.bigquery.custom.JobException" {:gcp.bigquery/JobException schema})

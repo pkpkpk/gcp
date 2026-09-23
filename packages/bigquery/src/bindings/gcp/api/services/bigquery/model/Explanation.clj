@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.Explanation"
    :gcp.dev/certification
-     {:base-seed 1779204739185
+     {:base-seed 1790034187955
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204739185 :standard 1779204739186 :stress 1779204739187}
+        {:smoke 1790034187955 :standard 1790034187956 :stress 1790034187957}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:20.024377139Z"}}
+      :timestamp "2026-09-21T23:43:09.015774093Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model Explanation]))
 
@@ -57,6 +57,5 @@
        "The full feature name. For non-numerical features, will be formatted like `.`. Overall size of\nfeature name will always be truncated to first 120 characters.\n\n@param featureName featureName or {@code null} for none",
      :optional true} [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/Explanation schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.Explanation"}))
+(global/include-registry! "gcp.api.services.bigquery.model.Explanation"
+                          {:gcp.api.services.bigquery.model/Explanation schema})

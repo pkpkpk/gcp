@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.CategoryCount"
    :gcp.dev/certification
-     {:base-seed 1779204713791
+     {:base-seed 1790034157624
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204713791 :standard 1779204713792 :stress 1779204713793}
+        {:smoke 1790034157624 :standard 1790034157625 :stress 1790034157626}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:54.639081406Z"}}
+      :timestamp "2026-09-21T23:42:38.662987137Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model CategoryCount]))
 
@@ -55,6 +55,6 @@
        "The count of training samples matching the category within the cluster.\n\n@param count count or {@code null} for none",
      :optional true} :i64]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/CategoryCount schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.CategoryCount"}))
+(global/include-registry! "gcp.api.services.bigquery.model.CategoryCount"
+                          {:gcp.api.services.bigquery.model/CategoryCount
+                             schema})

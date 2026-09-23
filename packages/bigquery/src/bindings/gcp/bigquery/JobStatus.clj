@@ -2,16 +2,16 @@
 (ns gcp.bigquery.JobStatus
   {:doc
      "A Google BigQuery Job status. Objects of this class can be examined when polling an asynchronous\njob to see if the job completed."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "9a73160c782cbf532b3228c24e049bbee5ca7cd4"
    :fqcn "com.google.cloud.bigquery.JobStatus"
    :gcp.dev/certification
      {:base-seed 0
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :read-only
       :skipped true
-      :timestamp "2026-05-19T15:31:43.564053901Z"}}
+      :timestamp "2026-09-21T23:42:21.957835233Z"}}
   (:require [gcp.bigquery.BigQueryError :as BigQueryError]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery JobStatus JobStatus$State]))
@@ -66,7 +66,6 @@
        "Returns the state of the job. A {@link State#PENDING} job is waiting to be executed. A {@link\nState#RUNNING} is being executed. A {@link State#DONE} job has completed either succeeding or\nfailing. If failed {@link #getError()} will be non-null."}
     [:enum {:closed true} "PENDING" "RUNNING" "DONE"]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/JobStatus schema,
-                                             :gcp.bigquery/JobStatus.State
-                                               State-schema}
-                                   {:gcp.global/name "gcp.bigquery.JobStatus"}))
+(global/include-registry! "gcp.bigquery.JobStatus"
+                          {:gcp.bigquery/JobStatus schema,
+                           :gcp.bigquery/JobStatus.State State-schema})

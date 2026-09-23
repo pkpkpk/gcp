@@ -85,4 +85,4 @@
    :gcp.bigquery/StandardSQLTypeName
    [:enum "TIME" "FLOAT64" "INTERVAL" "BIGNUMERIC" "BOOL" "DATE" "BYTES" "GEOGRAPHY" "NUMERIC" "ARRAY" "JSON" "STRING" "DATETIME" "STRUCT" "TIMESTAMP" "INT64" "RANGE"]})
 
-(g/include-schema-registry! (with-meta schemas {::g/name "gcp.bigquery.custom.StandardSQL"}))
+(g/include-registry! "gcp.bigquery.custom.StandardSQL" schemas)

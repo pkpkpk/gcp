@@ -1,5 +1,5 @@
 (ns gcp.bigquery.custom.BigQueryRetryConfig
-  {:file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+  {:file-git-sha          "abbdde0e7797712d98183ea2d5390671f92d5407"
    :fqcn "com.google.cloud.bigquery.BigQueryRetryConfig"
    :gcp.dev/certification {:base-seed 1772513313509
       :manifest "32051bbb-16c0-5b08-9f8c-751cde0c9bfb"
@@ -45,6 +45,4 @@
    [:retriableRegExes {:optional true}
     [:set [:string {:min 1}]]]])
 
-(g/include-schema-registry!
-  (with-meta {:gcp.bigquery/BigQueryRetryConfig schema}
-             {:global/name "gcp.bigquery.custom.BigQueryRetryConfig"}))
+(g/include-registry! "gcp.bigquery.custom.BigQueryRetryConfig" {:gcp.bigquery/BigQueryRetryConfig schema})

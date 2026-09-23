@@ -2,16 +2,16 @@
 (ns gcp.bigquery.CsvOptions
   {:doc
      "Google BigQuery options for CSV format. This class wraps some properties of CSV files used by\nBigQuery to parse external data."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "84ff08a441cffff0f25289c969a72239b1c806d7"
    :fqcn "com.google.cloud.bigquery.CsvOptions"
    :gcp.dev/certification
-     {:base-seed 1779204632209
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034044914
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204632209 :standard 1779204632210 :stress 1779204632211}
+        {:smoke 1790034044914 :standard 1790034044915 :stress 1790034044916}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:32.982348393Z"}}
+      :timestamp "2026-09-21T23:40:46.105955232Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery CsvOptions CsvOptions$Builder]))
 
@@ -129,6 +129,5 @@
        "Sets the number of rows at the top of a CSV file that BigQuery will skip when reading the\ndata. The default value is 0. This property is useful if you have header rows in the file\nthat should be skipped."}
     :i64]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/CsvOptions schema}
-                                   {:gcp.global/name
-                                      "gcp.bigquery.CsvOptions"}))
+(global/include-registry! "gcp.bigquery.CsvOptions"
+                          {:gcp.bigquery/CsvOptions schema})

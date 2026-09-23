@@ -2,16 +2,16 @@
 (ns gcp.bigquery.StandardTableDefinition
   {:doc
      "A Google BigQuery default table definition. This definition is used for standard, two-dimensional\ntables with individual records organized in rows, and a data type assigned to each column (also\ncalled a field). Individual fields within a record may contain nested and repeated children\nfields. Every table is described by a schema that describes field names, types, and other\ninformation.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/tables\">Managing Tables</a>"
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "afcd413f0e8c1f8e27f0a4ee1f54ca32d02e510f"
    :fqcn "com.google.cloud.bigquery.StandardTableDefinition"
    :gcp.dev/certification
-     {:base-seed 1779204672716
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034097967
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204672716 :standard 1779204672717 :stress 1779204672718}
+        {:smoke 1790034097967 :standard 1790034097968 :stress 1790034097969}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:13.834341519Z"}}
+      :timestamp "2026-09-21T23:41:39.372613192Z"}}
   (:require [gcp.bigquery.BigLakeConfiguration :as BigLakeConfiguration]
             [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.RangePartitioning :as RangePartitioning]
@@ -275,8 +275,7 @@
        "Sets the time partitioning configuration for the table. If not set, the table is not\ntime-partitioned."}
     :gcp.bigquery/TimePartitioning]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/StandardTableDefinition schema,
-              :gcp.bigquery/StandardTableDefinition.StreamingBuffer
-                StreamingBuffer-schema}
-    {:gcp.global/name "gcp.bigquery.StandardTableDefinition"}))
+(global/include-registry! "gcp.bigquery.StandardTableDefinition"
+                          {:gcp.bigquery/StandardTableDefinition schema,
+                           :gcp.bigquery/StandardTableDefinition.StreamingBuffer
+                             StreamingBuffer-schema})

@@ -2,16 +2,16 @@
 (ns gcp.bigquery.BiEngineStats
   {:doc
      "BIEngineStatistics contains query statistics specific to the use of BI Engine."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "f4502aa716b19dd5836c19ac14e3167601e7f8a3"
    :fqcn "com.google.cloud.bigquery.BiEngineStats"
    :gcp.dev/certification
-     {:base-seed 1779204697335
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034134475
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204697335 :standard 1779204697336 :stress 1779204697337}
+        {:smoke 1790034134475 :standard 1790034134476 :stress 1790034134477}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:38.165235227Z"}}
+      :timestamp "2026-09-21T23:42:15.526026033Z"}}
   (:require [gcp.bigquery.BiEngineReason :as BiEngineReason]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery BiEngineStats BiEngineStats$Builder]))
@@ -64,6 +64,5 @@
        "In case of DISABLED or PARTIAL bi_engine_mode, these contain the explanatory reasons as to\nwhy BI Engine could not accelerate. In case the full query was accelerated, this field is not\npopulated.\n\n@param biEngineReasons biEngineReasons or {@code null} for none"}
     [:sequential {:min 1, :gen/max 2} :gcp.bigquery/BiEngineReason]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/BiEngineStats schema}
-                                   {:gcp.global/name
-                                      "gcp.bigquery.BiEngineStats"}))
+(global/include-registry! "gcp.bigquery.BiEngineStats"
+                          {:gcp.bigquery/BiEngineStats schema})

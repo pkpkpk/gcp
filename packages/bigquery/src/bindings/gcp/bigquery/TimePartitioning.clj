@@ -2,16 +2,16 @@
 (ns gcp.bigquery.TimePartitioning
   {:doc
      "Objects of this class allow to configure table partitioning based on time. By dividing a large\ntable into smaller partitions, you can improve query performance and reduce the number of bytes\nbilled by restricting the amount of data scanned.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/partitioned-tables\">Partitioned Tables</a>"
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "a738d198515acf729b157fc86d6cd124781e830e"
    :fqcn "com.google.cloud.bigquery.TimePartitioning"
    :gcp.dev/certification
-     {:base-seed 1779204647153
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034066301
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204647153 :standard 1779204647154 :stress 1779204647155}
+        {:smoke 1790034066301 :standard 1790034066302 :stress 1790034066303}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:47.964867234Z"}}
+      :timestamp "2026-09-21T23:41:07.404372731Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery TimePartitioning TimePartitioning$Builder
             TimePartitioning$Type]))
@@ -75,7 +75,6 @@
    [:type {:getter-doc "Returns the time partitioning type."}
     [:enum {:closed true} "DAY" "HOUR" "MONTH" "YEAR"]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/TimePartitioning schema,
-              :gcp.bigquery/TimePartitioning.Type Type-schema}
-    {:gcp.global/name "gcp.bigquery.TimePartitioning"}))
+(global/include-registry! "gcp.bigquery.TimePartitioning"
+                          {:gcp.bigquery/TimePartitioning schema,
+                           :gcp.bigquery/TimePartitioning.Type Type-schema})

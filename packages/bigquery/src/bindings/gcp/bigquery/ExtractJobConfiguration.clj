@@ -2,16 +2,16 @@
 (ns gcp.bigquery.ExtractJobConfiguration
   {:doc
      "Google BigQuery extract job configuration. An extract job exports a BigQuery table to Google\nCloud Storage. The extract destination provided as URIs that point to objects in Google Cloud\nStorage. Extract job configurations have {@link JobConfiguration.Type#EXTRACT} type."
-   :file-git-sha "3e97f7c0c4676fcdda0862929a69bbabc69926f2"
+   :file-git-sha "42f5768e8d9b1bfda6d2e7b8a4730f2ba9546c4c"
    :fqcn "com.google.cloud.bigquery.ExtractJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1779204683220
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034110618
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204683220 :standard 1779204683221 :stress 1779204683222}
+        {:smoke 1790034110618 :standard 1790034110619 :stress 1790034110620}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:24.087284659Z"}}
+      :timestamp "2026-09-21T23:41:51.661432946Z"}}
   (:require [gcp.bigquery.ModelId :as ModelId]
             [gcp.bigquery.TableId :as TableId]
             [gcp.global :as global])
@@ -144,6 +144,5 @@
        "[Optional] If destinationFormat is set to \"AVRO\", this flag indicates whether to enable\nextracting applicable column types (such as TIMESTAMP) to their corresponding AVRO logical\ntypes (timestamp-micros), instead of only using their raw types (avro-long).\n\n@param useAvroLogicalTypes useAvroLogicalTypes or {@code null} for none"}
     :boolean]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/ExtractJobConfiguration schema}
-    {:gcp.global/name "gcp.bigquery.ExtractJobConfiguration"}))
+(global/include-registry! "gcp.bigquery.ExtractJobConfiguration"
+                          {:gcp.bigquery/ExtractJobConfiguration schema})

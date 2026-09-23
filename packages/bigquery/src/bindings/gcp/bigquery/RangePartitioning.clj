@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.RangePartitioning
   {:doc nil
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "038c3454011ecff892bd44471e16f184b9f05ce8"
    :fqcn "com.google.cloud.bigquery.RangePartitioning"
    :gcp.dev/certification
-     {:base-seed 1779204646091
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034064832
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204646091 :standard 1779204646092 :stress 1779204646093}
+        {:smoke 1790034064832 :standard 1790034064833 :stress 1790034064834}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:46.894321247Z"}}
+      :timestamp "2026-09-21T23:41:05.962547145Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery RangePartitioning
             RangePartitioning$Builder RangePartitioning$Range
@@ -96,7 +96,6 @@
        "[Required] Defines the ranges for range partitioning.\n\n@param range range or {@code null} for none"}
     [:ref :gcp.bigquery/RangePartitioning.Range]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/RangePartitioning schema,
-              :gcp.bigquery/RangePartitioning.Range Range-schema}
-    {:gcp.global/name "gcp.bigquery.RangePartitioning"}))
+(global/include-registry! "gcp.bigquery.RangePartitioning"
+                          {:gcp.bigquery/RangePartitioning schema,
+                           :gcp.bigquery/RangePartitioning.Range Range-schema})

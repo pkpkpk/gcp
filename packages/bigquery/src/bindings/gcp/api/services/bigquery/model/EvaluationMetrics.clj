@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.EvaluationMetrics"
    :gcp.dev/certification
-     {:base-seed 1779204736395
+     {:base-seed 1790034184698
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204736395 :standard 1779204736396 :stress 1779204736397}
+        {:smoke 1790034184698 :standard 1790034184699 :stress 1790034184700}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:17.338927554Z"}}
+      :timestamp "2026-09-21T23:43:05.841552984Z"}}
   (:require
     [gcp.api.services.bigquery.model.ArimaForecastingMetrics :as
      ArimaForecastingMetrics]
@@ -148,6 +148,6 @@
        "Populated for regression models and explicit feedback type matrix factorization models.\n\n@param regressionMetrics regressionMetrics or {@code null} for none",
      :optional true} :gcp.api.services.bigquery.model/RegressionMetrics]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/EvaluationMetrics schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.EvaluationMetrics"}))
+(global/include-registry! "gcp.api.services.bigquery.model.EvaluationMetrics"
+                          {:gcp.api.services.bigquery.model/EvaluationMetrics
+                             schema})

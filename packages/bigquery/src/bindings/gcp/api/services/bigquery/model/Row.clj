@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.Row"
    :gcp.dev/certification
-     {:base-seed 1779204679869
+     {:base-seed 1790034106521
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204679869 :standard 1779204679870 :stress 1779204679871}
+        {:smoke 1790034106521 :standard 1790034106522 :stress 1790034106523}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:20.705158125Z"}}
+      :timestamp "2026-09-21T23:41:47.546006248Z"}}
   (:require [gcp.api.services.bigquery.model.BigqueryEntry :as BigqueryEntry]
             [gcp.global :as global])
   (:import [com.google.api.services.bigquery.model Row]))
@@ -61,6 +61,5 @@
     [:sequential {:min 1, :gen/max 2}
      :gcp.api.services.bigquery.model/BigqueryEntry]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/Row schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.Row"}))
+(global/include-registry! "gcp.api.services.bigquery.model.Row"
+                          {:gcp.api.services.bigquery.model/Row schema})

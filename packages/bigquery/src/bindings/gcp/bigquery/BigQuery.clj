@@ -2,16 +2,16 @@
 (ns gcp.bigquery.BigQuery
   {:doc
      "An interface for Google Cloud BigQuery.\n\n@see <a href=\"https://cloud.google.com/bigquery/what-is-bigquery\">Google Cloud BigQuery</a>"
-   :file-git-sha "9c0df5422c05696f7ce4bedf914a58306150dc21"
+   :file-git-sha "1b8f9e3953257e1019c11010e003f9855992dee7"
    :fqcn "com.google.cloud.bigquery.BigQuery"
    :gcp.dev/certification
      {:base-seed 0
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :client
       :skipped true
-      :timestamp "2026-05-19T15:32:27.839323581Z"}}
+      :timestamp "2026-09-21T23:43:18.000393892Z"}}
   (:require [gcp.bigquery.custom.BigQueryRetryConfig :as BigQueryRetryConfig]
             [gcp.foreign.com.google.cloud :as cloud]
             [gcp.global :as global])
@@ -22,8 +22,8 @@
      BigQuery$DatasetUpdateMode BigQuery$DatasetView BigQuery$IAMOption
      BigQuery$JobField BigQuery$JobListOption BigQuery$JobOption
      BigQuery$ModelField BigQuery$ModelListOption BigQuery$ModelOption
-     BigQuery$QueryOption BigQuery$QueryResultsOption BigQuery$RoutineField
-     BigQuery$RoutineListOption BigQuery$RoutineOption
+     BigQuery$ProjectListOption BigQuery$QueryOption BigQuery$QueryResultsOption
+     BigQuery$RoutineField BigQuery$RoutineListOption BigQuery$RoutineOption
      BigQuery$TableDataListOption BigQuery$TableField BigQuery$TableListOption
      BigQuery$TableMetadataView BigQuery$TableOption JobStatus$State]))
 
@@ -162,6 +162,41 @@
      {:optional true,
       :doc "Returns an options to list all datasets, even hidden ones."}
      :boolean]]])
+
+(do (defn ^BigQuery$ProjectListOption/1 ProjectListOption-Array-from-edn
+      [arg]
+      (global/strict! :gcp.bigquery/BigQuery.ProjectListOption arg)
+      (into-array
+        BigQuery$ProjectListOption
+        (reduce-kv
+          (fn [acc k v]
+            (case k
+              :pageSize (conj acc
+                              (BigQuery$ProjectListOption/pageSize (long v)))
+              :pageToken (conj acc (BigQuery$ProjectListOption/pageToken v))
+              acc))
+          []
+          arg)))
+    (defn ^BigQuery$ProjectListOption ProjectListOption-from-edn
+      [arg]
+      (global/strict! :gcp.bigquery/BigQuery.ProjectListOption arg)
+      (reduce-kv
+        (fn [acc k v]
+          (case k
+            :pageSize (reduced (BigQuery$ProjectListOption/pageSize (long v)))
+            :pageToken (reduced (BigQuery$ProjectListOption/pageToken v))
+            acc))
+        nil
+        arg)))
+
+(def ProjectListOption-schema
+  [:maybe
+   {:closed true,
+    :doc "Class for specifying project list options.",
+    :gcp/category :nested/client-options,
+    :gcp/key :gcp.bigquery/BigQuery.ProjectListOption}
+   [:map {:closed true} [:pageSize {:optional true} :i64]
+    [:pageToken {:optional true} [:string {:min 1, :gen/max 1}]]]])
 
 (do
   (defn ^BigQuery$DatasetOption/1 DatasetOption-Array-from-edn
@@ -934,29 +969,29 @@
      [:ref :gcp.bigquery/BigQuery.QueryResultsOption]]
     [:waitOption {:optional true} :gcp.foreign.com.google.cloud/RetryOption]]])
 
-(global/include-schema-registry!
-  (with-meta
-    {:gcp.bigquery/BigQuery.DatasetDeleteOption DatasetDeleteOption-schema,
-     :gcp.bigquery/BigQuery.DatasetField DatasetField-schema,
-     :gcp.bigquery/BigQuery.DatasetListOption DatasetListOption-schema,
-     :gcp.bigquery/BigQuery.DatasetOption DatasetOption-schema,
-     :gcp.bigquery/BigQuery.DatasetUpdateMode DatasetUpdateMode-schema,
-     :gcp.bigquery/BigQuery.DatasetView DatasetView-schema,
-     :gcp.bigquery/BigQuery.IAMOption IAMOption-schema,
-     :gcp.bigquery/BigQuery.JobField JobField-schema,
-     :gcp.bigquery/BigQuery.JobListOption JobListOption-schema,
-     :gcp.bigquery/BigQuery.JobOption JobOption-schema,
-     :gcp.bigquery/BigQuery.ModelField ModelField-schema,
-     :gcp.bigquery/BigQuery.ModelListOption ModelListOption-schema,
-     :gcp.bigquery/BigQuery.ModelOption ModelOption-schema,
-     :gcp.bigquery/BigQuery.QueryOption QueryOption-schema,
-     :gcp.bigquery/BigQuery.QueryResultsOption QueryResultsOption-schema,
-     :gcp.bigquery/BigQuery.RoutineField RoutineField-schema,
-     :gcp.bigquery/BigQuery.RoutineListOption RoutineListOption-schema,
-     :gcp.bigquery/BigQuery.RoutineOption RoutineOption-schema,
-     :gcp.bigquery/BigQuery.TableDataListOption TableDataListOption-schema,
-     :gcp.bigquery/BigQuery.TableField TableField-schema,
-     :gcp.bigquery/BigQuery.TableListOption TableListOption-schema,
-     :gcp.bigquery/BigQuery.TableMetadataView TableMetadataView-schema,
-     :gcp.bigquery/BigQuery.TableOption TableOption-schema}
-    {:gcp.global/name "gcp.bigquery.BigQuery"}))
+(global/include-registry!
+  "gcp.bigquery.BigQuery"
+  {:gcp.bigquery/BigQuery.DatasetDeleteOption DatasetDeleteOption-schema,
+   :gcp.bigquery/BigQuery.DatasetField DatasetField-schema,
+   :gcp.bigquery/BigQuery.DatasetListOption DatasetListOption-schema,
+   :gcp.bigquery/BigQuery.DatasetOption DatasetOption-schema,
+   :gcp.bigquery/BigQuery.DatasetUpdateMode DatasetUpdateMode-schema,
+   :gcp.bigquery/BigQuery.DatasetView DatasetView-schema,
+   :gcp.bigquery/BigQuery.IAMOption IAMOption-schema,
+   :gcp.bigquery/BigQuery.JobField JobField-schema,
+   :gcp.bigquery/BigQuery.JobListOption JobListOption-schema,
+   :gcp.bigquery/BigQuery.JobOption JobOption-schema,
+   :gcp.bigquery/BigQuery.ModelField ModelField-schema,
+   :gcp.bigquery/BigQuery.ModelListOption ModelListOption-schema,
+   :gcp.bigquery/BigQuery.ModelOption ModelOption-schema,
+   :gcp.bigquery/BigQuery.ProjectListOption ProjectListOption-schema,
+   :gcp.bigquery/BigQuery.QueryOption QueryOption-schema,
+   :gcp.bigquery/BigQuery.QueryResultsOption QueryResultsOption-schema,
+   :gcp.bigquery/BigQuery.RoutineField RoutineField-schema,
+   :gcp.bigquery/BigQuery.RoutineListOption RoutineListOption-schema,
+   :gcp.bigquery/BigQuery.RoutineOption RoutineOption-schema,
+   :gcp.bigquery/BigQuery.TableDataListOption TableDataListOption-schema,
+   :gcp.bigquery/BigQuery.TableField TableField-schema,
+   :gcp.bigquery/BigQuery.TableListOption TableListOption-schema,
+   :gcp.bigquery/BigQuery.TableMetadataView TableMetadataView-schema,
+   :gcp.bigquery/BigQuery.TableOption TableOption-schema})

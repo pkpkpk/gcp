@@ -2,16 +2,16 @@
 (ns gcp.bigquery.LoadJobConfiguration
   {:doc
      "Google BigQuery load job configuration. A load job loads data from one of several formats into a\ntable. Data is provided as URIs that point to objects in Google Cloud Storage. Load job\nconfigurations have {@link JobConfiguration.Type#LOAD} type."
-   :file-git-sha "5cfdf855fa0cf206660fd89743cbaabf3afa75a3"
+   :file-git-sha "01c975c9df8ef30a0c1462bd446a33579d1fcef8"
    :fqcn "com.google.cloud.bigquery.LoadJobConfiguration"
    :gcp.dev/certification
-     {:base-seed 1779204684499
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034112007
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204684499 :standard 1779204684500 :stress 1779204684501}
+        {:smoke 1790034112007 :standard 1790034112008 :stress 1790034112009}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:25.800962645Z"}}
+      :timestamp "2026-09-21T23:41:53.521983269Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.CsvOptions :as CsvOptions]
@@ -336,8 +336,7 @@
     [:enum {:closed true} "WRITE_TRUNCATE" "WRITE_TRUNCATE_DATA" "WRITE_APPEND"
      "WRITE_EMPTY"]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/LoadJobConfiguration schema,
-              :gcp.bigquery/LoadJobConfiguration.SourceColumnMatch
-                SourceColumnMatch-schema}
-    {:gcp.global/name "gcp.bigquery.LoadJobConfiguration"}))
+(global/include-registry! "gcp.bigquery.LoadJobConfiguration"
+                          {:gcp.bigquery/LoadJobConfiguration schema,
+                           :gcp.bigquery/LoadJobConfiguration.SourceColumnMatch
+                             SourceColumnMatch-schema})

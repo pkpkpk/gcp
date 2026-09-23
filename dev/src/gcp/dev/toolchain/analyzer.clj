@@ -363,7 +363,8 @@
                                (if getter
                                  (assoc acc selected-k (clean-getter getter))
                                  (do
-                                   (tel/log! :warn ["WARNING getter selection failed for field " k])
+                                   (tel/log! :warn ["WARNING ana/getter-builder-setters-by-key getter selection failed for class " (:fqcn node) " field " k])
+                                   (tel/log! :warn (vec gs))
                                    (assoc acc k (clean-getter (first gs))))))))
                          (sorted-map)
                          (group-by #(u/property-key (or (:field-name %) (:name %))) (getters node)))

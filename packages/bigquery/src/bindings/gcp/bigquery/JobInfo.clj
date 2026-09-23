@@ -2,16 +2,16 @@
 (ns gcp.bigquery.JobInfo
   {:doc
      "Google BigQuery Job information. Jobs are objects that manage asynchronous tasks such as running\nqueries, loading data, and exporting data. Use {@link CopyJobConfiguration} for a job that copies\nan existing table. Use {@link ExtractJobConfiguration} for a job that exports a table to Google\nCloud Storage. Use {@link LoadJobConfiguration} for a job that loads data from Google Cloud\nStorage into a table. Use {@link QueryJobConfiguration} for a job that runs a query.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/reference/v2/jobs\">Jobs</a>"
-   :file-git-sha "acea61c20b69b44c8612ca22745458ad04bc6be4"
+   :file-git-sha "5924c3b950691084ee117331bbbea8701050c974"
    :fqcn "com.google.cloud.bigquery.JobInfo"
    :gcp.dev/certification
-     {:base-seed 1779204704078
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034142307
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204704078 :standard 1779204704079 :stress 1779204704080}
+        {:smoke 1790034142307 :standard 1790034142308 :stress 1790034142309}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:52.098934865Z"}}
+      :timestamp "2026-09-21T23:42:35.579649051Z"}}
   (:require [gcp.bigquery.JobConfiguration :as JobConfiguration]
             [gcp.bigquery.JobId :as JobId]
             [gcp.bigquery.JobStatus :as JobStatus]
@@ -134,10 +134,9 @@
      :getter-doc "Returns the email address of the user who ran the job."}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/JobInfo schema,
-              :gcp.bigquery/JobInfo.CreateDisposition CreateDisposition-schema,
-              :gcp.bigquery/JobInfo.SchemaUpdateOption
-                SchemaUpdateOption-schema,
-              :gcp.bigquery/JobInfo.WriteDisposition WriteDisposition-schema}
-    {:gcp.global/name "gcp.bigquery.JobInfo"}))
+(global/include-registry!
+  "gcp.bigquery.JobInfo"
+  {:gcp.bigquery/JobInfo schema,
+   :gcp.bigquery/JobInfo.CreateDisposition CreateDisposition-schema,
+   :gcp.bigquery/JobInfo.SchemaUpdateOption SchemaUpdateOption-schema,
+   :gcp.bigquery/JobInfo.WriteDisposition WriteDisposition-schema})

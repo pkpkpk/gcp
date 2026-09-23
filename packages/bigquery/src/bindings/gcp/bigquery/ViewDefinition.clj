@@ -2,16 +2,16 @@
 (ns gcp.bigquery.ViewDefinition
   {:doc
      "Google BigQuery view table definition. BigQuery's views are logical views, not materialized\nviews, which means that the query that defines the view is re-executed every time the view is\nqueried.\n\n@see <a href=\"https://cloud.google.com/bigquery/querying-data#views\">Views</a>"
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "36af39e222ccf992d15ddbf82148b98e377b40f3"
    :fqcn "com.google.cloud.bigquery.ViewDefinition"
    :gcp.dev/certification
-     {:base-seed 1779204674177
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034099684
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204674177 :standard 1779204674178 :stress 1779204674179}
+        {:smoke 1790034099684 :standard 1790034099685 :stress 1790034099686}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:15.282431804Z"}}
+      :timestamp "2026-09-21T23:41:41.063965536Z"}}
   (:require [gcp.bigquery.Schema :as Schema]
             [gcp.bigquery.UserDefinedFunction :as UserDefinedFunction]
             [gcp.global :as global])
@@ -72,6 +72,5 @@
        "Sets user defined functions that can be used by {@link #getQuery()}.\n\n@see <a href=\"https://cloud.google.com/bigquery/user-defined-functions\">User-Defined\n    Functions</a>"}
     [:sequential {:min 1, :gen/max 2} :gcp.bigquery/UserDefinedFunction]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/ViewDefinition schema}
-    {:gcp.global/name "gcp.bigquery.ViewDefinition"}))
+(global/include-registry! "gcp.bigquery.ViewDefinition"
+                          {:gcp.bigquery/ViewDefinition schema})

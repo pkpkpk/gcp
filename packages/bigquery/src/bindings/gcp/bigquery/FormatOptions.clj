@@ -2,16 +2,16 @@
 (ns gcp.bigquery.FormatOptions
   {:doc
      "Base class for Google BigQuery format options. These class define the format of external data\nused by BigQuery, for either federated tables or load jobs.\n\n<p>Load jobs support the following formats: AVRO, CSV, DATASTORE_BACKUP, GOOGLE_SHEETS, JSON,\nORC, PARQUET\n\n<p>Federated tables can be defined against following formats: AVRO, BIGTABLE, CSV,\nDATASTORE_BACKUP, GOOGLE_SHEETS, JSON"
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "e8841639b4b2fac7b3b2ce601ec4b50cb354a9e1"
    :fqcn "com.google.cloud.bigquery.FormatOptions"
    :gcp.dev/certification
-     {:base-seed 1779204636455
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034052014
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204636455 :standard 1779204636456 :stress 1779204636457}
+        {:smoke 1790034052014 :standard 1790034052015 :stress 1790034052016}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:37.250837663Z"}}
+      :timestamp "2026-09-21T23:40:53.338381439Z"}}
   (:require [gcp.bigquery.AvroOptions :as AvroOptions]
             [gcp.bigquery.BigtableOptions :as BigtableOptions]
             [gcp.bigquery.CsvOptions :as CsvOptions]
@@ -70,6 +70,5 @@
     {:closed true, :doc "Default options for NEWLINE_DELIMITED_JSON format."}
     [:type [:= "NEWLINE_DELIMITED_JSON"]]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/FormatOptions schema}
-                                   {:gcp.global/name
-                                      "gcp.bigquery.FormatOptions"}))
+(global/include-registry! "gcp.bigquery.FormatOptions"
+                          {:gcp.bigquery/FormatOptions schema})

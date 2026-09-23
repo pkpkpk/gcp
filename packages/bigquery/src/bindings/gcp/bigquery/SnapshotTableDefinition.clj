@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.SnapshotTableDefinition
   {:doc nil
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "56d69efeaa90c9fa71e0c2c95412a1ad0c95dc90"
    :fqcn "com.google.cloud.bigquery.SnapshotTableDefinition"
    :gcp.dev/certification
-     {:base-seed 1779204663055
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034086215
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204663055 :standard 1779204663056 :stress 1779204663057}
+        {:smoke 1790034086215 :standard 1790034086216 :stress 1790034086217}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:03.977564585Z"}}
+      :timestamp "2026-09-21T23:41:27.376848675Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.RangePartitioning :as RangePartitioning]
             [gcp.bigquery.Schema :as Schema]
@@ -86,6 +86,5 @@
     [:string {:min 1, :gen/max 1}]]
    [:timePartitioning {:optional true} :gcp.bigquery/TimePartitioning]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/SnapshotTableDefinition schema}
-    {:gcp.global/name "gcp.bigquery.SnapshotTableDefinition"}))
+(global/include-registry! "gcp.bigquery.SnapshotTableDefinition"
+                          {:gcp.bigquery/SnapshotTableDefinition schema})

@@ -6,13 +6,13 @@
    [gcp.global :as g]
    [jsonista.core :as j])
   (:import
-   (com.google.cloud.bigquery Field Field$Mode FieldElementType FieldValue InsertAllRequest LegacySQLTypeName QueryParameterValue Range StandardSQLTypeName TableResult)
-   (com.google.gson JsonObject)
-   (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
-   (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
-   (java.time.temporal ChronoField ChronoUnit)
-   (java.util Base64 Date HashMap)
-   (org.threeten.extra PeriodDuration)))
+    (com.google.cloud.bigquery Field Field$Mode FieldElementType FieldValue InsertAllRequest LegacySQLTypeName QueryParameterValue Range StandardSQLTypeName TableResult)
+    (com.google.gson JsonObject)
+    (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
+    (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
+    (java.time.temporal ChronoField ChronoUnit)
+    (java.util Base64 Date HashMap)
+    (org.threeten.extra PeriodDuration)))
 
 #!-----------------------------
 #! :Time
@@ -764,13 +764,12 @@
 
 #!----------------------------------------------------------------------------------------------------------------------
 
-(g/include-schema-registry!
-  (with-meta {:gcp.bigquery/Field                        Field-schema
-              :gcp.bigquery/FieldElementType             FieldElementType-schema
-              :gcp.bigquery/Range                        Range-schema
-              :gcp.bigquery/QueryParameterValue.SCALAR   scalar-schema
-              :gcp.bigquery/QueryParameterValue          QueryParameterValue-schema
-              :gcp.bigquery/InsertAllRequest$RowValue    InsertAllRequest$RowValue-schema
-              :gcp.bigquery/InsertAllRequest$RowToInsert InsertAllRequest$RowToInsert-schema
-              :gcp.bigquery/InsertAllRequest             InsertAllRequest-schema}
-             {::g/name "gcp.bigquery.custom"}))
+(g/include-registry! "gcp.bigquery.custom"
+                     {:gcp.bigquery/Field                        Field-schema
+                      :gcp.bigquery/FieldElementType             FieldElementType-schema
+                      :gcp.bigquery/Range                        Range-schema
+                      :gcp.bigquery/QueryParameterValue.SCALAR   scalar-schema
+                      :gcp.bigquery/QueryParameterValue          QueryParameterValue-schema
+                      :gcp.bigquery/InsertAllRequest$RowValue    InsertAllRequest$RowValue-schema
+                      :gcp.bigquery/InsertAllRequest$RowToInsert InsertAllRequest$RowToInsert-schema
+                      :gcp.bigquery/InsertAllRequest             InsertAllRequest-schema})

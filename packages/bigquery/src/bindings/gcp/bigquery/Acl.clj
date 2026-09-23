@@ -2,16 +2,16 @@
 (ns gcp.bigquery.Acl
   {:doc
      "Access Control for a BigQuery Dataset. BigQuery uses ACLs to manage permissions on datasets. ACLs\nare not directly supported on tables. A table inherits its ACL from the dataset that contains it.\nProject roles affect your ability to run jobs or manage the project, while dataset roles affect\nhow you can access or modify the data inside a project.\n\n@see <a href=\"https://cloud.google.com/bigquery/access-control\">Access Control</a>"
-   :file-git-sha "a335927e16d0907d62e584f08fa8393daae40354"
+   :file-git-sha "7a51614ff8754158b545420f0864ec4b1c27c82b"
    :fqcn "com.google.cloud.bigquery.Acl"
    :gcp.dev/certification
-     {:base-seed 1779204746151
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034196158
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204746151 :standard 1779204746152 :stress 1779204746153}
+        {:smoke 1790034196158 :standard 1790034196159 :stress 1790034196160}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:27.059039594Z"}}
+      :timestamp "2026-09-21T23:43:17.232495215Z"}}
   (:require [gcp.bigquery.DatasetId :as DatasetId]
             [gcp.bigquery.RoutineId :as RoutineId]
             [gcp.bigquery.TableId :as TableId]
@@ -394,17 +394,17 @@
     [:condition {:doc "@return Returns the condition specified by this ACL."}
      [:ref :gcp.bigquery/Acl.Expr]]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/Acl schema,
-              :gcp.bigquery/Acl.DatasetAclEntity DatasetAclEntity-schema,
-              :gcp.bigquery/Acl.Domain Domain-schema,
-              :gcp.bigquery/Acl.Entity Entity-schema,
-              :gcp.bigquery/Acl.Entity.Type Entity$Type-schema,
-              :gcp.bigquery/Acl.Expr Expr-schema,
-              :gcp.bigquery/Acl.Group Group-schema,
-              :gcp.bigquery/Acl.IamMember IamMember-schema,
-              :gcp.bigquery/Acl.Role Role-schema,
-              :gcp.bigquery/Acl.Routine Routine-schema,
-              :gcp.bigquery/Acl.User User-schema,
-              :gcp.bigquery/Acl.View View-schema}
-    {:gcp.global/name "gcp.bigquery.Acl"}))
+(global/include-registry! "gcp.bigquery.Acl"
+                          {:gcp.bigquery/Acl schema,
+                           :gcp.bigquery/Acl.DatasetAclEntity
+                             DatasetAclEntity-schema,
+                           :gcp.bigquery/Acl.Domain Domain-schema,
+                           :gcp.bigquery/Acl.Entity Entity-schema,
+                           :gcp.bigquery/Acl.Entity.Type Entity$Type-schema,
+                           :gcp.bigquery/Acl.Expr Expr-schema,
+                           :gcp.bigquery/Acl.Group Group-schema,
+                           :gcp.bigquery/Acl.IamMember IamMember-schema,
+                           :gcp.bigquery/Acl.Role Role-schema,
+                           :gcp.bigquery/Acl.Routine Routine-schema,
+                           :gcp.bigquery/Acl.User User-schema,
+                           :gcp.bigquery/Acl.View View-schema})

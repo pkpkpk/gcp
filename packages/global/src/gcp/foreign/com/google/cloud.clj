@@ -131,24 +131,23 @@
           (.getVersion arg) (assoc :version (.getVersion arg))
           (seq (.getBindings arg)) (assoc :bindings (map Binding-to-edn (.getBindings arg)))))
 
-(g/include-schema-registry!
-  (with-meta
-    {::Condition    Condition-schema
-    ::Binding      Binding-schema
-    ::Policy       Policy-schema
-    ::RetryOption [:or
-                   [:map {:closed true} [:totalTimeout ::protobuf/Duration]]
-                   [:map {:closed true} [:initialRetryDelay ::protobuf/Duration]]
-                   [:map {:closed true} [:retryDelayMultiplier :double]]
-                   [:map {:closed true} [:maxRetryDelay ::protobuf/Duration]]
-                   [:map {:closed true} [:maxAttempts :int]]
-                   [:map {:closed true} [:jittered :boolean]]]
-    ::MonitoredResource [:map
-                         [:type :string]
-                         [:labels [:map-of :string :string]]]
-    ::MonitoredResourceDescriptor [:map
-                                   [:type :string]
-                                   [:displayName :string]
-                                   [:description :string]
-                                   [:labels [:sequential :gcp.foreign.com.google.api/LabelDescriptor]]]}
-    {::g/name ::registry}))
+(g/include-registry!
+  "gcp.foreign.com.google.cloud"
+  {::Condition    Condition-schema
+   ::Binding      Binding-schema
+   ::Policy       Policy-schema
+   ::RetryOption [:or
+                  [:map {:closed true} [:totalTimeout ::protobuf/Duration]]
+                  [:map {:closed true} [:initialRetryDelay ::protobuf/Duration]]
+                  [:map {:closed true} [:retryDelayMultiplier :double]]
+                  [:map {:closed true} [:maxRetryDelay ::protobuf/Duration]]
+                  [:map {:closed true} [:maxAttempts :int]]
+                  [:map {:closed true} [:jittered :boolean]]]
+   ::MonitoredResource [:map
+                        [:type :string]
+                        [:labels [:map-of :string :string]]]
+   ::MonitoredResourceDescriptor [:map
+                                  [:type :string]
+                                  [:displayName :string]
+                                  [:description :string]
+                                  [:labels [:sequential :gcp.foreign.com.google.api/LabelDescriptor]]]})

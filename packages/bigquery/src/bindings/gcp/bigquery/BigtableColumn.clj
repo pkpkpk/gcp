@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.BigtableColumn
   {:doc nil
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "8ef4330789702c93ec5ef8843f2202ccea1e9e36"
    :fqcn "com.google.cloud.bigquery.BigtableColumn"
    :gcp.dev/certification
-     {:base-seed 1779204628909
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034040061
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204628909 :standard 1779204628910 :stress 1779204628911}
+        {:smoke 1790034040061 :standard 1790034040062 :stress 1790034040063}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:29.656390073Z"}}
+      :timestamp "2026-09-21T23:40:41.234325752Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery BigtableColumn BigtableColumn$Builder]))
 
@@ -82,6 +82,5 @@
        "The type to convert the value in cells of this column.\n\n<p>The values are expected to be encoded using HBase Bytes.toBytes function when using the\nBINARY encoding value. Following BigQuery types are allowed (case-sensitive): BYTES STRING\nINTEGER FLOAT BOOLEAN Default type is BYTES.\n\n<p>'type' can also be set at the column family level. However, the setting at the column\nlevel takes precedence if 'type' is set at both levels."}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/BigtableColumn schema}
-    {:gcp.global/name "gcp.bigquery.BigtableColumn"}))
+(global/include-registry! "gcp.bigquery.BigtableColumn"
+                          {:gcp.bigquery/BigtableColumn schema})

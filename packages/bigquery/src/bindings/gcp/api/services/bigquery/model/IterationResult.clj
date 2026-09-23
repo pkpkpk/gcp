@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.IterationResult"
    :gcp.dev/certification
-     {:base-seed 1779204660785
+     {:base-seed 1790034083424
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204660785 :standard 1779204660786 :stress 1779204660787}
+        {:smoke 1790034083424 :standard 1790034083425 :stress 1790034083426}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:01.685002596Z"}}
+      :timestamp "2026-09-21T23:41:24.522751806Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaResult :as ArimaResult]
             [gcp.api.services.bigquery.model.ClusterInfo :as ClusterInfo]
             [gcp.api.services.bigquery.model.PrincipalComponentInfo :as
@@ -114,6 +114,6 @@
        "Loss computed on the training data at the end of iteration.\n\n@param trainingLoss trainingLoss or {@code null} for none",
      :optional true} :f64]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/IterationResult schema}
-    {:gcp.global/name "gcp.api.services.bigquery.model.IterationResult"}))
+(global/include-registry! "gcp.api.services.bigquery.model.IterationResult"
+                          {:gcp.api.services.bigquery.model/IterationResult
+                             schema})

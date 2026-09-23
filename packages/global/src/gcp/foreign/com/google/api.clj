@@ -55,21 +55,20 @@
   {:contentType (.getContentType arg)
    :data (protobuf/ByteString-to-edn (.getData arg))})
 
-(global/include-schema-registry!
- (with-meta
-   {::LabelDescriptor [:map
-                       [:key :string]
-                       [:description :string]
-                       [:valueType [:enum "STRING" "BOOL" "INT64"]]]
-    ::MonitoredResource [:map
-                         [:type :string]
-                         [:labels [:map-of :string :string]]]
-    ::MonitoredResourceDescriptor [:map
-                                   [:type :string]
-                                   [:displayName :string]
-                                   [:description :string]
-                                   [:labels [:sequential ::LabelDescriptor]]]
-    ::HttpBody [:map
-                [:contentType :string]
-                [:data :gcp.foreign.com.google.protobuf/ByteString]]}
-   {::global/name ::registry}))
+(global/include-registry!
+  "gcp.foreign.com.google.api"
+  {::LabelDescriptor [:map
+                      [:key :string]
+                      [:description :string]
+                      [:valueType [:enum "STRING" "BOOL" "INT64"]]]
+   ::MonitoredResource [:map
+                        [:type :string]
+                        [:labels [:map-of :string :string]]]
+   ::MonitoredResourceDescriptor [:map
+                                  [:type :string]
+                                  [:displayName :string]
+                                  [:description :string]
+                                  [:labels [:sequential ::LabelDescriptor]]]
+   ::HttpBody [:map
+               [:contentType :string]
+               [:data :gcp.foreign.com.google.protobuf/ByteString]]})

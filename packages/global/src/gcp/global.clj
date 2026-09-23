@@ -189,7 +189,7 @@
 (defn include-registry!
   [keyable registry]
   (let [
-        _ (assert (qualified-keyword? keyable))
+        ;_ (assert (qualified-keyword? keyable))
         ;; for now forcing as keyword but could accept symbols, or derive kw from a ns-object
         registry-name keyable
         ]
@@ -216,7 +216,7 @@
 
 (defn include-schema-registry!
   [registry]
-  (println "gcp.global/include-schema-registry! is deprecated, use (gcp.global/include-registry! keyable registry-map")
+  (println "gcp.global/include-schema-registry! is deprecated, use (gcp.global/include-registry! keyable registry-map)" *ns*)
   (if-let [{registry-name ::name :as rmeta} (meta registry)]
     (do
       (assert-registry-keys! registry registry-name)

@@ -2,16 +2,16 @@
 (ns gcp.bigquery.DatasetInfo
   {:doc
      "Google BigQuery Dataset information. A dataset is a grouping mechanism that holds zero or more\ntables. Datasets are the lowest level unit of access control; you cannot control access at the\ntable level.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/managing_jobs_datasets_projects#datasets\">\n    Managing Jobs, Datasets, and Projects</a>"
-   :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
+   :file-git-sha "9b6aa80452ca4b123ad92df10545db8bfca2e622"
    :fqcn "com.google.cloud.bigquery.DatasetInfo"
    :gcp.dev/certification
-     {:base-seed 1779204753212
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034204424
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204753212 :standard 1779204753213 :stress 1779204753214}
+        {:smoke 1790034204424 :standard 1790034204425 :stress 1790034204426}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:34.148895432Z"}}
+      :timestamp "2026-09-21T23:43:25.543750009Z"}}
   (:require [gcp.bigquery.Acl :as Acl]
             [gcp.bigquery.DatasetId :as DatasetId]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
@@ -235,6 +235,5 @@
        "Optional. Storage billing model to be used for all tables in the dataset. Can be set to\nPHYSICAL. Default is LOGICAL."}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/DatasetInfo schema}
-                                   {:gcp.global/name
-                                      "gcp.bigquery.DatasetInfo"}))
+(global/include-registry! "gcp.bigquery.DatasetInfo"
+                          {:gcp.bigquery/DatasetInfo schema})

@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.TableConstraints
   {:doc nil
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "90b1e1a8b33e2f0ceedc9cdba1410c0f0053f7e8"
    :fqcn "com.google.cloud.bigquery.TableConstraints"
    :gcp.dev/certification
-     {:base-seed 1779204671606
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034096582
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204671606 :standard 1779204671607 :stress 1779204671608}
+        {:smoke 1790034096582 :standard 1790034096583 :stress 1790034096584}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:12.430412799Z"}}
+      :timestamp "2026-09-21T23:41:37.637077781Z"}}
   (:require [gcp.bigquery.ForeignKey :as ForeignKey]
             [gcp.bigquery.PrimaryKey :as PrimaryKey]
             [gcp.global :as global])
@@ -54,6 +54,5 @@
     {:optional true, :setter-doc "The primary key for the table constraints. *"}
     :gcp.bigquery/PrimaryKey]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/TableConstraints schema}
-    {:gcp.global/name "gcp.bigquery.TableConstraints"}))
+(global/include-registry! "gcp.bigquery.TableConstraints"
+                          {:gcp.bigquery/TableConstraints schema})

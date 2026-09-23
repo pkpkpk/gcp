@@ -2,16 +2,16 @@
 (ns gcp.bigquery.DataFormatOptions
   {:doc
      "Google BigQuery DataFormatOptions. Configures the output format for data types returned from\nBigQuery."
-   :file-git-sha "6dcc90053353422ae766e531413b3ecc65b8b155"
+   :file-git-sha "b54cd633d7898dd3cf5e11f2ba3892f7b9a86553"
    :fqcn "com.google.cloud.bigquery.DataFormatOptions"
    :gcp.dev/certification
-     {:base-seed 1779204722891
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034168607
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204722891 :standard 1779204722892 :stress 1779204722893}
+        {:smoke 1790034168607 :standard 1790034168608 :stress 1790034168609}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:03.757875087Z"}}
+      :timestamp "2026-09-21T23:42:49.664153156Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery DataFormatOptions
             DataFormatOptions$Builder
@@ -61,8 +61,8 @@
      "INT64" "ISO8601_STRING"]]
    [:useInt64Timestamp {:getter-doc nil, :setter-doc nil} :boolean]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/DataFormatOptions schema,
-              :gcp.bigquery/DataFormatOptions.TimestampFormatOptions
-                TimestampFormatOptions-schema}
-    {:gcp.global/name "gcp.bigquery.DataFormatOptions"}))
+(global/include-registry!
+  "gcp.bigquery.DataFormatOptions"
+  {:gcp.bigquery/DataFormatOptions schema,
+   :gcp.bigquery/DataFormatOptions.TimestampFormatOptions
+     TimestampFormatOptions-schema})

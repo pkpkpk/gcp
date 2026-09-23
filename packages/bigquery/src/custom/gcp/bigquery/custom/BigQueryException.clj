@@ -1,6 +1,6 @@
 (ns gcp.bigquery.custom.BigQueryException
   (:require
-   [gcp.bigquery.BigQueryError :as BigQueryError]
+    [gcp.bigquery.BigQueryError :as BigQueryError]
    [gcp.global :as g])
   (:import
    (com.google.cloud.bigquery BigQueryException)))
@@ -19,5 +19,4 @@
 
 (def schema (g/instance-schema {:gcp/category :read-only} clojure.lang.ExceptionInfo))
 
-(g/include-schema-registry! (with-meta {:gcp.bigquery/BigQueryException schema}
-                                       {:gcp.global/name "gcp.bigquery.custom.BigQueryException"}))
+(g/include-registry! "gcp.bigquery.custom.BigQueryException" {:gcp.bigquery/BigQueryException schema})

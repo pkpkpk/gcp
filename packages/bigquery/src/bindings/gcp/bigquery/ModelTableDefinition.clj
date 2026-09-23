@@ -2,16 +2,16 @@
 (ns gcp.bigquery.ModelTableDefinition
   {:doc
      "A Google BigQuery Model table definition. This definition is used to represent a BigQuery ML\nmodel.\n\n@see <a\n    href=\"https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-create#models_in_bqml_name\">BigQuery\n    ML Model</a>"
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "36af39e222ccf992d15ddbf82148b98e377b40f3"
    :fqcn "com.google.cloud.bigquery.ModelTableDefinition"
    :gcp.dev/certification
-     {:base-seed 1779204667117
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034091010
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204667117 :standard 1779204667118 :stress 1779204667119}
+        {:smoke 1790034091010 :standard 1790034091011 :stress 1790034091012}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:08.007870423Z"}}
+      :timestamp "2026-09-21T23:41:32.169829410Z"}}
   (:require [gcp.bigquery.Schema :as Schema]
             [gcp.global :as global])
   (:import [com.google.cloud.bigquery ModelTableDefinition
@@ -62,6 +62,5 @@
      :read-only? true,
      :getter-doc "Returns the table's schema."} :gcp.bigquery/Schema]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/ModelTableDefinition schema}
-    {:gcp.global/name "gcp.bigquery.ModelTableDefinition"}))
+(global/include-registry! "gcp.bigquery.ModelTableDefinition"
+                          {:gcp.bigquery/ModelTableDefinition schema})

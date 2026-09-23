@@ -1,10 +1,10 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.custom.QueryJobConfiguration
-  {:doc "Google BigQuery Query Job configuration. A Query Job runs a query against BigQuery data. Query\njob configurations have {@link JobConfiguration.Type#QUERY} type."
+  {:doc          "Google BigQuery Query Job configuration. A Query Job runs a query against BigQuery data. Query\njob configurations have {@link JobConfiguration.Type#QUERY} type."
    :file-git-sha "63b8bdb5f21ab28ff5c2ca3dbd34922463b5ea6f"
-   :fqcn "com.google.cloud.bigquery.QueryJobConfiguration"}
+   :fqcn         "com.google.cloud.bigquery.QueryJobConfiguration"}
   (:require
-   [gcp.bigquery.Clustering :as Clustering]
+    [gcp.bigquery.Clustering :as Clustering]
    [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
    [gcp.bigquery.DatasetId :as DatasetId]
    [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
@@ -407,8 +407,6 @@
        (not (and (contains? m :namedParameters)
                  (contains? m :positionalParameters))))]])
 
-(g/include-schema-registry!
-  (with-meta {:gcp.bigquery/QueryJobConfiguration schema
-              :gcp.bigquery/QueryJobConfiguration.JobCreationMode QueryJobConfiguration$JobCreationMode-schema
-              :gcp.bigquery/QueryJobConfiguration.Priority QueryJobConfiguration$Priority-schema}
-    {:gcp.global/name "gcp.bigquery.QueryJobConfiguration"}))
+(g/include-registry! "gcp.bigquery.QueryJobConfiguration" {:gcp.bigquery/QueryJobConfiguration                 schema
+                                                           :gcp.bigquery/QueryJobConfiguration.JobCreationMode QueryJobConfiguration$JobCreationMode-schema
+                                                           :gcp.bigquery/QueryJobConfiguration.Priority        QueryJobConfiguration$Priority-schema})

@@ -2,16 +2,16 @@
 (ns gcp.bigquery.WriteChannelConfiguration
   {:doc
      "Google BigQuery Configuration for a load operation. A load configuration can be used to load data\ninto a table with a {@link com.google.cloud.WriteChannel} ({@link\nBigQuery#writer(WriteChannelConfiguration)})."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "de961473b1d4c361814b939126c8aabea7cb1d5e"
    :fqcn "com.google.cloud.bigquery.WriteChannelConfiguration"
    :gcp.dev/certification
-     {:base-seed 1779204748109
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034198302
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204748109 :standard 1779204748110 :stress 1779204748111}
+        {:smoke 1790034198302 :standard 1790034198303 :stress 1790034198304}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:29.309665017Z"}}
+      :timestamp "2026-09-21T23:43:19.814120501Z"}}
   (:require [gcp.bigquery.Clustering :as Clustering]
             [gcp.bigquery.ConnectionProperty :as ConnectionProperty]
             [gcp.bigquery.CsvOptions :as CsvOptions]
@@ -164,6 +164,5 @@
     [:enum {:closed true} "WRITE_TRUNCATE" "WRITE_TRUNCATE_DATA" "WRITE_APPEND"
      "WRITE_EMPTY"]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/WriteChannelConfiguration schema}
-    {:gcp.global/name "gcp.bigquery.WriteChannelConfiguration"}))
+(global/include-registry! "gcp.bigquery.WriteChannelConfiguration"
+                          {:gcp.bigquery/WriteChannelConfiguration schema})

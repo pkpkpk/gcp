@@ -48,9 +48,4 @@
 
     (.build builder)))
 
-(def registry
-  (with-meta
-    {::RetrySettings RetrySettings-schema}
-    {::g/name :gcp.foreign.com.google.api.gax.retrying/registry}))
-
-(g/include-schema-registry! registry)
+(g/include-registry! "gcp.foreign.com.google.api.gax.retrying" {::RetrySettings RetrySettings-schema})

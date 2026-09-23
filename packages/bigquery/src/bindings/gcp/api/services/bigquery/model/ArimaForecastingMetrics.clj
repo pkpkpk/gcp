@@ -5,13 +5,13 @@
    :file-git-sha "71853cb52ee53d1c4f9de7baa4b49fe406c6735c"
    :fqcn "com.google.api.services.bigquery.model.ArimaForecastingMetrics"
    :gcp.dev/certification
-     {:base-seed 1779204725617
+     {:base-seed 1790034171825
       :manifest "2096f8e8-3cdd-50e2-9b64-67d099f5c3be"
       :passed-stages
-        {:smoke 1779204725617 :standard 1779204725618 :stress 1779204725619}
+        {:smoke 1790034171825 :standard 1790034171826 :stress 1790034171827}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:06.496213550Z"}}
+      :timestamp "2026-09-21T23:42:52.928261039Z"}}
   (:require [gcp.api.services.bigquery.model.ArimaFittingMetrics :as
              ArimaFittingMetrics]
             [gcp.api.services.bigquery.model.ArimaOrder :as ArimaOrder]
@@ -122,7 +122,6 @@
      :optional true}
     [:sequential {:min 1, :gen/max 2} [:string {:min 1, :gen/max 1}]]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.api.services.bigquery.model/ArimaForecastingMetrics schema}
-    {:gcp.global/name
-       "gcp.api.services.bigquery.model.ArimaForecastingMetrics"}))
+(global/include-registry!
+  "gcp.api.services.bigquery.model.ArimaForecastingMetrics"
+  {:gcp.api.services.bigquery.model/ArimaForecastingMetrics schema})

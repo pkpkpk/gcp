@@ -19,16 +19,10 @@
     [gcp.bigquery.custom.BigQueryException :as BigQueryException]
     [gcp.bigquery.custom.BigQueryOptions :as BQO]
     [gcp.bigquery.custom.BigQueryRetryConfig :as BigQueryRetryConfig]
-    [gcp.bigquery.custom.Dataset :as Dataset]
-    [gcp.bigquery.custom.Job :as Job]
-    [gcp.bigquery.custom.Model :as Model]
     [gcp.bigquery.custom.QueryJobConfiguration :as QJC]
-    [gcp.bigquery.custom.Routine :as Routine]
-    [gcp.bigquery.custom.Table :as Table]
     [gcp.foreign.com.google.cloud :as cloud]
     [gcp.global :as g]
     [gcp.dwim :as dwim]
-    [malli.core :as m]
     [malli.util :as mu])
   (:import
     (com.google.cloud RetryOption)
@@ -60,7 +54,7 @@
    :gcp.bigquery/DatasetList
    [:map {:doc "cmd definition for bq.listDatasets()"}
     [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
-    [:projectId {:optional true} :string]
+    [:projectId {:optional true} [:maybe :string]]
     [:opts {:optional true} :gcp.bigquery/BigQuery.DatasetListOption]]
 
    :gcp.bigquery/DatasetGet
@@ -276,7 +270,7 @@
     [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]
     [:jobId {:optional true} :gcp.bigquery/JobId]]})
 
-(g/include-schema-registry! (with-meta registry {::g/name "gcp.bigquery.core"}))
+(g/include-registry! "gcp.bigquery.core" registry)
 
 (defmulti execute! :op)
 
@@ -286,14 +280,14 @@
 (def ^:private list-datasets-args
   {0 [:catn]
    1 [:altn
-      [:cmd        [:catn [:cmd :gcp.bigquery/DatasetList]]]
-      [:project    [:catn [:projectId :string]]]
-      [:opts       [:catn [:opts :gcp.bigquery/BigQuery.DatasetListOption]]]
-      [:client     [:catn [:clientable :gcp.bigquery/clientable]]]]
+      [:cmd [:catn [:cmd :gcp.bigquery/DatasetList]]]
+      [:project [:catn [:projectId :string]]]
+      [:opts [:catn [:opts :gcp.bigquery/BigQuery.DatasetListOption]]]
+      [:client [:catn [:clientable :gcp.bigquery/clientable]]]]
    2 [:altn
-      [:project-opts   [:catn [:projectId :string] [:opts :gcp.bigquery/BigQuery.DatasetListOption]]]
+      [:project-opts [:catn [:projectId :string] [:opts :gcp.bigquery/BigQuery.DatasetListOption]]]
       [:client-project [:catn [:clientable :gcp.bigquery/clientable] [:projectId :string]]]
-      [:client-opts    [:catn [:clientable :gcp.bigquery/clientable] [:opts :gcp.bigquery/BigQuery.DatasetListOption]]]]
+      [:client-opts [:catn [:clientable :gcp.bigquery/clientable] [:opts :gcp.bigquery/BigQuery.DatasetListOption]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
       [:projectId :string]
@@ -303,7 +297,7 @@
               {:facade    gcp.bigquery/list-datasets
                :cmd       :gcp.bigquery/DatasetList
                :arities   list-datasets-args
-               :normalize (fn [{:keys [clientable projectId opts cmd]}]
+               :normalize (fn [{:keys [clientable projectId opts cmd] :as parsed}]
                             (if cmd
                               (assoc cmd :op :gcp.bigquery/DatasetList)
                               {:op        :gcp.bigquery/DatasetList
@@ -317,7 +311,7 @@
         res (if projectId
               (.listDatasets client projectId opts)
               (.listDatasets client opts))]
-    (map Dataset/to-edn (seq (.iterateAll res)))))
+    (map DatasetInfo/to-edn (seq (.iterateAll res)))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 
@@ -325,14 +319,14 @@
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/DatasetCreate]]]
       [:datasetId [:catn [:datasetId :gcp.bigquery/DatasetId]]]
-      [:datasetInfo [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]]
+      [:datasetInfo [:catn [:datasetInfo :gcp.bigquery/DatasetInfo]]]]
    2 [:altn
-      [:datasetInfo-opts [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
-      [:client-datasetInfo [:catn [:clientable :gcp.bigquery/clientable] [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]]
-   3 [:catn
-      [:clientable :gcp.bigquery/clientable]
-      [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]
-      [:opts :gcp.bigquery/BigQuery.DatasetOption]]})
+      [:datasetId-opts [:catn [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+      [:datasetInfo-opts [:catn [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+      [:client-dataset [:catn [:clientable :gcp.bigquery/clientable] [:datasetInfo :gcp.bigquery/DatasetInfo]]]]
+   3 [:altn
+      [:client-id-opts [:catn [:clientable :gcp.bigquery/clientable] [:datasetId :gcp.bigquery/DatasetId] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+      [:client-info-opts [:catn [:clientable :gcp.bigquery/clientable] [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]]})
 
 (dwim/defdwim ->DatasetCreate
               {:facade    gcp.bigquery/create-dataset
@@ -349,7 +343,7 @@
   (let [client (client bigquery)
         datasetInfo (DatasetInfo/from-edn datasetInfo)
         opts (BQ/DatasetOption-Array-from-edn opts)]
-    (Dataset/to-edn (.create client datasetInfo opts))))
+    (DatasetInfo/to-edn (.create client datasetInfo opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; DatasetUpdate
@@ -357,13 +351,13 @@
 (def ^:private update-dataset-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/DatasetUpdate]]]
-      [:datasetInfo [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]]
+      [:datasetInfo [:catn [:datasetInfo :gcp.bigquery/DatasetInfo]]]]
    2 [:altn
-      [:datasetInfo-opts [:catn [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
-      [:client-datasetInfo [:catn [:clientable :gcp.bigquery/clientable] [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]]]]
+      [:datasetInfo-opts [:catn [:datasetInfo :gcp.bigquery/DatasetInfo] [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
+      [:client-datasetInfo [:catn [:clientable :gcp.bigquery/clientable] [:datasetInfo :gcp.bigquery/DatasetInfo]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:datasetInfo [:or :gcp.bigquery/DatasetInfo :gcp.bigquery/Dataset]]
+      [:datasetInfo :gcp.bigquery/DatasetInfo]
       [:opts :gcp.bigquery/BigQuery.DatasetOption]]})
 
 (dwim/defdwim ->DatasetUpdate
@@ -381,7 +375,7 @@
   (let [client (client bigquery)
         datasetInfo (DatasetInfo/from-edn datasetInfo)
         opts (BQ/DatasetOption-Array-from-edn opts)]
-    (Dataset/to-edn (.update client datasetInfo opts))))
+    (DatasetInfo/to-edn (.update client datasetInfo opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; DatasetGet
@@ -389,17 +383,17 @@
 (def ^:private get-dataset-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/DatasetGet]]]
-      [:datasetId [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]
+      [:datasetId [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]]]]
    2 [:altn
       [:datasetId-opts [:catn
-                        [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]
+                        [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]
                         [:opts :gcp.bigquery/BigQuery.DatasetOption]]]
       [:client-datasetId [:catn
                           [:clientable :gcp.bigquery/clientable]
-                          [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]
+                          [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]
+      [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]
       [:opts :gcp.bigquery/BigQuery.DatasetOption]]})
 
 (dwim/defdwim ->DatasetGet
@@ -420,7 +414,7 @@
   (let [client (client bigquery)
         datasetId (DatasetId/from-edn datasetId)
         opts (BQ/DatasetOption-Array-from-edn opts)]
-    (Dataset/to-edn (.getDataset client datasetId opts))))
+    (DatasetInfo/to-edn (.getDataset client datasetId opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! DatasetDelete
@@ -428,17 +422,17 @@
 (def ^:private delete-dataset-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/DatasetDelete]]]
-      [:datasetId [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]
+      [:datasetId [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]]]]
    2 [:altn
       [:datasetId-opts [:catn
-                        [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]
+                        [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]
                         [:opts :gcp.bigquery/BigQuery.DatasetDeleteOption]]]
       [:client-datasetId [:catn
                           [:clientable :gcp.bigquery/clientable]
-                          [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]
+                          [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]
+      [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]
       [:opts :gcp.bigquery/BigQuery.DatasetDeleteOption]]})
 
 (dwim/defdwim ->DatasetDelete
@@ -467,20 +461,37 @@
 (def ^:private list-tables-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableList]]]
-      [:datasetId [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]
+      [:datasetId [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]]]]
    2 [:altn
       [:project-dataset [:catn [:project string?] [:dataset string?]]]
-      [:datasetId-opts [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.TableListOption]]]
-      [:client-datasetId [:catn [:clientable :gcp.bigquery/clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]]]]]
+      [:datasetId-opts [:catn [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]] [:opts :gcp.bigquery/BigQuery.TableListOption]]]
+      [:client-datasetId [:catn [:clientable :gcp.bigquery/clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]]]]]
    3 [:altn
       [:project-dataset-opts [:catn [:project string?] [:dataset string?] [:opts :gcp.bigquery/BigQuery.TableListOption]]]
       [:client-project-dataset [:catn [:clientable :gcp.bigquery/clientable] [:project string?] [:dataset string?]]]
-      [:client-datasetId-opts [:catn [:clientable :gcp.bigquery/clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/Dataset]] [:opts :gcp.bigquery/BigQuery.TableListOption]]]]
+      [:client-datasetId-opts [:catn [:clientable :gcp.bigquery/clientable] [:datasetId [:or :gcp.bigquery/DatasetId :gcp.bigquery/DatasetInfo]] [:opts :gcp.bigquery/BigQuery.TableListOption]]]]
    4 [:catn
       [:clientable :gcp.bigquery/clientable]
       [:project string?]
       [:dataset string?]
       [:opts :gcp.bigquery/BigQuery.TableListOption]]})
+
+(defn keywordize-map [m]
+  (into {}
+        (map
+          (fn [[k v]]
+            [(keyword k) v]))
+        m))
+
+(defn- TableLite-to-edn [^com.google.cloud.bigquery.Table arg]
+  (cond-> {:definition {:type (.name (.getType (.getDefinition arg)))}
+           :generatedId (.getGeneratedId arg)
+           :creationTime (.getCreationTime arg)
+           :tableId (TableId/to-edn (.getTableId arg))}
+          (seq (.getLabels arg))
+          (assoc :labels (keywordize-map (.getLabels arg)))
+          (seq (.getResourceTags arg))
+          (assoc :resourceTags (keywordize-map (.getResourceTags arg)))))
 
 (dwim/defdwim ->TableList
               {:facade    gcp.bigquery/list-tables
@@ -501,7 +512,7 @@
         datasetId (DatasetId/from-edn datasetId)
         opts (BQ/TableListOption-Array-from-edn opts)
         res (.listTables client datasetId opts)]
-    (map Table/Lite-to-edn (seq (.iterateAll res)))))
+    (map TableLite-to-edn (seq (.iterateAll res)))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; TableListPartitions
@@ -509,9 +520,9 @@
 (def ^:private list-partitions-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableListPartitions]]]
-      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]
+      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    2 [:altn
-      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
+      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]
       [:dataset-table [:catn [:dataset string?] [:table string?]]]]
    3 [:altn
       [:client-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?]]]
@@ -546,13 +557,13 @@
 (def ^:private create-table-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableCreate]]]
-      [:tableInfo [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]]
+      [:tableInfo [:catn [:tableInfo :gcp.bigquery/TableInfo]]]]
    2 [:altn
-      [:client-tableInfo [:catn [:clientable :gcp.bigquery/clientable] [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]
-      [:tableInfo-opts [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]
+      [:client-tableInfo [:catn [:clientable :gcp.bigquery/clientable] [:tableInfo :gcp.bigquery/TableInfo]]]
+      [:tableInfo-opts [:catn [:tableInfo :gcp.bigquery/TableInfo] [:opts :gcp.bigquery/BigQuery.TableOption]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]
+      [:tableInfo :gcp.bigquery/TableInfo]
       [:opts :gcp.bigquery/BigQuery.TableOption]]})
 
 (dwim/defdwim ->TableCreate
@@ -570,7 +581,7 @@
   (let [client (client bigquery)
         tableInfo (TableInfo/from-edn tableInfo)
         opts (BQ/TableOption-Array-from-edn opts)]
-    (Table/to-edn (.create client tableInfo opts))))
+    (TableInfo/to-edn (.create client tableInfo opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; TableUpdate
@@ -578,13 +589,13 @@
 (def ^:private update-table-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableUpdate]]]
-      [:tableInfo [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]]
+      [:tableInfo [:catn [:tableInfo :gcp.bigquery/TableInfo]]]]
    2 [:altn
-      [:client-tableInfo [:catn [:clientable :gcp.bigquery/clientable] [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]]]
-      [:tableInfo-opts [:catn [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]
+      [:client-tableInfo [:catn [:clientable :gcp.bigquery/clientable] [:tableInfo :gcp.bigquery/TableInfo]]]
+      [:tableInfo-opts [:catn [:tableInfo :gcp.bigquery/TableInfo] [:opts :gcp.bigquery/BigQuery.TableOption]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:tableInfo [:or :gcp.bigquery/TableInfo :gcp.bigquery/Table]]
+      [:tableInfo :gcp.bigquery/TableInfo]
       [:opts :gcp.bigquery/BigQuery.TableOption]]})
 
 (dwim/defdwim ->TableUpdate
@@ -602,7 +613,7 @@
   (let [client (client bigquery)
         tableInfo (TableInfo/from-edn tableInfo)
         opts (BQ/TableOption-Array-from-edn opts)]
-    (Table/to-edn (.update client tableInfo opts))))
+    (TableInfo/to-edn (.update client tableInfo opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; TableGet
@@ -610,16 +621,16 @@
 (def ^:private get-table-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableGet]]]
-      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]
+      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    2 [:altn
       [:dataset-table [:catn [:dataset string?] [:table string?]]]
-      [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]
-      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]
+      [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.TableOption]]]
+      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    3 [:altn
       [:project-dataset-table [:catn [:project string?] [:dataset string?] [:table string?]]]
       [:dataset-table-opts [:catn [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableOption]]]
       [:client-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?]]]
-      [:client-tableId-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]
+      [:client-tableId-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.TableOption]]]]
    4 [:altn
       [:project-dataset-table-opts [:catn [:project string?] [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableOption]]]
       [:client-project-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:project string?] [:dataset string?] [:table string?]]]
@@ -649,7 +660,7 @@
   (let [client (client bigquery)
         tableId (TableId/from-edn tableId)
         opts (BQ/TableOption-Array-from-edn opts)]
-    (Table/to-edn (.getTable client tableId opts))))
+    (TableInfo/to-edn (.getTable client tableId opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; TableDelete
@@ -657,9 +668,9 @@
 (def ^:private delete-table-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableDelete]]]
-      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]
+      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    2 [:altn
-      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
+      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]
       [:dataset-table [:catn [:dataset string?] [:table string?]]]]
    3 [:altn
       [:client-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?]]]
@@ -694,25 +705,25 @@
 (def ^:private list-table-data-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/TableListData]]]
-      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]
+      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    2 [:altn
-      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
+      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]
       [:dataset-table [:catn [:dataset string?] [:table string?]]]
-      [:tableId-schema [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema]]]
-      [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]
+      [:tableId-schema [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:schema :gcp.bigquery/Schema]]]
+      [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]
    3 [:altn
       [:client-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?]]]
-      [:client-tableId-schema [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema]]]
-      [:client-tableId-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
+      [:client-tableId-schema [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:schema :gcp.bigquery/Schema]]]
+      [:client-tableId-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
       [:project-dataset-table [:catn [:project string?] [:dataset string?] [:table string?]]]
       [:dataset-table-schema [:catn [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema]]]
       [:dataset-table-opts [:catn [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
-      [:tableId-schema-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]
+      [:tableId-schema-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]
    4 [:altn
       [:client-project-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:project string?] [:dataset string?] [:table string?]]]
       [:client-dataset-table-schema [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema]]]
       [:client-dataset-table-opts [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
-      [:client-tableId-schema-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
+      [:client-tableId-schema-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
       [:project-dataset-table-schema [:catn [:project string?] [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema]]]
       [:project-dataset-table-opts [:catn [:project string?] [:dataset string?] [:table string?] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]
       [:dataset-table-schema-opts [:catn [:dataset string?] [:table string?] [:schema :gcp.bigquery/Schema] [:opts :gcp.bigquery/BigQuery.TableDataListOption]]]]
@@ -762,9 +773,9 @@
       [:insertAllRequest [:catn [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]]
    2 [:altn
       [:client-request [:catn [:clientable :gcp.bigquery/clientable] [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]
-      [:tableId-rows [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]
+      [:tableId-rows [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]
    3 [:altn
-      [:client-tableId-rows [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
+      [:client-tableId-rows [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
       [:dataset-table-rows [:catn [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]
    4 [:altn
       [:client-dataset-table-rows [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:table string?] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
@@ -823,7 +834,7 @@
         opts (BQ/JobListOption-Array-from-edn opts)
         res (.listJobs client opts)]
     (binding [g/*strict-mode* false]
-      (map (bound-fn [j] (Job/to-edn j)) (seq (.iterateAll res))))))
+      (map (bound-fn [j] (JobInfo/to-edn j)) (seq (.iterateAll res))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; JobCancel
@@ -831,10 +842,10 @@
 (def ^:private cancel-job-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/JobCancel]]]
-      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    2 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]})
+      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]})
 
 (dwim/defdwim ->JobCancel
               {:facade    gcp.bigquery/cancel-job
@@ -855,7 +866,7 @@
         opts (BQ/JobListOption-Array-from-edn opts)
         res (.listJobs client opts)]
     (binding [g/*strict-mode* false]
-      (map (bound-fn [j] (Job/to-edn j)) (seq (.iterateAll res))))))
+      (map (bound-fn [j] (JobInfo/to-edn j)) (seq (.iterateAll res))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; JobCreate
@@ -897,13 +908,13 @@
 (def ^:private get-job-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/JobGet]]]
-      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    2 [:altn
-      [:jobId-opts [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId-opts [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:opts :gcp.bigquery/BigQuery.JobOption]]})
 
 (dwim/defdwim ->JobGet
@@ -926,7 +937,7 @@
         jobId (JobId/from-edn jobId)
         opts (BQ/JobOption-Array-from-edn opts)]
     (binding [g/*strict-mode* false]
-      (Job/to-edn (.getJob client jobId opts)))))
+      (JobInfo/to-edn (.getJob client jobId opts)))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; JobDelete
@@ -934,10 +945,10 @@
 (def ^:private delete-job-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/JobDelete]]]
-      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    2 [:altn
-      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
-      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]})
+      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
+      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]})
 
 (dwim/defdwim ->JobDelete
               {:facade    gcp.bigquery/delete-job
@@ -964,13 +975,13 @@
 (def ^:private wait-for-job-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/JobWaitFor]]]
-      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    2 [:altn
-      [:jobId-opts [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]
-      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId-opts [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]
+      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:opts [:map {:closed true} [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]] [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]})
 
 (dwim/defdwim ->JobWaitFor
@@ -1012,7 +1023,7 @@
 
                       :else
                       (.waitFor job (make-array RetryOption 0)))]
-            (binding [g/*strict-mode* false] (Job/to-edn job)))
+            (binding [g/*strict-mode* false] (JobInfo/to-edn job)))
           (catch com.google.cloud.bigquery.BigQueryException e
             (throw (BigQueryException/to-edn e))))))))
 
@@ -1022,13 +1033,13 @@
 (def ^:private is-done-job-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/JobIsDone]]]
-      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]]
+      [:jobId [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]]
    2 [:altn
-      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
-      [:jobId-opts [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]]
+      [:client-jobId [:catn [:clientable :gcp.bigquery/clientable] [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
+      [:jobId-opts [:catn [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or string? :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:opts [:map {:closed true} [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]]]})
 
 (dwim/defdwim ->JobIsDone
@@ -1099,7 +1110,7 @@
         datasetId (DatasetId/from-edn datasetId)
         opts (BQ/RoutineListOption-Array-from-edn opts)
         res (.listRoutines client datasetId opts)]
-    (map Routine/to-edn (seq (.iterateAll res)))))
+    (map RoutineInfo/to-edn (seq (.iterateAll res)))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; RoutineCreate / RoutineUpdate (shared schema)
@@ -1107,13 +1118,13 @@
 (def ^:private routine-create-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/RoutineCreate]]]
-      [:routineInfo [:catn [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]]]]
+      [:routineInfo [:catn [:routineInfo :gcp.bigquery/RoutineInfo]]]]
    2 [:altn
-      [:client-routineInfo [:catn [:clientable :gcp.bigquery/clientable] [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]]]
-      [:routineInfo-opts [:catn [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
+      [:client-routineInfo [:catn [:clientable :gcp.bigquery/clientable] [:routineInfo :gcp.bigquery/RoutineInfo]]]
+      [:routineInfo-opts [:catn [:routineInfo :gcp.bigquery/RoutineInfo] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]
+      [:routineInfo :gcp.bigquery/RoutineInfo]
       [:opts :gcp.bigquery/BigQuery.RoutineOption]]})
 
 (dwim/defdwim ->RoutineCreate
@@ -1131,7 +1142,7 @@
   (let [client (client bigquery)
         routineInfo (RoutineInfo/from-edn routineInfo)
         opts (BQ/RoutineOption-Array-from-edn opts)]
-    (Routine/to-edn (.create client routineInfo opts))))
+    (RoutineInfo/to-edn (.create client routineInfo opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; RoutineUpdate
@@ -1139,13 +1150,13 @@
 (def ^:private routine-update-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/RoutineUpdate]]]
-      [:routineInfo [:catn [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]]]]
+      [:routineInfo [:catn [:routineInfo :gcp.bigquery/RoutineInfo]]]]
    2 [:altn
-      [:client-routineInfo [:catn [:clientable :gcp.bigquery/clientable] [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]]]
-      [:routineInfo-opts [:catn [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
+      [:client-routineInfo [:catn [:clientable :gcp.bigquery/clientable] [:routineInfo :gcp.bigquery/RoutineInfo]]]
+      [:routineInfo-opts [:catn [:routineInfo :gcp.bigquery/RoutineInfo] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:routineInfo [:or :gcp.bigquery/RoutineInfo :gcp.bigquery/Routine]]
+      [:routineInfo :gcp.bigquery/RoutineInfo]
       [:opts :gcp.bigquery/BigQuery.RoutineOption]]})
 
 (dwim/defdwim ->RoutineUpdate
@@ -1163,7 +1174,7 @@
   (let [client (client bigquery)
         routineInfo (RoutineInfo/from-edn routineInfo)
         opts (BQ/RoutineOption-Array-from-edn opts)]
-    (Routine/to-edn (.update client routineInfo opts))))
+    (RoutineInfo/to-edn (.update client routineInfo opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; RoutineGet
@@ -1171,14 +1182,14 @@
 (def ^:private get-routine-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/RoutineGet]]]
-      [:routineId [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]]
+      [:routineId [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/RoutineInfo]]]]]
    2 [:altn
-      [:client-routineId [:catn [:clientable :gcp.bigquery/clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]
+      [:client-routineId [:catn [:clientable :gcp.bigquery/clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/RoutineInfo]]]]
       [:dataset-routine [:catn [:dataset string?] [:routine string?]]]
-      [:routineId-opts [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
+      [:routineId-opts [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/RoutineInfo]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
    3 [:altn
       [:client-dataset-routine [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:routine string?]]]
-      [:client-routineId-opts [:catn [:clientable :gcp.bigquery/clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]
+      [:client-routineId-opts [:catn [:clientable :gcp.bigquery/clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/RoutineInfo]] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]
       [:project-dataset-routine [:catn [:project string?] [:dataset string?] [:routine string?]]]
       [:dataset-routine-opts [:catn [:dataset string?] [:routine string?] [:opts :gcp.bigquery/BigQuery.RoutineOption]]]]
    4 [:altn
@@ -1209,7 +1220,7 @@
   (let [client (client bigquery)
         routineId (RoutineId/from-edn routineId)
         opts (BQ/RoutineOption-Array-from-edn opts)]
-    (Routine/to-edn (.getRoutine client routineId opts))))
+    (RoutineInfo/to-edn (.getRoutine client routineId opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; RoutineDelete
@@ -1217,9 +1228,9 @@
 (def ^:private delete-routine-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/RoutineDelete]]]
-      [:routineId [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]]
+      [:routineId [:catn [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/RoutineInfo]]]]]
    2 [:altn
-      [:client-routineId [:catn [:clientable :gcp.bigquery/clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/Routine]]]]
+      [:client-routineId [:catn [:clientable :gcp.bigquery/clientable] [:routineId [:or :gcp.bigquery/RoutineId :gcp.bigquery/RoutineInfo]]]]
       [:dataset-routine [:catn [:dataset string?] [:routine string?]]]]
    3 [:altn
       [:client-dataset-routine [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:routine string?]]]
@@ -1288,7 +1299,7 @@
         datasetId (DatasetId/from-edn datasetId)
         opts (BQ/ModelListOption-Array-from-edn opts)
         res (.listModels client datasetId opts)]
-    (map Model/to-edn (seq (.iterateAll res)))))
+    (map ModelInfo/to-edn (seq (.iterateAll res)))))
 
 ;#!----------------------------------------------------------------------------------------------------------------------
 ;;; ModelUpdate
@@ -1296,13 +1307,13 @@
 (def ^:private update-model-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/ModelUpdate]]]
-      [:modelInfo [:catn [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]]]]]
+      [:modelInfo [:catn [:modelInfo :gcp.bigquery/ModelInfo]]]]
    2 [:altn
-      [:client-modelInfo [:catn [:clientable :gcp.bigquery/clientable] [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]]]]
-      [:modelInfo-opts [:catn [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]
+      [:client-modelInfo [:catn [:clientable :gcp.bigquery/clientable] [:modelInfo :gcp.bigquery/ModelInfo]]]
+      [:modelInfo-opts [:catn [:modelInfo :gcp.bigquery/ModelInfo] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:modelInfo [:or :gcp.bigquery/ModelInfo :gcp.bigquery/Model]]
+      [:modelInfo :gcp.bigquery/ModelInfo]
       [:opts :gcp.bigquery/BigQuery.ModelOption]]})
 
 (dwim/defdwim ->ModelUpdate
@@ -1320,7 +1331,7 @@
   (let [client (client bigquery)
         modelInfo (ModelInfo/from-edn modelInfo)
         opts (BQ/ModelOption-Array-from-edn opts)]
-    (Model/to-edn (.update client modelInfo opts))))
+    (ModelInfo/to-edn (.update client modelInfo opts))))
 
 ;#!----------------------------------------------------------------------------------------------------------------------
 ;;; ModelGet
@@ -1328,14 +1339,14 @@
 (def ^:private get-model-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/ModelGet]]]
-      [:modelId [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]]
+      [:modelId [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/ModelInfo]]]]]
    2 [:altn
-      [:client-modelId [:catn [:clientable :gcp.bigquery/clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]
+      [:client-modelId [:catn [:clientable :gcp.bigquery/clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/ModelInfo]]]]
       [:dataset-model [:catn [:dataset string?] [:model string?]]]
-      [:modelId-opts [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]
+      [:modelId-opts [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/ModelInfo]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]
    3 [:altn
       [:client-dataset-model [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:model string?]]]
-      [:client-modelId-opts [:catn [:clientable :gcp.bigquery/clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]
+      [:client-modelId-opts [:catn [:clientable :gcp.bigquery/clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/ModelInfo]] [:opts :gcp.bigquery/BigQuery.ModelOption]]]
       [:project-dataset-model [:catn [:project string?] [:dataset string?] [:model string?]]]
       [:dataset-model-opts [:catn [:dataset string?] [:model string?] [:opts :gcp.bigquery/BigQuery.ModelOption]]]]
    4 [:altn
@@ -1366,7 +1377,7 @@
   (let [client (client bigquery)
         modelId (ModelId/from-edn modelId)
         opts (BQ/ModelOption-Array-from-edn opts)]
-    (Model/to-edn (.getModel client modelId opts))))
+    (ModelInfo/to-edn (.getModel client modelId opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; ModelDelete
@@ -1374,9 +1385,9 @@
 (def ^:private delete-model-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/ModelDelete]]]
-      [:modelId [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]]
+      [:modelId [:catn [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/ModelInfo]]]]]
    2 [:altn
-      [:client-modelId [:catn [:clientable :gcp.bigquery/clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/Model]]]]
+      [:client-modelId [:catn [:clientable :gcp.bigquery/clientable] [:modelId [:or :gcp.bigquery/ModelId :gcp.bigquery/ModelInfo]]]]
       [:dataset-model [:catn [:dataset string?] [:model string?]]]]
    3 [:altn
       [:client-dataset-model [:catn [:clientable :gcp.bigquery/clientable] [:dataset string?] [:model string?]]]
@@ -1411,14 +1422,14 @@
 (def ^:private get-iam-policy-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/GetIamPolicy]]]
-      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]]
+      [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    2 [:altn
-      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]]]
+      [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]
       [:dataset-table [:catn [:dataset :string] [:table :string]]]
-      [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
+      [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
    3 [:altn
       [:client-dataset-table [:catn [:clientable :gcp.bigquery/clientable] [:dataset :string] [:table :string]]]
-      [:client-tableId-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
+      [:client-tableId-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
       [:project-dataset-table [:catn [:project :string] [:dataset :string] [:table :string]]]
       [:dataset-table-opts [:catn [:dataset :string] [:table :string] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
    4 [:altn
@@ -1457,13 +1468,13 @@
 (def ^:private set-iam-policy-args
   {1 [:catn [:cmd :gcp.bigquery/SetIamPolicy]]
    2 [:catn
-      [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]
+      [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]
       [:policy ::cloud/Policy]]
    3 [:altn
-      [:client-tableId-policy [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy]]]
+      [:client-tableId-policy [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:policy ::cloud/Policy]]]
       [:dataset-table-policy [:catn [:dataset :string] [:table :string] [:policy ::cloud/Policy]]]
       [:dataset-table-policy-opts [:catn [:dataset :string] [:table :string] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
-      [:tableId-policy-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
+      [:tableId-policy-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
    4 [:altn
       [:client-dataset-table-policy [:catn [:clientable :gcp.bigquery/clientable] [:dataset :string] [:table :string] [:policy ::cloud/Policy]]]
       [:project-dataset-table-policy
@@ -1474,7 +1485,7 @@
         [:policy ::cloud/Policy]]]
       [:client-tableId-policy-opts
        [:catn
-        [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
+        [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
    5 [:altn
       [:client-project-dataset-table-policy [:catn [:clientable :gcp.bigquery/clientable] [:project :string] [:dataset :string] [:table :string] [:policy ::cloud/Policy]]]
       [:client-dataset-table-policy-opts [:catn [:clientable :gcp.bigquery/clientable] [:dataset :string] [:table :string] [:policy ::cloud/Policy] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
@@ -1515,16 +1526,16 @@
 (def ^:private test-iam-permissions-args
   {1 [:catn [:cmd :gcp.bigquery/TestIamPermissions]]
    2 [:catn
-      [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]]
+      [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]
       [:permissions [:sequential :string]]]
    3 [:altn
-      [:client-tableId-perms [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential :string]]]]
+      [:client-tableId-perms [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:permissions [:sequential :string]]]]
       [:dataset-table-perms [:catn [:dataset :string] [:table :string] [:permissions [:sequential :string]]]]
-      [:tableId-perms-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential :string]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
+      [:tableId-perms-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:permissions [:sequential :string]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
    4 [:altn
       [:client-dataset-table-perms [:catn [:clientable :gcp.bigquery/clientable] [:dataset :string] [:table :string] [:permissions [:sequential :string]]]]
       [:project-dataset-table-perms [:catn [:project :string] [:dataset :string] [:table :string] [:permissions [:sequential :string]]]]
-      [:client-tableId-perms-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/Table]] [:permissions [:sequential :string]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
+      [:client-tableId-perms-opts [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:permissions [:sequential :string]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]
       [:dataset-table-perms-opts [:catn [:dataset :string] [:table :string] [:permissions [:sequential :string]] [:opts :gcp.bigquery/BigQuery.IAMOption]]]]
    5 [:altn
       [:client-project-dataset-table-perms [:catn [:clientable :gcp.bigquery/clientable] [:project :string] [:dataset :string] [:table :string] [:permissions [:sequential :string]]]]
@@ -1568,17 +1579,17 @@
       [:cmd [:catn [:cmd :gcp.bigquery/Query]]]
       [:configuration [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]]
    2 [:altn
-      [:configuration-jobId [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
+      [:configuration-jobId [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
       [:configuration-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
       [:client-configuration [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration]]]]
    3 [:altn
-      [:configuration-jobId-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-      [:client-configuration-jobId [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]]]]
+      [:configuration-jobId-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-configuration-jobId [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
       [:client-configuration-opts [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]
    4 [:catn
       [:clientable :gcp.bigquery/clientable]
       [:configuration :gcp.bigquery/QueryJobConfiguration]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:opts :gcp.bigquery/BigQuery.JobOption]]})
 
 (dwim/defdwim ->Query
@@ -1639,15 +1650,15 @@
   {1 [:catn [:cmd :gcp.bigquery/QueryWithTimeout]]
    3 [:catn
       [:configuration :gcp.bigquery/QueryJobConfiguration]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:timeoutMs :int]]
    4 [:altn
-      [:client-configuration-jobId-timeout [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]] [:timeoutMs :int]]]
-      [:configuration-jobId-timeout-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]
+      [:client-configuration-jobId-timeout [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:timeoutMs :int]]]
+      [:configuration-jobId-timeout-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]
    5 [:catn
       [:clientable :gcp.bigquery/clientable]
       [:configuration :gcp.bigquery/QueryJobConfiguration]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:timeoutMs :int]
       [:opts :gcp.bigquery/BigQuery.JobOption]]})
 
@@ -1713,11 +1724,11 @@
       [:cmd [:catn [:cmd :gcp.bigquery/Writer]]]
       [:writeChannelConfiguration [:catn [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]]
    2 [:altn
-      [:jobId-configuration [:catn [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
+      [:jobId-configuration [:catn [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]
       [:client-configuration [:catn [:clientable :gcp.bigquery/clientable] [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]]]
    3 [:catn
       [:clientable :gcp.bigquery/clientable]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/Job]]
+      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
       [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]]})
 
 (dwim/defdwim ->Writer

@@ -4,8 +4,9 @@
     (com.google.protobuf Any ByteString Duration ListValue NullValue ProtocolStringList Struct Timestamp Value LazyStringArrayList)
     (java.nio ByteBuffer)))
 
+
+
 (def registry
-  ^{:gcp.global/name :gcp.foreign.com.google.protobuf/registry}
   {:gcp.foreign.com.google.protobuf/Timestamp  [:map {:gen/max 2}
                                                 [:seconds :pi64]
                                                 [:nanos :pi64]]
@@ -197,4 +198,4 @@
   {:seconds (.getSeconds arg)
    :nanos   (.getNanos arg)})
 
-(g/include-schema-registry! registry)
+(g/include-registry! "gcp.foreign.com.google.protobuf" registry)

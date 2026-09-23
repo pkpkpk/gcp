@@ -2,16 +2,16 @@
 (ns gcp.bigquery.QueryStage
   {:doc
      "BigQuery provides diagnostic information about a completed query's execution plan (or query plan\nfor short). The query plan describes a query as a series of stages, with each stage comprising a\nnumber of steps that read from data sources, perform a series of transformations on the input,\nand emit an output to a future stage (or the final result). This class contains information on a\nquery stage.\n\n@see <a href=\"https://cloud.google.com/bigquery/query-plan-explanation\">Query Plan</a>"
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "c20d48d53e5a76a6f9007d31ccba1fb3aa679d13"
    :fqcn "com.google.cloud.bigquery.QueryStage"
    :gcp.dev/certification
      {:base-seed 0
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
       :reason :read-only
       :skipped true
-      :timestamp "2026-05-19T15:31:40.745443038Z"}}
+      :timestamp "2026-09-21T23:42:18.636601590Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery QueryStage QueryStage$Builder
             QueryStage$QueryStep]))
@@ -281,7 +281,6 @@
        "Returns the time the slowest worker spent writing output data, divided by the longest time\nspent by any worker in any segment."}
     :f64]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/QueryStage schema,
-              :gcp.bigquery/QueryStage.QueryStep QueryStep-schema}
-    {:gcp.global/name "gcp.bigquery.QueryStage"}))
+(global/include-registry! "gcp.bigquery.QueryStage"
+                          {:gcp.bigquery/QueryStage schema,
+                           :gcp.bigquery/QueryStage.QueryStep QueryStep-schema})

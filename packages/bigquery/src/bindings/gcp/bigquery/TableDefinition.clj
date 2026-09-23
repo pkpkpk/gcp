@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.TableDefinition
   {:doc "Base class for a Google BigQuery table definition."
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "56d69efeaa90c9fa71e0c2c95412a1ad0c95dc90"
    :fqcn "com.google.cloud.bigquery.TableDefinition"
    :gcp.dev/certification
-     {:base-seed 1779204675555
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034101380
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204675555 :standard 1779204675556 :stress 1779204675557}
+        {:smoke 1790034101380 :standard 1790034101381 :stress 1790034101382}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:16.927631634Z"}}
+      :timestamp "2026-09-21T23:41:43.073957982Z"}}
   (:require [gcp.bigquery.ExternalTableDefinition :as ExternalTableDefinition]
             [gcp.bigquery.MaterializedViewDefinition :as
              MaterializedViewDefinition]
@@ -57,6 +57,5 @@
    :gcp.bigquery/StandardTableDefinition :gcp.bigquery/ViewDefinition
    :gcp.bigquery/ModelTableDefinition])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/TableDefinition schema}
-    {:gcp.global/name "gcp.bigquery.TableDefinition"}))
+(global/include-registry! "gcp.bigquery.TableDefinition"
+                          {:gcp.bigquery/TableDefinition schema})

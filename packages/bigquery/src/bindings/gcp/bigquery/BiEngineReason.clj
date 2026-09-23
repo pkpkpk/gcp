@@ -1,16 +1,16 @@
 ;; THIS FILE IS GENERATED; DO NOT EDIT
 (ns gcp.bigquery.BiEngineReason
   {:doc nil
-   :file-git-sha "abbdde0e7797712d98183ea2d5390671f92d5407"
+   :file-git-sha "f4502aa716b19dd5836c19ac14e3167601e7f8a3"
    :fqcn "com.google.cloud.bigquery.BiEngineReason"
    :gcp.dev/certification
-     {:base-seed 1779204696251
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034133153
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204696251 :standard 1779204696252 :stress 1779204696253}
+        {:smoke 1790034133153 :standard 1790034133154 :stress 1790034133155}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:31:37.079523761Z"}}
+      :timestamp "2026-09-21T23:42:14.181680523Z"}}
   (:require [gcp.global :as global])
   (:import [com.google.cloud.bigquery BiEngineReason BiEngineReason$Builder]))
 
@@ -57,6 +57,5 @@
        "Free form human-readable reason for partial or disabled acceleration.\n\n@param message message or {@code null} for none"}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/BiEngineReason schema}
-    {:gcp.global/name "gcp.bigquery.BiEngineReason"}))
+(global/include-registry! "gcp.bigquery.BiEngineReason"
+                          {:gcp.bigquery/BiEngineReason schema})

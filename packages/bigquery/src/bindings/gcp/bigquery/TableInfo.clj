@@ -2,16 +2,16 @@
 (ns gcp.bigquery.TableInfo
   {:doc
      "Google BigQuery table information. Use {@link StandardTableDefinition} to create simple BigQuery\ntable. Use {@link ViewDefinition} to create a BigQuery view. Use {@link ExternalTableDefinition}\nto create a BigQuery a table backed by external data.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/tables\">Managing Tables</a>"
-   :file-git-sha "6e3e07a22b8397e1e9d5b567589e44abc55961f2"
+   :file-git-sha "9b6aa80452ca4b123ad92df10545db8bfca2e622"
    :fqcn "com.google.cloud.bigquery.TableInfo"
    :gcp.dev/certification
-     {:base-seed 1779204755895
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034207518
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204755895 :standard 1779204755896 :stress 1779204755897}
+        {:smoke 1790034207518 :standard 1790034207519 :stress 1790034207520}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:32:37.766201567Z"}}
+      :timestamp "2026-09-21T23:43:29.788746050Z"}}
   (:require [gcp.bigquery.CloneDefinition :as CloneDefinition]
             [gcp.bigquery.EncryptionConfiguration :as EncryptionConfiguration]
             [gcp.bigquery.TableConstraints :as TableConstraints]
@@ -263,5 +263,5 @@
    [:tableId {:getter-doc "Returns the table identity."}
     :gcp.bigquery/TableId]])
 
-(global/include-schema-registry! (with-meta {:gcp.bigquery/TableInfo schema}
-                                   {:gcp.global/name "gcp.bigquery.TableInfo"}))
+(global/include-registry! "gcp.bigquery.TableInfo"
+                          {:gcp.bigquery/TableInfo schema})

@@ -62,6 +62,81 @@
 (defn audit-function
   [{}])
 
+;(defn- schema->label [t]
+;  (cond
+;    (#{:string 'string?} t)        ":string"
+;    (#{:int 'int? 'integer?} t)    ":int"
+;    (#{:boolean 'boolean?} t)       ":boolean"
+;    (#{:double 'double?} t)        ":double"
+;    (#{:float 'float?} t)          ":float"
+;    (#{:long 'long?} t)             ":long"
+;    (#{:any 'any?} t)               ":any"
+;    (#{:nil 'nil?} t)               "nil"
+;    (vector? t)
+;    (case (first t)
+;      :or        (string/join " | " (map schema->label (rest t)))
+;      :and       (string/join " & " (map schema->label (rest t)))
+;      :maybe     (str "?" (schema->label (second t)))
+;      :sequential (str "[" (schema->label (second t)) " ...]")
+;      :set       (str "#{" (schema->label (second t)) "}")
+;      :map       ":map"
+;      :map-of    (str "{" (schema->label (nth t 2)) " " (schema->label (nth t 3)) "}")
+;      :tuple     (str "[" (string/join ", " (map schema->label (rest t))) "]")
+;      :ref       (str "[:ref " (schema->label (second t)) "]")
+;      (when (and (= 2 (count t)) (map? (second t)))
+;        (schema->label (first t)))
+;      (str t))
+;    (keyword? t) (str t)
+;    (symbol? t)  (str t)
+;    :else        (pr-str t)))
+;
+;(defn- catn->params
+;  [branch]
+;  (letfn [(walk [x]
+;            (cond
+;              (and (vector? x) (= :catn (first x)))
+;              (mapv (fn [entry]
+;                      (when (and (vector? entry) (= 2 (count entry)) (keyword? (first entry)))
+;                        [(name (first entry)) (schema->label (second entry))]))
+;                    (rest x))
+;
+;              (and (vector? x) (= :altn (first x)))
+;              (mapcat walk (rest x))
+;
+;              :else []))]
+;    (remove nil? (walk branch))))
+;
+;(defn- branch-doc
+;  [fn-name branch]
+;  (let [params (catn->params branch)]
+;    (if (seq params)
+;      (let [arg-names (map first params)]
+;        (str "  `(" fn-name " " (string/join " " arg-names) ")`\n"
+;             "      where:\n"
+;             (string/join "\n" (map (fn [[k t]] (str "        " k " --> " t)) params))))
+;      (str "  `(" fn-name ")`"))))
+;
+;(defn humanize-arities
+;  ([{:keys [facade cmd arity-schemas]}]
+;   (let [lines (concat
+;                 [(str "Arity dispatch for `" facade "`.")
+;                  ""]
+;                 (mapcat (fn [[arity schema]]
+;                           (cons (str arity " args:")
+;                                 (if (and (vector? schema) (= :altn (first schema)))
+;                                   (for [child (rest schema)]
+;                                     (let [branch (if (and (vector? child) (= 2 (count child)) (keyword? (first child)))
+;                                                    (second child)
+;                                                    child)]
+;                                       (branch-doc facade branch)))
+;                                   [(branch-doc facade schema)])))
+;                         (sort-by key arity-schemas))
+;                 [""]
+;                 ["More Info:"
+;                  (str "    `(gcp.global/get-schema " (pr-str cmd) ")`")
+;                  (str "    `(gcp.global/explain " (pr-str cmd) " <args>)`")])]
+;     (string/join "\n" lines))))
+
 (comment
   GCP_PROJECT_ID
   (do (require :reload 'gcp.dev.toolchain.emit.facade)

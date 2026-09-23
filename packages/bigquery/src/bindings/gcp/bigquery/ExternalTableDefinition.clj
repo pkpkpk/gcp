@@ -2,16 +2,16 @@
 (ns gcp.bigquery.ExternalTableDefinition
   {:doc
      "Google BigQuery external table definition. BigQuery's external tables are tables whose data\nreside outside of BigQuery but can be queried as normal BigQuery tables. External tables are\nexperimental and might be subject to change or removed.\n\n@see <a href=\"https://cloud.google.com/bigquery/federated-data-sources\">Federated Data Sources\n    </a>"
-   :file-git-sha "e5467c917c63ac066edcbcd902cc2093a39971a3"
+   :file-git-sha "caeac7226f86a03170f4e95027f6e4c75427a4af"
    :fqcn "com.google.cloud.bigquery.ExternalTableDefinition"
    :gcp.dev/certification
-     {:base-seed 1779204644334
-      :manifest "1ac0bbeb-97b3-5784-a294-62e436a43ec4"
+     {:base-seed 1790034062873
+      :manifest "068dae53-75f2-5aa6-8d27-30391b1c6297"
       :passed-stages
-        {:smoke 1779204644334 :standard 1779204644335 :stress 1779204644336}
+        {:smoke 1790034062873 :standard 1790034062874 :stress 1790034062875}
       :protocol-hash
         "75d3372fb35f1e40bc5550be4e402bfd0b7a7edb8010ca96440bb4161b829c72"
-      :timestamp "2026-05-19T15:30:45.818297484Z"}}
+      :timestamp "2026-09-21T23:41:04.457644905Z"}}
   (:require [gcp.bigquery.FormatOptions :as FormatOptions]
             [gcp.bigquery.HivePartitioningOptions :as HivePartitioningOptions]
             [gcp.bigquery.Schema :as Schema]
@@ -280,8 +280,8 @@
        "Format used to parse TIMESTAMP values. Supports C-style and SQL-style values."}
     [:string {:min 1, :gen/max 1}]]])
 
-(global/include-schema-registry!
-  (with-meta {:gcp.bigquery/ExternalTableDefinition schema,
-              :gcp.bigquery/ExternalTableDefinition.SourceColumnMatch
-                SourceColumnMatch-schema}
-    {:gcp.global/name "gcp.bigquery.ExternalTableDefinition"}))
+(global/include-registry!
+  "gcp.bigquery.ExternalTableDefinition"
+  {:gcp.bigquery/ExternalTableDefinition schema,
+   :gcp.bigquery/ExternalTableDefinition.SourceColumnMatch
+     SourceColumnMatch-schema})
