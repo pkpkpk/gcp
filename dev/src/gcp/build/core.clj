@@ -107,9 +107,8 @@
                                       :description (:description pkg)
                                       :url         "https://github.com/pkpkpk/gcp"})}))
 
-(defn build-package [pkg]
-  (let [global-version (global/build)
-        package-root (:package-root pkg)
+(defn build-package [pkg global-version snapshot?]
+  (let [package-root (:package-root pkg)
         deps-file (io/file package-root "deps.edn")
         deps-map (read-string (slurp deps-file))
         sdk-dep (symbol (str (:googleapis/mvn-org pkg) "/" (:googleapis/mvn-artifact pkg)))
@@ -119,15 +118,17 @@
         is-dirty? (git/dirty? repo-root rel-path)
         pkg-hash (current-hash pkg deps-map)
         state (current-state pkg)
-        {:keys [needs-deploy? dirty? version revision]} (determine-version state sdk-version pkg-hash global-version is-dirty?)]
+        {:keys [needs-deploy? dirty? version revision]} (determine-version state sdk-version pkg-hash global-version is-dirty?)
+        published-version (cond-> version
+                                  snapshot? (str "-SNAPSHOT"))]
     (if-not needs-deploy?
       (do
-        (println "Package" (:name pkg) "up to date:" version)
-        version)
-      (let [p (pom pkg version global-version deps-map)]
+        (println "Package" (:name pkg) "up to date:" published-version)
+        published-version)
+      (let [p (pom pkg published-version global-version deps-map)]
         (if dirty?
-          (println "Building DIRTY package version:" version "(state will not be updated)")
-          (println "Building" (:name pkg) "package version:" version))
+          (println "Building DIRTY package version:" published-version "(state will not be updated)")
+          (println "Building" (:name pkg) "package version:" published-version))
         (util/jar p)
         (util/install-local p)
         (when-not dirty?
@@ -137,4 +138,4 @@
                              :sdk-version sdk-version
                              :global-version global-version
                              :revision revision}))))
-        version))))
+        published-version))))

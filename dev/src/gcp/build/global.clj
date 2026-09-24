@@ -41,31 +41,40 @@
                                       :description (:description defs/global)
                                       :url         "https://github.com/pkpkpk/gcp"})}))
 
-(defn build []
-  (let [new-hash (current-hash)
-        state (current-state)
-        repo-root (dev-util/get-gcp-repo-root)
-        rel-path (dev-util/relative-path repo-root package-root)
-        is-dirty? (git/dirty? repo-root rel-path)
-        needs-deploy? (or is-dirty? (not= (:hash state) new-hash))]
-    (if needs-deploy?
-      (let [version (if is-dirty?
-                      (str (or (:version state) (next-version)) "-DIRTY")
-                      (next-version))
-            p (pom version)]
-        (if is-dirty?
-          (println "Building DIRTY global package version:" version "(state will not be updated)")
-          (println "Building global package version:" version))
-        (util/jar p)
-        (util/install-local p)
-        (when-not is-dirty?
-          (io/make-parents state-file)
-          (spit state-file (pr-str {:hash    new-hash
-                                    :version version})))
-        version)
-      (do
-        (println "Global package up to date:" (:version state))
-        (:version state)))))
+(defn build
+  ([]
+   (build false))
+  ([snapshot?]
+   (let [new-hash      (current-hash)
+         state         (current-state)
+         repo-root     (dev-util/get-gcp-repo-root)
+         rel-path      (dev-util/relative-path repo-root package-root)
+         is-dirty?     (git/dirty? repo-root rel-path)
+         needs-deploy? (or snapshot?
+                           is-dirty?
+                           (not= (:hash state) new-hash))]
+     (if needs-deploy?
+       (let [version           (if is-dirty?
+                                 (str (or (:version state) (next-version)) "-DIRTY")
+                                 (next-version))
+             published-version (cond-> version
+                                       snapshot? (str "-SNAPSHOT"))
+             p                 (pom published-version)]
+         (if is-dirty?
+           (println "Building DIRTY global package version:" published-version "(state will not be updated)")
+           (println "Building global package version:" published-version))
+         (util/jar p)
+         (util/install-local p)
+         (when-not is-dirty?
+           (io/make-parents state-file)
+           (spit state-file (pr-str {:hash    new-hash
+                                     :version version})))
+         published-version)
+       (let [version (if snapshot?
+                       (str (:version state) "-SNAPSHOT")
+                       (:version state))]
+         (println "Global package up to date:" version)
+         version)))))
 
 (comment
   (current-hash)

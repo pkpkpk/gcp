@@ -16,14 +16,18 @@
     (if (git/dirty? repo-root rel-path)
       (throw (ex-info "Cannot deploy global: directory is dirty or not on main branch." {:package "global"}))
       (let [needs-deploy? (global/needs-deploy?)
-            version (cond-> (global/build) snapshot? (str "-SNAPSHOT"))
-            p (global/pom version)]
-        (if needs-deploy?
+            published-version (global/build snapshot?)
+            version (string/replace published-version #"-SNAPSHOT$" "")
+            p (global/pom published-version)]
+        (if (or needs-deploy? snapshot?)
           (do
-            (println "Deploying global version:" version)
+            (println "Deploying global version:" published-version)
             (util/deploy p))
-          (println "Global package up to date, skipping Clojars deploy:" version))
-        {:package "gcp.global" :version version :deployed? needs-deploy?}))))
+          (println "Global package up to date, skipping Clojars deploy:" published-version))
+        {:package "gcp.global"
+         :version version
+         :published-version published-version
+         :deployed? needs-deploy?}))))
 
 (defn deploy-wrapper [pkg global-version snapshot?]
   (let [repo-root (dev-util/get-gcp-repo-root)
@@ -39,14 +43,14 @@
             state (core/current-state pkg)
             version-info (core/determine-version state sdk-version pkg-hash global-version false)
             needs-deploy? (:needs-deploy? version-info)
-            version (core/build-package pkg)
-            published-version (cond-> version snapshot? (str "-SNAPSHOT"))
+            published-version (core/build-package pkg global-version snapshot?)
+            version (string/replace published-version #"-SNAPSHOT$" "")
             p (core/pom pkg published-version global-version deps-map)]
         (cond
           (string/ends-with? version "-DIRTY")
           (throw (ex-info (str "Refusing to deploy DIRTY version of " (:name pkg)) {:package (:name pkg) :version published-version}))
 
-          needs-deploy?
+          (or needs-deploy? snapshot?)
           (do
             (println "Deploying" (:name pkg) "version:" published-version)
             (util/deploy p))
@@ -58,7 +62,7 @@
          :published-version published-version
          :deployed? needs-deploy?}))))
 
-(defn release-all
+(defn release-many
   [packages & {:keys [snapshot?]}]
   (let [repo-root (dev-util/get-gcp-repo-root)]
     (println "Starting release orchestration for:" (map :name packages))
@@ -74,7 +78,6 @@
 
     ;; 2. Deploy global first
     (let [global-info (deploy-global snapshot?)
-          global-version (:version global-info)
           published-global-version (:published-version global-info)
           initial-info (if (:deployed? global-info) [global-info] [])
           deployed-info (atom initial-info)]
