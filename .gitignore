@@ -16,3 +16,4 @@ prompt
 dev/repl-mcp.log*
 .cache
 dev/.gcp_cache
+dev/TODO.md
