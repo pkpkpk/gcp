@@ -1,6 +1,7 @@
 (ns gcp.bigquery
   (:require
-   [gcp.bigquery.core :as bqc]))
+    [gcp.global.manifest :as manifest]
+    [gcp.bigquery.core :as bqc]))
 
 (def client bqc/client)
 
@@ -185,3 +186,7 @@
 
 (defn writer [& args]
   (bqc/execute! (bqc/->Writer (vec args))))
+
+#!-----------------------------------------------------------------------------
+
+(defn build-info [] (manifest/build-info 'gcp.bigquery))

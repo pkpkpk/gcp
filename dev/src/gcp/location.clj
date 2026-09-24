@@ -4,20 +4,10 @@
 
 (def ^:const sep "__")
 
-(defn clean [location] (string/lower-case location))
-
-(defn normalize [location]
-  (let [location (clean location)]
-    (case location
-      ("us-east1" "us-east-1") "us-east1"
-      ("us-central1" "us-central-1") "us-central1"
-      (throw (Exception. ^String (str "unsupported location : '" location "'"))))))
-
-(defn- sanitize [s]
-  (string/replace s #"-" "_"))
+(defn- sanitize [s] (string/replace s #"-" "_"))
 
 (defn name-safe [location]
-  (-> location normalize sanitize))
+  (-> location string/lower-case sanitize))
 
 (defn slug
   "dashes will be replaced by underscores."

@@ -157,15 +157,6 @@
 
     :else parsed))
 
-(defn- format-arity-error-string
-  "the user called with an unsupported argument count"
-  [call]
-  (str (:facade call) " accepts arities "
-       (string/join ", " (:supported-arities call))
-       ", got " (:arity call) ".\n\n"
-       "More Info:" \newline
-       "  (gcp.global/get-schema " (:cmd call) ")" \newline
-       "  (clojure.repl/doc " (:facade call) ")"))
 
 (defn compile-arity-schemas [edn-map]
   (into {} (map (fn [[arity edn]] [arity (g/schema edn)])) edn-map))
@@ -197,7 +188,7 @@
   (if (and (vector? schema)
            (= :or (first schema)))
     (into [:or]
-          (mapcat (fn [schema]
+        (mapcat (fn [schema]
                     (let [reduced (reduce-or-schema schema)]
                       (if (and (vector? reduced)
                                (= :or (first reduced)))
@@ -251,35 +242,29 @@
                                                        (into [:or]
                                                              (get position-schemas index)))}))))
                               vec)
-        suggestions      (into (sorted-set)
+        suggested-keys   (into (sorted-set)
                                (comp (map :expected)
                                      (mapcat flatten)
                                      (filter gcp-schema-ref?))
                                mismatches)
-        repl-suggestions (into {}
-                               (map (fn [{:keys [index expected]}]
-                                      [index
-                                       (mapv #(list 'g/explain % (nth argv index))
-                                             (rest expected))]))
-                               mismatches)]
+        explain-forms
+        (into {}
+              (map (fn [{:keys [index expected] :as mismatch}]
+                     (println mismatch)
+                     [index
+                      (mapv #(list 'g/explain % (nth argv index))
+                            (distinct (rest expected))) ]))
+              mismatches)
+        suggested-forms (mapv #(list 'gcp.global/get-schema %)
+                              suggested-keys)]
     (assoc call
-      ::type             ::parse-error
-      :arity             arity
-      :argv              (safe-str (:value explanation))
-      :branches          branches
-      :position-schemas  position-schemas
-      :mismatches        mismatches
-      :suggested-keys    suggestions
-      :suggestions-forms  repl-suggestions)))
-
-(defn- type->placeholder [t]
-  (cond
-    (= t 'string?) :string
-    (= t 'int?) :integer
-    (= t 'boolean?) :boolean
-    (keyword? t) t
-    (symbol? t) (keyword t)
-    :else t))
+      :type                 ::parse-error
+      :arity                arity
+      :argv                 (safe-str (:value explanation))
+      :mismatches           mismatches
+      :explain-forms/by-idx explain-forms
+      :suggested-keys       suggested-keys
+      :suggested-forms      suggested-forms)))
 
 (defn- format-mismatch
   [{:keys [index value expected]}]
@@ -302,9 +287,7 @@
                           (str " " (string/join " " args)))
                         ")")
         start      (count (str "(" facade " "))
-        positions  (reductions +
-                               start
-                               (map #(inc (count %)) (butlast args)))
+        positions  (reductions + start (map #(inc (count %)) (butlast args)))
         bad-args   (set (map :index mismatches))
         markers    (loop [positions positions
                           index     0
@@ -328,6 +311,15 @@
                 (string/join "\n" (map format-mismatch mismatches))))
          "\n\nMore Info:\n"
          "  (clojure.repl/doc " facade ")")))
+
+(defn- format-arity-error-string
+  "the user called with an unsupported argument count"
+  [call]
+  (str (:facade call) " accepts arities "
+       (string/join ", " (:supported-arities call))
+       ", got " (:arity call) ".\n\n"
+       "More Info:" \newline
+       "  (clojure.repl/doc " (:facade call) ")"))
 
 (defn _match-arity
   "Tests user's passed argv against the op's arity schema.
@@ -363,17 +355,25 @@
 (defmethod format-error ::parse-error [err] (format-parse-error-string err))
 
 (defmacro defdwim
-  [fn-name {:keys [facade cmd arities normalize] :as spec}]
-  (assert (qualified-symbol? facade) facade)
-  `(let [arity-schemas# ~arities
-         compiled#      (compile-arity-schemas arity-schemas#)
-         call-base# {:facade           (quote ~facade)
-                     :cmd              ~cmd
-                     :arity-schemas    arity-schemas#
-                     :compiled-schemas compiled#
-                     :normalize        ~normalize}]
-     (defn ~fn-name [argv#]
-       (let [res# (_match-arity (assoc call-base# :argv argv#))]
-         (if-let [err# (:error res#)]
-           (throw (ex-info (format-error err#) (select-keys err# [::type :arity :argv :mismatches :suggested-keys :suggested-forms])))
-           (:ok res#))))))
+  [fn-name {:keys [facade cmd arities] :as command}]
+  (let [arities#    (if (symbol? arities)
+                      (deref (resolve arities))
+                      arities)
+        command-sym (symbol (str (name cmd) "-command"))
+        command#    (assoc command
+                      :facade `(quote ~facade)
+                      :compiled-schemas (compile-arity-schemas arities#))]
+    `(do
+       (def ~(with-meta command-sym {:gcp.dwim/command true}) ~command#)
+       (defn ~fn-name
+         [argv#]
+         (let [call# (assoc ~command-sym :argv argv#)
+               res#  (_match-arity call#)]
+           (if-let [err# (:error res#)]
+             (throw (ex-info (format-error err#)
+                             (select-keys err#
+                                          [::type :arity :argv :mismatches
+                                           :explain-forms/by-idx
+                                           :suggested-keys
+                                           :suggested-forms])))
+             (:ok res#)))))))

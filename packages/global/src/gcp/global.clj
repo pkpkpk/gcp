@@ -188,63 +188,37 @@
 
 (defn include-registry!
   [keyable registry]
-  (let [
-        ;_ (assert (qualified-keyword? keyable))
-        ;; for now forcing as keyword but could accept symbols, or derive kw from a ns-object
-        registry-name keyable
-        ]
-    (assert-registry-keys! registry registry-name)
-    (let [candidate     (clojure.core/merge (mr/schemas *registry*) registry)
-          candidate-reg (mr/simple-registry candidate)]
-      (when-let [bad-pairs (not-empty
-                             (reduce
-                               (fn [acc [k schema]]
-                                 (let [opts (mopts candidate-reg)
-                                       [err same?] (safety-check-schema schema opts)]
-                                   (if (or err (false? same?))
-                                     (assoc acc k {:schema schema :err err :same? same?})
-                                     acc)))
-                               (sorted-map)
-                               (into (sorted-map) registry)))]
-        (throw (ex-info (str "edn-unsafe schema entries in " registry-name)
-                        {:unsafe        bad-pairs
-                         :registry-name registry-name})))
-      (alter-var-root #'*registry* (fn [_extant]
-                                     (when (or *dbg* (System/getenv "GCP_DEBUG"))
-                                       (println "successfully merged registry " registry-name))
-                                     candidate-reg)))))
+  (assert-registry-keys! registry keyable)
+  (let [candidate       (clojure.core/merge (mr/schemas *registry*) registry)
+        candidate-reg (mr/simple-registry candidate)]
+    (when-let [bad-pairs (not-empty
+                           (reduce
+                             (fn [acc [k schema]]
+                               (let [opts (mopts candidate-reg)
+                                     [err same?] (safety-check-schema schema opts)]
+                                 (if (or err (false? same?))
+                                   (assoc acc k {:schema schema :err err :same? same?})
+                                   acc)))
+                             (sorted-map)
+                             (into (sorted-map) registry)))]
+      (throw (ex-info (str "edn-unsafe schema entries in " keyable)
+                      {:unsafe        bad-pairs
+                       :registry-name keyable})))
+    (alter-var-root #'*registry* (fn [_extant]
+                                   (when (or *dbg* (System/getenv "GCP_DEBUG"))
+                                     (println "successfully merged registry " keyable))
+                                   candidate-reg))))
 
 (defn include-schema-registry!
   [registry]
   (println "gcp.global/include-schema-registry! is deprecated, use (gcp.global/include-registry! keyable registry-map)" *ns*)
-  (if-let [{registry-name ::name :as rmeta} (meta registry)]
-    (do
-      (assert-registry-keys! registry registry-name)
-      (let [candidate (clojure.core/merge (mr/schemas *registry*) registry)
-            candidate-reg (mr/simple-registry candidate)]
-        (when-let [bad-pairs (not-empty
-                               (reduce
-                                 (fn [acc [k schema]]
-                                   (let [opts (mopts candidate-reg)
-                                         [err same?] (safety-check-schema schema opts)]
-                                     (if (or err (false? same?))
-                                       (assoc acc k {:schema schema :err err :same? same?})
-                                       acc)))
-                                 (sorted-map)
-                                 (into (sorted-map) registry)))]
-          (throw (ex-info (str "edn-unsafe schema entries in " registry-name) 
-                          {:unsafe bad-pairs
-                           :registry-name registry-name
-                           :registry-meta rmeta})))
-        (alter-var-root #'*registry* (fn [_extant]
-                                       (when (or *dbg* (System/getenv "GCP_DEBUG"))
-                                         (println "successfully merged registry " registry-name))
-                                       candidate-reg))))
-    (throw (Exception. "registry must have metadata with a :gcp.global/name identifier"))))
+  (let [{registry-name ::name :as rmeta} (meta registry)]
+    (include-registry! registry-name registry)))
 
-(defn register-schema! [key schema]
+(defn register-schema!
+  [key schema]
   (assert-schema-key! key)
-  (include-schema-registry! (with-meta {key schema} {::name (str key)})))
+  (include-registry! (name key) {key schema}))
 
 (defn valid? [?schema value]
   (try
@@ -282,10 +256,6 @@
           (throw ei))))))
 
 (defn humanize [explanation]
-  #_(let [human (me/humanize explanation)]
-      (if (not= (count human) (count (:errors explanation)))
-        (mapv me/error-message (:errors explanation))
-        human))
   (me/humanize explanation))
 
 (defn human-ex-info
