@@ -662,7 +662,7 @@
   (let [client (client bigquery)
         tableId (TableId/from-edn tableId)
         opts (BQ/TableOption-Array-from-edn opts)]
-    (TableInfo/to-edn (.getTable client tableId opts))))
+    (some-> (.getTable client tableId opts) TableInfo/to-edn)))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; TableDelete
@@ -899,6 +899,13 @@
                         :jobInfo  jobInfo
                         :opts     opts})))})
 
+(defmethod execute! :gcp.bigquery/JobCreate
+  [{:keys [bigquery jobInfo opts]}]
+  (let [client (client bigquery)
+        jobInfo (JobInfo/from-edn jobInfo)
+        opts (BQ/JobOption-Array-from-edn opts)]
+    (JobInfo/to-edn (.create client jobInfo opts))))
+
 (defmethod execute! :gcp.bigquery/JobCancel [{:keys [bigquery jobId]}]
   (let [client (client bigquery)
         jobId (JobId/from-edn jobId)]
@@ -938,8 +945,7 @@
   (let [client (client bigquery)
         jobId (JobId/from-edn jobId)
         opts (BQ/JobOption-Array-from-edn opts)]
-    (binding [g/*strict-mode* false]
-      (JobInfo/to-edn (.getJob client jobId opts)))))
+    (some-> (.getJob client jobId opts) JobInfo/to-edn)))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;; JobDelete
