@@ -219,16 +219,14 @@
                   {})))
 
 (defn branch-error
-  [{:keys [arity-schemas compiled-schemas argv] :as call}]
+  [{:keys [arities compiled-schemas argv facade] :as call}]
   (let [arity            (count argv)
         schema           (get compiled-schemas arity)
         {:keys [errors] :as explanation} (g/explain schema argv)
-        arity-schema     (get arity-schemas arity)
+        arity-schema (get arities arity)
         branches         (extract-branch-params arity-schema)
         position-schemas (branch-position-schemas branches)
-        branch-positions (mapv (fn [branch]
-                                 (mapv second branch))
-                               branches)
+        branch-positions (mapv (fn [branch] (mapv second branch)) branches)
         mismatches       (->> (range arity)
                               (keep (fn [index]
                                       (let [value   (nth argv index)
@@ -249,16 +247,14 @@
                                mismatches)
         explain-forms
         (into {}
-              (map (fn [{:keys [index expected] :as mismatch}]
-                     (println mismatch)
+              (map (fn [{:keys [index expected] :as _mismatch}]
                      [index
                       (mapv #(list 'g/explain % (nth argv index))
                             (distinct (rest expected))) ]))
               mismatches)
-        suggested-forms (mapv #(list 'gcp.global/get-schema %)
-                              suggested-keys)]
+        suggested-forms  (into [(list 'clojure.repl/doc facade)] (map (fn [k] (list 'gcp.global/get-schema k))) suggested-keys)]
     (assoc call
-      :type                 ::parse-error
+      ::type                 ::parse-error
       :arity                arity
       :argv                 (safe-str (:value explanation))
       :mismatches           mismatches
@@ -372,7 +368,10 @@
            (if-let [err# (:error res#)]
              (throw (ex-info (format-error err#)
                              (select-keys err#
-                                          [::type :arity :argv :mismatches
+                                          [::type
+                                           :arity
+                                           :argv
+                                           :mismatches
                                            :explain-forms/by-idx
                                            :suggested-keys
                                            :suggested-forms])))

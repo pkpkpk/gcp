@@ -119,16 +119,7 @@
 (defn query-with-timeout [& args]
   (bqc/execute! (bqc/->QueryWithTimeout (vec args))))
 
-(defn q
-  "Sugar for executing a SQL string with optional query parameters.
-   For more options use gcp.bigquery/query
-   Args:
-     (sql)
-     (sql, [:sequential :positional :params])
-     (sql, {:map-of \"named-parameters\"})
-   Return: a lazy list of maps"
-  [& args]
-  (bqc/execute! (bqc/->Q (vec args))))
+(defn q [& args] (bqc/execute! (bqc/->Query (vec args))))
 
 #!-----------------------------------------------------------------------------
 #! ROUTINES https://cloud.google.com/bigquery/docs/routines

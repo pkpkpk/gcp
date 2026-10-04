@@ -49,226 +49,228 @@
    [:or
     (g/instance-schema com.google.cloud.bigquery.BigQuery)
     :gcp.bigquery/BigQueryOptions
-    [:map [:bigquery [:or :gcp.bigquery/BigQueryOptions (g/instance-schema com.google.cloud.bigquery.BigQuery)]]]]
+    [:map [:bigquery [:or :gcp.bigquery/BigQueryOptions
+                      (g/instance-schema com.google.cloud.bigquery.BigQuery)]]]]
 
    :gcp.bigquery/DatasetList
    [:map {:doc "cmd definition for bq.listDatasets()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:projectId {:optional true} [:maybe :string]]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.DatasetListOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.DatasetListOption]]]
 
    :gcp.bigquery/DatasetGet
    [:map {:doc "cmd definition for bq.getDataset()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetId :gcp.bigquery/DatasetId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.DatasetOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.DatasetOption]]]
 
    :gcp.bigquery/DatasetCreate
    [:map {:doc "cmd definition for bq.create(datasetInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetInfo :gcp.bigquery/DatasetInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.DatasetOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.DatasetOption]]]
 
    :gcp.bigquery/DatasetUpdate
    [:map {:doc "cmd definition for bq.update(datasetInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetInfo :gcp.bigquery/DatasetInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.DatasetOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.DatasetOption]]]
 
    :gcp.bigquery/DatasetDelete
    [:map {:doc "cmd definition for bq.delete(datasetId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetId :gcp.bigquery/DatasetId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.DatasetDeleteOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.DatasetDeleteOption]]]
 
    :gcp.bigquery/TableList
    [:map {:doc "cmd definition for bq.listTables(datasetId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetId :gcp.bigquery/DatasetId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.TableListOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.TableListOption]]]
 
    :gcp.bigquery/TableListPartitions
    [:map {:doc "cmd definition for bq.listPartitions(tableId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]]
 
    :gcp.bigquery/TableGet
    [:map {:doc "cmd definition for bq.getTable()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.TableOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.TableOption]]]
 
    :gcp.bigquery/TableCreate
    [:map {:doc "cmd definition for bq.create(tableInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableInfo :gcp.bigquery/TableInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.TableOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.TableOption]]]
 
    :gcp.bigquery/TableUpdate
    [:map {:doc "cmd definition for bq.update(tableInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableInfo :gcp.bigquery/TableInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.TableOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.TableOption]]]
 
    :gcp.bigquery/TableDelete
    [:map {:doc "cmd definition for bq.delete(tableId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]]
 
    :gcp.bigquery/TableListData
    [:map {:doc "cmd definition for bq.listTableData()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]
-    [:schema {:optional true} :gcp.bigquery/Schema]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.TableDataListOption]]
+    [:schema {:optional true} [:maybe :gcp.bigquery/Schema]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.TableDataListOption]]]
 
    :gcp.bigquery/RoutineList
    [:map {:doc "cmd definition for bq.listRoutines(datasetId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetId :gcp.bigquery/DatasetId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.RoutineListOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.RoutineListOption]]]
 
    :gcp.bigquery/RoutineGet
    [:map {:doc "cmd definition for bq.getRoutine()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:routineId :gcp.bigquery/RoutineId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.RoutineOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.RoutineOption]]]
 
    :gcp.bigquery/RoutineCreate
    [:map {:doc "cmd definition for bq.create(routineInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:routineInfo :gcp.bigquery/RoutineInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.RoutineOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.RoutineOption]]]
 
    :gcp.bigquery/RoutineUpdate
    [:map {:doc "cmd definition for bq.update(routineInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:routineInfo :gcp.bigquery/RoutineInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.RoutineOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.RoutineOption]]]
 
    :gcp.bigquery/RoutineDelete
    [:map {:doc "cmd definition for bq.delete(routineId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:routineId :gcp.bigquery/RoutineId]]
 
    :gcp.bigquery/ModelList
    [:map {:doc "cmd definition for bq.listModels(datasetId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:datasetId :gcp.bigquery/DatasetId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.ModelListOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.ModelListOption]]]
 
    :gcp.bigquery/ModelGet
    [:map {:doc "cmd definition for bq.getModel()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:modelId :gcp.bigquery/ModelId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.ModelOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.ModelOption]]]
 
    :gcp.bigquery/ModelUpdate
    [:map {:doc "cmd definition for bq.update(modelInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:modelInfo :gcp.bigquery/ModelInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.ModelOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.ModelOption]]]
 
    :gcp.bigquery/ModelDelete
    [:map {:doc "cmd definition for bq.delete(modelId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:modelId :gcp.bigquery/ModelId]]
 
    :gcp.bigquery/JobList
    [:map {:doc "cmd definition for bq.listJobs()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.JobListOption]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.JobListOption]]]
 
    :gcp.bigquery/JobCancel
    [:map {:doc "cmd definition for bq.cancel(jobId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobId :gcp.bigquery/JobId]]
 
    :gcp.bigquery/JobCreate
    [:map {:doc "cmd definition for bq.create(jobInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobInfo :gcp.bigquery/JobInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.JobOption]]]
 
    :gcp.bigquery/JobGet
    [:map {:doc "cmd definition for bq.getJob(jobId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobId :gcp.bigquery/JobId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.JobOption]]]
 
    :gcp.bigquery/JobUpdate
    [:map {:doc "cmd definition for bq.update(jobInfo)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobInfo :gcp.bigquery/JobInfo]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.JobOption]]]
 
    :gcp.bigquery/JobDelete
    [:map {:doc "cmd definition for bq.delete(jobId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobId :gcp.bigquery/JobId]]
 
    :gcp.bigquery/JobWaitFor
    [:map {:doc "cmd definition for job.waitFor()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobId :gcp.bigquery/JobId]
-    [:retryOptions {:optional true} [:sequential :gcp.foreign.com.google.cloud/RetryOption]]
-    [:bigQueryRetryConfig {:optional true} :gcp.bigquery/BigQueryRetryConfig]]
+    [:retryOptions {:optional true}
+     [:maybe [:sequential :gcp.foreign.com.google.cloud/RetryOption]]]
+    [:bigQueryRetryConfig {:optional true} [:maybe :gcp.bigquery/BigQueryRetryConfig]]]
 
    :gcp.bigquery/JobIsDone
    [:map {:doc "cmd definition for job.isDone()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:jobId :gcp.bigquery/JobId]]
 
    :gcp.bigquery/GetIamPolicy
    [:map {:doc "cmd definition for bq.getIamPolicy(tableId)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.IAMOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.IAMOption]]]
 
    :gcp.bigquery/SetIamPolicy
    [:map {:doc "cmd definition for bq.setIamPolicy(tableId, policy)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]
     [:policy ::cloud/Policy]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.IAMOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.IAMOption]]]
 
    :gcp.bigquery/TestIamPermissions
    [:map {:doc "cmd definition for bq.testIamPermissions(tableId, permissions)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:tableId :gcp.bigquery/TableId]
     [:permissions [:sequential :string]]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.IAMOption]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.IAMOption]]]
 
    :gcp.bigquery/InsertAll
    [:map {:doc "cmd definition for bq.insertAll(insertAllRequest)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:insertAllRequest :gcp.bigquery/InsertAllRequest]]
 
    :gcp.bigquery/Query
    [:map {:doc "cmd definition for bq.query(configuration)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:configuration :gcp.bigquery/QueryJobConfiguration]
-    [:jobId {:optional true} :gcp.bigquery/JobId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
+    [:jobId {:optional true} [:maybe :gcp.bigquery/JobId]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.JobOption]]]
 
    :gcp.bigquery/QueryWithTimeout
    [:map {:doc "cmd definition for bq.queryWithTimeout(configuration, timeoutMs)"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:configuration :gcp.bigquery/QueryJobConfiguration]
     [:timeoutMs :int]
-    [:jobId {:optional true} :gcp.bigquery/JobId]
-    [:opts {:optional true} :gcp.bigquery/BigQuery.JobOption]]
+    [:jobId {:optional true} [:maybe :gcp.bigquery/JobId]]
+    [:opts {:optional true} [:maybe :gcp.bigquery/BigQuery.JobOption]]]
 
    :gcp.bigquery/ConnectionCreate
    [:map {:doc "cmd definition for bq.createConnection()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
-    [:connectionSettings {:optional true} :gcp.bigquery/ConnectionSettings]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
+    [:connectionSettings {:optional true} [:maybe :gcp.bigquery/ConnectionSettings]]]
 
    :gcp.bigquery/Writer
    [:map {:doc "cmd definition for bq.writer()"}
-    [:bigquery {:optional true} [:ref :gcp.bigquery/clientable]]
+    [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
     [:writeChannelConfiguration :gcp.bigquery/WriteChannelConfiguration]
-    [:jobId {:optional true} :gcp.bigquery/JobId]]})
+    [:jobId {:optional true} [:maybe :gcp.bigquery/JobId]]]})
 
 (g/include-registry! "gcp.bigquery.core" registry)
 
@@ -414,7 +416,7 @@
   (let [client (client bigquery)
         datasetId (DatasetId/from-edn datasetId)
         opts (BQ/DatasetOption-Array-from-edn opts)]
-    (DatasetInfo/to-edn (.getDataset client datasetId opts))))
+    (some-> (.getDataset client datasetId opts) DatasetInfo/to-edn)))
 
 #!----------------------------------------------------------------------------------------------------------------------
 #! DatasetDelete
@@ -1572,66 +1574,119 @@
     (vec (.testIamPermissions client tableId permissions opts))))
 
 #!----------------------------------------------------------------------------------------------------------------------
-;; Query
+#! Query
 
 (def ^:private query-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/Query]]]
+      [:query [:catn [:query :string]]]
       [:configuration [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]]
    2 [:altn
-      [:configuration-jobId [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
-      [:configuration-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-      [:client-configuration [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration]]]]
+      [:configuration-jobId [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
+                             [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
+      [:configuration-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
+                            [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-configuration [:catn [:clientable :gcp.bigquery/clientable]
+                              [:configuration :gcp.bigquery/QueryJobConfiguration]]]
+      [:client-query [:catn [:clientable :gcp.bigquery/clientable]
+                      [:query :string]]]
+      [:query-positionalParams [:catn [:query :string]
+                                [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
+      [:query-namedParams [:catn [:query :string]
+                           [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
+                                              :gcp.bigquery/QueryParameterValue]]]]
+      [:query-opts [:catn [:query :string]
+                    [:opts :gcp.bigquery/BigQuery.JobOption]]]]
    3 [:altn
-      [:configuration-jobId-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:opts :gcp.bigquery/BigQuery.JobOption]]]
-      [:client-configuration-jobId [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
-      [:client-configuration-opts [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:opts :gcp.bigquery/BigQuery.JobOption]]]]
-   4 [:catn
-      [:clientable :gcp.bigquery/clientable]
-      [:configuration :gcp.bigquery/QueryJobConfiguration]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
-      [:opts :gcp.bigquery/BigQuery.JobOption]]})
+      [:configuration-jobId-opts
+       [:catn
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-configuration-jobId
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
+      [:client-configuration-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-query-positionalParams
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
+      [:client-query-namedParams
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]]]
+      [:client-query-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:query-positionalParams-opts
+       [:catn
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:query-namedParams-opts
+       [:catn
+        [:query :string]
+        [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]]
+   4 [:altn
+      [:client-configuration-jobId-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-query-positionalParams-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-query-namedParams-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]]})
 
 (dwim/defdwim ->Query
               {:facade    gcp.bigquery/query
                :cmd       :gcp.bigquery/Query
                :arities   query-args
-               :normalize (fn [{:keys [cmd clientable configuration jobId opts]}]
+               :normalize (fn [{:keys [cmd clientable configuration query positionalParameters namedParameters jobId opts]}]
                             (or (some-> cmd (assoc :op :gcp.bigquery/Query))
-                                (let [resolved-job-id (cond
-                                                        (string? jobId) {:job jobId}
-                                                        (:jobId jobId) (:jobId jobId)
-                                                        :else jobId)]
+                                (if query
                                   {:op            :gcp.bigquery/Query
                                    :bigquery      clientable
-                                   :configuration configuration
-                                   :jobId         resolved-job-id
-                                   :opts          opts})))})
+                                   :configuration (cond-> {:type "QUERY"
+                                                           :query query}
+                                                          positionalParameters
+                                                          (assoc :positionalParameters positionalParameters)
 
-#!----------------------------------------------------------------------------------------------------------------------
-;; Q
-
-(def ^:private q-args
-  {1 [:catn [:query :string]]
-   2 [:altn
-      [:client-query [:catn [:clientable :gcp.bigquery/clientable] [:query :string]]]
-      [:query-positionalParams [:catn [:query :string] [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
-      [:query-namedParams [:catn [:query :string] [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]] :gcp.bigquery/QueryParameterValue]]]]]
-   3 [:altn
-      [:client-query-positionalParams [:catn [:clientable :gcp.bigquery/clientable] [:query :string] [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
-      [:client-query-namedParams [:catn [:clientable :gcp.bigquery/clientable] [:query :string] [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]] :gcp.bigquery/QueryParameterValue]]]]]})
-
-(dwim/defdwim ->Q
-              {:facade    gcp.bigquery/q
-               :cmd       :gcp.bigquery/Query
-               :arities   q-args
-               :normalize (fn [{:keys [clientable query positionalParameters namedParameters]}]
-                            (let [configuration (cond-> {:type "QUERY" :query query}
-                                                        positionalParameters (assoc :positionalParameters positionalParameters)
-                                                        namedParameters (assoc :namedParameters namedParameters))]
-                              (cond-> {:op            :gcp.bigquery/Query
-                                       :configuration configuration}
-                                      clientable (assoc :bigquery clientable))))})
+                                                          namedParameters
+                                                          (assoc :namedParameters namedParameters))
+                                   :opts          opts}
+                                  (let [resolved-job-id (cond
+                                                          (string? jobId) {:job jobId}
+                                                          (:jobId jobId) (:jobId jobId)
+                                                          :else jobId)]
+                                    {:op            :gcp.bigquery/Query
+                                     :bigquery      clientable
+                                     :configuration configuration
+                                     :jobId         resolved-job-id
+                                     :opts          opts}))))})
 
 (defmethod execute! :gcp.bigquery/Query [{:keys [bigquery configuration jobId opts]}]
   (let [client (client bigquery)
@@ -1648,41 +1703,141 @@
 
 (def ^:private query-with-timeout-args
   {1 [:catn [:cmd :gcp.bigquery/QueryWithTimeout]]
-   3 [:catn
-      [:configuration :gcp.bigquery/QueryJobConfiguration]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
-      [:timeoutMs :int]]
+   2 [:altn
+      [:query-timeout
+       [:catn
+        [:query :string]
+        [:timeoutMs :int]]]]
+   3 [:altn
+      [:configuration-jobId-timeout
+       [:catn
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
+        [:timeoutMs :int]]]
+      [:query-positionalParams-timeout
+       [:catn
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]]]
+      [:query-namedParams-timeout
+       [:catn
+        [:query :string]
+        [:namedParameters [:map-of
+                           [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]]]
+      [:client-query-timeout
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:timeoutMs :int]]]]
    4 [:altn
-      [:client-configuration-jobId-timeout [:catn [:clientable :gcp.bigquery/clientable] [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:timeoutMs :int]]]
-      [:configuration-jobId-timeout-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration] [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]] [:timeoutMs :int] [:opts :gcp.bigquery/BigQuery.JobOption]]]]
-   5 [:catn
-      [:clientable :gcp.bigquery/clientable]
-      [:configuration :gcp.bigquery/QueryJobConfiguration]
-      [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
-      [:timeoutMs :int]
-      [:opts :gcp.bigquery/BigQuery.JobOption]]})
+      [:client-configuration-jobId-timeout
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
+        [:timeoutMs :int]]]
+      [:configuration-jobId-timeout-opts
+       [:catn
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:query-positionalParams-timeout-opts
+       [:catn
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:query-namedParams-timeout-opts
+       [:catn
+        [:query :string]
+        [:namedParameters [:map-of
+                           [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-query-positionalParams-timeout
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]]]
+      [:client-query-namedParams-timeout
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:namedParameters [:map-of
+                           [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]]]
+      [:client-configuration-timeout-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]]
+   5 [:altn
+      [:client-configuration-jobId-timeout-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-query-positionalParams-timeout-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-query-namedParams-timeout-opts
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
+        [:query :string]
+        [:namedParameters [:map-of
+                           [:or 'simple-keyword? [:string {:min 1}]]
+                           :gcp.bigquery/QueryParameterValue]]
+        [:timeoutMs :int]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]]})
 
 (dwim/defdwim ->QueryWithTimeout
               {:facade    gcp.bigquery/query-with-timeout
                :cmd       :gcp.bigquery/QueryWithTimeout
                :arities   query-with-timeout-args
-               :normalize (fn [{:keys [cmd clientable configuration jobId timeoutMs opts]}]
+               :normalize (fn [{:keys [cmd clientable configuration query
+                                       positionalParameters namedParameters
+                                       jobId timeoutMs opts]}]
                             (or (some-> cmd (assoc :op :gcp.bigquery/QueryWithTimeout))
-                                (let [resolved-job-id (cond
-                                                        (string? jobId) {:job jobId}
-                                                        (:jobId jobId) (:jobId jobId)
-                                                        :else jobId)]
+                                (if query
                                   {:op            :gcp.bigquery/QueryWithTimeout
                                    :bigquery      clientable
-                                   :configuration configuration
+                                   :configuration (cond-> {:type "QUERY"
+                                                           :query query}
+                                                          positionalParameters
+                                                          (assoc :positionalParameters positionalParameters)
+                                                          namedParameters
+                                                          (assoc :namedParameters namedParameters))
                                    :timeoutMs     timeoutMs
-                                   :jobId         resolved-job-id
-                                   :opts          opts})))})
+                                   :opts          opts}
+                                  (let [resolved-job-id (cond
+                                                          (string? jobId) {:job jobId}
+                                                          (:jobId jobId) (:jobId jobId)
+                                                          :else jobId)]
+                                    {:op            :gcp.bigquery/QueryWithTimeout
+                                     :bigquery      clientable
+                                     :configuration configuration
+                                     :timeoutMs     timeoutMs
+                                     :jobId         resolved-job-id
+                                     :opts          opts}))))})
 
-(defmethod execute! :gcp.bigquery/QueryWithTimeout [{:keys [bigquery configuration jobId timeoutMs opts]}]
+(defmethod execute! :gcp.bigquery/QueryWithTimeout
+  [{:keys [bigquery configuration jobId timeoutMs opts]}]
   (let [client (client bigquery)
         configuration (QJC/from-edn configuration)
-        jobId (JobId/from-edn jobId)
+        jobId (some-> jobId JobId/from-edn)
         timeoutMs (long timeoutMs)
         opts (BQ/JobOption-Array-from-edn opts)]
     (.queryWithTimeout client configuration jobId timeoutMs opts)))
