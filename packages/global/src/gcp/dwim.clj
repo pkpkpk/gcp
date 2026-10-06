@@ -197,8 +197,10 @@
                   (rest schema)))
     schema))
 
-(defn- normalize-position-schema [schema]
-  (let [schemas (->> (flatten-or-schema schema)
+(defn- normalize-position-schema
+  [schemas]
+  (let [schemas (->> schemas
+                     (mapcat flatten-or-schema)
                      distinct
                      vec)]
     (if (= 1 (count schemas))
@@ -227,6 +229,9 @@
         branches         (extract-branch-params arity-schema)
         position-schemas (branch-position-schemas branches)
         branch-positions (mapv (fn [branch] (mapv second branch)) branches)
+        _(prn :arity-schema arity-schema)
+        _(prn :branches branches)
+        _(prn :position-schemas position-schemas)
         mismatches       (->> (range arity)
                               (keep (fn [index]
                                       (let [value   (nth argv index)
@@ -240,6 +245,7 @@
                                                        (into [:or]
                                                              (get position-schemas index)))}))))
                               vec)
+        _(assert (seq mismatches))
         suggested-keys   (into (sorted-set)
                                (comp (map :expected)
                                      (mapcat flatten)

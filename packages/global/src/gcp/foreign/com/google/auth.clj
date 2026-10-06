@@ -1,14 +1,4 @@
 (ns gcp.foreign.com.google.auth
-  {:doc "Foreign bindings for com.google.auth"
-   :gcp.dev/certification
-   {:Credentials
-    {:protocol-hash "1ec16a37154e80b37dbcfd68e59d7713ceface2ff37cdc88c258cded7134034c"
-     :base-seed 1767571324993
-     :timestamp "2026-01-05T00:02:05.139742832Z"
-     :passed-stages {:smoke 1767571324993
-                     :standard 1767571324994
-                     :stress 1767571324995}
-     :source-hash "2815478eb54ad7a438ca92eeaec48cb133b90bdaab6d471a1e01054b8ab5a5"}}}
   (:require [gcp.global :as g])
   (:import (com.google.auth Credentials ServiceAccountSigner)
            (com.google.auth.oauth2 GoogleCredentials)))

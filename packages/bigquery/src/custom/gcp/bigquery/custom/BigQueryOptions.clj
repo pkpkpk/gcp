@@ -1,15 +1,11 @@
 (ns gcp.bigquery.custom.BigQueryOptions
-  {:file-git-sha "6dcc90053353422ae766e531413b3ecc65b8b155"
-   :fqcn "com.google.cloud.bigquery.BigQueryOptions"}
+  {:fqcn         "com.google.cloud.bigquery.BigQueryOptions"}
   (:require
-   [gcp.bigquery.DataFormatOptions :as DataFormatOptions]
-   [gcp.foreign.com.google.api.gax.retrying  :as gax-retrying]
-   [gcp.global :as g])
+    [gcp.bigquery.DataFormatOptions :as DataFormatOptions]
+    [gcp.foreign.com.google.api.gax.retrying :as gax-retrying]
+    [gcp.global :as g])
   (:import
-   (com.google.api.gax.retrying ResultRetryAlgorithm)
-   (com.google.cloud TransportOptions)
-   (com.google.cloud.bigquery BigQuery BigQueryOptions QueryJobConfiguration$JobCreationMode)
-   (io.opentelemetry.api.trace Tracer)))
+    (com.google.cloud.bigquery BigQueryOptions QueryJobConfiguration$JobCreationMode)))
 
 ;com.google.cloud.ServiceOptions.Builder.setCredentials(com.google.auth.Credentials)
 ;com.google.cloud.ServiceOptions.Builder.setHeaderProvider(com.google.api.gax.rpc.HeaderProvider)
@@ -27,12 +23,23 @@
          (some->> (get arg :projectId) (.setProjectId builder))
          (some->> (get arg :quotaProjectId) (.setQuotaProjectId builder))
          (some->> (get arg :host) (.setHost builder))
+         (some->> (get arg :apiTracerFactory) (.setApiTracerFactory builder))
+         (some->> (get arg :clientLibToken) (.setClientLibToken builder))
+         (some->> (get arg :clock) (.setClock builder))
+         (some->> (get arg :credentials) (.setCredentials builder))
+         (some->> (get arg :headerProvider) (.setHeaderProvider builder))
+         (some->> (get arg :universeDomain) (.setUniverseDomain builder))
+         (some->> (get arg :useJwtAccessWithScope) (.setUseJwtAccessWithScope builder))
          (when-let [retrySettings (get arg :retrySettings)]
            (.setRetrySettings builder (gax-retrying/RetrySettings-from-edn retrySettings)))
          (when (some? (get arg :dataFormatOptions))
-           (.setDataFormatOptions builder (DataFormatOptions/from-edn (get arg :dataFormatOptions))))
+           (.setDataFormatOptions
+             builder
+             (DataFormatOptions/from-edn (get arg :dataFormatOptions))))
          (when (some? (get arg :enableOpenTelemetryTracing))
-           (.setEnableOpenTelemetryTracing builder (get arg :enableOpenTelemetryTracing)))
+           (.setEnableOpenTelemetryTracing
+             builder
+             (get arg :enableOpenTelemetryTracing)))
          (when (some? (get arg :location))
            (.setLocation builder (get arg :location)))
          (when-some [tracer (get arg :openTelemetryTracer)]
@@ -43,13 +50,10 @@
            (.setTransportOptions builder transportOptions))
          (let [instance (.build builder)]
            (when-some [defaultJobCreationMode (get arg :defaultJobCreationMode)]
-             (.setDefaultJobCreationMode instance (QueryJobConfiguration$JobCreationMode/valueOf defaultJobCreationMode)))
+             (.setDefaultJobCreationMode
+               instance
+               (QueryJobConfiguration$JobCreationMode/valueOf defaultJobCreationMode)))
            instance))))))
-
-(defn ^BigQuery get-service [arg]
-  (if (instance? BigQuery arg)
-    arg
-    (.getService (from-edn arg))))
 
 (defn ^String get-project-id
   ([]
@@ -67,17 +71,69 @@
   [^BigQueryOptions arg]
   {:post [(g/strict! :gcp.bigquery/BigQueryOptions %)]}
   (cond-> {}
-    (.getProjectId arg)                  (assoc :projectId (.getProjectId arg))
-    (.getHost arg)                       (assoc :host (.getHost arg))
-    (.getQuotaProjectId arg)             (assoc :quoteProjectId (.getQuotaProjectId arg))
-    (.getRetrySettings arg)              (assoc :retrySettings (gax-retrying/RetrySettings-to-edn (.getRetrySettings arg)))
-    (.getDataFormatOptions arg)          (assoc :dataFormatOptions (DataFormatOptions/to-edn (.getDataFormatOptions arg)))
-    (.getDefaultJobCreationMode arg)     (assoc :defaultJobCreationMode (.name (.getDefaultJobCreationMode arg)))
-    (.isOpenTelemetryTracingEnabled arg) (assoc :enableOpenTelemetryTracing (.isOpenTelemetryTracingEnabled arg))
-    (.getLocation arg)                   (assoc :location (.getLocation arg))
-    (.getOpenTelemetryTracer arg)        (assoc :openTelemetryTracer (.getOpenTelemetryTracer arg))
-    (.getResultRetryAlgorithm arg)       (assoc :resultRetryAlgorithm (.getResultRetryAlgorithm arg))
-    (.getThrowNotFound arg)              (assoc :setThrowNotFound (.getThrowNotFound arg))))
+          (.getProjectId arg)
+          (assoc :projectId (.getProjectId arg))
+
+          (.getHost arg)
+          (assoc :host (.getHost arg))
+
+          (.getQuotaProjectId arg)
+          (assoc :quotaProjectId (.getQuotaProjectId arg))
+
+          (.getApiTracerFactory arg)
+          (assoc :apiTracerFactory (.getApiTracerFactory arg))
+
+          (.getClientLibToken arg)
+          (assoc :clientLibToken (.getClientLibToken arg))
+
+          (.getClock arg)
+          (assoc :clock (.getClock arg))
+
+          (.getCredentials arg)
+          (assoc :credentials (.getCredentials arg))
+
+          (.getUniverseDomain arg)
+          (assoc :universeDomain (.getUniverseDomain arg))
+
+          (.getUseJwtAccessWithScope arg)
+          (assoc :useJwtAccessWithScope (.getUseJwtAccessWithScope arg))
+
+          (.getRetrySettings arg)
+          (assoc :retrySettings
+                 (gax-retrying/RetrySettings-to-edn
+                   (.getRetrySettings arg)))
+
+          (.getDataFormatOptions arg)
+          (assoc :dataFormatOptions
+                 (DataFormatOptions/to-edn
+                   (.getDataFormatOptions arg)))
+
+          (.getDefaultJobCreationMode arg)
+          (assoc :defaultJobCreationMode
+                 (.name (.getDefaultJobCreationMode arg)))
+
+          (.isOpenTelemetryTracingEnabled arg)
+          (assoc :enableOpenTelemetryTracing
+                 (.isOpenTelemetryTracingEnabled arg))
+
+          (.getLocation arg)
+          (assoc :location (.getLocation arg))
+
+          (.getOpenTelemetryTracer arg)
+          (assoc :openTelemetryTracer
+                 (.getOpenTelemetryTracer arg))
+
+          (.getResultRetryAlgorithm arg)
+          (assoc :resultRetryAlgorithm
+                 (.getResultRetryAlgorithm arg))
+
+          (.getThrowNotFound arg)
+          (assoc :setThrowNotFound
+                 (.getThrowNotFound arg))
+
+          (.getTransportOptions arg)
+          (assoc :transportOptions
+                 (.getTransportOptions arg))))
 
 (def schema
   [:or
@@ -91,21 +147,30 @@
      [:projectId {:optional true} :string]
      [:host {:optional true} :string]
      [:quotaProjectId {:optional true} :string]
+     [:apiTracerFactory {:optional true} (g/instance-schema com.google.api.gax.tracing.ApiTracerFactory)]
+     [:clientLibToken {:optional true} :string]
+     [:clock {:optional true} (g/instance-schema com.google.api.core.ApiClock)]
+     [:credentials {:optional true} (g/instance-schema com.google.auth.Credentials)]
+     [:headerProvider {:optional true :write-only? true} (g/instance-schema com.google.api.gax.rpc.HeaderProvider)]
+     [:universeDomain {:optional true} :string]
+     [:useJwtAccessWithScope {:optional true} :boolean]
      [:retrySettings {:optional true} ::gax-retrying/RetrySettings]
      [:dataFormatOptions
       {:optional   true
        :setter-doc "Set the format options for the BigQuery data types\n\n@param dataFormatOptions Configuration of the formatting options"}
       :gcp.bigquery/DataFormatOptions]
-     [:defaultJobCreationMode {:optional true, :read-only? true}
-      [:enum "JOB_CREATION_MODE_UNSPECIFIED" "JOB_CREATION_REQUIRED" "JOB_CREATION_OPTIONAL"]]
+     [:defaultJobCreationMode
+      {:optional true, :read-only? true}
+      [:enum
+       "JOB_CREATION_MODE_UNSPECIFIED"
+       "JOB_CREATION_REQUIRED"
+       "JOB_CREATION_OPTIONAL"]]
      [:enableOpenTelemetryTracing
       {:optional   true
        :getter-doc "Returns whether this BigQuery instance has OpenTelemetry tracing enabled\n\n@return true if tracing is enabled, false if not"
        :setter-doc "Enables OpenTelemetry tracing functionality for this BigQuery instance\n\n@param enableOpenTelemetryTracing enables OpenTelemetry tracing if true"}
       :boolean]
-     [:location
-      {:optional true}
-      [:string {:min 1}]]
+     [:location {:optional true} [:string {:min 1}]]
      [:openTelemetryTracer
       {:optional   true
        :getter-doc "Returns the OpenTelemetry tracer used by this BigQuery instance\n\n@return OpenTelemetry tracer object or {@code null} if not set"
@@ -114,10 +179,7 @@
      [:resultRetryAlgorithm
       {:optional true}
       (g/instance-schema com.google.api.gax.retrying.ResultRetryAlgorithm)]
-     [:setThrowNotFound
-      {:optional true, :read-only? true} :boolean]
-     [:transportOptions
-      {:optional true}
-      (g/instance-schema com.google.cloud.TransportOptions)]]]])
+     [:throwNotFound {:optional true} :boolean]
+     [:transportOptions {:optional true} (g/instance-schema com.google.cloud.TransportOptions)]]]])
 
 (g/include-registry! "gcp.bigquery.BigQueryOptions" {:gcp.bigquery/BigQueryOptions schema})

@@ -1,4 +1,4 @@
-(ns gcp.bigquery.parse-args-tests
+(ns gcp.bigquery.tests.dwim-tests
   (:require [clojure.string :as string]
             [clojure.test :refer :all]
             [gcp.bigquery :as bq]
@@ -11,9 +11,9 @@
              'gcp.dwim
              '[gcp.bigquery.core :as bqc]
              '[gcp.bigquery :as bq]
-             'gcp.bigquery.parse-args-tests)
-    (in-ns 'gcp.bigquery.parse-args-tests)
-    (clojure.test/run-tests 'gcp.bigquery.parse-args-tests))
+             'gcp.bigquery.dwim-tests)
+    (in-ns 'gcp.bigquery.dwim-tests)
+    (clojure.test/run-tests 'gcp.bigquery.dwim-tests))
   )
 
 (def client (bqc/client))

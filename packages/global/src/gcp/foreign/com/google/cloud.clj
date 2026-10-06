@@ -1,12 +1,13 @@
+```clojure
 (ns gcp.foreign.com.google.cloud
   (:require [gcp.global :as g]
             [gcp.foreign.com.google.api :as api]
             [gcp.foreign.com.google.protobuf :as protobuf])
   (:import
-   (com.google.cloud MonitoredResource MonitoredResourceDescriptor
-                     RetryOption RetryOption$OptionType
-                     Binding Condition Policy)
-   (java.time Duration)))
+    (com.google.cloud Binding Condition MonitoredResource
+                      MonitoredResourceDescriptor Policy RetryOption
+                      RetryOption$OptionType)
+    (java.time Duration)))
 
 (defn- edn->java-duration [arg]
   (if (number? arg)
@@ -35,10 +36,14 @@
 ;; RetryOption
 (defn RetryOption-from-edn [arg]
   (cond
-    (:totalTimeout arg) (RetryOption/totalTimeoutDuration (edn->java-duration (:totalTimeout arg)))
-    (:initialRetryDelay arg) (RetryOption/initialRetryDelayDuration (edn->java-duration (:initialRetryDelay arg)))
-    (:retryDelayMultiplier arg) (RetryOption/retryDelayMultiplier (double (:retryDelayMultiplier arg)))
-    (:maxRetryDelay arg) (RetryOption/maxRetryDelayDuration (edn->java-duration (:maxRetryDelay arg)))
+    (:totalTimeout arg) (RetryOption/totalTimeoutDuration
+                          (edn->java-duration (:totalTimeout arg)))
+    (:initialRetryDelay arg) (RetryOption/initialRetryDelayDuration
+                               (edn->java-duration (:initialRetryDelay arg)))
+    (:retryDelayMultiplier arg) (RetryOption/retryDelayMultiplier
+                                  (double (:retryDelayMultiplier arg)))
+    (:maxRetryDelay arg) (RetryOption/maxRetryDelayDuration
+                           (edn->java-duration (:maxRetryDelay arg)))
     (:maxAttempts arg) (RetryOption/maxAttempts (int (:maxAttempts arg)))
     (contains? arg :jittered) (RetryOption/jittered (boolean (:jittered arg)))
     :else (throw (ex-info "Unknown RetryOption" {:arg arg}))))
@@ -60,18 +65,9 @@
         "JITTERED" {:jittered value}
         (throw (ex-info "Unknown RetryOption type" {:type type}))))))
 
-(def Condition-schema
-  [:map
-   {:closed true
-    :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM."
-    :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Condition"]}
-   [:description [:string {:min 1}]]
-   [:expression [:string {:min 1}]]
-   [:title [:string {:min 1}]]])
-
 (defn ^Condition Condition-from-edn [arg]
   (let [builder (Condition/newBuilder)]
-    (some->>  (:description arg) (.setDescription builder))
+    (some->> (:description arg) (.setDescription builder))
     (some->> (:expression arg) (.setExpression builder))
     (some->> (:title arg) (.setTitle builder))
     (.build builder)))
@@ -82,15 +78,6 @@
           (.getExpression arg) (assoc :expression (.getExpression arg))
           (.getTitle arg) (assoc :title (.getTitle arg))))
 
-(def Binding-schema
-  [:map
-   {:closed true
-    :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM"
-    :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Binding"]}
-   [:role [:string {:min 1}]]
-   [:members [:sequential [:string {:min 1}]]]
-   [:condition [:ref ::Condition]]])
-
 (defn ^Binding Binding-from-edn [arg]
   (let [builder (Binding/newBuilder)]
     (some->> (:role arg) (.setRole builder))
@@ -99,23 +86,11 @@
     (.build builder)))
 
 (defn Binding-to-edn [^Binding arg]
+  {:post [(g/strict! ::Binding %)]}
   (cond-> {}
           (.getRole arg) (assoc :role (.getRole arg))
-          (.getMembers arg) (assoc :members (.getMembers arg))
+          (.getMembers arg) (assoc :members (vec (.getMembers arg)))
           (.getCondition arg) (assoc :condition (Condition-to-edn (.getCondition arg)))))
-
-(def Policy-schema
-  [:map {:closed true
-         :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM"
-         :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Policy"
-                "https://docs.cloud.google.com/iam/docs/reference/rest/v1/Policy"]}
-   [:version {:doc "Returns the version of the policy. The default version is 0, meaning only the \"owner\", \"editor\", and \"viewer\" roles are permitted. If the version is 1, you may also use other roles."}
-    [:enum 0 1 3]]
-   [:etag {:read-only? true
-           :optional true
-           :doc "Etags are used for optimistic concurrency control as a way to help prevent simultaneous updates of a policy from overwriting each other. It is strongly suggested that systems make use of the etag in the read-modify-write cycle to perform policy updates in order to avoid race conditions. An etag is returned in the response to getIamPolicy, and systems are expected to put that etag in the request to setIamPolicy to ensure that their change will be applied to the same version of the policy. If no etag is provided in the call to setIamPolicy, then the existing policy is overwritten blindly."}
-    [:string {:min 1}]]
-   [:bindings {:optional true} [:sequential [:ref ::Binding]]]])
 
 (defn ^Policy Policy-from-edn [arg]
   (let [builder (Policy/newBuilder)]
@@ -129,13 +104,36 @@
   (cond-> {}
           (.getEtag arg) (assoc :etag (.getEtag arg))
           (.getVersion arg) (assoc :version (.getVersion arg))
-          (seq (.getBindings arg)) (assoc :bindings (map Binding-to-edn (.getBindings arg)))))
+          (seq (.getBindings arg))
+          (assoc :bindings (mapv Binding-to-edn (.getBindingsList arg)))))
 
 (g/include-registry!
   "gcp.foreign.com.google.cloud"
-  {::Condition    Condition-schema
-   ::Binding      Binding-schema
-   ::Policy       Policy-schema
+  {::Condition    [:map
+                   {:closed true
+                    :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. IAM policies are a list of bindings. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM."
+                    :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Condition"]}
+                   [:description [:string {:min 1}]]
+                   [:expression [:string {:min 1}]]
+                   [:title [:string {:min 1}]]]
+   ::Binding      [:map
+                   {:closed true
+                    :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A binding assigns a set of identities to a role, where the identities can be user accounts, Google groups, Google domains, and service accounts. A role is a named list of permissions defined by IAM"
+                    :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Binding"]}
+                   [:role [:string {:min 1}]]
+                   [:members [:sequential [:string {:min 1}]]]
+                   [:condition {:optional true} [:ref ::Condition]]]
+   ::Policy       [:map {:closed true
+                         :doc "Class for Identity and Access Management (IAM) policies. IAM policies are used to specify access settings for Cloud Platform resources. A policy is a list of bindings. A binding assigns a set of identities to a role, where a role is a named list of permissions defined by IAM"
+                         :urls ["https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.Policy"
+                                "https://docs.cloud.google.com/iam/docs/reference/rest/v1/Policy"]}
+                   [:version {:doc "Returns the version of the policy. The default version is 0, meaning only the \"owner\", \"editor\", and \"viewer\" roles are permitted. If the version is 1, you may also use other roles."}
+                    [:enum 0 1 3]]
+                   [:etag {:read-only? true
+                           :optional true
+                           :doc "Etags are used for optimistic concurrency control as a way to help prevent simultaneous updates of a policy from overwriting each other. It is strongly suggested that systems make use of the etag in the read-modify-write cycle to perform policy updates in order to avoid race conditions. An etag is returned in the response to getIamPolicy, and systems are expected to put that etag in the request to setIamPolicy to ensure that their change will be applied to the same version of the policy. If no etag is provided in the call to setIamPolicy, then the existing policy is overwritten blindly."}
+                    [:string {:min 1}]]
+                   [:bindings {:optional true} [:sequential [:ref ::Binding]]]]
    ::RetryOption [:or
                   [:map {:closed true} [:totalTimeout ::protobuf/Duration]]
                   [:map {:closed true} [:initialRetryDelay ::protobuf/Duration]]

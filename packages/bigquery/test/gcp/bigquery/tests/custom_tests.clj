@@ -1,4 +1,4 @@
-(ns gcp.bigquery.custom-tests
+(ns gcp.bigquery.tests.custom-tests
   (:require [clojure.test :refer :all]
             [gcp.bigquery.custom :refer [QueryParameterValue-from-edn
                                          QueryParameterValue-to-edn
