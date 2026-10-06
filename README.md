@@ -1,5 +1,4 @@
 
- 
  lib | release |  notes
 -----|---------|---------|
 `gcp.bigquery` | [![Clojars Project](https://img.shields.io/clojars/v/com.github.pkpkpk/gcp.bigquery.svg?include_prereleases)](https://clojars.org/com.github.pkpkpk/gcp.bigquery) | complete :white_check_mark:
@@ -9,18 +8,61 @@
 
 ### usage
 
+All classes and operations are accessed via their map representation
+
 ```clojure
 (require '[gcp.bigquery :as bq]
          '[gcp.global :as g])
 
-;;constructing all classes via their map representation
-; recovering edn from returned instances
+(bq/list-datasets) ;=> use default client
+(bq/list-datasets (bq/client {...})) ;=> impersonate, use different project.. etc
+
+(bq/create-dataset {:datasetId {:project "foo" :dataset "bar"}
+                    :location "us-east"})
+
+(bq/get-dataset "bar") ;; if your DAC project is "foo", this works just fine
 
 ```
 
-### schema keys, discovery, strict-mode 
+Every generated type has a Malli schema key discoverable through g/get-schema
+
+```clojure
+(g/get-schema :gcp.bigquery/DatasetInfo)
+(g/get-schema :gcp.bigquery/DatasetId)
+
+(g/valid? :gcp.bigquery/DatasetId {:dataset "foo"})
+(g/explain :gcp.bigquery/DatasetId {:dataset 42})
+```
 
 ### argument parse errors
+
+DWIM argument parsing produces structured errors rather than opaque arity/type failures. The exception data contains the failing arguments, mismatched positions, expected schemas, and suggested schema/discovery forms.
+
+```clojure
+(try
+  (bq/get-dataset [42])
+  (catch Exception e
+    (ex-data e)))
+
+#_ {
+     :gcp.dwim/type :gcp.dwim/parse-error
+     :arity 1
+     :argv "[42]"
+     :mismatches
+     [{:index 0
+       :value "42"
+       :expected [:or
+                   :gcp.bigquery/DatasetId
+                   :gcp.bigquery/DatasetInfo
+                   :string]}]
+     :suggested-keys
+     #{:gcp.bigquery/DatasetId
+       :gcp.bigquery/DatasetInfo}
+     :suggested-forms
+     [(clojure.repl/doc gcp.bigquery/get-dataset)
+      (gcp.global/get-schema :gcp.bigquery/DatasetId)
+      (gcp.global/get-schema :gcp.bigquery/DatasetInfo)]}
+```
 
 ### DWIM & structural polymorphism
 
@@ -84,7 +126,7 @@ The above combinations can again be repeated by satisfying `:gcp.bigquery.core/c
 
 ### clients
 
-The general pattern of google cloud client objects is a service specific ServiceSettings/ServiceOptions map that has inherited fields for transitive google sdks. All the same, we simply represent these as edn and cache instances via that identity
+The general pattern of google cloud client objects is a service specific ServiceSettings/ServiceOptions map that has inherited[^2] behavior from transitive google sdks. All the same, we simply represent these as edn and cache instances via that identity
 
 ```clojure
 ;; example of client options parameter
@@ -103,9 +145,6 @@ Each package has a core namespace with a *client* dynamic var, this will take pr
   (bq/q {:projectId "foo"} "..."))
 ```
 
-### aux
-
-
 <hr>
 
 ### links
@@ -120,3 +159,4 @@ sdks reps
 
 [^0]: https://en.wikipedia.org/wiki/DWIM
 [^1]: https://caml.inria.fr/pub/papers/garrigue-structural_poly-fool02.pdf
+[^2]: https://docs.cloud.google.com/java/docs/reference/google-cloud-core/latest/com.google.cloud.ServiceOptions
