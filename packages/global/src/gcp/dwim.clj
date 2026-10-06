@@ -222,43 +222,64 @@
 
 (defn branch-error
   [{:keys [arities compiled-schemas argv facade] :as call}]
-  (let [arity            (count argv)
-        schema           (get compiled-schemas arity)
+  (let [arity             (count argv)
+        schema            (get compiled-schemas arity)
         {:keys [errors] :as explanation} (g/explain schema argv)
-        arity-schema (get arities arity)
-        branches         (extract-branch-params arity-schema)
-        position-schemas (branch-position-schemas branches)
-        branch-positions (mapv (fn [branch] (mapv second branch)) branches)
-        _(prn :arity-schema arity-schema)
-        _(prn :branches branches)
-        _(prn :position-schemas position-schemas)
-        mismatches       (->> (range arity)
-                              (keep (fn [index]
-                                      (let [value   (nth argv index)
-                                            schemas (keep #(nth % index nil)
-                                                          branch-positions)]
-                                        (when-not (some #(g/valid? % value)
-                                                        schemas)
-                                          {:index    index
-                                           :value    (safe-str value)
-                                           :expected (reduce-or-schema
-                                                       (into [:or]
-                                                             (get position-schemas index)))}))))
-                              vec)
-        _(assert (seq mismatches))
-        suggested-keys   (into (sorted-set)
-                               (comp (map :expected)
-                                     (mapcat flatten)
-                                     (filter gcp-schema-ref?))
-                               mismatches)
-        explain-forms
-        (into {}
-              (map (fn [{:keys [index expected] :as _mismatch}]
-                     [index
-                      (mapv #(list 'g/explain % (nth argv index))
-                            (distinct (rest expected))) ]))
-              mismatches)
-        suggested-forms  (into [(list 'clojure.repl/doc facade)] (map (fn [k] (list 'gcp.global/get-schema k))) suggested-keys)]
+        arity-schema      (get arities arity)
+        branches          (extract-branch-params arity-schema)
+        branch-mismatches (mapv
+                            (fn [branch]
+                              {:branch branch
+                               :mismatches
+                               (->> (range arity)
+                                    (keep
+                                      (fn [index]
+                                        (let [value  (nth argv index)
+                                              schema (second (nth branch index))]
+                                          (when-not (g/valid? schema value)
+                                            {:index    index
+                                             :value    (safe-str value)
+                                             :expected schema}))))
+                                    vec)})
+                            branches)
+        min-mismatches    (when (seq branch-mismatches)
+                            (apply min-key #(count (:mismatches %))
+                                   branch-mismatches))
+        closest           (if min-mismatches
+                            (let [n (count (:mismatches min-mismatches))]
+                              (filter #(= n (count (:mismatches %)))
+                                      branch-mismatches))
+                            [])
+        mismatches        (->> closest
+                               (mapcat :mismatches)
+                               (group-by :index)
+                               (sort-by key)
+                               (mapv
+                                 (fn [[index entries]]
+                                   (let [expected (normalize-position-schema
+                                                    (map :expected entries))]
+                                     {:index    index
+                                      :value    (:value (first entries))
+                                      :expected (reduce-or-schema
+                                                  (if (and (vector? expected)
+                                                           (= :or (first expected)))
+                                                    expected
+                                                    [:or expected]))}))))
+        _                 (assert (seq mismatches) "mismatches should never be empty, this is a bug in gcp.dwim")
+        suggested-keys    (into (sorted-set)
+                                (comp (map :expected)
+                                      (mapcat flatten)
+                                      (filter gcp-schema-ref?))
+                                mismatches)
+        explain-forms     (into {}
+                                (map (fn [{:keys [index expected]}]
+                                       [index
+                                        (mapv #(list 'g/explain % (nth argv index))
+                                              (distinct (rest expected)))])
+                                     mismatches))
+        suggested-forms   (into [(list 'clojure.repl/doc facade)]
+                                (map (fn [k] (list 'gcp.global/get-schema k)))
+                                suggested-keys)]
     (assoc call
       ::type                 ::parse-error
       :arity                arity

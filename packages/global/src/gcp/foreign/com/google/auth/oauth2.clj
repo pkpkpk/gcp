@@ -24,7 +24,7 @@
        [:iamEndpointOverride {:optional true} :string]]]}
     {::g/name ::registry}))
 
-(g/include-schema-registry! registry)
+(g/include-registry! "gcp.foreign.com.google.auth.oauth2" registry)
 
 (defn ImpersonatedCredentials-from-edn
   [arg]

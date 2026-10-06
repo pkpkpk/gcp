@@ -5,7 +5,7 @@
     [gcp.foreign.com.google.api.gax.retrying :as gax-retrying]
     [gcp.global :as g])
   (:import
-    (com.google.cloud.bigquery BigQueryOptions QueryJobConfiguration$JobCreationMode)))
+    (com.google.cloud.bigquery BigQuery BigQueryOptions QueryJobConfiguration$JobCreationMode)))
 
 ;com.google.cloud.ServiceOptions.Builder.setCredentials(com.google.auth.Credentials)
 ;com.google.cloud.ServiceOptions.Builder.setHeaderProvider(com.google.api.gax.rpc.HeaderProvider)
@@ -54,6 +54,11 @@
                instance
                (QueryJobConfiguration$JobCreationMode/valueOf defaultJobCreationMode)))
            instance))))))
+
+(defn ^BigQuery get-service [arg]
+  (if (instance? BigQuery arg)
+    arg
+    (.getService (from-edn arg))))
 
 (defn ^String get-project-id
   ([]
