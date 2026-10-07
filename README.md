@@ -18,7 +18,7 @@ All classes and operations are accessed via their map representation
 (bq/list-datasets (bq/client {...})) ;=> impersonate, use different project.. etc
 
 (bq/create-dataset {:datasetId {:project "foo" :dataset "bar"}
-                    :location "us-east"})
+                    :location "us-east1"})
 
 (bq/get-dataset "bar") ;; if your DAC project is "foo", this works just fine
 
@@ -40,7 +40,7 @@ DWIM argument parsing produces structured errors rather than opaque arity/type f
 
 ```clojure
 (try
-  (bq/get-dataset [42])
+  (bq/get-dataset 42)
   (catch Exception e
     (ex-data e)))
 
