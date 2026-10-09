@@ -8,14 +8,24 @@
   (:import
     (com.google.cloud.bigquery Field Field$Mode FieldElementType FieldValue InsertAllRequest LegacySQLTypeName QueryParameterValue Range StandardSQLTypeName TableResult)
     (com.google.gson JsonObject)
+    (java.math RoundingMode)
     (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
     (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
     (java.time.temporal ChronoField ChronoUnit)
     (java.util Base64 Date HashMap)
     (org.threeten.extra PeriodDuration)))
 
+;;
+;; TODO
+;;  GRAPH_ELEMENT/GRAPH_PATH IS NOT IN JAVASDK BUT IS SUPPORTED BY BQ
+;;  https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/data-types#graph_element_type
+;;  https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/data-types#graph_path_type
+;;
+
 #!-----------------------------
 #! :Time
+#! LocalTime is accepted, but its nanosecond component must be representable at BigQuery's microsecond precision.
+;; TODO document and explicitly test the rejection separately from the roundtrip fixtures
 
 (def ^DateTimeFormatter ^:private
   time-formatter
@@ -25,16 +35,20 @@
       (.toFormatter)))
 
 (defn String->Time [s]
-  (.truncatedTo (LocalTime/parse s time-formatter) ChronoUnit/MICROS))
+  (LocalTime/parse s time-formatter))
 
 (defn- ^String Time->String
   [^LocalTime t]
-  (.format (.truncatedTo t ChronoUnit/MICROS) time-formatter))
+  (when-not (zero? (mod (.getNano t) 1000))
+    (throw (ex-info "BigQuery TIME supports microsecond precision"
+                    {:time t
+                     :nanosecond (.getNano t)})))
+  (.format t time-formatter))
 
 #!-----------------------------
 #! :Date
 
-(def date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd"))
+(def date-formatter (DateTimeFormatter/ofPattern "uuuu-MM-dd"))
 
 (defn ^LocalDate String->Date [s]
   (LocalDate/parse s date-formatter))
@@ -49,10 +63,8 @@
 (def ^DateTimeFormatter ^:private
   datetime-formatter
   (-> (DateTimeFormatterBuilder.)
-      (.appendPattern "yyyy-MM-dd HH:mm:ss")
-      (.optionalStart)
-      (.appendFraction ChronoField/NANO_OF_SECOND 1 9 true)
-      (.optionalEnd)
+      (.appendPattern "uuuu-MM-dd HH:mm:ss")
+      (.appendFraction ChronoField/NANO_OF_SECOND 0 6 true)
       (.toFormatter)))
 
 (defn- String->DateTime [s]
@@ -60,48 +72,79 @@
 
 (defn- ^String DateTime->String
   [^LocalDateTime arg]
-  (.replace (.toString (.truncatedTo arg ChronoUnit/MICROS)) "T" " "))
+  (when-not (zero? (mod (.getNano arg) 1000))
+    (throw (ex-info "BigQuery DATETIME supports microsecond precision"
+                    {:datetime arg
+                     :nanosecond (.getNano arg)})))
+  (.replace (.toString arg) "T" " "))
 
 #!-----------------------------
+#! TIMESTAMP
+;; 2026/10/08
+;; BigQuery TIMESTAMP is microsecond precision.
+;;
+;; The Java SDK exposes timestampPrecision with values
+;; 6 and 12, but this does not mean BigQuery table
+;; schemas support both values.
+;;
+;; We tested TIMESTAMP(12) directly through GoogleSQL:
+;;
+;;   CREATE TABLE `field_test.timestamp_picos` (
+;;     microsecond TIMESTAMP,
+;;     picosecond TIMESTAMP(12)
+;;   );
+;;
+;; BigQuery rejected it:
+;;
+;;   Timestamp precision type parameter is not supported
+;;
+;; at [3:23].
+;;
+;; We also tested timestampPrecision 12 through the
+;; Java Field/table-create path. BigQuery rejected it:
+;;
+;;   Field nanosecond has type TIMESTAMP with
+;;   picosecond precision, but it is not supported.
+;;
+;; Explicit timestampPrecision 6 was also rejected by
+;; the table-create path, despite 6 being the default.
+;;
+;; Therefore we treat BigQuery TIMESTAMP as having
+;; microsecond precision only. timestampPrecision is
+;; removed from our public Field representation.
 
 (def ^DateTimeFormatter ^:private
   timestamp-formatter
   (-> (DateTimeFormatterBuilder.)
-      (.appendPattern "yyyy-MM-dd HH:mm:ss")
-      (.optionalStart)
-      (.appendFraction ChronoField/NANO_OF_SECOND 1 9 true)
-      (.optionalEnd)
-      (.appendOffsetId) ; parses +00:00, -05:00, Z, etc.
+      (.appendPattern "uuuu-MM-dd HH:mm:ss")
+      (.appendFraction ChronoField/NANO_OF_SECOND 0 6 true)
+      (.appendOffsetId)
       (.toFormatter)))
 
-(defn- ^Instant String->Instant [^String s]
-  (if-not s
-    nil
+(defn- ^Instant String->Instant
+  [^String s]
+  (when s
     (try
-      (let [bd (java.math.BigDecimal. s)
-            seconds (.longValue bd)
-            fraction (.subtract bd (java.math.BigDecimal/valueOf seconds))
-            nanos (.longValue (.multiply fraction (java.math.BigDecimal/valueOf 1000000000)))]
-        (Instant/ofEpochSecond seconds nanos))
+      (let [seconds (BigDecimal. s)
+            whole-seconds (.longValue (.setScale seconds 0 RoundingMode/FLOOR))
+            fractional-seconds (.subtract seconds (BigDecimal/valueOf whole-seconds))
+            nanos (.longValue
+                    (.multiply fractional-seconds
+                               (BigDecimal/valueOf 1000000000)))]
+        (Instant/ofEpochSecond whole-seconds nanos))
       (catch NumberFormatException _
-        (let [clean-s (cond
-                        (.endsWith s " UTC") (str (subs s 0 (- (count s) 4)) "Z")
-                        (.endsWith s " GMT") (str (subs s 0 (- (count s) 4)) "Z")
-                        :else s)]
-          (try
-            (.toInstant (OffsetDateTime/parse clean-s timestamp-formatter))
-            (catch Exception _
-              (try
-                (.toInstant (OffsetDateTime/parse (str clean-s "Z") timestamp-formatter))
-                (catch Exception _
-                  (Instant/parse clean-s))))))))))
+        (let [s (cond
+                  (.endsWith s " UTC") (str (subs s 0 (- (count s) 4)) "Z")
+                  (.endsWith s " GMT") (str (subs s 0 (- (count s) 4)) "Z")
+                  :else s)]
+          (.toInstant (OffsetDateTime/parse s timestamp-formatter)))))))
 
 (defn- ^String Instant->String
-  [inst]
-  (let [^Instant inst (if (instance? Date inst) (.toInstant ^Date inst) inst)
-        inst (.truncatedTo inst ChronoUnit/MICROS)]
-    (-> (OffsetDateTime/ofInstant inst ZoneOffset/UTC)
-        (.format timestamp-formatter))))
+  [^Instant inst]
+  (-> (OffsetDateTime/ofInstant
+        (.truncatedTo inst ChronoUnit/MICROS)
+        ZoneOffset/UTC)
+      (.format timestamp-formatter)))
 
 #!------------------------------------------------
 #! FieldElementType
@@ -201,93 +244,179 @@
   [:map
    [:collation
     {:optional true
-     :setter-doc
-     "Optional. Field collation can be set only when the type of field is STRING. The following\nvalues are supported:\n\n<p>* 'und:ci': undetermined locale, case insensitive. * '': empty string. Default to\ncase-sensitive behavior. (-- A wrapper is used here because it is possible to set the value\nto the empty string. --)"}
-    :string]
+     :setter-doc "Optional. Field collation can be set only when the type of field is STRING. The following\nvalues are supported:\n\n<p>* 'und:ci': undetermined locale, case insensitive. * '': empty string. Default to\ncase-sensitive behavior. (-- A wrapper is used here because it is possible to set the value\nto the empty string. --)"}
+    [:enum "und:ci" ""]]
+
    [:defaultValueExpression
     {:optional true
      :getter-doc "Return the default value of the field."
      :setter-doc
      "DefaultValueExpression is used to specify the default value of a field using a SQL\nexpression. It can only be set for top level fields (columns).\n\n<p>You can use struct or array expression to specify default value for the entire struct or\narray. The valid SQL expressions are:\n\n<pre>\n  Literals for all data types, including STRUCT and ARRAY.\n  The following functions:\n     - CURRENT_TIMESTAMP\n     - CURRENT_TIME\n     - CURRENT_DATE\n     - CURRENT_DATETIME\n     - GENERATE_UUID\n     - RAND\n     - SESSION_USER\n     - ST_GEOGPOINT\n\n  Struct or array composed with the above allowed functions, for example:\n     \"[CURRENT_DATE(), DATE '2020-01-01']\"\n</pre>"}
     :string]
+
    [:description
     {:optional true
      :getter-doc "Returns the field description."
-     :setter-doc
-     "Sets the field description. The maximum length is 16K characters."}
+     :setter-doc "Sets the field description. The maximum length is 16K characters."}
     :string]
+
    [:maxLength
     {:optional true
      :getter-doc
      "Returns the maximum length of the field for STRING or BYTES type."
      :setter-doc
-     "Sets the maximum length of the field for STRING or BYTES type.\n\n<p>It is invalid to set value for types other than STRING or BYTES.\n\n<p>For STRING type, this represents the maximum UTF-8 length of strings allowed in the field.\nFor BYTES type, this represents the maximum number of bytes in the field."}
-    :int]
+     "Sets the maximum length of the field for STRING or BYTES type.\n\n<p>It is invalid to set values for types other than STRING or BYTES.\nFor STRING type, this represents the maximum UTF-8 length of strings allowed in the field.\nFor BYTES type, this represents the maximum number of bytes in the field."}
+    [:int {:min 0}]]
+
    [:mode
     {:optional true
      :doc "Mode for a BigQuery Table field. {@link Mode#NULLABLE} fields can be set to {@code null},\n{@link Mode#REQUIRED} fields must be provided. {@link Mode#REPEATED} fields can contain more\nthan one value."
      :getter-doc "Returns the field mode. By default {@link Mode#NULLABLE} is used."
      :setter-doc "Sets the mode of the field. When not specified {@link Mode#NULLABLE} is used."}
     [:enum "NULLABLE" "REQUIRED" "REPEATED"]]
+
    [:policyTags
     {:optional true
      :getter-doc "Returns the policy tags for the field."
      :setter-doc "Sets the policy tags for the field."}
     :gcp.bigquery/PolicyTags]
+
    [:precision
     {:optional true
      :getter-doc
      "Returns the maximum number of total digits allowed for NUMERIC or BIGNUMERIC types."
      :setter-doc
      "Precision can be used to constrain the maximum number of total digits allowed for NUMERIC or BIGNUMERIC types. It is invalid to set values for Precision for types other than // NUMERIC\nor BIGNUMERIC. For NUMERIC type, acceptable values for Precision must be: 1 ≤ (Precision -\nScale) ≤ 29. Values for Scale must be: 0 ≤ Scale ≤ 9. For BIGNUMERIC type, acceptable values\nfor Precision must be: 1 ≤ (Precision - Scale) ≤ 38. Values for Scale must be: 0 ≤ Scale ≤\n38."}
-    :int]
+    [:int {:min 1}]]
+
    [:rangeElementType
     {:optional true
      :getter-doc "Return the range element type the field."
      :setter-doc
      "Optional. Field range element type can be set only when the type of field is RANGE."}
     [:ref :gcp.bigquery/FieldElementType]]
+
    [:scale
     {:optional true
      :getter-doc
      "Returns the maximum number of digits set in the fractional part of a NUMERIC or BIGNUMERIC type."
      :setter-doc
-     "Scale can be used to constrain the maximum number of digits in the fractional part of a\nNUMERIC or BIGNUMERIC type. If the Scale value is set, the Precision value must be set as\nwell. It is invalid to set values for Scale for types other than NUMERIC or BIGNUMERIC. See\nthe Precision field for additional guidance about valid values."}
-    :int]
-   [:timestampPrecision
+     "Scale can be used to constrain the maximum number of digits in the fractional part of a NUMERIC or BIGNUMERIC type. If the Scale value is set, the Precision value must be set as well. It is invalid to set values for Scale for types other than NUMERIC or BIGNUMERIC."}
+    [:int {:min 0}]]
+
+   [:subFields
     {:optional true
-     :getter-doc "Returns the precision for TIMESTAMP type."
-     :setter-doc
-     "Specifies the precision for TIMESTAMP types. The default value is 6. Possible values are 6 (microsecond) or 12 (picosecond)."}
-    [:enum 6 12]]
-   ;; ----
-   [:name {:getter-doc "Returns the field name."}
-    [:string {:min 1}]]])
+     :getter-doc
+     "Returns the list of sub-fields if {@link #getType()} is a {@link LegacySQLTypeName#RECORD}.\nReturns {@code null} otherwise."}
+    [:sequential {:min 1} [:ref :gcp.bigquery/Field]]]
 
-(def _Field-record-schema
-  (conj _Field-fields
-        [:type [:enum "RECORD" "STRUCT"]]
-        [:subFields
-         {:getter-doc "Returns the list of sub-fields if {@link #getType()} is a {@link LegacySQLTypeName#RECORD}.\nReturns {@code null} otherwise."}
-         [:sequential {:min 1} [:ref :gcp.bigquery/Field]]]))
+   ;[:timestampPrecision
+   ; {:optional true
+   ;  :getter-doc "Returns the precision for TIMESTAMP type."
+   ;  :setter-doc
+   ;  "Specifies the precision for TIMESTAMP types. The default value is 6. Possible values are 6 (microsecond) or 12 (picosecond)."}
+   ; [:enum 6 12]]
 
-(def _Field-other-schema
-  (conj _Field-fields
-        [:type
-         {:getter-doc "Returns the field type.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types\">Data\n    Types</a>"}
-         [:enum "BYTES" "STRING" "INTEGER" "FLOAT"
-          "NUMERIC" "BIGNUMERIC" "BOOLEAN" "TIMESTAMP"
-          "DATE" "GEOGRAPHY" "TIME" "DATETIME" "JSON"
-          "INTERVAL" "RANGE"
-          "BOOL" "INT64" "FLOAT64" #_ "ARRAY"]]))
+   [:type
+    {:getter-doc
+     "Returns the field type.\n\n@see <a href=\"https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types\">Data\n    Types</a>"}
+    [:enum "BYTES" "STRING" "INTEGER" "FLOAT"
+     "NUMERIC" "BIGNUMERIC" "BOOLEAN" "TIMESTAMP"
+     "DATE" "GEOGRAPHY" "TIME" "DATETIME" "JSON"
+     "INTERVAL" "RANGE"
+     "BOOL" "INT64" "FLOAT64"
+     "RECORD" "STRUCT"]]
+
+   [:name
+    {:getter-doc "Returns the field name."}
+    [:and
+     [:string {:min 1 :max 300}]
+     [:fn
+      {:error/message "Field name must start with a letter or underscore and contain only letters, digits, and underscores."}
+      '(fn [value]
+         (re-matches #"[A-Za-z_][A-Za-z0-9_]*" value))]]]])
 
 (def Field-schema
-  [:or
-   {:doc "Google BigQuery Table schema field. A table field has a name, a type, a mode and possibly a description."
-    :fqcn         "com.google.cloud.bigquery.Field"
-    :gcp/key :gcp.bigquery/Field}
-   _Field-record-schema
-   _Field-other-schema])
+  [:and
+   _Field-fields
+
+   [:fn
+    {:error/message "Field collation is only valid for STRING fields."}
+    '(fn [field]
+       (or (nil? (:collation field))
+           (= "STRING" (:type field))))]
+
+   [:fn
+    {:error/message "Field maxLength is only valid for STRING or BYTES fields."}
+    '(fn [field]
+       (or (nil? (:maxLength field))
+           (#{"STRING" "BYTES"} (:type field))))]
+
+   [:fn
+    {:error/message "Field precision is only valid for NUMERIC or BIGNUMERIC fields."}
+    '(fn [field]
+       (or (nil? (:precision field))
+           (#{"NUMERIC" "BIGNUMERIC"} (:type field))))]
+
+   [:fn
+    {:error/message "Field scale is only valid for NUMERIC or BIGNUMERIC fields."}
+    '(fn [field]
+       (or (nil? (:scale field))
+           (#{"NUMERIC" "BIGNUMERIC"} (:type field))))]
+
+   [:fn
+    {:error/message "Field scale requires precision."}
+    '(fn [field]
+       (or (nil? (:scale field))
+           (some? (:precision field))))]
+
+   [:fn
+    {:error/message "Field precision and scale must satisfy the NUMERIC/BIGNUMERIC precision constraints."}
+    '(fn [field]
+       (or
+         (nil? (:precision field))
+         (and
+           (<= 1 (- (:precision field) (get field :scale 0)))
+           (if (= "NUMERIC" (:type field))
+             (<= (- (:precision field) (get field :scale 0)) 29)
+             (<= (- (:precision field) (get field :scale 0)) 38))
+           (or
+             (nil? (:scale field))
+             (<= (:scale field)
+                 (if (= "NUMERIC" (:type field))
+                   9
+                   38))))))]
+
+   [:fn
+    {:error/message "Field timestampPrecision is only valid for TIMESTAMP fields."}
+    '(fn [field]
+       (or (nil? (:timestampPrecision field))
+           (= "TIMESTAMP" (:type field))))]
+
+   [:fn
+    {:error/message "Field rangeElementType is only valid for RANGE fields."}
+    '(fn [field]
+       (or (nil? (:rangeElementType field))
+           (= "RANGE" (:type field))))]
+
+   [:fn
+    {:error/message "Field subFields is only valid for RECORD or STRUCT fields."}
+    '(fn [field]
+       (or (nil? (:subFields field))
+           (#{"RECORD" "STRUCT"} (:type field))))]
+
+   [:fn
+    {:error/message "RECORD and STRUCT fields must have subFields."}
+    '(fn [field]
+       (or (not (#{"RECORD" "STRUCT"} (:type field)))
+           (seq (:subFields field))))]
+
+   [:fn
+    {:error/message "RANGE fields must have rangeElementType."}
+    '(fn [field]
+       (or (not= "RANGE" (:type field))
+           (some? (:rangeElementType field))))]
+   ])
 
 (defn ^Field Field-from-edn
   [{type :type
@@ -341,7 +470,7 @@
           (.getMode arg)                   (assoc :mode (.name (.getMode arg)))
           (.getPolicyTags arg)             (assoc :policyTags (PolicyTags/to-edn (.getPolicyTags arg)))
           (.getPrecision arg)              (assoc :precision (.getPrecision arg))
-          (.getRangeElementType arg)       (assoc :rangeElementType (FieldElementType-to-edn (.getRangeElementType arg)))
+          (.getRangeElementType arg)       (assoc :rangeElementType (.getType (.getRangeElementType arg)))
           (.getScale arg)                  (assoc :scale (.getScale arg))
           (.getTimestampPrecision arg)     (assoc :timestampPrecision (.getTimestampPrecision arg))))
 
@@ -567,7 +696,10 @@
       (g/valid? :gcp.bigquery/Range arg)    (QueryParameterValue/range (Range-from-edn arg))
       (contains? arg :interval) (QueryParameterValue/interval ^String (:interval arg))
       (contains? arg :geography) (QueryParameterValue/geography (:geography arg))
-      (contains? arg :json) (QueryParameterValue/json ^String (:json arg))
+      (contains? arg :json) (let [json (:json arg)]
+                              (if (string? json)
+                                (QueryParameterValue/json ^String json)
+                                (QueryParameterValue/json ^String (j/write-value-as-string json))))
       :else (QueryParameterValue/struct (into {} (map (fn [[k v]] [(name k) (QueryParameterValue-from-edn v)])) arg)))
 
     (sequential? arg)
@@ -638,6 +770,19 @@
     (PeriodDuration/parse s)
     (catch Exception _
       {:interval s})))
+
+;### BigQuery STRUCT rules
+;
+;* Anonymous fields get positional names: `_field_1`, `_field_2`, etc.
+;* Duplicate names retain the first occurrence; later collisions get positional names.
+;* BigQuery assigns unique names in the result schema, preserving all values.
+;* Nested STRUCTs follow the same naming rules.
+;* Explicit names that resemble generated positional names are preserved; BigQuery resolves collisions so the resulting field names remain unique.
+;* The Java SDK uses the result schema to associate STRUCT values with their fields.
+;
+;- The result map cannot distinguish an explicitly named field from an anonymous field that received the same generated name.
+;- The original SQL field names cannot necessarily be recovered from the result alone after BigQuery has assigned aliases.
+;- A map representation therefore preserves the returned field names and values, but not necessarily the original SQL naming intent.
 
 (defn QueryParameterValue-to-edn [^QueryParameterValue arg]
   {:post [(g/valid? :gcp.bigquery/QueryParameterValue %)]}

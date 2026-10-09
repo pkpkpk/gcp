@@ -13,7 +13,7 @@
 (deftest scalar-roundtrip-test
   (and
     (testing "DATETIME Represents a year, month, day, hour, minute, second, and subsecond (microsecond precision)"
-      (let [arg (LocalDateTime/now)]
+      (let [arg (.truncatedTo (LocalDateTime/now) ChronoUnit/MICROS)]
         (and
           (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
           (is (= "DATETIME" (.name (.getType (QueryParameterValue-from-edn arg)))))

@@ -4,6 +4,7 @@
             gcp.bigquery.tests.crud-tests
             gcp.bigquery.tests.custom-tests
             gcp.bigquery.tests.dwim-tests
+            gcp.bigquery.tests.field-tests
             gcp.bigquery.tests.iam-tests
             [gcp.global :as g]))
 
@@ -11,6 +12,7 @@
   (clojure.test/run-tests 'gcp.bigquery.tests.dwim-tests
                           'gcp.bigquery.tests.custom-tests
                           'gcp.bigquery.tests.crud-tests
+                          'gcp.bigquery.tests.field-tests
                           'gcp.bigquery.tests.iam-tests))
 
 (comment
