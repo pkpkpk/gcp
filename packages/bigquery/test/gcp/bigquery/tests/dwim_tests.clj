@@ -174,6 +174,7 @@
       (and
         (is (= {:op ::bq/TableGet :bigquery nil :tableId table-id :opts nil} (bqc/->TableGet [table-id])))
         (is (= {:op ::bq/TableGet :bigquery nil :tableId table-id :opts nil} (bqc/->TableGet ["d" "t"])))
+        (is (= {:op ::bq/TableGet :bigquery nil :tableId table-id :opts nil} (bqc/->TableGet [{:dataset "d"} "t"])))
         (is (= {:op ::bq/TableGet :bigquery nil :tableId table-id :opts {:tableMetadataView "FULL"}} (bqc/->TableGet [table-id {:tableMetadataView "FULL"}])))
         (is (= {:op ::bq/TableGet :bigquery client :tableId table-id :opts nil} (bqc/->TableGet [client table-id])))
         (is (= {:op ::bq/TableGet :bigquery nil :tableId {:project "p" :dataset "d" :table "t"} :opts nil} (bqc/->TableGet ["p" "d" "t"])))

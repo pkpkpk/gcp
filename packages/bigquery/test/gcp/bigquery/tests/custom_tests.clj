@@ -39,23 +39,11 @@
           (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
           (is (= "TIME" (.name (.getType (QueryParameterValue-from-edn arg)))))
           (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
-    (testing "BIGNUMERIC A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale"
-      (let [arg (bigdec Math/PI)]
-        (and
-          (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
-          (is (= "BIGNUMERIC" (.name (.getType (QueryParameterValue-from-edn arg)))))
-          (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
     (testing "NUMERIC A decimal value with 38 digits of precision and 9 digits of scale."
       (let [arg (bigdec 42)]
         (and
           (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
           (is (= "NUMERIC" (.name (.getType (QueryParameterValue-from-edn arg)))))
-          (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
-    (testing "GEOGRAPHY Represents a set of geographic points, represented as a Well Known Text (WKT) string."
-      (let [arg {:geography "POINT(-65.79139 18.31056)"}]
-        (and
-          (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
-          (is (= "GEOGRAPHY" (.name (.getType (QueryParameterValue-from-edn arg)))))
           (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
     (testing "BOOL A Boolean value (true or false)."
       (let [arg true]
@@ -95,6 +83,19 @@
           (is (g/valid? :gcp.bigquery/Range arg))
           (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
           (is (= "RANGE" (.name (.getType (QueryParameterValue-from-edn arg)))))
+          (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
+    #!-------------------------------------------------------------------
+    (testing "GEOGRAPHY Represents a set of geographic points, represented as a Well Known Text (WKT) string."
+      (let [arg {:geography "POINT(-65.79139 18.31056)"}]
+        (and
+          (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
+          (is (= "GEOGRAPHY" (.name (.getType (QueryParameterValue-from-edn arg)))))
+          (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
+    (testing "BIGNUMERIC A decimal value with 76+ digits of precision (the 77th digit is partial) and 38 digits of scale"
+      (let [arg {:bignumeric (bigdec Math/PI)}]
+        (and
+          (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
+          (is (= "BIGNUMERIC" (.name (.getType (QueryParameterValue-from-edn arg)))))
           (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
     #_(testing "JSON Represents JSON data."
       (let [arg (JsonObject/new)]

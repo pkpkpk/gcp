@@ -626,6 +626,7 @@
       [:tableId [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    2 [:altn
       [:dataset-table [:catn [:dataset :string] [:table :string]]]
+      [:datasetId-table [:catn [:dataset :gcp.bigquery/DatasetId] [:table :string]]]
       [:tableId-opts [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:opts :gcp.bigquery/BigQuery.TableOption]]]
       [:client-tableId [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]]]]
    3 [:altn
@@ -650,9 +651,13 @@
                :arities   get-table-args
                :normalize (fn [{:keys [cmd clientable project dataset table tableId opts]}]
                             (or (some-> cmd (assoc :op :gcp.bigquery/TableGet))
-                                (let [resolved-table-id (or (if (:tableId tableId) (:tableId tableId) tableId)
-                                                            (cond-> {:dataset dataset :table table}
-                                                                    project (assoc :project project)))]
+                                (let [resolved-table-id
+                                      (or (if (:tableId tableId) (:tableId tableId) tableId)
+                                          (cond-> (assoc (if (map? dataset)
+                                                           dataset
+                                                           {:dataset dataset})
+                                                    :table table)
+                                                  project (assoc :project project)))]
                                   {:op       :gcp.bigquery/TableGet
                                    :bigquery clientable
                                    :tableId  resolved-table-id
@@ -775,7 +780,10 @@
       [:insertAllRequest [:catn [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]]
    2 [:altn
       [:client-request [:catn [:clientable :gcp.bigquery/clientable] [:insertAllRequest :gcp.bigquery/InsertAllRequest]]]
-      [:tableId-rows [:catn [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]
+      [:tableId-rows
+       [:catn
+        [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]]
+        [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]
    3 [:altn
       [:client-tableId-rows [:catn [:clientable :gcp.bigquery/clientable] [:tableId [:or :gcp.bigquery/TableId :gcp.bigquery/TableInfo]] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]
       [:dataset-table-rows [:catn [:dataset :string] [:table :string] [:rows [:sequential {:min 1} :gcp.bigquery/InsertAllRequest$RowToInsert]]]]]

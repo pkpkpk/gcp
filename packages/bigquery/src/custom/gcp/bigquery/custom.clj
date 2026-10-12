@@ -1,10 +1,10 @@
 (ns gcp.bigquery.custom
   (:require
-   [clojure.walk :as walk]
-   [gcp.bigquery.PolicyTags :as PolicyTags]
-   [gcp.bigquery.TableId :as TableId]
-   [gcp.global :as g]
-   [jsonista.core :as j])
+    [clojure.walk :as walk]
+    [gcp.bigquery.PolicyTags :as PolicyTags]
+    [gcp.bigquery.TableId :as TableId]
+    [gcp.global :as g]
+    [jsonista.core :as j])
   (:import
     (com.google.cloud.bigquery Field Field$Mode FieldElementType FieldValue InsertAllRequest LegacySQLTypeName QueryParameterValue Range StandardSQLTypeName TableResult)
     (com.google.gson JsonObject)
@@ -12,11 +12,13 @@
     (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
     (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
     (java.time.temporal ChronoField ChronoUnit)
-    (java.util Base64 Date HashMap)
+    (java.util Base64 HashMap)
     (org.threeten.extra PeriodDuration)))
 
 ;;
 ;; TODO
+;https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+;; 'MEASURE' TYPE
 ;;  GRAPH_ELEMENT/GRAPH_PATH IS NOT IN JAVASDK BUT IS SUPPORTED BY BQ
 ;;  https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/data-types#graph_element_type
 ;;  https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/data-types#graph_path_type
@@ -28,6 +30,15 @@
 ;; TODO document and explicitly test the rejection separately from the roundtrip fixtures
 
 (def ^DateTimeFormatter ^:private
+  time-parser
+  (-> (DateTimeFormatterBuilder.)
+      (.appendPattern "HH:mm:ss")
+      (.optionalStart)
+      (.appendFraction ChronoField/MICRO_OF_SECOND 0 6 true)
+      (.optionalEnd)
+      (.toFormatter)))
+
+(def ^DateTimeFormatter ^:private
   time-formatter
   (-> (DateTimeFormatterBuilder.)
       (.appendPattern "HH:mm:ss")
@@ -35,13 +46,13 @@
       (.toFormatter)))
 
 (defn String->Time [s]
-  (LocalTime/parse s time-formatter))
+  (LocalTime/parse s time-parser))
 
 (defn- ^String Time->String
   [^LocalTime t]
   (when-not (zero? (mod (.getNano t) 1000))
     (throw (ex-info "BigQuery TIME supports microsecond precision"
-                    {:time t
+                    {:time       t
                      :nanosecond (.getNano t)})))
   (.format t time-formatter))
 
@@ -57,18 +68,27 @@
   [^LocalDate d]
   (.format d date-formatter))
 
-#!-----------------------------
+ #!-----------------------------
 #! :DateTime
 
 (def ^DateTimeFormatter ^:private
-  datetime-formatter
+  datetime-parser
   (-> (DateTimeFormatterBuilder.)
-      (.appendPattern "uuuu-MM-dd HH:mm:ss")
+      (.appendPattern "uuuu-MM-dd")
+      (.appendPattern "[ HH:mm:ss]['T'HH:mm:ss]")
+      (.optionalStart)
       (.appendFraction ChronoField/NANO_OF_SECOND 0 6 true)
+      (.optionalEnd)
       (.toFormatter)))
 
-(defn- String->DateTime [s]
-  (LocalDateTime/parse s datetime-formatter))
+(def ^DateTimeFormatter ^:private
+  datetime-parameter-formatter
+  (-> (DateTimeFormatterBuilder.)
+      (.appendPattern "uuuu-MM-dd HH:mm:ss")
+      (.appendFraction ChronoField/NANO_OF_SECOND 6 6 true)
+      (.toFormatter)))
+
+(defn- String->DateTime [s] (LocalDateTime/parse s datetime-parser))
 
 (defn- ^String DateTime->String
   [^LocalDateTime arg]
@@ -76,7 +96,7 @@
     (throw (ex-info "BigQuery DATETIME supports microsecond precision"
                     {:datetime arg
                      :nanosecond (.getNano arg)})))
-  (.replace (.toString arg) "T" " "))
+  (.format arg datetime-parameter-formatter))
 
 #!-----------------------------
 #! TIMESTAMP
@@ -117,27 +137,9 @@
   timestamp-formatter
   (-> (DateTimeFormatterBuilder.)
       (.appendPattern "uuuu-MM-dd HH:mm:ss")
-      (.appendFraction ChronoField/NANO_OF_SECOND 0 6 true)
+      (.appendFraction ChronoField/NANO_OF_SECOND 6 6 true)
       (.appendOffsetId)
       (.toFormatter)))
-
-(defn- ^Instant String->Instant
-  [^String s]
-  (when s
-    (try
-      (let [seconds (BigDecimal. s)
-            whole-seconds (.longValue (.setScale seconds 0 RoundingMode/FLOOR))
-            fractional-seconds (.subtract seconds (BigDecimal/valueOf whole-seconds))
-            nanos (.longValue
-                    (.multiply fractional-seconds
-                               (BigDecimal/valueOf 1000000000)))]
-        (Instant/ofEpochSecond whole-seconds nanos))
-      (catch NumberFormatException _
-        (let [s (cond
-                  (.endsWith s " UTC") (str (subs s 0 (- (count s) 4)) "Z")
-                  (.endsWith s " GMT") (str (subs s 0 (- (count s) 4)) "Z")
-                  :else s)]
-          (.toInstant (OffsetDateTime/parse s timestamp-formatter)))))))
 
 (defn- ^String Instant->String
   [^Instant inst]
@@ -145,6 +147,30 @@
         (.truncatedTo inst ChronoUnit/MICROS)
         ZoneOffset/UTC)
       (.format timestamp-formatter)))
+
+(defn- ^Instant String->Instant
+  [^String s]
+  (when s
+    (if (re-matches #"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?" s)
+      (let [seconds (BigDecimal. s)
+            whole-seconds (.longValue (.setScale seconds 0 RoundingMode/FLOOR))
+            fractional-seconds (.subtract seconds (BigDecimal/valueOf whole-seconds))
+            nanos (.longValue
+                    (.multiply fractional-seconds
+                               (BigDecimal/valueOf 1000000000)))]
+        (Instant/ofEpochSecond whole-seconds nanos))
+      (let [s (cond
+                (.endsWith s " UTC") (str (subs s 0 (- (count s) 4)) "Z")
+                (.endsWith s " GMT") (str (subs s 0 (- (count s) 4)) "Z")
+                :else s)]
+        (.toInstant (OffsetDateTime/parse s timestamp-formatter))))))
+
+(defn- ^Long Instant->Long
+  [^Instant inst]
+  (let [inst (.truncatedTo inst ChronoUnit/MICROS)]
+    (Math/addExact
+      (Math/multiplyExact (.getEpochSecond inst) 1000000)
+      (quot (.getNano inst) 1000))))
 
 #!------------------------------------------------
 #! FieldElementType
@@ -497,18 +523,20 @@
       "REPEATED" (mapv (partial FieldValue-to-edn field) (.getRepeatedValue field-value))
       "PRIMITIVE"
       (case field-type
-        "BOOLEAN"   (.getBooleanValue field-value)
-        "STRING"    (.getStringValue field-value)
-        "INTEGER"   (.getLongValue field-value)
-        "FLOAT"     (.getDoubleValue field-value)
-        "NUMERIC"   (.getNumericValue field-value)
-        "TIMESTAMP" (String->Instant (.getValue field-value))
-        "DATE"      (String->Date (.getValue field-value))
-        "DATETIME"  (String->DateTime (.getValue field-value))
-        "JSON"      (j/read-value (.getValue field-value) j/keyword-keys-object-mapper)
-        "BYTES"     (.getBytesValue field-value)
-        "GEOGRAPHY" (.getStringValue field-value)
-        "INTERVAL"  (.getPeriodDuration field-value) ; org.threeten.extra.PeriodDuration
+        "BOOLEAN"    (.getBooleanValue field-value)
+        "STRING"     (.getStringValue field-value)
+        "INTEGER"    (.getLongValue field-value)
+        "FLOAT"      (.getDoubleValue field-value)
+        "NUMERIC"    (.getNumericValue field-value)
+        "BIGNUMERIC" (.getNumericValue field-value)
+        "TIME"       (String->Time (.getValue field-value))
+        "TIMESTAMP"  (.getTimestampInstant field-value)
+        "DATE"       (String->Date (.getValue field-value))
+        "DATETIME"   (String->DateTime (.getValue field-value))
+        "JSON"       (j/read-value (.getValue field-value) j/keyword-keys-object-mapper)
+        "BYTES"      (.getBytesValue field-value)
+        "GEOGRAPHY"  (.getStringValue field-value)
+        "INTERVAL"   (.getPeriodDuration field-value) ; org.threeten.extra.PeriodDuration
         (throw (ex-info (str "unimplemented PRIMITIVE '" field-type "'") {:field-value field-value
                                                                           :field-type  field-type})))
       (throw (ex-info (str "unimplemented FieldValue attribute: '" (.name (.getAttribute field-value)) "'")
@@ -553,26 +581,39 @@
   (g/strict! :gcp.bigquery/Range arg)
   (let [builder (Range/newBuilder)
         xf (case type
-             "DATE" str
+             "DATE" Date->String
              "DATETIME" DateTime->String
              "TIMESTAMP" Instant->String)]
     (.setType builder (FieldElementType-from-edn type))
-    (some->> end xf (.setEnd builder))
-    (some->> start xf (.setStart builder))
+    (when (some? start)
+      (.setStart builder (xf start)))
+    (when (some? end)
+      (.setEnd builder (xf end)))
     (.build builder)))
 
 (defn Range-to-edn [^Range arg]
   {:post [(g/strict! :gcp.bigquery/Range %)]}
   (let [T (.getType (.getType arg))
-        end (.getValue (.getEnd arg))
-        start (.getValue (.getStart arg))
         xf (case T
-             "TIMESTAMP" String->Instant
+             "TIMESTAMP"
+             ;; RANGE<TIMESTAMP> endpoints are returned as integer epoch microseconds,
+             ;; unlike TIMESTAMP columns, whose representation depends on the configured
+             ;; timestamp output format. Convert RANGE endpoints directly from microseconds
+             ;; to preserve precision without applying the column-specific conversion.
+             (fn [s]
+               (if (re-matches #"-?\d+" s)
+                 (let [micros (Long/parseLong s)]
+                   (Instant/ofEpochSecond
+                     (Math/floorDiv micros 1000000)
+                     (* (Math/floorMod micros 1000000) 1000)))
+                 (String->Instant s)))
              "DATETIME" String->DateTime
-             "DATE" String->Date)]
+             "DATE" String->Date)
+        start (.getValue (.getStart arg))
+        end (.getValue (.getEnd arg))]
     (cond-> {:type T}
-      end (assoc :end (xf end))
-      start (assoc :start (xf start)))))
+            (some? start) (assoc :start (xf start))
+            (some? end) (assoc :end (xf end)))))
 
 #!------------------------------------------------
 #! TableResult
@@ -609,7 +650,7 @@
 #!------------------------------------------------
 #! QueryParameterValue
 
-(defn- bignumeric?
+(defn bignumeric-range?
   [^BigDecimal bd]
   (let [p (.precision bd)
         s (.scale bd)]
@@ -626,6 +667,10 @@
   [:map {:closed true}
    [:json [:string {:min 1}]]])
 
+(def bignumeric-schema
+  [:map {:closed true}
+   [:bignumeric :any]])
+
 (def ^:private scalar-schema
   [:or
    :string
@@ -640,7 +685,9 @@
    :PeriodDuration
    [:ref :gcp.bigquery/Range]
    geography-schema
-   json-schema])
+   json-schema
+   bignumeric-schema
+   ])
 
 ;; array<JSON> not allowed
 (def ^:private homogenous-sequence-schemas
@@ -656,7 +703,8 @@
    [:sequential {:min 1} :DateTime]
    [:sequential {:min 1} :PeriodDuration]
    [:sequential {:min 1} [:ref :gcp.bigquery/Range]]
-   [:sequential {:min 1} geography-schema]])
+   [:sequential {:min 1} geography-schema]
+   [:sequential {:min 1} bignumeric-schema]])
 
 (def QueryParameterValue-Struct-schema
   [:map-of [:or 'simple-keyword? :string]  [:ref :gcp.bigquery/QueryParameterValue.SCALAR]])
@@ -677,12 +725,10 @@
     (boolean? arg) (QueryParameterValue/bool arg)
     (int? arg) (QueryParameterValue/int64 (Long/valueOf (long arg)))
     (float? arg) (QueryParameterValue/float64 (Double/valueOf (double arg)))
-    (decimal? arg) (if (bignumeric? arg)
-                     (QueryParameterValue/bigNumeric arg)
-                     (QueryParameterValue/numeric arg))
+    (decimal? arg) (QueryParameterValue/numeric arg)
     (bytes? arg) (QueryParameterValue/bytes arg)
     #!--------------------------------------------------------------
-    (inst? arg) (QueryParameterValue/timestamp ^String (Instant->String arg))
+    (inst? arg) (QueryParameterValue/timestamp ^Long (Instant->Long arg))
     (instance? LocalTime arg) (QueryParameterValue/time (Time->String arg))
     (instance? LocalDate arg) (QueryParameterValue/date (.toString ^LocalDate arg))
     (instance? LocalDateTime arg) (QueryParameterValue/dateTime (DateTime->String arg))
@@ -693,7 +739,8 @@
     #!--------------------------------------------------------------
     (map? arg)
     (cond
-      (g/valid? :gcp.bigquery/Range arg)    (QueryParameterValue/range (Range-from-edn arg))
+      (g/valid? :gcp.bigquery/Range arg) (QueryParameterValue/range (Range-from-edn arg))
+      (contains? arg :bignumeric) (QueryParameterValue/bigNumeric (:bignumeric arg))
       (contains? arg :interval) (QueryParameterValue/interval ^String (:interval arg))
       (contains? arg :geography) (QueryParameterValue/geography (:geography arg))
       (contains? arg :json) (let [json (:json arg)]
@@ -754,6 +801,10 @@
             T StandardSQLTypeName/GEOGRAPHY]
         (QueryParameterValue/array array T))
 
+      (g/valid? [:sequential bignumeric-schema] arg)
+      (let [T StandardSQLTypeName/BIGNUMERIC]
+        (QueryParameterValue/array ^BigDecimal/1 (into-array BigDecimal (map :bignumeric arg)) T))
+
       (g/valid? [:sequential map?] arg)
       (let [array ^Object/1 (into-array Object (map QueryParameterValue-from-edn arg))
             T StandardSQLTypeName/STRUCT]
@@ -801,7 +852,7 @@
       "TIME"       (String->Time (.getValue arg))
       "TIMESTAMP"  (String->Instant (.getValue arg))
       "NUMERIC"    (bigdec ^String (.getValue arg))
-      "BIGNUMERIC" (bigdec ^String (.getValue arg))
+      "BIGNUMERIC" {:bignumeric (bigdec ^String (.getValue arg))}
       "GEOGRAPHY"  {:geography (.getValue arg)}
       "BOOL"       (Boolean/parseBoolean (.getValue arg))
       "STRING"     (.getValue arg)
