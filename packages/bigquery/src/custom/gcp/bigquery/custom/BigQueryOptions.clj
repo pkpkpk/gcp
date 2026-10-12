@@ -15,45 +15,42 @@
    (from-edn nil))
   ([arg]
    (g/strict! :gcp.bigquery/BigQueryOptions arg)
-   (if (empty? arg)
-     (BigQueryOptions/getDefaultInstance)
-     (if (instance? BigQueryOptions arg)
-       arg
-       (let [builder (BigQueryOptions/newBuilder)]
-         (some->> (get arg :projectId) (.setProjectId builder))
-         (some->> (get arg :quotaProjectId) (.setQuotaProjectId builder))
-         (some->> (get arg :host) (.setHost builder))
-         (some->> (get arg :apiTracerFactory) (.setApiTracerFactory builder))
-         (some->> (get arg :clientLibToken) (.setClientLibToken builder))
-         (some->> (get arg :clock) (.setClock builder))
-         (some->> (get arg :credentials) (.setCredentials builder))
-         (some->> (get arg :headerProvider) (.setHeaderProvider builder))
-         (some->> (get arg :universeDomain) (.setUniverseDomain builder))
-         (some->> (get arg :useJwtAccessWithScope) (.setUseJwtAccessWithScope builder))
-         (when-let [retrySettings (get arg :retrySettings)]
-           (.setRetrySettings builder (gax-retrying/RetrySettings-from-edn retrySettings)))
-         (when (some? (get arg :dataFormatOptions))
-           (.setDataFormatOptions
-             builder
-             (DataFormatOptions/from-edn (get arg :dataFormatOptions))))
-         (when (some? (get arg :enableOpenTelemetryTracing))
-           (.setEnableOpenTelemetryTracing
-             builder
-             (get arg :enableOpenTelemetryTracing)))
-         (when (some? (get arg :location))
-           (.setLocation builder (get arg :location)))
-         (when-some [tracer (get arg :openTelemetryTracer)]
-           (.setOpenTelemetryTracer builder tracer))
-         (when-some [retryAlgorithm (get arg :resultRetryAlgorithm)]
-           (.setResultRetryAlgorithm builder retryAlgorithm))
-         (when-some [transportOptions (get arg :transportOptions)]
-           (.setTransportOptions builder transportOptions))
-         (let [instance (.build builder)]
-           (when-some [defaultJobCreationMode (get arg :defaultJobCreationMode)]
-             (.setDefaultJobCreationMode
-               instance
-               (QueryJobConfiguration$JobCreationMode/valueOf defaultJobCreationMode)))
-           instance))))))
+   (if (instance? BigQueryOptions arg)
+     arg
+     (let [builder           (BigQueryOptions/newBuilder)
+           dataFormatOptions (merge {:useInt64Timestamp true :timestampFormatOptions "INT64"}
+                                    (get arg :dataFormatOptions))]
+       (.setDataFormatOptions builder (DataFormatOptions/from-edn dataFormatOptions))
+       (some->> (get arg :projectId) (.setProjectId builder))
+       (some->> (get arg :quotaProjectId) (.setQuotaProjectId builder))
+       (some->> (get arg :host) (.setHost builder))
+       (some->> (get arg :apiTracerFactory) (.setApiTracerFactory builder))
+       (some->> (get arg :clientLibToken) (.setClientLibToken builder))
+       (some->> (get arg :clock) (.setClock builder))
+       (some->> (get arg :credentials) (.setCredentials builder))
+       (some->> (get arg :headerProvider) (.setHeaderProvider builder))
+       (some->> (get arg :universeDomain) (.setUniverseDomain builder))
+       (some->> (get arg :useJwtAccessWithScope) (.setUseJwtAccessWithScope builder))
+       (when-let [retrySettings (get arg :retrySettings)]
+         (.setRetrySettings builder (gax-retrying/RetrySettings-from-edn retrySettings)))
+       (when (some? (get arg :enableOpenTelemetryTracing))
+         (.setEnableOpenTelemetryTracing
+           builder
+           (get arg :enableOpenTelemetryTracing)))
+       (when (some? (get arg :location))
+         (.setLocation builder (get arg :location)))
+       (when-some [tracer (get arg :openTelemetryTracer)]
+         (.setOpenTelemetryTracer builder tracer))
+       (when-some [retryAlgorithm (get arg :resultRetryAlgorithm)]
+         (.setResultRetryAlgorithm builder retryAlgorithm))
+       (when-some [transportOptions (get arg :transportOptions)]
+         (.setTransportOptions builder transportOptions))
+       (let [instance (.build builder)]
+         (when-some [defaultJobCreationMode (get arg :defaultJobCreationMode)]
+           (.setDefaultJobCreationMode
+             instance
+             (QueryJobConfiguration$JobCreationMode/valueOf defaultJobCreationMode)))
+         instance)))))
 
 (defn ^BigQuery get-service [arg]
   (if (instance? BigQuery arg)
