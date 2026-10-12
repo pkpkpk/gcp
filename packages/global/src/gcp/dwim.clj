@@ -229,27 +229,36 @@
         branches          (extract-branch-params arity-schema)
         branch-mismatches (mapv
                             (fn [branch]
-                              {:branch branch
-                               :mismatches
-                               (->> (range arity)
-                                    (keep
-                                      (fn [index]
-                                        (let [value  (nth argv index)
-                                              schema (second (nth branch index))]
-                                          (when-not (g/valid? schema value)
-                                            {:index    index
-                                             :value    (safe-str value)
-                                             :expected schema}))))
-                                    vec)})
+                              (let [branch-schema
+                                    (into [:catn] branch)
+                                    branch-errors
+                                    (:errors (g/explain branch-schema argv))]
+                                {:branch branch
+                                 :valid? (g/valid? branch-schema argv)
+                                 :errors branch-errors
+                                 :mismatches
+                                 (->> (range arity)
+                                      (keep
+                                        (fn [index]
+                                          (let [value  (nth argv index)
+                                                schema (second (nth branch index))]
+                                            (when-not (g/valid? schema value)
+                                              {:index    index
+                                               :value    (safe-str value)
+                                               :expected schema}))))
+                                      vec)}))
                             branches)
-        min-mismatches    (when (seq branch-mismatches)
-                            (apply min-key #(count (:mismatches %))
-                                   branch-mismatches))
-        closest           (if min-mismatches
-                            (let [n (count (:mismatches min-mismatches))]
-                              (filter #(= n (count (:mismatches %)))
-                                      branch-mismatches))
-                            [])
+        closest           (->> branch-mismatches
+                               (remove :valid?)
+                               (sort-by #(count (:mismatches %)))
+                               (take-while
+                                 #(= (count (:mismatches %))
+                                     (count (:mismatches
+                                              (first
+                                                (sort-by
+                                                  (fn [branch]
+                                                    (count (:mismatches branch)))
+                                                  (remove :valid? branch-mismatches))))))))
         mismatches        (->> closest
                                (mapcat :mismatches)
                                (group-by :index)
@@ -265,7 +274,15 @@
                                                            (= :or (first expected)))
                                                     expected
                                                     [:or expected]))}))))
-        _                 (assert (seq mismatches) "mismatches should never be empty, this is a bug in gcp.dwim")
+        _ (when-not (seq mismatches)
+            (throw (ex-info "Failed to derive argument mismatches from invalid DWIM arguments"
+                            {:arity             arity
+                             :argv              (safe-str argv)
+                             :arity-schema      arity-schema
+                             :branches          branches
+                             :branch-mismatches branch-mismatches
+                             :explanation       explanation
+                             :compiled-schema   schema})))
         suggested-keys    (into (sorted-set)
                                 (comp (map :expected)
                                       (mapcat flatten)
@@ -282,12 +299,14 @@
                                 suggested-keys)]
     (assoc call
       ::type                 ::parse-error
-      :arity                arity
-      :argv                 (safe-str (:value explanation))
-      :mismatches           mismatches
-      :explain-forms/by-idx explain-forms
-      :suggested-keys       suggested-keys
-      :suggested-forms      suggested-forms)))
+      :arity                 arity
+      :argv                  (safe-str (:value explanation))
+      :mismatches            mismatches
+      :branch-errors         (mapv #(select-keys % [:branch :valid? :errors])
+                                   branch-mismatches)
+      :explain-forms/by-idx  explain-forms
+      :suggested-keys        suggested-keys
+      :suggested-forms       suggested-forms)))
 
 (defn- format-mismatch
   [{:keys [index value expected]}]
