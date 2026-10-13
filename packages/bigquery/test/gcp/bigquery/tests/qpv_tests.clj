@@ -1,4 +1,4 @@
-(ns gcp.bigquery.tests.custom-tests
+(ns gcp.bigquery.tests.qpv-tests
   (:require [clojure.test :refer :all]
             [gcp.bigquery.custom :refer [QueryParameterValue-from-edn
                                          QueryParameterValue-to-edn
@@ -10,7 +10,7 @@
            (java.time.temporal ChronoUnit)
            (org.threeten.extra PeriodDuration)))
 
-(deftest scalar-roundtrip-test
+(deftest qpv-scalar-test
   (and
     (testing "DATETIME Represents a year, month, day, hour, minute, second, and subsecond (microsecond precision)"
       (let [arg (.truncatedTo (LocalDateTime/now) ChronoUnit/MICROS)]
@@ -97,26 +97,35 @@
           (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
           (is (= "BIGNUMERIC" (.name (.getType (QueryParameterValue-from-edn arg)))))
           (is (= arg (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
-    #_(testing "JSON Represents JSON data."
-      (let [arg (JsonObject/new)]
-        (and
-          (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
-          (is (= "JSON" (.name (.getType (QueryParameterValue-from-edn arg)))))
-          (is (= {} (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))))
+    (testing "JSON"
+      (and
+        (testing "com.google.gson/JsonObject"
+          (let [arg (JsonObject/new)]
+            (and
+              (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
+              (is (= "JSON" (.name (.getType (QueryParameterValue-from-edn arg)))))
+              (is (= {:json {}} (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
+        (testing "wrapped string"
+          (let [arg {:json "foo"}]
+            (and
+              (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
+              (is (= "JSON" (.name (.getType (QueryParameterValue-from-edn arg)))))
+              (is (= {:json "foo"} (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))
+        (testing "wrapped map"
+          (let [arg {:json {"foo" 42}}]
+            (and
+              (is (g/valid? :gcp.bigquery/QueryParameterValue.SCALAR arg))
+              (is (= "JSON" (.name (.getType (QueryParameterValue-from-edn arg)))))
+              (is (= {:json {:foo 42}} (QueryParameterValue-to-edn (QueryParameterValue-from-edn arg)))))))))))
 
 (deftest string-instant-parsing-test
   (testing "Parsing timestamps in various formats"
     (let [s->inst #'gcp.bigquery.custom/String->Instant]
-      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
-             (s->inst "1.776668040905547E9")))
-      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
-             (s->inst "1776668040.905547")))
-      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
-             (s->inst "2026-04-20 06:54:00.905547 UTC")))
-      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z")
-             (s->inst "2026-04-20 06:54:00.905547Z")))
-      (is (= (java.time.Instant/parse "2026-04-20T06:54:00Z")
-             (s->inst "1776668040"))))))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z") (s->inst "1.776668040905547E9")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z") (s->inst "1776668040.905547")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z") (s->inst "2026-04-20 06:54:00.905547 UTC")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00.905547Z") (s->inst "2026-04-20 06:54:00.905547Z")))
+      (is (= (java.time.Instant/parse "2026-04-20T06:54:00Z")        (s->inst "1776668040"))))))
 
 #!----------------------------------------------------------------------------------------------------------------------
 ;ARRAY Ordered list of zero or more elements of any non-array type.

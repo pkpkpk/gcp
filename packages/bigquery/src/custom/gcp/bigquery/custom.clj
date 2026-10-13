@@ -599,7 +599,6 @@
              ;; RANGE<TIMESTAMP> endpoints are returned as integer epoch microseconds,
              ;; unlike TIMESTAMP columns, whose representation depends on the configured
              ;; timestamp output format. Convert RANGE endpoints directly from microseconds
-             ;; to preserve precision without applying the column-specific conversion.
              (fn [s]
                (if (re-matches #"-?\d+" s)
                  (let [micros (Long/parseLong s)]
@@ -650,26 +649,37 @@
 #!------------------------------------------------
 #! QueryParameterValue
 
-(defn bignumeric-range?
-  [^BigDecimal bd]
-  (let [p (.precision bd)
-        s (.scale bd)]
-    (and (<= p 76)
-         (<= s 38)
-         (or (> p 38)
-             (> s 9)))))
+(def numeric-schema
+  [:and
+   :bigdec
+   [:fn
+    {:error/message "BigDecimal exceeds BigQuery NUMERIC range"}
+    '(fn [bd]
+       (let [lower (bigdec "-9.9999999999999999999999999999999999999E+28")
+             upper (bigdec "9.9999999999999999999999999999999999999E+28")]
+         (and (<= lower bd)
+              (<= bd upper))))]])
 
 (def geography-schema
   [:map {:closed true}
    [:geography [:string {:min 1}]]])
 
 (def json-schema
-  [:map {:closed true}
-   [:json [:string {:min 1}]]])
+  [:or
+   [:map {:closed true} [:json :any]]
+   (g/instance-schema com.google.gson.JsonObject)])
 
 (def bignumeric-schema
-  [:map {:closed true}
-   [:bignumeric :any]])
+  [:and
+   [:map {:closed true}
+    [:bignumeric :bigdec]]
+   [:fn
+    {:error/message "BIGNUMERIC must be within BigQuery's supported range."}
+    '(fn [m]
+      (let [n (:bignumeric m)
+            lower (bigdec "-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38")
+            upper (bigdec "5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38")]
+        (<= lower n upper)))]])
 
 (def ^:private scalar-schema
   [:or
@@ -677,17 +687,16 @@
    :boolean
    :int
    :float
-   :bigdec
    :Timestamp
    :Time
    :Date
    :DateTime
    :PeriodDuration
    [:ref :gcp.bigquery/Range]
+   numeric-schema
    geography-schema
    json-schema
-   bignumeric-schema
-   ])
+   bignumeric-schema])
 
 ;; array<JSON> not allowed
 (def ^:private homogenous-sequence-schemas
@@ -743,10 +752,7 @@
       (contains? arg :bignumeric) (QueryParameterValue/bigNumeric (:bignumeric arg))
       (contains? arg :interval) (QueryParameterValue/interval ^String (:interval arg))
       (contains? arg :geography) (QueryParameterValue/geography (:geography arg))
-      (contains? arg :json) (let [json (:json arg)]
-                              (if (string? json)
-                                (QueryParameterValue/json ^String json)
-                                (QueryParameterValue/json ^String (j/write-value-as-string json))))
+      (contains? arg :json) (QueryParameterValue/json ^String (j/write-value-as-string (:json arg)))
       :else (QueryParameterValue/struct (into {} (map (fn [[k v]] [(name k) (QueryParameterValue-from-edn v)])) arg)))
 
     (sequential? arg)
@@ -791,6 +797,8 @@
             T StandardSQLTypeName/TIMESTAMP]
         (QueryParameterValue/array array T))
 
+      ;; TODO pretty sure BQ will reject both this and at Field repeated definition
+      ;;   and schemas should forbid both maybe explicitly
       ; (g/valid? [:sequential json-schema] arg)
       ; (let [array ^String/1 (into-array Object (map QueryParameterValue-from-edn arg))
       ;      T StandardSQLTypeName/JSON]
@@ -847,21 +855,21 @@
           (.getStructValues arg))
     :else
     (case (.name (.getType arg))
+      "BOOL"       (Boolean/parseBoolean (.getValue arg))
+      "STRING"     (.getValue arg)
+      "INT64"      (Long/parseLong (.getValue arg))
+      "FLOAT64"    (Double/parseDouble (.getValue arg))
+      "BYTES"      (.getValue arg)
       "DATE"       (String->Date (.getValue arg))
       "DATETIME"   (String->DateTime (.getValue arg))
       "TIME"       (String->Time (.getValue arg))
       "TIMESTAMP"  (String->Instant (.getValue arg))
       "NUMERIC"    (bigdec ^String (.getValue arg))
-      "BIGNUMERIC" {:bignumeric (bigdec ^String (.getValue arg))}
-      "GEOGRAPHY"  {:geography (.getValue arg)}
-      "BOOL"       (Boolean/parseBoolean (.getValue arg))
-      "STRING"     (.getValue arg)
-      "INT64"      (Long/parseLong (.getValue arg))
-      "FLOAT64"    (Double/parseDouble (.getValue arg))
       "INTERVAL"   (parse-interval (.getValue arg))
       "RANGE"      (Range-to-edn (.getRangeValues arg))
-      "JSON"       {:json (.getValue arg)}
-      "BYTES"      (.getValue arg)
+      "BIGNUMERIC" {:bignumeric (bigdec ^String (.getValue arg))}
+      "GEOGRAPHY"  {:geography (.getValue arg)}
+      "JSON"       {:json (j/read-value (.getValue arg) j/keyword-keys-object-mapper)}
       (throw (ex-info "UNKNOWN TYPE" {:arg arg})))))
 
 #!----------------------------------------------------------------------------------------------------------------------
