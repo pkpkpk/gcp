@@ -52,6 +52,12 @@
     [:map [:bigquery [:or :gcp.bigquery/BigQueryOptions
                       (g/instance-schema com.google.cloud.bigquery.BigQuery)]]]]
 
+   ::PositionalParameters
+   [:sequential :gcp.bigquery/QueryParameterValue]
+
+   ::NamedParameters
+   [:map-of [:or 'simple-keyword? [:string {:min 1}]] [:maybe :gcp.bigquery/QueryParameterValue]]
+
    :gcp.bigquery/DatasetList
    [:map {:doc "cmd definition for bq.listDatasets()"}
     [:bigquery {:optional true} [:maybe [:ref :gcp.bigquery/clientable]]]
@@ -1590,27 +1596,41 @@
 #!----------------------------------------------------------------------------------------------------------------------
 #! Query
 
+(def ^:private PositionalParameters
+  [:sequential {:gcp/key ::PositionalParameters} :gcp.bigquery/QueryParameterValue])
+
+(def ^:private NamedParameters
+  [:map-of {:gcp/key ::NamedParameters}
+   [:or 'simple-keyword? [:string {:min 1}]]
+   [:maybe :gcp.bigquery/QueryParameterValue]])
+
 (def ^:private query-args
   {1 [:altn
       [:cmd [:catn [:cmd :gcp.bigquery/Query]]]
       [:query [:catn [:query :string]]]
       [:configuration [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]]
    2 [:altn
-      [:configuration-jobId [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
-                             [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
-      [:configuration-opts [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
-                            [:opts :gcp.bigquery/BigQuery.JobOption]]]
-      [:client-configuration [:catn [:clientable :gcp.bigquery/clientable]
-                              [:configuration :gcp.bigquery/QueryJobConfiguration]]]
-      [:client-query [:catn [:clientable :gcp.bigquery/clientable]
-                      [:query :string]]]
-      [:query-positionalParams [:catn [:query :string]
-                                [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
-      [:query-namedParams [:catn [:query :string]
-                           [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
-                                              :gcp.bigquery/QueryParameterValue]]]]
-      [:query-opts [:catn [:query :string]
-                    [:opts :gcp.bigquery/BigQuery.JobOption]]]]
+      [:configuration-jobId
+       [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
+      [:configuration-opts
+       [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]
+      [:client-configuration
+       [:catn [:clientable :gcp.bigquery/clientable]
+        [:configuration :gcp.bigquery/QueryJobConfiguration]]]
+      [:client-query
+       [:catn [:clientable :gcp.bigquery/clientable]
+        [:query :string]]]
+      [:query-positionalParams
+       [:catn [:query :string]
+        [:positionalParameters PositionalParameters]]]
+      [:query-namedParams
+       [:catn [:query :string]
+        [:namedParameters NamedParameters]]]
+      [:query-opts
+       [:catn [:query :string]
+        [:opts :gcp.bigquery/BigQuery.JobOption]]]]
    3 [:altn
       [:configuration-jobId-opts
        [:catn
@@ -1631,13 +1651,12 @@
        [:catn
         [:clientable :gcp.bigquery/clientable]
         [:query :string]
-        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]]]
+        [:positionalParameters PositionalParameters]]]
       [:client-query-namedParams
        [:catn
         [:clientable :gcp.bigquery/clientable]
         [:query :string]
-        [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
-                           :gcp.bigquery/QueryParameterValue]]]]
+        [:namedParameters NamedParameters]]]
       [:client-query-opts
        [:catn
         [:clientable :gcp.bigquery/clientable]
@@ -1646,13 +1665,12 @@
       [:query-positionalParams-opts
        [:catn
         [:query :string]
-        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:positionalParameters PositionalParameters]
         [:opts :gcp.bigquery/BigQuery.JobOption]]]
       [:query-namedParams-opts
        [:catn
         [:query :string]
-        [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
-                           :gcp.bigquery/QueryParameterValue]]
+        [:namedParameters NamedParameters]
         [:opts :gcp.bigquery/BigQuery.JobOption]]]]
    4 [:altn
       [:client-configuration-jobId-opts
@@ -1665,14 +1683,13 @@
        [:catn
         [:clientable :gcp.bigquery/clientable]
         [:query :string]
-        [:positionalParameters [:sequential :gcp.bigquery/QueryParameterValue]]
+        [:positionalParameters PositionalParameters]
         [:opts :gcp.bigquery/BigQuery.JobOption]]]
       [:client-query-namedParams-opts
        [:catn
         [:clientable :gcp.bigquery/clientable]
         [:query :string]
-        [:namedParameters [:map-of [:or 'simple-keyword? [:string {:min 1}]]
-                           :gcp.bigquery/QueryParameterValue]]
+        [:namedParameters NamedParameters]
         [:opts :gcp.bigquery/BigQuery.JobOption]]]]})
 
 (dwim/defdwim ->Query

@@ -681,8 +681,28 @@
             upper (bigdec "5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38")]
         (<= lower n upper)))]])
 
+(def typed-null-schema
+  [:enum
+   :null/STRING
+   :null/BOOL
+   :null/INT64
+   :null/FLOAT64
+   :null/NUMERIC
+   :null/BIGNUMERIC
+   :null/BYTES
+   :null/TIMESTAMP
+   :null/DATE
+   :null/TIME
+   :null/DATETIME
+   :null/INTERVAL
+   :null/GEOGRAPHY
+   :null/JSON
+   :null/RANGE
+   :null/STRUCT])
+
 (def ^:private scalar-schema
   [:or
+   typed-null-schema
    :string
    :boolean
    :int
@@ -715,21 +735,19 @@
    [:sequential {:min 1} geography-schema]
    [:sequential {:min 1} bignumeric-schema]])
 
-(def QueryParameterValue-Struct-schema
-  [:map-of [:or 'simple-keyword? :string]  [:ref :gcp.bigquery/QueryParameterValue.SCALAR]])
-
 (def ^:private QueryParameterValue-schema
   [:or
    'bytes?
    [:ref :gcp.bigquery/QueryParameterValue.SCALAR]
    homogenous-sequence-schemas
-   QueryParameterValue-Struct-schema
-   [:sequential {:min 1} QueryParameterValue-Struct-schema]])
+   [:ref ::Struct]
+   [:sequential {:min 1} [:ref ::Struct]]])
 
 (defn ^QueryParameterValue QueryParameterValue-from-edn [arg]
   (g/strict! :gcp.bigquery/QueryParameterValue arg)
   (cond
     (nil? arg) (throw (ex-info "nil value not directly supported in QPV without type hint" {:arg arg}))
+    (g/valid? typed-null-schema arg) (QueryParameterValue/of nil (StandardSQLTypeName/valueOf (name arg)))
     (string? arg) (QueryParameterValue/string arg)
     (boolean? arg) (QueryParameterValue/bool arg)
     (int? arg) (QueryParameterValue/int64 (Long/valueOf (long arg)))
@@ -969,7 +987,14 @@
 #!----------------------------------------------------------------------------------------------------------------------
 
 (g/include-registry! "gcp.bigquery.custom"
-                     {:gcp.bigquery/Field                        Field-schema
+                     {::Struct                                   [:map-of
+                                                                  {:gcp/key ::Struct}
+                                                                  [:or 'simple-keyword? :string]
+                                                                  [:maybe
+                                                                   [:or
+                                                                    [:ref :gcp.bigquery/QueryParameterValue.SCALAR]
+                                                                    [:ref ::Struct]]]]
+                      :gcp.bigquery/Field                        Field-schema
                       :gcp.bigquery/FieldElementType             FieldElementType-schema
                       :gcp.bigquery/Range                        Range-schema
                       :gcp.bigquery/QueryParameterValue.SCALAR   scalar-schema

@@ -5,7 +5,7 @@
             [clojure.test :refer :all]
             [gcp.bigquery :as bq]
             [gcp.bigquery.core :as bqc]
-            [gcp.bigquery.custom :refer [Field-from-edn Field-to-edn]]
+            [gcp.bigquery.custom :as custom :refer [Field-from-edn Field-to-edn]]
             [gcp.bigquery.tests.util :as util]
             [gcp.global :as g]
             [clojure.edn :as edn]))
@@ -21,8 +21,7 @@
    2) for each field create values (eval (edn/read-string (get field :description)))
    3) assemble and insert row
    4) read row back and compare"
-  {
-   "INTEGER"
+  {"INTEGER"
    {:tableId     {:dataset "field_test" :table "INTEGER"}
     :description "INTEGER boundary and basic integer values."
     :schema      [{:name        "Long_MIN_VALUE"
@@ -410,58 +409,57 @@
                    :type        "JSON"
                    :description "{:json true}"}]}
 
-   #_#_"STRUCT"
-           {:tableId     {:dataset "field_test" :table "STRUCT"}
-            :description "STRUCT values covering ordered fields, named and unnamed fields, nested structs, mixed types, and null field values."
-            :schema      [
-                          {:name        "simple"
-                           :type        "RECORD"
-                           :subFields   [{:name "id"
-                                          :type "INTEGER"}
-                                         {:name "name"
-                                          :type "STRING"}
-                                         {:name "active"
-                                          :type "BOOLEAN"}]
-                           :description "{:id 42, :name \"Alice\", :active true}"}
-                          {:name        "ordered"
-                           :type        "RECORD"
-                           :subFields   [{:name "first"
-                                          :type "STRING"}
-                                         {:name "second"
-                                          :type "INTEGER"}
-                                         {:name "third"
-                                          :type "FLOAT"}]
-                           :description "{:first \"one\", :second 2, :third 3.0}"}
-                          {:name        "nested"
-                           :type        "RECORD"
-                           :subFields   [{:name "id"
-                                          :type "INTEGER"}
-                                         {:name      "address"
-                                          :type      "RECORD"
-                                          :subFields [{:name "city"
-                                                       :type "STRING"}
-                                                      {:name "zip"
-                                                       :type "INTEGER"}]}]
-                           :description "{:id 42, :address {:city \"San Juan\", :zip 901}}"}
-                          {:name        "mixed"
-                           :type        "RECORD"
-                           :subFields   [{:name "date"
-                                          :type "DATE"}
-                                         {:name "timestamp"
-                                          :type "TIMESTAMP"}
-                                         {:name "amount"
-                                          :type "NUMERIC"}
-                                         {:name "location"
-                                          :type "GEOGRAPHY"}]
-                           :description "{:date (java.time.LocalDate/of 2026 10 7), :timestamp (java.time.Instant/parse \"2026-10-07T12:34:56Z\"), :amount 123.45M, :location {:geography \"POINT(-66.1057 18.4655)\"}}"}
-                          {:name        "null_field"
-                           :type        "RECORD"
-                           :subFields   [{:name "present"
-                                          :type "STRING"}
-                                         {:name "missing"
-                                          :type "STRING"}]
-                           :description "{:present \"value\", :missing nil}"}]}
-   })
+   "STRUCT"
+   {:tableId     {:dataset "field_test" :table "STRUCT"}
+    :description "STRUCT values covering ordered fields, named and unnamed fields, nested structs, mixed types, and null field values."
+    :schema      [
+                  {:name        "simple"
+                   :type        "RECORD"
+                   :subFields   [{:name "id"
+                                  :type "INTEGER"}
+                                 {:name "name"
+                                  :type "STRING"}
+                                 {:name "active"
+                                  :type "BOOLEAN"}]
+                   :description "{:id 42, :name \"Alice\", :active true}"}
+                  {:name        "ordered"
+                   :type        "RECORD"
+                   :subFields   [{:name "first"
+                                  :type "STRING"}
+                                 {:name "second"
+                                  :type "INTEGER"}
+                                 {:name "third"
+                                  :type "FLOAT"}]
+                   :description "{:first \"one\", :second 2, :third 3.0}"}
+                  {:name        "nested"
+                   :type        "RECORD"
+                   :subFields   [{:name "id"
+                                  :type "INTEGER"}
+                                 {:name      "address"
+                                  :type      "RECORD"
+                                  :subFields [{:name "city"
+                                               :type "STRING"}
+                                              {:name "zip"
+                                               :type "INTEGER"}]}]
+                   :description "{:id 42, :address {:city \"San Juan\", :zip 901}}"}
+                  {:name        "null_field"
+                   :type        "RECORD"
+                   :subFields   [{:name "present"
+                                  :type "STRING"}
+                                 {:name "missing"
+                                  :type "STRING"}]
+                   :description "{:present \"value\", :missing :null/STRING}"}
+                  {:name        "mixed"
+                   :type        "RECORD"
+                   :subFields   [{:name "date"
+                                  :type "DATE"}
+                                 {:name "timestamp"
+                                  :type "TIMESTAMP"}
+                                 {:name "amount"
+                                  :type "NUMERIC"}
+                                 {:name "location"
+                                  :type "GEOGRAPHY"}]
+                   :description "{:date (java.time.LocalDate/of 2026 10 7), :timestamp (java.time.Instant/parse \"2026-10-07T12:34:56Z\"), :amount 123.45M, :location {:geography \"POINT(-66.1057 18.4655)\"}}"}]}})
 
 (defn eval-description [s]
   (let [value (edn/read-string s)]
@@ -522,23 +520,42 @@
                (and (zero? a)
                     (zero? b))))))
 
+(defn normalize-typed-nulls [v]
+  (cond
+    (and (keyword? v)
+         (= "null" (namespace v)))
+    nil
+
+    (map? v)
+    (update-vals v normalize-typed-nulls)
+
+    (vector? v)
+    (mapv normalize-typed-nulls v)
+
+    (sequential? v)
+    (map normalize-typed-nulls v)
+
+    :else
+    v))
+
+(defn unwrap [v]
+  (if-not (map? v)
+    v
+    (cond
+      (and (= 1 (count v)) (contains? v :bignumeric))
+      (:bignumeric v)
+
+      (and (= 1 (count v)) (contains? v :json))
+      (:json v)
+
+      (and (= 1 (count v)) (contains? v :geography))
+      (:geography v)
+
+      :else
+      (update-vals v unwrap))))
+
 (defn row= [expected actual]
-  (let [unwrap (fn [v]
-                 (if-not (map? v)
-                   v
-                   (cond
-                     (and (= 1 (count v)) (contains? v :bignumeric))
-                     (:bignumeric v)
-
-                     (and (= 1 (count v)) (contains? v :json))
-                     (:json v)
-
-                     (and (= 1 (count v)) (contains? v :geography))
-                     (:geography v)
-
-                     :else
-                     v)))
-        expected (update-vals expected unwrap)
+  (let [expected (update-vals (normalize-typed-nulls expected) unwrap)
         expected-keys (set (keys expected))
         actual-keys (set (keys actual))
         missing (clojure.set/difference expected-keys actual-keys)
