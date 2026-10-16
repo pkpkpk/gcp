@@ -12,7 +12,7 @@
     (java.time Instant LocalDate LocalDateTime LocalTime OffsetDateTime ZoneOffset)
     (java.time.format DateTimeFormatter DateTimeFormatterBuilder)
     (java.time.temporal ChronoField ChronoUnit)
-    (java.util Base64 HashMap)
+    (java.util ArrayList Base64 HashMap Map)
     (org.threeten.extra PeriodDuration)))
 
 ;;
@@ -511,15 +511,14 @@
     :as field} ^FieldValue field-value]
   (when-not (.isNull field-value)
     (case (.name (.getAttribute field-value))
-      "RECORD" (let [fvl (.getRecordValue field-value)]
-                 (if (.hasSchema fvl)
-                   (into {}
-                         (map
-                           (fn [[sf fv]]
-                             [(keyword (:name sf)) (FieldValue-to-edn sf fv)]))
-                         (map vector sub-fields fvl))
-                   fvl))
-      "RANGE" (Range-to-edn (.getRangeValue field-value))
+      "RECORD"
+      (let [fvl (.getRecordValue field-value)]
+        (into {}
+              (map (fn [[sf fv]]
+                     [(keyword (:name sf))
+                      (FieldValue-to-edn sf fv)]))
+              (map vector sub-fields fvl)))
+      "RANGE" (some-> (.getRangeValue field-value) (Range-to-edn (:rangeElementType field)))
       "REPEATED" (mapv (partial FieldValue-to-edn field) (.getRepeatedValue field-value))
       "PRIMITIVE"
       (case field-type
@@ -536,10 +535,14 @@
         "JSON"       (j/read-value (.getValue field-value) j/keyword-keys-object-mapper)
         "BYTES"      (.getBytesValue field-value)
         "GEOGRAPHY"  (.getStringValue field-value)
-        "INTERVAL"   (.getPeriodDuration field-value) ; org.threeten.extra.PeriodDuration
-        (throw (ex-info (str "unimplemented PRIMITIVE '" field-type "'") {:field-value field-value
-                                                                          :field-type  field-type})))
-      (throw (ex-info (str "unimplemented FieldValue attribute: '" (.name (.getAttribute field-value)) "'")
+        "INTERVAL"   (.getPeriodDuration field-value)
+        "RANGE"      (some-> (.getRangeValue field-value)
+                             (Range-to-edn (:rangeElementType field)))
+        (throw (ex-info (str "unimplemented PRIMITIVE '" field-type "'")
+                        {:field-value field-value
+                         :field-type field-type})))
+      (throw (ex-info (str "unimplemented FieldValue attribute: '"
+                           (.name (.getAttribute field-value)) "'")
                       {:field field :fieldValue field-value})))))
 
 #!------------------------------------------------
@@ -591,28 +594,32 @@
       (.setEnd builder (xf end)))
     (.build builder)))
 
-(defn Range-to-edn [^Range arg]
-  {:post [(g/strict! :gcp.bigquery/Range %)]}
-  (let [T (.getType (.getType arg))
-        xf (case T
-             "TIMESTAMP"
-             ;; RANGE<TIMESTAMP> endpoints are returned as integer epoch microseconds,
-             ;; unlike TIMESTAMP columns, whose representation depends on the configured
-             ;; timestamp output format. Convert RANGE endpoints directly from microseconds
-             (fn [s]
-               (if (re-matches #"-?\d+" s)
-                 (let [micros (Long/parseLong s)]
-                   (Instant/ofEpochSecond
-                     (Math/floorDiv micros 1000000)
-                     (* (Math/floorMod micros 1000000) 1000)))
-                 (String->Instant s)))
-             "DATETIME" String->DateTime
-             "DATE" String->Date)
-        start (.getValue (.getStart arg))
-        end (.getValue (.getEnd arg))]
-    (cond-> {:type T}
-            (some? start) (assoc :start (xf start))
-            (some? end) (assoc :end (xf end)))))
+
+(defn Range-to-edn
+  ([^Range arg]
+   (Range-to-edn arg nil))
+  ([^Range arg range-element-type]
+   {:post [(g/strict! :gcp.bigquery/Range %)]}
+   (assert (instance? Range arg))
+   (let [T (or (some-> arg .getType .getType)
+               range-element-type)
+         _ (assert (some? T))
+         xf (case T
+              "TIMESTAMP"
+              (fn [s]
+                (if (re-matches #"-?\d+" s)
+                  (let [micros (Long/parseLong s)]
+                    (Instant/ofEpochSecond
+                      (Math/floorDiv micros 1000000)
+                      (* (Math/floorMod micros 1000000) 1000)))
+                  (String->Instant s)))
+              "DATETIME" String->DateTime
+              "DATE" String->Date)
+         start (.getValue (.getStart arg))
+         end (.getValue (.getEnd arg))]
+     (cond-> {:type T}
+             (some? start) (assoc :start (xf start))
+             (some? end) (assoc :end (xf end))))))
 
 #!------------------------------------------------
 #! TableResult
@@ -685,8 +692,11 @@
   [:enum
    :null/STRING
    :null/BOOL
+   :null/BOOLEAN
    :null/INT64
+   :null/INTEGER
    :null/FLOAT64
+   :null/FLOAT
    :null/NUMERIC
    :null/BIGNUMERIC
    :null/BYTES
@@ -696,9 +706,58 @@
    :null/DATETIME
    :null/INTERVAL
    :null/GEOGRAPHY
-   :null/JSON
-   :null/RANGE
-   :null/STRUCT])
+   ;; (g/invoke-private-method (QueryParameterValue/of nil StandardSQLTypeName/RANGE) "toValuePb")
+   ;; Execution error (NullPointerException) at com.google.cloud.bigquery.QueryParameterValue/toValuePb (QueryParameterValue.java:613).
+   ;; Cannot invoke "com.google.cloud.bigquery.Range.getStart()" because the return value of "com.google.cloud.bigquery.QueryParameterValue.getRangeValues()" is null
+   ;; https://github.com/googleapis/google-cloud-java/blob/9de611fe5633e9f43c6081754c834cabcd0317bb/java-bigquery/google-cloud-bigquery/src/main/java/com/google/cloud/bigquery/QueryParameterValue.java#L595
+   ;:null/RANGE
+   ;:null/STRUCT ;;; would need subfield types
+   ;:null/RECORD
+   :null/JSON])
+
+(def empty-array-schema
+  [:enum
+   :empty/STRING
+   :empty/BOOL
+   :empty/BOOLEAN
+   :empty/INT64
+   :empty/INTEGER
+   :empty/FLOAT64
+   :empty/FLOAT
+   :empty/NUMERIC
+   :empty/BIGNUMERIC
+   :empty/BYTES
+   :empty/TIMESTAMP
+   :empty/DATE
+   :empty/TIME
+   :empty/DATETIME
+   :empty/INTERVAL
+   :empty/GEOGRAPHY
+   ;:empty/RANGE ;; rejected by BQ "Query parameters with RANGE types must have a range element type." .. doable in stateful system
+   ;:empty/STRUCT :empty/RECORD ;;; would need subfield types
+   :empty/JSON])
+
+(def empty-array-types
+  {:empty/STRING     String
+   :empty/BOOL       Boolean
+   :empty/BOOLEAN    Boolean
+   :empty/INT64      Long
+   :empty/INTEGER    Long
+   :empty/FLOAT64    Double
+   :empty/FLOAT      Double
+   :empty/NUMERIC    BigDecimal
+   :empty/BIGNUMERIC BigDecimal
+   :empty/BYTES      Byte/1
+   :empty/TIMESTAMP  String
+   :empty/DATE       String
+   :empty/TIME       String
+   :empty/DATETIME   String
+   :empty/INTERVAL   PeriodDuration
+   :empty/GEOGRAPHY  String
+   ;:empty/RANGE      Range
+   ;:empty/STRUCT     HashMap
+   ;:empty/RECORD     HashMap
+   :empty/JSON       String})
 
 (def ^:private scalar-schema
   [:or
@@ -713,32 +772,44 @@
    :DateTime
    :PeriodDuration
    [:ref :gcp.bigquery/Range]
+   empty-array-schema
    numeric-schema
    geography-schema
    json-schema
    bignumeric-schema])
 
+(def range-sequence-schema
+  [:and
+   [:sequential {:min 1} [:ref :gcp.bigquery/Range]]
+   [:fn
+    {:error/message "Range sequences must all have the same :type"}
+    '(fn [ranges] (= 1 (count (into #{} (map :type) ranges))))]])
+
 ;; array<JSON> not allowed
 (def ^:private homogenous-sequence-schemas
-  [:or
-   [:sequential {:min 1} :string]
-   [:sequential {:min 1} :boolean]
-   [:sequential {:min 1} :int]
-   [:sequential {:min 1} :float]
-   [:sequential {:min 1} :bigdec]
-   [:sequential {:min 1} :Timestamp]
-   [:sequential {:min 1} :Time]
-   [:sequential {:min 1} :Date]
-   [:sequential {:min 1} :DateTime]
-   [:sequential {:min 1} :PeriodDuration]
-   [:sequential {:min 1} [:ref :gcp.bigquery/Range]]
-   [:sequential {:min 1} geography-schema]
-   [:sequential {:min 1} bignumeric-schema]])
+  [:sequential
+   {:min 1}
+   [:or
+    :string
+    :boolean
+    :int
+    :float
+    :bigdec
+    :Timestamp
+    :Time
+    :Date
+    :DateTime
+    :PeriodDuration
+    geography-schema
+    bignumeric-schema
+    'bytes?]])
 
 (def ^:private QueryParameterValue-schema
   [:or
    'bytes?
    [:ref :gcp.bigquery/QueryParameterValue.SCALAR]
+   [:sequential {:min 1} json-schema]
+   range-sequence-schema
    homogenous-sequence-schemas
    [:ref ::Struct]
    [:sequential {:min 1} [:ref ::Struct]]])
@@ -747,7 +818,19 @@
   (g/strict! :gcp.bigquery/QueryParameterValue arg)
   (cond
     (nil? arg) (throw (ex-info "nil value not directly supported in QPV without type hint" {:arg arg}))
-    (g/valid? typed-null-schema arg) (QueryParameterValue/of nil (StandardSQLTypeName/valueOf (name arg)))
+    (g/valid? typed-null-schema arg)
+    (if (contains? (set (map #(.name %) (StandardSQLTypeName/values))) (name arg))
+      (QueryParameterValue/of nil (StandardSQLTypeName/valueOf (name arg)))
+      (QueryParameterValue/of nil (.getStandardType (LegacySQLTypeName/valueOf (name arg)))))
+    (g/valid? empty-array-schema arg)
+    (let [type-name (name arg)
+          enum (if (contains? (set (StandardSQLTypeName/values)) type-name)
+                 (StandardSQLTypeName/valueOf type-name)
+                 (.getStandardType (LegacySQLTypeName/valueOf type-name)))
+          ^Class clz (empty-array-types arg)
+          _ (assert (class? clz))
+          array (java.lang.reflect.Array/newInstance clz 0)]
+      (QueryParameterValue/array array enum))
     (string? arg) (QueryParameterValue/string arg)
     (boolean? arg) (QueryParameterValue/bool arg)
     (int? arg) (QueryParameterValue/int64 (Long/valueOf (long arg)))
@@ -775,6 +858,12 @@
 
     (sequential? arg)
     (cond
+      (g/valid? [:sequential bytes?] arg)
+      (let [values (mapv #(if (bytes? %) % (byte-array %)) arg)]
+        (QueryParameterValue/array
+          ^byte/2 (into-array ^byte/1 values)
+          StandardSQLTypeName/BYTES))
+
       (g/valid? [:sequential :string] arg)
       (QueryParameterValue/array ^String/1 (into-array String arg) String)
 
@@ -823,9 +912,10 @@
       ;  (QueryParameterValue/array array T))
 
       (g/valid? [:sequential geography-schema] arg)
-      (let [array ^String/1 (into-array Object (map QueryParameterValue-from-edn arg))
-            T StandardSQLTypeName/GEOGRAPHY]
-        (QueryParameterValue/array array T))
+      (let [values (mapv :geography arg)]
+        (QueryParameterValue/array
+          ^String/1 (into-array String values)
+          StandardSQLTypeName/GEOGRAPHY))
 
       (g/valid? [:sequential bignumeric-schema] arg)
       (let [T StandardSQLTypeName/BIGNUMERIC]
@@ -849,7 +939,6 @@
       {:interval s})))
 
 ;### BigQuery STRUCT rules
-;
 ;* Anonymous fields get positional names: `_field_1`, `_field_2`, etc.
 ;* Duplicate names retain the first occurrence; later collisions get positional names.
 ;* BigQuery assigns unique names in the result schema, preserving all values.
@@ -883,8 +972,8 @@
       "TIME"       (String->Time (.getValue arg))
       "TIMESTAMP"  (String->Instant (.getValue arg))
       "NUMERIC"    (bigdec ^String (.getValue arg))
-      "INTERVAL"   (parse-interval (.getValue arg))
-      "RANGE"      (Range-to-edn (.getRangeValues arg))
+      "INTERVAL"   (some-> (.getValue arg) parse-interval)
+      "RANGE"      (or (some-> (.getRangeValues arg) Range-to-edn) :null/RANGE)
       "BIGNUMERIC" {:bignumeric (bigdec ^String (.getValue arg))}
       "GEOGRAPHY"  {:geography (.getValue arg)}
       "JSON"       {:json (j/read-value (.getValue arg) j/keyword-keys-object-mapper)}

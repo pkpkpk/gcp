@@ -15,16 +15,13 @@
                    :location  "us-east1"})
 
 (def field-test-tables
-  "Each schema column's :description is a valid Clojure expression that evaluates to the value used for roundtrip testing.
-   Keep expressions self-contained and preserve precision/type-specific edge cases; do not put prose in :description.
-   1) creates the table from :schema table-info
-   2) for each field create values (eval (edn/read-string (get field :description)))
-   3) assemble and insert row
-   4) read row back and compare"
   {"INTEGER"
    {:tableId     {:dataset "field_test" :table "INTEGER"}
     :description "INTEGER boundary and basic integer values."
-    :schema      [{:name        "Long_MIN_VALUE"
+    :schema      [{:name        "typed_null"
+                   :type        "INTEGER"
+                   :description ":null/INTEGER"}
+                  {:name        "Long_MIN_VALUE"
                    :type        "INTEGER"
                    :description "Long/MIN_VALUE"}
                   {:name        "minus1"
@@ -38,11 +35,22 @@
                    :description "1"}
                   {:name        "Long_MAX_VALUE"
                    :type        "INTEGER"
-                   :description "Long/MAX_VALUE"}]}
+                   :description "Long/MAX_VALUE"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "INTEGER"
+                   :description ":empty/INTEGER"}
+                  {:name        "repeated"
+                   :type        "INTEGER"
+                   :mode        "REPEATED"
+                   :description "[Long/MIN_VALUE -1 0 1 Long/MAX_VALUE]"}]}
    "FLOAT"
    {:tableId     {:dataset "field_test" :table "FLOAT"}
     :description "IEEE-754 FLOAT roundtrip values including finite boundaries, subnormals, non-finite values, fractional values, and large approximate values."
-    :schema      [{:name        "negative_max"
+    :schema      [{:name        "typed_null"
+                   :type        "FLOAT"
+                   :description ":null/FLOAT"}
+                  {:name        "negative_max"
                    :type        "FLOAT"
                    :description "(- Double/MAX_VALUE)"}
                   {:name        "negative_min"
@@ -77,11 +85,22 @@
                    :description "0.1"}
                   {:name        "precision_loss"
                    :type        "FLOAT"
-                   :description "(Double/parseDouble \"1e30\")"}]}
+                   :description "(Double/parseDouble \"1e30\")"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "FLOAT"
+                   :description ":empty/FLOAT"}
+                  {:name        "repeated"
+                   :type        "FLOAT"
+                   :mode        "REPEATED"
+                   :description "[Double/NEGATIVE_INFINITY (- Double/MAX_VALUE) -1.0 (- Double/MIN_VALUE) 0.0 Double/MIN_VALUE 1.0 Double/MAX_VALUE Double/POSITIVE_INFINITY]"}]}
    "NUMERIC"
    {:tableId     {:dataset "field_test" :table "NUMERIC"}
     :description "NUMERIC values and precision/scale constraints."
-    :schema      [{:name        "zero"
+    :schema      [{:name        "typed_null"
+                   :type        "NUMERIC"
+                   :description ":null/NUMERIC"}
+                  {:name        "zero"
                    :type        "NUMERIC"
                    :description "0M"}
                   {:name        "negative1"
@@ -113,11 +132,22 @@
                    :description "99999999999999999999999999999.999999999M"}
                   {:name        "min_unparameterized"
                    :type        "NUMERIC"
-                   :description "-99999999999999999999999999999.999999999M"}]}
+                   :description "-99999999999999999999999999999.999999999M"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "NUMERIC"
+                   :description ":empty/NUMERIC"}
+                  {:name        "repeated"
+                   :type        "NUMERIC"
+                   :mode        "REPEATED"
+                   :description "[9.999999999M]"}]}
    "BIGNUMERIC"
    {:tableId     {:dataset "field_test" :table "BIGNUMERIC"}
     :description "BIGNUMERIC values and precision/scale constraints."
-    :schema      [{:name        "zero"
+    :schema      [{:name        "typed_null"
+                   :type        "BIGNUMERIC"
+                   :description ":null/BIGNUMERIC"}
+                  {:name        "zero"
                    :type        "BIGNUMERIC"
                    :description "{:bignumeric 0M}"}
                   {:name        "negative1"
@@ -149,7 +179,15 @@
                    :description "{:bignumeric (bigdec \"5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38\")}"}
                   {:name        "min_unparameterized"
                    :type        "BIGNUMERIC"
-                   :description "{:bignumeric (bigdec \"-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38\")}"}]}
+                   :description "{:bignumeric (bigdec \"-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38\")}"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "BIGNUMERIC"
+                   :description ":empty/BIGNUMERIC"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "BIGNUMERIC"
+                   :description "[{:bignumeric 0M} {:bignumeric 1M} {:bignumeric -1M}]"}]}
    "BYTES"
    {:tableId     {:dataset "field_test" :table "BYTES"}
     :description "Raw binary values including empty, ASCII, zero, high-bit, non-UTF-8, and mixed binary data."
@@ -170,7 +208,18 @@
                    :description "(byte-array [-1 -2 -3 0])"}
                   {:name        "binary"
                    :type        "BYTES"
-                   :description "(byte-array [0 1 2 127 -128 -2 -1])"}]}
+                   :description "(byte-array [0 1 2 127 -128 -2 -1])"}
+                  {:name        "typed_null"
+                   :type        "BYTES"
+                   :description ":null/BYTES"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "BYTES"
+                   :description ":empty/BYTES"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "BYTES"
+                   :description "[(byte-array [0 1 2]) (byte-array [72 101 108 108 111]) (byte-array [-128 -1])]"}]}
    "STRING"
    {:tableId     {:dataset "field_test" :table "STRING"}
     :description "Unicode STRING roundtrip values including empty, ASCII, Unicode, combining characters, supplementary code points, and mixed-width UTF-8."
@@ -200,7 +249,18 @@
                    :description "\"𝄞\""}
                   {:name        "long"
                    :type        "STRING"
-                   :description "(apply str (repeat 1000 \"x\"))"}]}
+                   :description "(apply str (repeat 1000 \"x\"))"}
+                  {:name        "typed_null"
+                   :type        "STRING"
+                   :description ":null/STRING"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "STRING"
+                   :description ":empty/STRING"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "STRING"
+                   :description "[\"Hello, world!\" \"こんにちは世界\" \"😀🌍🚀\"]"}]}
    "TIME"
    {:tableId     {:dataset "field_test" :table "TIME"}
     :description "TIME roundtrip values covering boundaries, ordinary times, and microsecond precision."
@@ -221,7 +281,18 @@
                    :description "(java.time.LocalTime/of 23 59 59 999999000)"}
                   {:name        "last_second"
                    :type        "TIME"
-                   :description "(java.time.LocalTime/of 23 59 59)"}]}
+                   :description "(java.time.LocalTime/of 23 59 59)"}
+                  {:name        "typed_null"
+                   :type        "TIME"
+                   :description ":null/TIME"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "TIME"
+                   :description ":empty/TIME"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "TIME"
+                   :description "[(java.time.LocalTime/of 0 0) (java.time.LocalTime/of 12 34 56 123456000) (java.time.LocalTime/of 23 59 59 999999000)]"}]}
    "DATE"
    {:tableId     {:dataset "field_test" :table "DATE"}
     :description "DATE roundtrip values covering Gregorian calendar boundaries, ordinary dates, and leap years."
@@ -245,7 +316,18 @@
                    :description "(java.time.LocalDate/of 2000 2 29)"}
                   {:name        "maximum"
                    :type        "DATE"
-                   :description "(java.time.LocalDate/of 9999 12 31)"}]}
+                   :description "(java.time.LocalDate/of 9999 12 31)"}
+                  {:name        "typed_null"
+                   :type        "DATE"
+                   :description ":null/DATE"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "DATE"
+                   :description ":empty/DATE"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "DATE"
+                   :description "[(java.time.LocalDate/of 1 1 1) (java.time.LocalDate/of 2024 2 29) (java.time.LocalDate/of 9999 12 31)]"}]}
    "DATETIME"
    {:tableId     {:dataset "field_test" :table "DATETIME"}
     :description "DATETIME roundtrip values covering Gregorian calendar boundaries, ordinary dates, leap years, and microsecond precision."
@@ -269,7 +351,18 @@
                    :description "(java.time.LocalDateTime/of 2026 10 7 0 0 0 1000)"}
                   {:name        "maximum"
                    :type        "DATETIME"
-                   :description "(java.time.LocalDateTime/of 9999 12 31 23 59 59 999999000)"}]}
+                   :description "(java.time.LocalDateTime/of 9999 12 31 23 59 59 999999000)"}
+                  {:name        "typed_null"
+                   :type        "DATETIME"
+                   :description ":null/DATETIME"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "DATETIME"
+                   :description ":empty/DATETIME"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "DATETIME"
+                   :description "[(java.time.LocalDateTime/of 1 1 1 0 0) (java.time.LocalDateTime/of 2026 10 7 12 34 56 123456000) (java.time.LocalDateTime/of 9999 12 31 23 59 59 999999000)]"}]}
    "INTERVAL"
    {:tableId     {:dataset "field_test" :table "INTERVAL"}
     :description "INTERVAL values covering zero, calendar components, day components, time components, mixed components, negative values, and microsecond precision."
@@ -302,7 +395,18 @@
                    :description "(org.threeten.extra.PeriodDuration/of (java.time.Period/of 10000 0 3660000) (java.time.Duration/ofSeconds 87840000))"}
                   {:name        "min"
                    :type        "INTERVAL"
-                   :description "(org.threeten.extra.PeriodDuration/of (java.time.Period/of -10000 0 -3660000) (java.time.Duration/ofSeconds -87840000))"}]}
+                   :description "(org.threeten.extra.PeriodDuration/of (java.time.Period/of -10000 0 -3660000) (java.time.Duration/ofSeconds -87840000))"}
+                  {:name        "typed_null"
+                   :type        "INTERVAL"
+                   :description ":null/INTERVAL"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "INTERVAL"
+                   :description ":empty/INTERVAL"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "INTERVAL"
+                   :description "[org.threeten.extra.PeriodDuration/ZERO (org.threeten.extra.PeriodDuration/of (java.time.Period/of 2 11 28) (java.time.Duration/ofSeconds 58514)) (org.threeten.extra.PeriodDuration/of (java.time.Period/of -2 -11 -28) (java.time.Duration/ofSeconds -58514))]"}]}
    "TIMESTAMP"
    {:tableId     {:dataset "field_test" :table "TIMESTAMP"}
     :description "TIMESTAMP roundtrip values covering UTC boundaries, epoch boundaries, negative epoch values, microsecond precision, and nanosecond precision."
@@ -323,11 +427,23 @@
                    :description "(java.time.Instant/parse \"9999-12-31T23:59:59.999998Z\")"}
                   {:name        "maximum"
                    :type        "TIMESTAMP"
-                   :description "(java.time.Instant/parse \"9999-12-31T23:59:59.999999Z\")"}]}
+                   :description "(java.time.Instant/parse \"9999-12-31T23:59:59.999999Z\")"}
+                  {:name        "typed_null"
+                   :type        "TIMESTAMP"
+                   :description ":null/TIMESTAMP"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "TIMESTAMP"
+                   :description ":empty/TIMESTAMP"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "TIMESTAMP"
+                   :description "[(java.time.Instant/parse \"1969-12-31T23:59:59.999999Z\") java.time.Instant/EPOCH (java.time.Instant/parse \"2026-10-07T12:34:56.123456Z\") (java.time.Instant/parse \"9999-12-31T23:59:59.999999Z\")]"}]}
    "RANGE"
    {:tableId     {:dataset "field_test" :table "RANGE"}
     :description "RANGE values covering DATE, DATETIME, and TIMESTAMP elements, bounded and unbounded ranges, and single-sided bounds."
-    :schema      [{:name             "date_bounded"
+    :schema      [
+                  {:name             "date_bounded"
                    :type             "RANGE"
                    :rangeElementType "DATE"
                    :description      "{:type \"DATE\", :start (java.time.LocalDate/of 2026 1 1), :end (java.time.LocalDate/of 2026 12 31)}"}
@@ -362,7 +478,27 @@
                   {:name             "timestamp_unbounded_end"
                    :type             "RANGE"
                    :rangeElementType "TIMESTAMP"
-                   :description      "{:type \"TIMESTAMP\", :start (java.time.Instant/parse \"2026-01-01T00:00:00Z\")}"}]}
+                   :description      "{:type \"TIMESTAMP\", :start (java.time.Instant/parse \"2026-01-01T00:00:00Z\")}"}
+                  {:name             "repeated"
+                   :mode             "REPEATED"
+                   :type             "RANGE"
+                   :rangeElementType "DATE"
+                   :description      "[{:type \"DATE\",
+                                        :start (java.time.LocalDate/of 2026 1 1),
+                                        :end (java.time.LocalDate/of 2026 12 31)}
+                                       {:type \"DATE\",
+                                        :end (java.time.LocalDate/of 2026 12 31)}
+                                       {:type \"DATE\",
+                                        :start (java.time.LocalDate/of 2026 1 1)}]"}
+                  #_{:name             "typed_null"
+                   :type             "RANGE"
+                   :rangeElementType "DATE"
+                   :description      ":null/RANGE"}
+                  #_{:name           "repeated_empty"
+                   :mode             "REPEATED"
+                   :type             "RANGE"
+                   :rangeElementType "DATE"
+                   :description      ":empty/RANGE"}]}
    "GEOGRAPHY"
    {:tableId     {:dataset "field_test" :table "GEOGRAPHY"}
     :description "GEOGRAPHY values represented as WKT strings."
@@ -380,11 +516,23 @@
                    :description "{:geography \"GEOMETRYCOLLECTION EMPTY\"}"}
                   {:name        "line"
                    :type        "GEOGRAPHY"
-                   :description "{:geography \"LINESTRING(-66.1057 18.4655, -66.106 18.466)\"}"}]}
+                   :description "{:geography \"LINESTRING(-66.1057 18.4655, -66.106 18.466)\"}"}
+                  {:name        "typed_null"
+                   :type        "GEOGRAPHY"
+                   :description ":null/GEOGRAPHY"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "GEOGRAPHY"
+                   :description ":empty/GEOGRAPHY"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "GEOGRAPHY"
+                   :description "[{:geography \"POINT(-66.1057 18.4655)\"} {:geography \"LINESTRING(-66.1057 18.4655, -66.106 18.466)\"} {:geography \"POLYGON((-66 18, -67 18, -67 19, -66 19, -66 18))\"}]"}]}
    "JSON"
    {:tableId     {:dataset "field_test" :table "JSON"}
     :description "JSON values covering scalar, object, array, nested, null, and explicit JSON string representations."
-    :schema      [{:name        "string"
+    :schema      [
+                  {:name        "string"
                    :type        "JSON"
                    :description "{:json \"hello\"}"}
                   {:name        "nil"
@@ -407,8 +555,18 @@
                    :description "{:json 123.456}"}
                   {:name        "boolean"
                    :type        "JSON"
-                   :description "{:json true}"}]}
-
+                   :description "{:json true}"}
+                  {:name        "typed_null"
+                   :type        "JSON"
+                   :description ":null/JSON"}
+                  {:name        "repeated_empty"
+                   :mode        "REPEATED"
+                   :type        "JSON"
+                   :description ":empty/JSON"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "JSON"
+                   :description "[{:json \"hello\"} {:json nil} {:json [1 2 3 4 5]} {:json {:name \"Alice\", :age 42, :active true}}]"}]}
    "STRUCT"
    {:tableId     {:dataset "field_test" :table "STRUCT"}
     :description "STRUCT values covering ordered fields, named and unnamed fields, nested structs, mixed types, and null field values."
@@ -459,22 +617,40 @@
                                   :type "NUMERIC"}
                                  {:name "location"
                                   :type "GEOGRAPHY"}]
-                   :description "{:date (java.time.LocalDate/of 2026 10 7), :timestamp (java.time.Instant/parse \"2026-10-07T12:34:56Z\"), :amount 123.45M, :location {:geography \"POINT(-66.1057 18.4655)\"}}"}]}})
+                   :description "{:date (java.time.LocalDate/of 2026 10 7), :timestamp (java.time.Instant/parse \"2026-10-07T12:34:56Z\"), :amount 123.45M, :location {:geography \"POINT(-66.1057 18.4655)\"}}"}
+                  {:name        "repeated"
+                   :mode        "REPEATED"
+                   :type        "RECORD"
+                   :subFields   [{:name "id" :type "INTEGER"}
+                                 {:name "name" :type "STRING"}
+                                 {:name "active" :type "BOOLEAN"}]
+                   :description "[{:id 42, :name \"Alice\", :active true} {:id 7, :name \"Bob\", :active false}]"}
+                  #_{:name        "typed_null"
+                   :type        "RECORD"
+                   :description ":null/STRUCT"
+                   :subFields [{:name "id" :type "INTEGER"}]}
+                  ;{:name        "repeated_empty"
+                  ; :mode        "REPEATED"
+                  ; :type        "RECORD"
+                  ; :subFields   [{:name "id" :type "INTEGER"}
+                  ;               {:name "name" :type "STRING"}
+                  ;               {:name "active" :type "BOOLEAN"}]
+                  ; :description ":empty/STRUCT"}
+                  ]}
+   })
 
 (defn eval-description [s]
-  (let [value (edn/read-string s)]
-    (if (or (symbol? value) (list? value))
-      (eval value)
-      (if (map? value)
-        (into {}
-              (map
-                (fn [[k v]]
-                  [k
-                   (if (or (symbol? v) (list? v))
-                     (eval v)
-                     v)]))
-              value)
-        value))))
+  (letfn [(eval-value [v]
+            (cond
+              (symbol? v) (eval v)
+              (list? v) (eval v)
+              (map? v) (into (empty v)
+                             (map (fn [[k v]] [k (eval-value v)]))
+                             v)
+              (vector? v) (mapv eval-value v)
+              (set? v) (into #{} (map eval-value) v)
+              :else v))]
+    (eval-value (edn/read-string s))))
 
 (defn field-test-row
   [{:keys [schema]}]
@@ -513,6 +689,9 @@
       (and (bytes? a)
            (bytes? b)
            (= (vec a) (vec b)))
+      (and (g/valid? [:sequential bytes?] a)
+           (g/valid? [:sequential bytes?] b)
+           (= (map vec a) (map vec b)))
       (and (instance? Double a)
            (instance? Double b)
            (or (and (Double/isNaN ^Double a)
@@ -538,9 +717,26 @@
     :else
     v))
 
+(defn normalize-typed-empties [v]
+  (cond
+    (and (keyword? v)
+         (= "empty" (namespace v)))
+    []
+
+    (map? v)
+    (update-vals v normalize-typed-empties)
+
+    (vector? v)
+    (mapv normalize-typed-empties v)
+
+    (sequential? v)
+    (map normalize-typed-empties v)
+
+    :else
+    v))
+
 (defn unwrap [v]
-  (if-not (map? v)
-    v
+  (if (map? v)
     (cond
       (and (= 1 (count v)) (contains? v :bignumeric))
       (:bignumeric v)
@@ -552,10 +748,13 @@
       (:geography v)
 
       :else
-      (update-vals v unwrap))))
+      (update-vals v unwrap))
+    (if (sequential? v)
+      (map unwrap v)
+      v)))
 
 (defn row= [expected actual]
-  (let [expected (update-vals (normalize-typed-nulls expected) unwrap)
+  (let [expected (update-vals (normalize-typed-empties (normalize-typed-nulls expected)) unwrap)
         expected-keys (set (keys expected))
         actual-keys (set (keys actual))
         missing (clojure.set/difference expected-keys actual-keys)
@@ -596,10 +795,15 @@
           (testing (str "insert/query " type)
             (let [row (field-test-row fixture)
                   columns (map (comp name :name) schema)
-                  sql (str "INSERT INTO `"
-                           (:dataset tableId) "." (:table tableId)
+                  sql (str "INSERT INTO `" (:dataset tableId) "." (:table tableId)
                            "` (" (string/join ", " columns) ") VALUES ("
                            (string/join ", " (map #(str "@" %) columns)) ")")
+                  _ (when-let [invalids (not-empty (into {}
+                                                         (keep (fn [[k v]]
+                                                                 (when-not (g/valid? :gcp.bigquery/QueryParameterValue v)
+                                                                   [k v])))
+                                                         row))]
+                      (prn ::invalid-parameters invalids))
                   insert-res (bq/query sql row)]
               (and
                 (is (empty? insert-res))

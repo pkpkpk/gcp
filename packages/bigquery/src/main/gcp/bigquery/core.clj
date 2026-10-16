@@ -1611,25 +1611,32 @@
       [:configuration [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]]]]
    2 [:altn
       [:configuration-jobId
-       [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
+       [:catn
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
         [:jobId [:or :string :gcp.bigquery/JobId :gcp.bigquery/JobInfo]]]]
       [:configuration-opts
-       [:catn [:configuration :gcp.bigquery/QueryJobConfiguration]
+       [:catn
+        [:configuration :gcp.bigquery/QueryJobConfiguration]
         [:opts :gcp.bigquery/BigQuery.JobOption]]]
       [:client-configuration
-       [:catn [:clientable :gcp.bigquery/clientable]
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
         [:configuration :gcp.bigquery/QueryJobConfiguration]]]
       [:client-query
-       [:catn [:clientable :gcp.bigquery/clientable]
+       [:catn
+        [:clientable :gcp.bigquery/clientable]
         [:query :string]]]
       [:query-positionalParams
-       [:catn [:query :string]
+       [:catn
+        [:query :string]
         [:positionalParameters PositionalParameters]]]
       [:query-namedParams
-       [:catn [:query :string]
+       [:catn
+        [:query :string]
         [:namedParameters NamedParameters]]]
       [:query-opts
-       [:catn [:query :string]
+       [:catn
+        [:query :string]
         [:opts :gcp.bigquery/BigQuery.JobOption]]]]
    3 [:altn
       [:configuration-jobId-opts
